@@ -6,6 +6,7 @@
     <Project Path="src/AdMng.EventLogs/AdMng.EventLogs.csproj" />
     <Project Path="src/AdMng.Mail/AdMng.Mail.csproj" />
     <Project Path="src/AdMng.Outlook/AdMng.Outlook.csproj" />
+    <Project Path="src/AdMng.PowerShell/AdMng.PowerShell.csproj" />
     <Project Path="src/AdMng.Presentation/AdMng.Presentation.csproj" />
     <Project Path="src/AdMng.Remote/AdMng.Remote.csproj" />
     <Project Path="src/AdMng.Watchdog.Client/AdMng.Watchdog.Client.csproj" />
@@ -21,6 +22,8 @@
     <Project Path="tests/AdMng.EventLogs.Tests/AdMng.EventLogs.Tests.csproj" />
     <Project Path="tests/AdMng.Mail.Tests/AdMng.Mail.Tests.csproj" />
     <Project Path="tests/AdMng.Outlook.Tests/AdMng.Outlook.Tests.csproj" />
+    <Project Path="tests/AdMng.PowerShell.Probe/AdMng.PowerShell.Probe.csproj" />
+    <Project Path="tests/AdMng.PowerShell.Tests/AdMng.PowerShell.Tests.csproj" />
     <Project Path="tests/AdMng.Presentation.Tests/AdMng.Presentation.Tests.csproj" />
     <Project Path="tests/AdMng.Remote.Tests/AdMng.Remote.Tests.csproj" />
     <Project Path="tests/AdMng.Testing/AdMng.Testing.csproj" />

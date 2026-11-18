@@ -1,0 +1,16 @@
+{
+  "DisableImplicitWinCompat": true,
+  "PowerShellPolicies": {
+    "ScriptBlockLogging": {
+      "EnableScriptBlockLogging": false,
+      "EnableScriptBlockInvocationLogging": false
+    },
+    "ModuleLogging": {
+      "EnableModuleLogging": false
+    },
+    "Transcription": {
+      "EnableTranscripting": false,
+      "EnableInvocationHeader": false
+    }
+  }
+}

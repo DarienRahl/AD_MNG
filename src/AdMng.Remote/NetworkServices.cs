@@ -13,6 +13,24 @@ public sealed class DnsHostAddressResolver : IHostAddressResolver
 {
     public static readonly TimeSpan Timeout = TimeSpan.FromSeconds(2);
 
+    private readonly TimeSpan _timeout;
+
+    /// <summary>The resolver of the application: <see cref="Timeout"/> per name.</summary>
+    public DnsHostAddressResolver()
+        : this(Timeout)
+    {
+    }
+
+    /// <summary>
+    /// A resolver with its own limit per name (the tests give it room: on a loaded build machine whole processes stand
+    /// still for seconds, and even "localhost" then misses the 2 s of the application).
+    /// </summary>
+    public DnsHostAddressResolver(TimeSpan timeout)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        _timeout = timeout;
+    }
+
     public async Task<IReadOnlyList<IPAddress>> ResolveAsync(string host, CancellationToken cancellationToken)
     {
         if (!HostNames.IsValid(host))
@@ -21,7 +39,7 @@ public sealed class DnsHostAddressResolver : IHostAddressResolver
         }
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(Timeout);
+        timeout.CancelAfter(_timeout);
         try
         {
             var addresses = await Dns.GetHostAddressesAsync(HostNames.Normalize(host), timeout.Token).ConfigureAwait(false);

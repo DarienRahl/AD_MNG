@@ -327,6 +327,44 @@ public sealed class GroupPolicyReader
     }
 
     /// <summary>
+    /// K7 (21.1): <see cref="CountDirectorySettingsAsync(IDirectorySession, Guid, CancellationToken)"/> for every GPO of the
+    /// domain in one paged subtree search of <c>CN=Policies,CN=System</c> (attribute <c>objectClass</c> only): per GPO the
+    /// objects whose parent is its <c>CN=Machine</c> or <c>CN=User</c>. A GPO absent from the map has 0.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<Guid, int>> CountDirectorySettingsAsync(IDirectorySession session, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        var policies = DistinguishedName.Parse(PoliciesDn(session));
+        var result = new Dictionary<Guid, int>();
+        try
+        {
+            await foreach (var obj in session.SearchAsync(new DirectorySearch
+            {
+                BaseDn = policies.ToString(),
+                Scope = SearchScope.Subtree,
+                Filter = LdapFilter.Present(Attr.ObjectClass),
+                Attributes = [Attr.ObjectClass],
+                PageSize = PageSize,
+            }, cancellationToken).ConfigureAwait(false))
+            {
+                // <object>,CN=Machine|User,CN={GUID},CN=Policies,…: the parent is a half, its parent a GPO right below CN=Policies.
+                if (obj.Dn.Parent is { IsRoot: false } half && half.Parent is { IsRoot: false } gpo && gpo.Parent == policies
+                    && (half.Name.Equals("Machine", StringComparison.OrdinalIgnoreCase) || half.Name.Equals("User", StringComparison.OrdinalIgnoreCase))
+                    && GroupPolicyLinks.TryParseGpoId(gpo.Name, out var id))
+                {
+                    result[id] = result.GetValueOrDefault(id) + 1;
+                }
+            }
+        }
+        catch (DirectoryException ex) when (ex.Kind == DirectoryErrorKind.NoSuchObject)
+        {
+            // No CN=Policies container: no GPOs.
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// The DNS names of the forest's other domains (the domain crossRefs of <c>CN=Partitions</c>, read on the session's DC),
     /// sorted. Their OUs may link this domain's GPOs, which only a search of their own DCs finds.
     /// </summary>
@@ -520,13 +558,15 @@ public sealed class GroupPolicyReader
     }
 
     /// <summary>
-    /// The normalized settings of a GPO's files (the Watchdog's keys: "Computer/Security/…", "Computer/Registry/…"), sorted
-    /// by key; a file that cannot be parsed contributes a <c>File/&lt;path&gt;</c> marker (<see cref="GpoSettingKind.Unreadable"/>).
+    /// K7 (docs/dev/k-computers-and-gpo.md 21.1): <see cref="Settings"/> plus the files whose settings overflowed their
+    /// <see cref="GpoSettingSink"/> (more than its capacity) – those settings are incomplete. <c>Settings(c)</c> equals
+    /// <c>ReadSettings(c).Settings</c>.
     /// </summary>
-    public static IReadOnlyList<GpoSetting> Settings(GpoFolderContent content)
+    public static GpoSettingsRead ReadSettings(GpoFolderContent content)
     {
         ArgumentNullException.ThrowIfNull(content);
         var settings = new Dictionary<string, GpoSetting>(StringComparer.OrdinalIgnoreCase);
+        var overflowed = new List<string>();
         foreach (var (path, bytes) in content.Files.OrderBy(f => GpoFileClassifier.Classify(f.Key).Priority).ThenBy(f => f.Key, StringComparer.OrdinalIgnoreCase))
         {
             var file = GpoFileClassifier.Classify(path);
@@ -546,14 +586,25 @@ public sealed class GroupPolicyReader
                 continue;
             }
 
+            if (sink.Overflowed)
+            {
+                overflowed.Add(path);
+            }
+
             foreach (var setting in sink.Settings)
             {
                 settings[setting.Key] = setting;
             }
         }
 
-        return [.. settings.Values.OrderBy(s => s.Key, StringComparer.OrdinalIgnoreCase)];
+        return new GpoSettingsRead([.. settings.Values.OrderBy(s => s.Key, StringComparer.OrdinalIgnoreCase)], overflowed);
     }
+
+    /// <summary>
+    /// The normalized settings of a GPO's files (the Watchdog's keys: "Computer/Security/…", "Computer/Registry/…"), sorted
+    /// by key; a file that cannot be parsed contributes a <c>File/&lt;path&gt;</c> marker (<see cref="GpoSettingKind.Unreadable"/>).
+    /// </summary>
+    public static IReadOnlyList<GpoSetting> Settings(GpoFolderContent content) => ReadSettings(content).Settings;
 
     /// <summary>A WMI filter object as the model.</summary>
     public static WmiFilterInfo ToWmiFilter(DirectoryObject som)

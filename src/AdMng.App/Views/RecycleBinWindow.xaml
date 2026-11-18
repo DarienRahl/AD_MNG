@@ -1,7 +1,11 @@
 <!--
   AD Recycle Bin (RecycleBinViewModel, modeless, one window): the deleted objects of the domain, read live with server side
   filters, restored to their original location or to another container (a container with its children, parent first)
-  after a preview of the plan. Without the Recycle Bin the banner explains that only tombstone reanimation is possible.
+  after a preview of the plan. Without the Recycle Bin a note explains that only tombstone reanimation is possible.
+  Feedback (track V, stage V2b): one status line at the top (PageStatus) says what the list reads and how much, the
+  check and the restore of the selection and how they ended, the summary of the list or of the restore preview, and
+  that the window has no session. Refresh is an action button - while the list is read it is the Cancel of that read -
+  and so is the button that restores.
 -->
 <Window x:Class="AdMng.App.Views.RecycleBinWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -15,7 +19,7 @@
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="1100"
-        Height="660"
+        Height="696"
         MinWidth="760"
         MinHeight="420"
         WindowStartupLocation="CenterOwner">
@@ -53,17 +57,6 @@
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
       <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
     </Style>
-
-    <!-- Info card while the Recycle Bin is enabled (or disconnected), warning bar without it. -->
-    <Style x:Key="BannerStyle" TargetType="Border" BasedOn="{StaticResource Ad.Card}">
-      <Setter Property="Padding" Value="12,8" />
-      <Style.Triggers>
-        <DataTrigger Binding="{Binding IsRecycleBinDisabled, Mode=OneWay}" Value="True">
-          <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
-          <Setter Property="CornerRadius" Value="4" />
-        </DataTrigger>
-      </Style.Triggers>
-    </Style>
   </Window.Resources>
 
   <Window.InputBindings>
@@ -71,91 +64,80 @@
   </Window.InputBindings>
 
   <DockPanel>
-    <!-- Footer: status and the actions of the current step (list / preview). -->
+    <!--
+      Footer: the actions of the current step (list / preview). What the window says - the summaries, the progress,
+      the results - is in its status line. The button that restores is the Cancel of the restore it started.
+    -->
     <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
-      <DockPanel>
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-          <StackPanel Orientation="Horizontal" Visibility="{Binding IsPreviewing, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}">
-            <Button x:Name="RestoreToButton"
-                    Command="{Binding RestoreToCommand}"
-                    Content="{l:Tr RecycleBin.RestoreTo}"
-                    Style="{StaticResource Ad.DialogButton}" />
-            <Button x:Name="RestoreButton"
-                    Command="{Binding RestoreCommand}"
-                    Content="{l:Tr RecycleBin.Restore}"
-                    Style="{StaticResource Ad.AccentDialogButton}" />
-          </StackPanel>
-          <StackPanel Orientation="Horizontal" Visibility="{Binding IsPreviewing, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-            <Button x:Name="BackButton"
-                    Command="{Binding BackCommand}"
-                    Content="{l:Tr Common.Back}"
-                    Style="{StaticResource Ad.DialogButton}" />
-            <Button x:Name="ConfirmButton"
-                    Command="{Binding ConfirmRestoreCommand}"
-                    Content="{Binding ConfirmText, Mode=OneWay}"
-                    Style="{StaticResource Ad.AccentDialogButton}" />
-          </StackPanel>
-          <Button x:Name="CloseButton"
-                  Command="{Binding CloseCommand}"
-                  Content="{l:Tr Common.Close}"
-                  IsCancel="True"
+      <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+        <StackPanel Orientation="Horizontal" Visibility="{Binding IsPreviewing, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}">
+          <Button x:Name="RestoreToButton"
+                  Command="{Binding RestoreToCommand}"
+                  Content="{l:Tr RecycleBin.RestoreTo}"
                   Style="{StaticResource Ad.DialogButton}" />
+          <Button x:Name="RestoreButton"
+                  Command="{Binding RestoreCommand}"
+                  Content="{l:Tr RecycleBin.Restore}"
+                  Style="{StaticResource Ad.AccentDialogButton}" />
         </StackPanel>
-        <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
-          <ProgressBar Width="60"
-                       Margin="0,0,8,0"
-                       VerticalAlignment="Center"
-                       IsIndeterminate="True"
-                       Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-          <TextBlock x:Name="StatusText"
-                     AutomationProperties.LiveSetting="Polite"
-                     Style="{StaticResource Ad.SecondaryText}"
-                     Text="{Binding StatusText, Mode=OneWay}"
-                     Visibility="{Binding IsPreviewing, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
-          <TextBlock x:Name="SelectionText"
-                     Margin="16,0,0,0"
-                     Style="{StaticResource Ad.SecondaryText}"
-                     Text="{Binding SelectionText, Mode=OneWay}"
-                     Visibility="{Binding IsPreviewing, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
-          <TextBlock x:Name="PreviewSummaryText"
-                     AutomationProperties.LiveSetting="Polite"
-                     Style="{StaticResource Ad.SecondaryText}"
-                     Text="{Binding PreviewSummary, Mode=OneWay}"
-                     Visibility="{Binding IsPreviewing, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        <StackPanel Orientation="Horizontal" Visibility="{Binding IsPreviewing, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+          <Button x:Name="BackButton"
+                  Command="{Binding BackCommand}"
+                  Content="{l:Tr Common.Back}"
+                  Style="{StaticResource Ad.DialogButton}" />
+          <c:ActionButton x:Name="ConfirmButton"
+                          CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                          Command="{Binding ConfirmRestoreCommand}"
+                          Content="{Binding ConfirmText, Mode=OneWay}"
+                          IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                          IsRunning="{Binding IsBusy, Mode=OneWay}"
+                          Style="{StaticResource Ad.AccentDialogActionButton}" />
         </StackPanel>
-      </DockPanel>
+        <Button x:Name="CloseButton"
+                Command="{Binding CloseCommand}"
+                Content="{l:Tr Common.Close}"
+                IsCancel="True"
+                Style="{StaticResource Ad.DialogButton}" />
+      </StackPanel>
     </Border>
 
-    <!-- Recycle Bin state (enabled / tombstones only / not connected) with the lifetime when known. -->
-    <Border x:Name="Banner"
-            Margin="16,12,16,0"
-            DockPanel.Dock="Top"
-            Style="{StaticResource BannerStyle}">
-      <DockPanel>
-        <TextBlock x:Name="BannerGlyph"
-                   Margin="0,1,10,0"
-                   VerticalAlignment="Top"
-                   DockPanel.Dock="Left"
-                   FontSize="14">
-          <TextBlock.Style>
-            <Style TargetType="TextBlock" BasedOn="{StaticResource Ad.GlyphText}">
-              <Setter Property="Text" Value="{x:Static c:Glyphs.Info}" />
-              <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
-              <Style.Triggers>
-                <DataTrigger Binding="{Binding IsRecycleBinDisabled, Mode=OneWay}" Value="True">
-                  <Setter Property="Text" Value="{x:Static c:Glyphs.Warning}" />
-                  <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
-                </DataTrigger>
-              </Style.Triggers>
-            </Style>
-          </TextBlock.Style>
-        </TextBlock>
+    <!--
+      Status line (design note 6.1): what the list reads and how much, a read that was stopped or failed, the check and
+      the restore of the selection and how they ended, the summary of the list or of the preview - and that the window
+      has no session. Always present, so nothing under it moves.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="8,8,8,0"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+
+    <!--
+      What can be restored in this forest - a note about the content, true for as long as the window is connected:
+      with the Recycle Bin objects come back whole (information), without it only tombstones can be reanimated
+      (attention); both with the lifetime when known. That the window has no session is said by the status line.
+    -->
+    <StackPanel x:Name="Banner"
+                Margin="16,8,16,0"
+                DockPanel.Dock="Top"
+                Visibility="{Binding IsConnected, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <ContentControl x:Name="EnabledNote"
+                      Style="{StaticResource Ad.Note.Info}"
+                      Visibility="{Binding IsRecycleBinEnabled, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
         <TextBlock x:Name="BannerText"
                    AutomationProperties.LiveSetting="Polite"
                    Text="{Binding BannerText, Mode=OneWay}"
                    TextWrapping="Wrap" />
-      </DockPanel>
-    </Border>
+      </ContentControl>
+      <ContentControl x:Name="TombstoneNote"
+                      Style="{StaticResource Ad.Note.Attention}"
+                      Visibility="{Binding IsRecycleBinDisabled, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <TextBlock x:Name="TombstoneNoteText"
+                   AutomationProperties.LiveSetting="Polite"
+                   Text="{Binding BannerText, Mode=OneWay}"
+                   TextWrapping="Wrap" />
+      </ContentControl>
+    </StackPanel>
 
     <!-- Server side filters (list step only). -->
     <Grid Margin="16,10,16,0"
@@ -238,18 +220,17 @@
                   Grid.Column="7"
                   Margin="8,0,0,0"
                   Orientation="Horizontal">
-        <Button x:Name="RefreshButton"
-                AutomationProperties.Name="{l:Tr Commands.Refresh}"
-                Command="{Binding RefreshCommand}"
-                Content="{x:Static c:Glyphs.Refresh}"
-                Style="{StaticResource Ad.IconButton}"
-                ToolTip="{l:Tr Commands.Refresh}" />
-        <Button x:Name="StopButton"
-                AutomationProperties.Name="{l:Tr Common.Stop}"
-                Command="{Binding StopCommand}"
-                Content="{x:Static c:Glyphs.Cancel}"
-                Style="{StaticResource Ad.IconButton}"
-                ToolTip="{l:Tr Common.Stop}" />
+        <!-- Refresh reads the list; while it is read - whoever started the read - the same button is its Cancel. -->
+        <c:ActionButton x:Name="RefreshButton"
+                        Margin="0,0,4,0"
+                        VerticalAlignment="Center"
+                        CancelCommand="{Binding ListStatus.CancelCommand, Mode=OneWay}"
+                        Command="{Binding RefreshCommand}"
+                        Content="{l:Tr Commands.Refresh}"
+                        Glyph="{x:Static c:Glyphs.Refresh}"
+                        IsCancelling="{Binding ListStatus.IsCancelling, Mode=OneWay}"
+                        IsRunning="{Binding ListStatus.IsWorking, Mode=OneWay}"
+                        Style="{StaticResource Ad.ActionButton}" />
         <Button x:Name="ClearFiltersButton"
                 AutomationProperties.Name="{l:Tr RecycleBin.ClearFilters}"
                 Command="{Binding ClearFiltersCommand}"
@@ -258,18 +239,6 @@
                 ToolTip="{l:Tr RecycleBin.ClearFilters}" />
       </StackPanel>
     </Grid>
-
-    <!-- Load error (no access to CN=Deleted Objects, DC unavailable...). -->
-    <Border x:Name="ErrorBar"
-            Margin="16,10,16,0"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.ErrorBar}"
-            Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <TextBlock x:Name="ErrorText"
-                 AutomationProperties.LiveSetting="Assertive"
-                 Text="{Binding Error, Mode=OneWay}"
-                 TextWrapping="Wrap" />
-    </Border>
 
     <Grid Margin="16,10,16,12">
       <!-- Step 1: the deleted objects -->
@@ -370,10 +339,6 @@
             </GridView>
           </ListView.View>
         </ListView>
-        <ProgressBar Height="3"
-                     VerticalAlignment="Top"
-                     IsIndeterminate="True"
-                     Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
         <TextBlock x:Name="EmptyHint"
                    Margin="0,60,0,0"
                    HorizontalAlignment="Center"

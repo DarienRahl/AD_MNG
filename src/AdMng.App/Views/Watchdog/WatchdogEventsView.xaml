@@ -386,25 +386,6 @@
       </StackPanel>
     </DockPanel>
 
-    <!-- Load error (inline, never modal) -->
-    <Border x:Name="ErrorBar"
-            Margin="0,0,0,6"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.ErrorBar}"
-            Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <DockPanel>
-        <Button Margin="10,0,0,0"
-                Command="{Binding RefreshCommand}"
-                Content="{l:Tr Common.Retry}"
-                DockPanel.Dock="Right" />
-        <TextBlock x:Name="ErrorText"
-                   VerticalAlignment="Center"
-                   AutomationProperties.LiveSetting="Assertive"
-                   Text="{Binding Error, Mode=OneWay}"
-                   TextWrapping="Wrap" />
-      </DockPanel>
-    </Border>
-
     <!--
       Feed | splitter | details: the feed takes the rest. Its columns fit the feed (GridViewColumnFit): the event title takes
       what severity, time and object leave (at least 244 px); ✓, actor, source, location and lockouts follow in this order
@@ -569,10 +550,6 @@
               </GridView>
             </ListView.View>
           </ListView>
-          <ProgressBar Height="3"
-                       VerticalAlignment="Top"
-                       IsIndeterminate="True"
-                       Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
           <TextBlock x:Name="EmptyHint"
                      Margin="0,60,0,0"
                      HorizontalAlignment="Center"

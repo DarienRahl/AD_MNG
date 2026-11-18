@@ -2,6 +2,9 @@
   The rendered preview of an HTML body (U1c, design note u1c-u1d section 10): WebView2 with every request answered from
   memory (the document and its inline images; anything else 403), scripts and everything else off – or, when WebView2 is
   missing, switched off in the settings or forced off (ADMNG_UI_NO_WEBVIEW2=1), the HTML source with a one-line note.
+  That sentence is a note (track V, stage V2b; docs/dev/v-interface-renewal.md "V2b-2 as built"): why the source is
+  shown instead of the rendered preview is true for as long as it is shown - not a status of the window that hosts the
+  control, and no banner.
 -->
 <UserControl x:Class="AdMng.App.Controls.HtmlPreviewView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -14,10 +17,10 @@
             BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
             BorderThickness="1" />
     <DockPanel x:Name="FallbackPanel" Visibility="Collapsed">
-      <Border x:Name="FallbackBar"
-              Margin="0,0,0,6"
-              DockPanel.Dock="Top"
-              Style="{StaticResource Ad.WarningBar}">
+      <ContentControl x:Name="FallbackNote"
+                      Margin="0,0,0,6"
+                      DockPanel.Dock="Top"
+                      Style="{StaticResource Ad.Note.Attention}">
         <StackPanel>
           <TextBlock x:Name="UnavailableText"
                      Text="{l:Tr UserMessages.Rich.PreviewUnavailable}"
@@ -32,7 +35,7 @@
             </Hyperlink>
           </TextBlock>
         </StackPanel>
-      </Border>
+      </ContentControl>
       <TextBox x:Name="SourceBox"
                AcceptsReturn="True"
                AutomationProperties.Name="{l:Tr UserMessages.Rich.TabSource}"

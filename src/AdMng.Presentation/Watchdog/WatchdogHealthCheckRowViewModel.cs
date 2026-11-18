@@ -1,3 +1,4 @@
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 using AdMng.Watchdog.Contracts.Api;
 
@@ -26,6 +27,9 @@ public sealed class WatchdogHealthCheckRowViewModel
     public string Title { get; }
 
     public string StateText { get; }
+
+    /// <summary>The kind of the pill that shows <see cref="StateText"/> next to the title (the picture and the word, never colour alone).</summary>
+    public StatusPillKind PillKind => WatchdogDisplay.PillKind(State);
 
     /// <summary>One-line remedy for Warning/Error states.</summary>
     public string Remedy { get; }

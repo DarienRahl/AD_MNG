@@ -26,7 +26,6 @@ public static partial class L
         public const string Execute = "PlanPreview.Execute";
         public const string Undo = "PlanPreview.Undo";
         public const string Close = "PlanPreview.Close";
-        public const string Cancel = "PlanPreview.Cancel";
         public const string CopyPowerShell = "PlanPreview.CopyPowerShell";
         public const string Executing = "PlanPreview.Executing";
         public const string ResultSucceeded = "PlanPreview.ResultSucceeded";

@@ -1,6 +1,9 @@
 <!--
   "Porównaj" two GPOs (GpoComparisonViewModel, modeless): core settings, permissions, links, the normalized settings and
-  the files, "tylko różnice"; masked values (passwords) are never shown; CSV only when the operator chooses a file.
+  the files, "tylko różnice"; masked values (passwords) are never shown; CSV only when the operator chooses a file. The
+  one status line (design note 6.1 and "V2b-3 as built") says the comparison - with Stop -, how many differences the rows
+  hold, why there are no rows after a comparison that was stopped or failed (with Retry) and that the session of the
+  window ended; what could not be compared (SYSVOL) is a note above the rows.
 -->
 <Window x:Class="AdMng.App.GroupPolicy.GpoComparisonWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -11,7 +14,7 @@
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="1100"
-        Height="680"
+        Height="716"
         MinWidth="760"
         MinHeight="420"
         WindowStartupLocation="CenterOwner">
@@ -27,106 +30,103 @@
   </Window.Resources>
   <DockPanel>
     <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
-      <DockPanel>
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-          <Button x:Name="ExportButton" Command="{Binding ExportCommand}" Content="{l:Tr GroupPolicy.Export}" Style="{StaticResource Ad.DialogButton}" />
-          <Button x:Name="CloseButton"
-                  Command="{Binding CloseCommand}"
-                  Content="{l:Tr Common.Close}"
-                  IsCancel="True"
-                  Style="{StaticResource Ad.DialogButton}" />
-        </StackPanel>
-        <TextBlock x:Name="SummaryText"
-                   VerticalAlignment="Center"
-                   AutomationProperties.LiveSetting="Polite"
-                   Style="{StaticResource Ad.SecondaryText}"
-                   Text="{Binding SummaryText, Mode=OneWay}" />
-      </DockPanel>
+      <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+        <Button x:Name="ExportButton" Command="{Binding ExportCommand}" Content="{l:Tr GroupPolicy.Export}" Style="{StaticResource Ad.DialogButton}" />
+        <Button x:Name="CloseButton"
+                Command="{Binding CloseCommand}"
+                Content="{l:Tr Common.Close}"
+                IsCancel="True"
+                Style="{StaticResource Ad.DialogButton}" />
+      </StackPanel>
     </Border>
-    <DockPanel Margin="16,12,16,8">
-      <DockPanel Margin="0,0,0,8" DockPanel.Dock="Top">
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-          <CheckBox x:Name="OnlyDifferencesBox" Content="{l:Tr GroupPolicy.OnlyDifferences}" IsChecked="{Binding OnlyDifferences}" />
-          <Button x:Name="RefreshButton"
-                  Margin="12,0,0,0"
-                  AutomationProperties.Name="{l:Tr GroupPolicy.RefreshCommand}"
-                  Command="{Binding LoadCommand}"
-                  Content="{x:Static c:Glyphs.Refresh}"
-                  Style="{StaticResource Ad.IconButton}"
-                  ToolTip="{l:Tr GroupPolicy.RefreshCommand}" />
-        </StackPanel>
-        <TextBlock VerticalAlignment="Center" Style="{StaticResource Ad.Title}" Text="{Binding WindowTitle, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
-      </DockPanel>
-      <Border Margin="0,0,0,6"
-              DockPanel.Dock="Top"
-              Style="{StaticResource Ad.ErrorBar}"
-              Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-        <TextBlock x:Name="ErrorText" Text="{Binding Error, Mode=OneWay}" TextWrapping="Wrap" />
-      </Border>
-      <Border Margin="0,0,0,6"
-              DockPanel.Dock="Top"
-              Style="{StaticResource Ad.WarningBar}"
-              Visibility="{Binding Warning, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-        <TextBlock x:Name="WarningText" Text="{Binding Warning, Mode=OneWay}" TextWrapping="Wrap" />
-      </Border>
-      <Grid>
-        <ListView x:Name="ComparisonList"
-                  AutomationProperties.Name="{Binding WindowTitle, Mode=OneWay}"
-                  ItemContainerStyle="{StaticResource CompareRowStyle}"
-                  ItemsSource="{Binding Rows, Mode=OneWay}"
-                  VirtualizingPanel.IsVirtualizing="True">
-          <ListView.View>
-            <GridView AllowsColumnReorder="False">
-              <GridViewColumn Width="110" DisplayMemberBinding="{Binding SectionText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnSection}" />
-              <GridViewColumn Width="240" Header="{l:Tr GpEditing.ColumnArea}">
-                <GridViewColumn.CellTemplate>
-                  <DataTemplate DataType="{x:Type gpm:GpoComparisonRowViewModel}">
-                    <TextBlock Text="{Binding ShortArea, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Area, Mode=OneWay}" />
-                  </DataTemplate>
-                </GridViewColumn.CellTemplate>
-              </GridViewColumn>
-              <GridViewColumn Width="300" Header="{l:Tr GroupPolicy.ColumnSetting}">
-                <GridViewColumn.CellTemplate>
-                  <DataTemplate DataType="{x:Type gpm:GpoComparisonRowViewModel}">
-                    <TextBlock Text="{Binding Name, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding NameToolTip, Mode=OneWay}" />
-                  </DataTemplate>
-                </GridViewColumn.CellTemplate>
-              </GridViewColumn>
-              <GridViewColumn x:Name="ColumnA" Width="240">
-                <GridViewColumn.CellTemplate>
-                  <DataTemplate DataType="{x:Type gpm:GpoComparisonRowViewModel}">
-                    <TextBlock Text="{Binding ValueA, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding ValueA, Mode=OneWay}" />
-                  </DataTemplate>
-                </GridViewColumn.CellTemplate>
-              </GridViewColumn>
-              <GridViewColumn x:Name="ColumnB" Width="240">
-                <GridViewColumn.CellTemplate>
-                  <DataTemplate DataType="{x:Type gpm:GpoComparisonRowViewModel}">
-                    <TextBlock Text="{Binding ValueB, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding ValueB, Mode=OneWay}" />
-                  </DataTemplate>
-                </GridViewColumn.CellTemplate>
-              </GridViewColumn>
-              <GridViewColumn Width="120" Header="{l:Tr GroupPolicy.ColumnState}">
-                <GridViewColumn.CellTemplate>
-                  <DataTemplate DataType="{x:Type gpm:GpoComparisonRowViewModel}">
-                    <TextBlock x:Name="StateText" Text="{Binding StateText, Mode=OneWay}" />
-                    <DataTemplate.Triggers>
-                      <DataTrigger Binding="{Binding IsDifferent, Mode=OneWay}" Value="True">
-                        <Setter TargetName="StateText" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
-                      </DataTrigger>
-                    </DataTemplate.Triggers>
-                  </DataTemplate>
-                </GridViewColumn.CellTemplate>
-              </GridViewColumn>
-            </GridView>
-          </ListView.View>
-        </ListView>
-        <ProgressBar Width="160"
-                     HorizontalAlignment="Center"
-                     VerticalAlignment="Center"
-                     IsIndeterminate="True"
-                     Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-      </Grid>
+    <DockPanel Margin="16,12,16,8" DockPanel.Dock="Top">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+        <CheckBox x:Name="OnlyDifferencesBox" Content="{l:Tr GroupPolicy.OnlyDifferences}" IsChecked="{Binding OnlyDifferences}" />
+        <Button x:Name="RefreshButton"
+                Margin="12,0,0,0"
+                AutomationProperties.Name="{l:Tr GroupPolicy.RefreshCommand}"
+                Command="{Binding LoadCommand}"
+                Content="{x:Static c:Glyphs.Refresh}"
+                Style="{StaticResource Ad.IconButton}"
+                ToolTip="{l:Tr GroupPolicy.RefreshCommand}" />
+      </StackPanel>
+      <TextBlock VerticalAlignment="Center" Style="{StaticResource Ad.Title}" Text="{Binding WindowTitle, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
     </DockPanel>
+
+    <!--
+      Status line: under the title, above the note and the rows; declared after the footer and the header, so Tab goes
+      from the header's controls to what the line offers and then to the rows. Its picture stands over the left edge of
+      the title.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="8,0,8,6"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+
+    <!-- What could not be compared: the rows are complete as far as it says. -->
+    <ContentControl x:Name="WarningNote"
+                    Margin="16,0,16,6"
+                    DockPanel.Dock="Top"
+                    Style="{StaticResource Ad.Note.Attention}"
+                    Visibility="{Binding Warning, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <TextBlock x:Name="WarningText"
+                 AutomationProperties.LiveSetting="Polite"
+                 Text="{Binding Warning, Mode=OneWay}"
+                 TextWrapping="Wrap" />
+    </ContentControl>
+
+    <ListView x:Name="ComparisonList"
+              Margin="16,0,16,8"
+              AutomationProperties.Name="{Binding WindowTitle, Mode=OneWay}"
+              ItemContainerStyle="{StaticResource CompareRowStyle}"
+              ItemsSource="{Binding Rows, Mode=OneWay}"
+              VirtualizingPanel.IsVirtualizing="True">
+      <ListView.View>
+        <GridView AllowsColumnReorder="False">
+          <GridViewColumn Width="110" DisplayMemberBinding="{Binding SectionText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnSection}" />
+          <GridViewColumn Width="240" Header="{l:Tr GpEditing.ColumnArea}">
+            <GridViewColumn.CellTemplate>
+              <DataTemplate DataType="{x:Type gpm:GpoComparisonRowViewModel}">
+                <TextBlock Text="{Binding ShortArea, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Area, Mode=OneWay}" />
+              </DataTemplate>
+            </GridViewColumn.CellTemplate>
+          </GridViewColumn>
+          <GridViewColumn Width="300" Header="{l:Tr GroupPolicy.ColumnSetting}">
+            <GridViewColumn.CellTemplate>
+              <DataTemplate DataType="{x:Type gpm:GpoComparisonRowViewModel}">
+                <TextBlock Text="{Binding Name, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding NameToolTip, Mode=OneWay}" />
+              </DataTemplate>
+            </GridViewColumn.CellTemplate>
+          </GridViewColumn>
+          <GridViewColumn x:Name="ColumnA" Width="240">
+            <GridViewColumn.CellTemplate>
+              <DataTemplate DataType="{x:Type gpm:GpoComparisonRowViewModel}">
+                <TextBlock Text="{Binding ValueA, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding ValueA, Mode=OneWay}" />
+              </DataTemplate>
+            </GridViewColumn.CellTemplate>
+          </GridViewColumn>
+          <GridViewColumn x:Name="ColumnB" Width="240">
+            <GridViewColumn.CellTemplate>
+              <DataTemplate DataType="{x:Type gpm:GpoComparisonRowViewModel}">
+                <TextBlock Text="{Binding ValueB, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding ValueB, Mode=OneWay}" />
+              </DataTemplate>
+            </GridViewColumn.CellTemplate>
+          </GridViewColumn>
+          <GridViewColumn Width="120" Header="{l:Tr GroupPolicy.ColumnState}">
+            <GridViewColumn.CellTemplate>
+              <DataTemplate DataType="{x:Type gpm:GpoComparisonRowViewModel}">
+                <TextBlock x:Name="StateText" Text="{Binding StateText, Mode=OneWay}" />
+                <DataTemplate.Triggers>
+                  <DataTrigger Binding="{Binding IsDifferent, Mode=OneWay}" Value="True">
+                    <Setter TargetName="StateText" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                  </DataTrigger>
+                </DataTemplate.Triggers>
+              </DataTemplate>
+            </GridViewColumn.CellTemplate>
+          </GridViewColumn>
+        </GridView>
+      </ListView.View>
+    </ListView>
   </DockPanel>
 </Window>

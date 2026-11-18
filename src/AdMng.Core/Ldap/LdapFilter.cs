@@ -74,6 +74,47 @@ public static class LdapFilter
     public static string EqualGuid(string attribute, Guid value) =>
         $"({Attr(attribute)}={EscapeBinary(value.ToByteArray())})";
 
+    /// <summary><c>(objectSid=\01\05...)</c>: equality on a binary value (a SID, an octet string), every byte escaped.</summary>
+    public static string EqualBinary(string attribute, ReadOnlySpan<byte> value)
+    {
+        if (value.IsEmpty)
+        {
+            throw new ArgumentException("A binary value is required.", nameof(value));
+        }
+
+        return $"({Attr(attribute)}={EscapeBinary(value)})";
+    }
+
+    /// <summary>
+    /// <c>(attr=a*b)</c> for a pattern in which <c>*</c> is the only wildcard: every other character is a literal (escaped
+    /// per RFC 4515, so <c>(</c>, <c>)</c>, <c>\</c> and a NUL in the pattern match themselves) and a run of <c>*</c> counts
+    /// as one wildcard. A pattern of <c>*</c> alone is <see cref="Present"/>.
+    /// </summary>
+    public static string Pattern(string attribute, string pattern)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(pattern);
+        var sb = new StringBuilder(pattern.Length + 8);
+        var previousWasWildcard = false;
+        foreach (var c in pattern)
+        {
+            if (c == '*')
+            {
+                if (!previousWasWildcard)
+                {
+                    sb.Append('*');
+                }
+
+                previousWasWildcard = true;
+                continue;
+            }
+
+            previousWasWildcard = false;
+            sb.Append(Escape(c.ToString()));
+        }
+
+        return $"({Attr(attribute)}={sb})";
+    }
+
     /// <summary><c>(attr=*)</c>.</summary>
     public static string Present(string attribute) => $"({Attr(attribute)}=*)";
 

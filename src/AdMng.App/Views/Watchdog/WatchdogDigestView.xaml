@@ -157,22 +157,6 @@
                        Style="{StaticResource Wd.CardTitle}"
                        Text="{l:Tr Watchdog.Ui.DigestPreview}" />
           </DockPanel>
-          <ProgressBar Height="3"
-                       DockPanel.Dock="Top"
-                       IsIndeterminate="True"
-                       Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-          <TextBlock x:Name="ErrorText"
-                     AutomationProperties.LiveSetting="Assertive"
-                     DockPanel.Dock="Top"
-                     Style="{StaticResource Wd.FieldError}"
-                     Text="{Binding Error, Mode=OneWay}" />
-          <TextBlock x:Name="MessageText"
-                     AutomationProperties.LiveSetting="Polite"
-                     DockPanel.Dock="Top"
-                     Foreground="{DynamicResource SystemFillColorSuccessBrush}"
-                     Text="{Binding Message, Mode=OneWay}"
-                     TextWrapping="Wrap"
-                     Visibility="{Binding Message, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
           <TextBlock x:Name="PreviewInfo"
                      Margin="0,4,0,0"
                      DockPanel.Dock="Top"

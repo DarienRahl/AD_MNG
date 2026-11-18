@@ -92,8 +92,17 @@ public sealed class ErrorTranslator(ILocalizer localizer)
     {
         ArgumentNullException.ThrowIfNull(exception);
         var message = Translate(exception);
-        var hint = exception is DirectoryException de ? HintFor(de) : null;
-        return hint is null ? message : $"{message}{Environment.NewLine}{localizer[hint]}";
+        return ConnectHint(exception) is { } hint ? $"{message}{Environment.NewLine}{hint}" : message;
+    }
+
+    /// <summary>
+    /// The hint of <see cref="TranslateConnectError"/> alone - what to do about a failed connection attempt - or null
+    /// when there is none: a status line says <see cref="Translate(Exception)"/> as the reason and this as the next step.
+    /// </summary>
+    public string? ConnectHint(Exception exception)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+        return exception is DirectoryException de && HintFor(de) is { } hint ? localizer[hint] : null;
     }
 
     /// <summary>Localized validation issue text.</summary>

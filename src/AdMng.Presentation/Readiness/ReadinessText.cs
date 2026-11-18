@@ -1,3 +1,4 @@
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 
 namespace AdMng.Presentation.Readiness;
@@ -66,6 +67,15 @@ public static class ReadinessText
         ReadinessStatus.Warning => L.Readiness.StatusWarning,
         ReadinessStatus.Error => L.Readiness.StatusError,
         _ => L.Readiness.StatusNotChecked,
+    };
+
+    /// <summary>The pill that tells a status: done, attention, error, or - for what was not run - not known (V2b-5b).</summary>
+    public static StatusPillKind PillKind(ReadinessStatus status) => status switch
+    {
+        ReadinessStatus.Ok => StatusPillKind.Ok,
+        ReadinessStatus.Warning => StatusPillKind.Attention,
+        ReadinessStatus.Error => StatusPillKind.Error,
+        _ => StatusPillKind.Unknown,
     };
 
     /// <summary>Every code has a title and a documentation chapter (the localization tests check the keys).</summary>

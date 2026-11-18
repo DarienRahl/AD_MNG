@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Text;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -20,6 +21,15 @@ namespace AdMng.Presentation.Watchdog;
 /// id order, applied in one pass), so the list keeps its scroll position and selection – a Reset re-creates a WPF list's
 /// rows and scrolls it back to the top.
 /// </summary>
+/// <remarks>
+/// <para><b>What the feed says</b> (track V, stage V2b-4, unit 4; docs/dev/v-interface-renewal.md "V2b-4 as built",
+/// <i>Areas</i> 7). <see cref="Status"/> is the holder of the page; the details pane's holder is in front of it. The summary is
+/// <see cref="StatusText"/> with <see cref="SelectionText"/>. The full read and the read of older events are its operations and
+/// can be stopped; the acknowledgement of the selected events is a write (no Stop) with the part done. A full read that failed
+/// or was stopped leaves the feed empty and its live updates paused until it is read again - that is the state of the page
+/// that lasts, with Refresh or Retry; a failed or stopped read of older events leaves the list as it was and is a result that
+/// can be closed. The log copies are keys, counts and a result code - never an event, a name or an address.</para>
+/// </remarks>
 public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposable
 {
     /// <summary>Events per page.</summary>
@@ -65,6 +75,8 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
     private DateTimeOffset? _serviceUpSince;
     private bool _refreshingPending;
     private bool _disposed;
+    private Problem? _problem;
+    private bool _stopped;
 
     public WatchdogEventsViewModel(WatchdogServices services, WatchdogPoller poller)
     {
@@ -72,6 +84,8 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
         _poller = poller ?? throw new ArgumentNullException(nameof(poller));
         Filter = new WatchdogEventFilterViewModel(services);
         Details = new WatchdogEventDetailsViewModel(services);
+        Status = services.CreateStatus();
+        Status.Front = Details.Status;
         Filter.Changed += OnFilterChanged;
         Details.Acknowledged += OnDetailsAcknowledged;
 
@@ -91,6 +105,9 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
     public WatchdogEventFilterViewModel Filter { get; }
 
     public WatchdogEventDetailsViewModel Details { get; }
+
+    /// <summary>What the feed says in the status line: its summary, its reads, its acknowledgements and the state that lasts.</summary>
+    public PageStatusHolder Status { get; }
 
     /// <summary>The rows, newest first (descending ids).</summary>
     public BulkObservableCollection<WatchdogEventRowViewModel> Items { get; } = [];
@@ -117,7 +134,7 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
             : SelectedItem is { } single ? [single] : [];
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(LoadOlderCommand), nameof(RefreshCommand))]
+    [NotifyCanExecuteChangedFor(nameof(LoadOlderCommand), nameof(RefreshCommand), nameof(AcknowledgeSelectedCommand))]
     public partial bool IsLoading { get; private set; }
 
     [ObservableProperty]
@@ -135,8 +152,8 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
     [ObservableProperty]
     public partial string SelectionText { get; private set; } = string.Empty;
 
-    /// <summary>Loaded, without error and without events (the view shows a hint).</summary>
-    public bool IsEmpty => !IsLoading && Error is null && Items.Count == 0;
+    /// <summary>Loaded, without error and without events (the view shows a hint). A read that was stopped says why the list is empty.</summary>
+    public bool IsEmpty => !IsLoading && Error is null && !_stopped && Items.Count == 0;
 
     /// <summary>The operator scrolled away from the newest events (set by the view).</summary>
     [ObservableProperty]
@@ -205,6 +222,7 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
         var count = Selection.Count;
         SelectionText = count <= 1 ? string.Empty : _services.Localizer.Format(L.Watchdog.EventsSelected, count);
         AcknowledgeSelectedCommand.NotifyCanExecuteChanged();
+        UpdateIdle();
     }
 
     /// <summary>(Re)loads the newest page with the current filter; the poller continues from the newest id. Never throws.</summary>
@@ -240,6 +258,7 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
         Details.Relocalize();
         UpdateStatus();
         NotifySelectionChanged();
+        UpdateLasting();
         OnPropertyChanged(nameof(NewEventsText));
     }
 
@@ -258,6 +277,7 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
         _loads.Cancel();
         _merges.Cancel();
         _lifetime.Cancel();
+        Status.Operation?.Dispose();
         Details.Dispose();
     }
 
@@ -274,14 +294,19 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
             return;
         }
 
+        var localizer = _services.Localizer;
         var token = _loads.Next();
         StartNewRange();
+        using var scope = Status.Begin(
+            localizer.Format(L.WatchdogEventsStatus.ReadingOlder, Items.Count),
+            new PageStatusLog(L.WatchdogEventsStatus.ReadingOlder, Items.Count));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, scope.Token, _lifetime.Token);
         IsLoading = true;
         try
         {
             var before = Items.Min(r => r.Id);
-            var page = await _services.Client.GetEventsAsync(_liveQuery with { Before = before, Limit = PageSize }, token).ConfigureAwait(true);
-            token.ThrowIfCancellationRequested();
+            var page = await _services.Client.GetEventsAsync(_liveQuery with { Before = before, Limit = PageSize }, linked.Token).ConfigureAwait(true);
+            linked.Token.ThrowIfCancellationRequested();
 
             // Row by row below the loaded ones: the list stays where the operator scrolled to.
             foreach (var watchEvent in page.Items.Where(e => e.Id < before).OrderByDescending(e => e.Id))
@@ -292,14 +317,27 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
             HasMore = page.HasMore;
             Error = null;
         }
-        catch (Exception ex) when (ex is not OutOfMemoryException && token.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OutOfMemoryException && scope.IsCancelling && !token.IsCancellationRequested)
+        {
+            // The operator's Stop: nothing was added, the list is as it was.
+            var label = localizer[L.WatchdogUi.LoadOlder];
+            scope.CompleteAttention(
+                localizer.Format(L.WatchdogEventsStatus.StoppedOlder, label),
+                new PageStatusLog(L.WatchdogEventsStatus.StoppedOlder),
+                new PageStatusAction(label, LoadOlderCommand));
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException && (token.IsCancellationRequested || scope.IsEnded || _lifetime.IsCancellationRequested))
         {
             // Superseded by a reload (the client reports a cancelled request as OperationCanceledException or as a
-            // WatchdogClientException of kind Cancelled): never an error.
+            // WatchdogClientException of kind Cancelled), or the tab was closed: never an error.
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             ReportFailure(ex);
+            scope.CompleteError(
+                PageStatusText.Failure(localizer[L.WatchdogEventsStatus.OlderFailed], Error, localizer[L.Feedback.RetryNext], ResultCode.Of(ex)),
+                new PageStatusLog(L.WatchdogEventsStatus.OlderFailed).WithCode(ResultCode.Of(ex)),
+                new PageStatusAction(localizer[L.Common.Retry], LoadOlderCommand));
         }
         finally
         {
@@ -324,7 +362,18 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
             return;
         }
 
+        var localizer = _services.Localizer;
         var comment = string.IsNullOrWhiteSpace(AcknowledgeComment) ? null : AcknowledgeComment.Trim();
+        var total = rows.Count;
+        var done = 0;
+
+        // A write to the service: no Stop. The part done is the ring, one request of up to 500 events at a time.
+        using var scope = Status.Begin(
+            localizer.Format(L.WatchdogEventsStatus.Acknowledging, PageStatusText.Progress(localizer, 0, total)),
+            new PageStatusLog(L.WatchdogEventsStatus.Acknowledging, 0, total),
+            PageProgress.Of(0, total),
+            canCancel: false,
+            writes: OperationWrites.Other);
         IsBusy = true;
         try
         {
@@ -334,10 +383,18 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
                     new BulkAcknowledgeRequest { Ids = [.. chunk.Select(r => r.Id)], Comment = comment },
                     _lifetime.Token).ConfigureAwait(true);
                 MarkAcknowledged(chunk, comment);
+                done += chunk.Length;
+                scope.Report(
+                    localizer.Format(L.WatchdogEventsStatus.Acknowledging, PageStatusText.Progress(localizer, done, total)),
+                    PageProgress.Of(done, total),
+                    new PageStatusLog(L.WatchdogEventsStatus.Acknowledging, done, total));
             }
 
             AcknowledgeComment = string.Empty;
-            _services.Ui.Notifications.Show(NotificationSeverity.Success, _services.Localizer.Format(L.Watchdog.EventsAcknowledged, rows.Count));
+            _services.Ui.Notifications.Show(NotificationSeverity.Success, localizer.Format(L.Watchdog.EventsAcknowledged, rows.Count));
+
+            // The result is the rows themselves (the tick, the counts of the summary): the line goes back to the summary.
+            scope.Complete(null);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException && _lifetime.IsCancellationRequested)
         {
@@ -346,6 +403,20 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             ReportFailure(ex);
+            var text = PageStatusText.Failure(
+                localizer[L.WatchdogEventsStatus.AckFailed],
+                Error,
+                done > 0 ? localizer.Format(L.WatchdogEventsStatus.AckPartial, done, total) : null,
+                ResultCode.Of(ex));
+            if (scope.IsEnded)
+            {
+                // Another read took the line meanwhile (a filter changed): the failure finished elsewhere - a toast, as 6.7 says.
+                _services.Ui.Notifications.Show(NotificationSeverity.Error, text);
+            }
+            else
+            {
+                scope.CompleteError(text, new PageStatusLog(L.WatchdogEventsStatus.AckFailed, done, total).WithCode(ResultCode.Of(ex)));
+            }
         }
         finally
         {
@@ -354,7 +425,12 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
         }
     }
 
-    private bool CanAcknowledge() => !IsBusy && Selection.Any(r => !r.IsAcknowledged);
+    /// <summary>
+    /// Not while the feed is read: the acknowledgement is an operation of the same line, and an operation that begins takes
+    /// the line and cancels the one that runs. Begun during a full read it cancelled that read without a word - and the live
+    /// updates, which wait for the answer of that read, stopped for good with nothing on the page saying so.
+    /// </summary>
+    private bool CanAcknowledge() => !IsBusy && !IsLoading && Selection.Any(r => !r.IsAcknowledged);
 
     /// <summary>Writes the loaded events to a CSV file the operator chooses (formula-injection safe).</summary>
     [RelayCommand(CanExecute = nameof(CanExport))]
@@ -439,18 +515,23 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
 
     private async Task LoadCoreAsync()
     {
+        var localizer = _services.Localizer;
         var token = _loads.Next();
         StartNewRange();
         _poller.Cursor = null;
         _liveQuery = Filter.ToQuery();
+        using var scope = Status.Begin(localizer[L.WatchdogEventsStatus.Reading], new PageStatusLog(L.WatchdogEventsStatus.Reading));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, scope.Token, _lifetime.Token);
         IsLoading = true;
         Error = null;
         NewCount = 0;
+        _problem = null;
+        _stopped = false;
         try
         {
             var requestedAt = _services.Time.GetUtcNow();
-            var page = await _services.Client.GetEventsAsync(_liveQuery with { Limit = PageSize }, token).ConfigureAwait(true);
-            token.ThrowIfCancellationRequested();
+            var page = await _services.Client.GetEventsAsync(_liveQuery with { Limit = PageSize }, linked.Token).ConfigureAwait(true);
+            linked.Token.ThrowIfCancellationRequested();
             _observedAt = requestedAt;
             var selectedId = SelectedItem?.Id;
             Items.ReplaceAll(page.Items.Select(CreateRow));
@@ -460,22 +541,44 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
             _poller.Wake();
             Error = null;
         }
-        catch (Exception ex) when (ex is not OutOfMemoryException && token.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OutOfMemoryException && scope.IsCancelling && !token.IsCancellationRequested)
+        {
+            // The operator's Stop. The feed cannot go on from where it was (the filter may have changed, the live updates wait
+            // for the answer of this read), so it is empty and paused until it is read again - the state of the page.
+            Items.ReplaceAll([]);
+            HasMore = false;
+            _stopped = true;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException && (token.IsCancellationRequested || _lifetime.IsCancellationRequested))
         {
             // Superseded by a newer load (the client reports a cancelled request as OperationCanceledException or as a
-            // WatchdogClientException of kind Cancelled): the newer load owns the list and the error bar.
+            // WatchdogClientException of kind Cancelled) or the tab was closed: the newer load owns the list and the line.
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException && scope.IsEnded)
+        {
+            // Another operation of the page took the line, and with it the token of this read - and no newer read follows.
+            // The live updates wait for the answer of this read, so the feed cannot go on: it is paused like a read the
+            // operator stopped, and the page says so with Refresh. Never silently: a feed that looks live and is not is
+            // the worst state a monitoring view can be in.
+            Items.ReplaceAll([]);
+            HasMore = false;
+            _stopped = true;
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             Items.ReplaceAll([]);
             HasMore = false;
             ReportFailure(ex);
+            _problem = new Problem(Error ?? string.Empty, ResultCode.Of(ex));
         }
         finally
         {
             if (_loads.IsCurrent(token))
             {
                 IsLoading = false;
+
+                // The state first, then the operation: the line goes from "working" to what the read left.
+                UpdateLasting();
             }
 
             UpdateStatus();
@@ -958,11 +1061,52 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
         if (Items.Count == 0)
         {
             StatusText = string.Empty;
+            UpdateIdle();
             return;
         }
 
         var unacknowledged = Items.Count(r => !r.IsAcknowledged);
         var time = TimeZoneInfo.ConvertTime(_services.Time.GetUtcNow(), _services.TimeZone).ToString("T", localizer.Culture);
         StatusText = localizer.Format(L.Watchdog.EventsStatus, Items.Count, unacknowledged, time);
+        UpdateIdle();
+    }
+
+    /// <summary>The summary of the line: the events, how many are unacknowledged and as of when, then the selection.</summary>
+    private void UpdateIdle() => Status.SetIdle(string.Join(" · ", new[] { StatusText, SelectionText }.Where(part => part.Length > 0)));
+
+    /// <summary>
+    /// Says the state of the feed that lasts: the read failed (with Retry) or was stopped (with Refresh) - the feed is empty and
+    /// its live updates are paused until it is read again. Computed anew whenever a condition changes, so it follows the language.
+    /// </summary>
+    private void UpdateLasting() => Status.SetLasting(LastingState());
+
+    private PageStatus? LastingState()
+    {
+        var localizer = _services.Localizer;
+        if (_problem is { } problem)
+        {
+            return PageStatus.Error(
+                PageStatusText.Failure(localizer[L.WatchdogEventsStatus.ReadFailed], problem.Text, localizer[L.Feedback.RetryNext], problem.Code),
+                new PageStatusLog(L.WatchdogEventsStatus.ReadFailed).WithCode(problem.Code),
+                new PageStatusAction(localizer[L.Common.Retry], RefreshCommand));
+        }
+
+        if (_stopped)
+        {
+            var refresh = localizer[L.Commands.Refresh];
+            return PageStatus.Attention(
+                localizer.Format(L.WatchdogEventsStatus.Stopped, refresh),
+                new PageStatusLog(L.WatchdogEventsStatus.Stopped),
+                new PageStatusAction(refresh, RefreshCommand));
+        }
+
+        return null;
+    }
+
+    /// <summary>Why the feed could not be read: the sentence on screen and the result code of the failed call.</summary>
+    private sealed record Problem(string Text, ResultCode Code)
+    {
+        /// <summary>The code only - never the text.</summary>
+        public override string ToString() => $"{nameof(Problem)}({Code})";
     }
 }

@@ -994,6 +994,28 @@ public class ShellViewModelTests
     }
 
     [Fact]
+    public async Task PowerShell_IsOfferedWhileConnected_InThePaletteAndAsCtrlShiftP_AndNoOtherCommandUsesThatShortcut()
+    {
+        var (shell, harness) = await CreateShellAsync();
+        var descriptor = shell.CommandPalette.Find("tools.powershell");
+
+        Assert.NotNull(descriptor);
+        Assert.Equal("Ctrl+Shift+P", descriptor.Shortcut);
+        Assert.Same(shell.ShowPowerShellCommand, descriptor.Command);
+        Assert.Single(shell.CommandDescriptors, d => d.Shortcut == "Ctrl+Shift+P");
+        shell.CommandPalette.OpenCommand.Execute(null);
+        shell.CommandPalette.FilterText = "powershell";
+        Assert.Equal("tools.powershell", shell.CommandPalette.Results.First().Descriptor.Id);
+        Assert.Equal("PowerShell…", shell.CommandPalette.Results.First().Title);
+
+        await shell.ShowPowerShellCommand.ExecuteAsync(null);
+        Assert.Contains("powerShell", harness.Dialogs.Shown);
+
+        await shell.DisconnectCommand.ExecuteAsync(null);
+        Assert.False(shell.ShowPowerShellCommand.CanExecute(null));
+    }
+
+    [Fact]
     public async Task ToggleAdvancedFeatures_ReloadsTreeAndContainerTabs()
     {
         var (shell, _) = await CreateShellAsync();

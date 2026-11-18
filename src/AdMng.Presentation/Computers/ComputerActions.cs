@@ -45,6 +45,12 @@ public interface IComputerDialogs
     ComputerActions Actions { get; }
 }
 
+/// <summary>The outcome of <see cref="ComputerActions.TryPingAsync"/>: the result, or why there is none.</summary>
+/// <param name="Result">The echoes, or null.</param>
+/// <param name="Problem">Why there is no result (a localized sentence), or null.</param>
+/// <param name="Code">The kind of the failure, when the remote action failed.</param>
+public sealed record PingAttempt(PingResult? Result, string? Problem, Feedback.ResultCode Code = default);
+
 /// <summary>What the restart dialog returns.</summary>
 /// <param name="Delay">Delay before the restart.</param>
 /// <param name="Message">The message shown to the logged-on users (verbatim).</param>
@@ -118,6 +124,21 @@ public sealed class ComputerActions(
     /// <summary>The remote target of a computer DN, or null after the operator was told why there is none.</summary>
     public async Task<RemoteTarget?> ResolveTargetAsync(IDirectorySession session, string distinguishedName, string title, CancellationToken cancellationToken = default)
     {
+        var (target, problem) = await FindTargetAsync(session, distinguishedName, cancellationToken).ConfigureAwait(true);
+        if (target is null)
+        {
+            await _services.Dialogs.ShowErrorAsync(title, problem!).ConfigureAwait(true);
+        }
+
+        return target;
+    }
+
+    /// <summary>
+    /// The remote target of a computer DN, or why there is none (a sentence) - for a window that says it in its own status
+    /// line and opens no dialog.
+    /// </summary>
+    public async Task<(RemoteTarget? Target, string? Problem)> FindTargetAsync(IDirectorySession session, string distinguishedName, CancellationToken cancellationToken = default)
+    {
         ArgumentNullException.ThrowIfNull(session);
         DirectoryObject? computer;
         try
@@ -126,24 +147,18 @@ public sealed class ComputerActions(
         }
         catch (Exception ex) when (ex is DirectoryException or InvalidOperationException or ObjectDisposedException)
         {
-            await _services.Dialogs.ShowErrorAsync(title, _services.Errors.Translate(ex)).ConfigureAwait(true);
-            return null;
+            return (null, _services.Errors.Translate(ex));
         }
 
         if (computer is null || computer.Kind != ObjectKind.Computer)
         {
-            await _services.Dialogs.ShowErrorAsync(title, Localizer[L.Computers.NotAComputer]).ConfigureAwait(true);
-            return null;
+            return (null, Localizer[L.Computers.NotAComputer]);
         }
 
         var facts = ComputerFacts.From(computer);
-        if (!HostNames.IsValid(facts.DnsHostName))
-        {
-            await _services.Dialogs.ShowErrorAsync(title, Localizer.Format(L.Computers.NoDnsName, facts.Name)).ConfigureAwait(true);
-            return null;
-        }
-
-        return new RemoteTarget(facts.DistinguishedName, facts.Name, facts.DnsHostName!, facts.Type);
+        return HostNames.IsValid(facts.DnsHostName)
+            ? (new RemoteTarget(facts.DistinguishedName, facts.Name, facts.DnsHostName!, facts.Type), null)
+            : (null, Localizer.Format(L.Computers.NoDnsName, facts.Name));
     }
 
     /// <summary>Runs <paramref name="action"/> for the computers (tools and ping for the first one only).</summary>
@@ -206,6 +221,33 @@ public sealed class ComputerActions(
         catch (RemoteActionException ex)
         {
             await _services.Dialogs.ShowErrorAsync(title, RemoteText.Error(Localizer, ex.Kind)).ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// Pings the computer (4 echoes) without saying anything: the result, or why there is none (a sentence and the kind of the
+    /// failure) - for a window that says it in its own status line, with the token of its operation.
+    /// </summary>
+    public async Task<PingAttempt> TryPingAsync(IDirectorySession session, string distinguishedName, CancellationToken cancellationToken = default)
+    {
+        if (ping is null)
+        {
+            return new PingAttempt(null, Localizer[L.Computers.ToolsNotAvailable]);
+        }
+
+        var (target, problem) = await FindTargetAsync(session, distinguishedName, cancellationToken).ConfigureAwait(true);
+        if (target is null)
+        {
+            return new PingAttempt(null, problem);
+        }
+
+        try
+        {
+            return new PingAttempt(await ping.PingAsync(target.DnsHostName, PingCount, PingTimeout, cancellationToken).ConfigureAwait(true), null);
+        }
+        catch (RemoteActionException ex)
+        {
+            return new PingAttempt(null, RemoteText.Error(Localizer, ex.Kind), Feedback.ResultCode.Remote(ex.Kind));
         }
     }
 

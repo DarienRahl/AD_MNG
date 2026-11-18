@@ -5,6 +5,7 @@ using AdMng.Directory;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
+using AdMng.Presentation.GroupPolicy.Copy;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AdMng.App.GroupPolicy;
@@ -36,6 +37,9 @@ public static class GroupPolicyAppRegistration
         }
 
         services.AddWindow<CentralStoreUpdateViewModel, CentralStoreUpdateWindow>();
+
+        // K7: "Kopiuj ustawienia" / "Scal obiekty GPO".
+        services.AddWindow<GpoCopySettingsViewModel, GpoCopySettingsWindow>();
         return services;
     }
 }

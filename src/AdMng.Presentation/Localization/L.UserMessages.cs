@@ -12,7 +12,6 @@ public static partial class L
         public const string Command = "UserMessages.Command";
         public const string LanguagePolish = "UserMessages.LanguagePolish";
         public const string LanguageEnglish = "UserMessages.LanguageEnglish";
-        public const string StopOnClose = "UserMessages.StopOnClose";
         public const string RecipientsCount = "UserMessages.RecipientsCount";
         public const string SendCount = "UserMessages.SendCount";
         public const string TemplateSaved = "UserMessages.TemplateSaved";
@@ -30,13 +29,9 @@ public static partial class L
         public const string Send = "UserMessages.Send";
         public const string Confirm = "UserMessages.Confirm";
         public const string ConfirmTyped = "UserMessages.ConfirmTyped";
-        public const string Stopping = "UserMessages.Stopping";
         public const string ExportReport = "UserMessages.ExportReport";
         public const string ReportFileName = "UserMessages.ReportFileName";
-        public const string Reading = "UserMessages.Reading";
         public const string Summary = "UserMessages.Summary";
-        public const string Progress = "UserMessages.Progress";
-        public const string ProgressRetry = "UserMessages.ProgressRetry";
         public const string ReportSummary = "UserMessages.ReportSummary";
         public const string SessionLogFailures = "UserMessages.SessionLogFailures";
         public const string SessionLogAction = "UserMessages.SessionLogAction";

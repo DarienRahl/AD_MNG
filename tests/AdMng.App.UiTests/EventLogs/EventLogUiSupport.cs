@@ -25,6 +25,31 @@ internal static class EventLogUiSupport
     public static FakeEventLogConnector CreateConnector() =>
         new FakeEventLogConnector().AddHost(Dc01, EventLogSamples.SecurityChannel, EventLogSamples.SystemChannel).AddHost(Dc02, EventLogSamples.SecurityChannel);
 
+    /// <summary>
+    /// Both DCs' Security logs say how far they reach (nine and two days, as the readiness harness of the Presentation tests
+    /// does): the audit probes of the readiness check read a log only where it covers the last days, and the empty fake logs
+    /// have no coverage to speak of.
+    /// </summary>
+    public static void GiveTheDomainControllersACoverage(FakeEventLogConnector connector)
+    {
+        ArgumentNullException.ThrowIfNull(connector);
+        var now = DateTimeOffset.UtcNow;
+        connector.SetCoverage(Dc01, EventLogSamples.SecurityChannel, Coverage(Dc01, now.AddDays(-9)));
+        connector.SetCoverage(Dc02, EventLogSamples.SecurityChannel, Coverage(Dc02, now.AddDays(-2)));
+    }
+
+    private static EventLogCoverage Coverage(string host, DateTimeOffset oldest) => new()
+    {
+        Host = host,
+        Channel = EventLogSamples.SecurityChannel,
+        Oldest = oldest,
+        Newest = EventLogSamples.Morning.AddHours(3),
+        RecordCount = 412_877,
+        FileSizeBytes = 128L * 1024 * 1024,
+        MaximumSizeBytes = 128L * 1024 * 1024,
+        Mode = EventLogMode.Circular,
+    };
+
     /// <summary>Registers <paramref name="connector"/> as the application's reader (instead of the empty default fake).</summary>
     public static Action<IServiceCollection> Use(FakeEventLogConnector connector) =>
         services => services.Replace(ServiceDescriptor.Singleton<IEventLogConnector>(connector));

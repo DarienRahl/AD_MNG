@@ -1,6 +1,7 @@
 <!--
-  Result of a test send (DeliveryTestViewModel): summary, the stages (✓/✗, detail, status codes, duration), the localized
-  hints and why the test could not run; Cancel while it runs.
+  Result of a test send (DeliveryTestViewModel): the stages (✓/✗, detail, status codes, duration) and the localized hints.
+  That the test runs (with Stop on the button that started it and in the line), how it ended and why it could not run are
+  said by the status line of the tab; each stage keeps its own result in its row.
 -->
 <UserControl x:Class="AdMng.App.Views.Watchdog.WatchdogDeliveryTestView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -8,43 +9,6 @@
              xmlns:l="clr-namespace:AdMng.App.Localization"
              xmlns:wd="clr-namespace:AdMng.Presentation.Watchdog;assembly=AdMng.Presentation">
   <StackPanel>
-    <DockPanel Visibility="{Binding SummaryText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <Button x:Name="CancelButton"
-              Margin="8,0,0,0"
-              Command="{Binding CancelCommand}"
-              Content="{l:Tr Common.Cancel}"
-              DockPanel.Dock="Right"
-              Visibility="{Binding IsRunning, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-      <ProgressBar Width="50"
-                   Margin="0,0,8,0"
-                   VerticalAlignment="Center"
-                   DockPanel.Dock="Left"
-                   IsIndeterminate="True"
-                   Visibility="{Binding IsRunning, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-      <TextBlock x:Name="SummaryText"
-                 VerticalAlignment="Center"
-                 AutomationProperties.LiveSetting="Polite"
-                 FontWeight="SemiBold"
-                 Text="{Binding SummaryText, Mode=OneWay}"
-                 TextWrapping="Wrap">
-        <TextBlock.Style>
-          <Style TargetType="TextBlock">
-            <Style.Triggers>
-              <DataTrigger Binding="{Binding Success, Mode=OneWay}" Value="True">
-                <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}" />
-              </DataTrigger>
-              <DataTrigger Binding="{Binding Success, Mode=OneWay}" Value="False">
-                <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
-              </DataTrigger>
-            </Style.Triggers>
-          </Style>
-        </TextBlock.Style>
-      </TextBlock>
-    </DockPanel>
-    <TextBlock x:Name="ErrorText"
-               AutomationProperties.LiveSetting="Assertive"
-               Style="{StaticResource Wd.FieldError}"
-               Text="{Binding Error, Mode=OneWay}" />
     <ItemsControl x:Name="StagesList"
                   Margin="0,4,0,0"
                   AutomationProperties.Name="{l:Tr Watchdog.Ui.TestStages}"
@@ -90,11 +54,9 @@
                   ItemsSource="{Binding Hints, Mode=OneWay}">
       <ItemsControl.ItemTemplate>
         <DataTemplate>
-          <Border Margin="0,4,0,0"
-                  Padding="10,6"
-                  Style="{StaticResource Ad.WarningBar}">
+          <ContentControl Margin="0,4,0,0" Style="{StaticResource Ad.Note.Attention}">
             <TextBlock Text="{Binding Mode=OneWay}" TextWrapping="Wrap" />
-          </Border>
+          </ContentControl>
         </DataTemplate>
       </ItemsControl.ItemTemplate>
     </ItemsControl>

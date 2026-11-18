@@ -12,6 +12,7 @@ using AdMng.Core.EventLogs.Analysis;
 using AdMng.Presentation.Computers;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.EventLogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.PropertySheets;
 using AdMng.Testing;
@@ -57,11 +58,11 @@ public sealed class EventLogDocumentsUiTests
         var view = Assert.Single(UiWait.Descendants<EventLogReaderView>(main));
         Assert.Equal("Dzienniki zdarzeń", view.TitleText.Text);
         Assert.Equal(TextTrimming.CharacterEllipsis, view.TitleText.TextTrimming);
-        Assert.False(view.NotSupportedBar.IsVisible);
+        Assert.Equal(PageStatusKind.Idle, view.PageStatus.Kind);
         Assert.Equal(2, view.SourcesList.Items.Count);
         Assert.Equal(7, view.RecordsList.Items.Count);
         Assert.True(VirtualizingPanel.GetIsVirtualizing(view.RecordsList));
-        Assert.Equal("Zdarzeń: 7 z 2 źródeł", view.StatusLine.Text);
+        Assert.Equal("Zdarzeń: 7 z 2 źródeł", view.PageStatus.Message);
         Assert.Equal(2, view.HostsList.Items.Count);
         Assert.True(view.DetailsEmptyText.IsVisible);
         Assert.Equal(2, UiWait.Descendants<PaneSplitter>(view).Count());
@@ -300,7 +301,7 @@ public sealed class EventLogDocumentsUiTests
     });
 
     [Fact]
-    public Task NotSupported_ShowsTheBanner_AndDisablesTheRun() => WpfTestHost.RunAsync(async () =>
+    public Task NotSupported_IsTheStateOfTheStatusLine_AndDisablesTheRun() => WpfTestHost.RunAsync(async () =>
     {
         var connector = EventLogUiSupport.CreateConnector();
         connector.IsSupported = false;
@@ -312,12 +313,13 @@ public sealed class EventLogDocumentsUiTests
         await shell.InitializeAsync();
 
         var document = shell.OpenEventLogDocument(new EventLogDocumentRequest(EventLogDocumentKind.FailedLogons));
-        Assert.IsType<FailedLogonsDocumentViewModel>(document);
+        var failed = Assert.IsType<FailedLogonsDocumentViewModel>(document);
         main.UpdateLayout();
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
         var view = Assert.Single(UiWait.Descendants<FailedLogonsView>(main));
-        Assert.True(view.NotSupportedBar.IsVisible);
-        Assert.False(string.IsNullOrWhiteSpace(view.NotSupportedText.Text));
+        Assert.Equal(PageStatusKind.Attention, view.PageStatus.Kind);
+        Assert.False(string.IsNullOrWhiteSpace(view.PageStatus.Message));
+        Assert.Equal(failed.NotSupportedText, view.PageStatus.Message);
         Assert.False(view.RunButton.IsEnabled);
         context.AssertHealthy();
     });

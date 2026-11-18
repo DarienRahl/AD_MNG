@@ -25,7 +25,10 @@ okno.
 
 **Zakres:** cała domena, jednostka organizacyjna (z poddrzewem), zapisany widok albo członkowie grupy (jak w *Przeglądzie
 kont*). *Sprawdź* (F5) czyta konta komputerów jednym stronicowanym zapytaniem (`sAMAccountType=805306369`, bez kont usług
-zarządzanych). Wyniki pojawiają się na bieżąco, a *Przerwij* zatrzymuje odczyt.
+zarządzanych). Wyniki pojawiają się na bieżąco. Wiersz stanu u góry okna mówi, ile komputerów odczytano, i ma *Zatrzymaj*;
+w trakcie sprawdzania sam przycisk *Sprawdź* jest jego przyciskiem *Anuluj*. Ten sam wiersz mówi, jak skończył się odczyt
+dokładnego ostatniego logowania, ustalanie lokacji i ping (co nie odpowiedziało, co pominięto), oraz co trwa: sesja okna się
+skończyła albo sprawdzanie się nie udało (z *Ponów*).
 
 **Raporty** (kafelki z liczbą komputerów):
 
@@ -129,7 +132,10 @@ Akcje działają jak dla innych obiektów, z dodatkowymi regułami dla komputer�
 ## 4. Zdalne akcje (WinRM, Kerberos)
 
 *Komputer → Zdalne akcje…* otwiera okno komputera (jedno na komputer w oknie połączenia). W nagłówku okna widać nazwę
-komputera, jego nazwę DNS i sposób połączenia, np. *Połączenie: WinRM (HTTP 5985, Kerberos) jako CONTOSO\admin*.
+komputera i jego nazwę DNS, a w wierszu stanu pod nim sposób połączenia, np. *Połączenie: WinRM (HTTP 5985, Kerberos) jako
+CONTOSO\admin*. Ten sam wiersz mówi, która akcja trwa (z *Zatrzymaj*; przycisk akcji jest jej przyciskiem *Anuluj*) i jak
+się skończyła: odczyt zostawia wynik w karcie lub na liście, akcja mówi, co zrobiono, a zatrzymana akcja mówi, że nie
+wiadomo, czy komputer otrzymał żądanie.
 
 | Akcja | Co robi |
 |---|---|

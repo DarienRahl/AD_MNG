@@ -176,6 +176,9 @@ public static partial class L
         public const string ToggleDetailsPane = "Commands.ToggleDetailsPane";
         public const string CommandPalette = "Commands.CommandPalette";
         public const string SessionLog = "Commands.SessionLog";
+
+        /// <summary>Tools menu, palette: the PowerShell window of track R.</summary>
+        public const string PowerShell = "Commands.PowerShell";
         public const string Settings = "Commands.Settings";
         public const string Disconnect = "Commands.Disconnect";
         public const string ChangeDomainController = "Commands.ChangeDomainController";
@@ -218,6 +221,10 @@ public static partial class L
         public const string FilterMatches = "List.FilterMatches";
         public const string QuickFilterPlaceholder = "List.QuickFilterPlaceholder";
         public const string Empty = "List.Empty";
+
+        /// <summary>What an empty list says when a filter hides every row (V2b-5b); the action clears the filter.</summary>
+        public const string EmptyFiltered = "List.EmptyFiltered";
+        public const string ClearFilter = "List.ClearFilter";
         public const string LocationDeleted = "List.LocationDeleted";
         public const string ServerFilters = "List.ServerFilters";
     }
@@ -378,6 +385,24 @@ public static partial class L
         public const string LanguagePolish = "Settings.LanguagePolish";
         public const string LanguageEnglish = "Settings.LanguageEnglish";
         public const string Theme = "Settings.Theme";
+
+        /// <summary>Label of the icon style choice (V1: colour / monochrome).</summary>
+        public const string IconStyle = "Settings.IconStyle";
+
+        /// <summary>One line under the icon style choice: High Contrast always uses the monochrome icons.</summary>
+        public const string IconStyleHint = "Settings.IconStyleHint";
+
+        /// <summary>Label of the window background choice (V1: the theme's / solid).</summary>
+        public const string WindowBackground = "Settings.WindowBackground";
+
+        /// <summary>The lines under the window background choice: what "solid" is for, and that it needs a restart.</summary>
+        public const string WindowBackgroundHint = "Settings.WindowBackgroundHint";
+
+        /// <summary>Label of the motion choice (V1: follow Windows / on / off).</summary>
+        public const string Motion = "Settings.Motion";
+
+        /// <summary>The lines under the motion choice: what "follow Windows" means, and that progress indicators stay.</summary>
+        public const string MotionHint = "Settings.MotionHint";
         public const string PageSize = "Settings.PageSize";
         public const string BatchParallelism = "Settings.BatchParallelism";
         public const string ConfirmationThreshold = "Settings.ConfirmationThreshold";

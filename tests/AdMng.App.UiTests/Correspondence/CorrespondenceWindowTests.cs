@@ -19,6 +19,7 @@ using AdMng.Core.Correspondence.Outlook;
 using AdMng.Core.Ldap;
 using AdMng.Presentation.Correspondence;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Services;
@@ -171,7 +172,7 @@ public sealed class CorrespondenceWindowTests
 
         // The status bar and the pages' controls show their view models.
         Assert.Equal(window.ViewModel.Outlook.StateText, window.OutlookStateText.Text);
-        Assert.Equal(window.ViewModel.StatusText, window.StatusText.Text);
+        Assert.Equal(window.ViewModel.Status.Current.Message, window.PageStatus.Message);
         Assert.Same(window.ViewModel.Message, window.MessageEditor.Host);
         Assert.Same(window.ViewModel.Message.SendModeChoices, window.SendModeBox.ItemsSource);
         Assert.Same(window.ViewModel.Preview.WidthChoices, window.PreviewWidthBox.ItemsSource);
@@ -421,7 +422,9 @@ public sealed class CorrespondenceWindowTests
         Assert.Equal("0", window.FailedCountText.Text);
         Assert.NotEmpty(vm.Send.Results);
         Assert.Equal(vm.Send.Results.Count, window.ResultsList.Items.Count);
-        Assert.Equal(vm.Send.ProgressText, window.ProgressText.Text);
+        Assert.Equal(PageStatusKind.Done, window.PageStatus.Kind);
+        Assert.Equal(vm.Send.Status.Current.Message, window.PageStatus.Message);
+        Assert.StartsWith(vm.Send.ProgressText, window.PageStatus.Message, StringComparison.Ordinal);
         Assert.Equal(RecipientStatusKind.Sent, Assert.Single(vm.Recipients.Items).StatusKind);
         context.AssertHealthy();
     });
@@ -448,7 +451,7 @@ public sealed class CorrespondenceWindowTests
         Assert.Equal(Visibility.Collapsed, window.NoExchangeHint.Visibility);
         Assert.Equal(Visibility.Collapsed, window.NoMailboxesHint.Visibility);
         Assert.Equal(mailboxes.View.Count, window.MailboxesGrid.Items.Count);
-        Assert.Equal(mailboxes.SummaryText, window.MailboxSummaryText.Text);
+        Assert.Equal(mailboxes.SummaryText, window.PageStatus.Message);   // the summary of the page in front is the line's
 
         var sekretariat = Row(mailboxes, sample.SekretariatIt);
         Assert.Equal(OwnerMatchStatus.Matched, sekretariat.Status);
@@ -509,12 +512,13 @@ public sealed class CorrespondenceWindowTests
         Assert.Equal(BindingStatus.Active, Expression(window.OutlookAccountBox, ItemsControl.ItemsSourceProperty).Status);
         Assert.Equal(BindingStatus.Active, Expression(window.LoadOutlookAccountsButton, ButtonBase.CommandProperty).Status);
         Assert.Equal(BindingStatus.Active, Expression(window.OutlookOnBehalfBox, ToggleButton.IsCheckedProperty).Status);
-        Assert.Equal(BindingStatus.Active, Expression(window.OutlookAccountsText, TextBlock.TextProperty).Status);
 
-        // "Pobierz konta z Outlooka" reads the accounts of the (in-memory) profile.
+        // "Pobierz konta z Outlooka" reads the accounts of the (in-memory) profile; how it ended is said by the status
+        // line of the window (the tab is the page in front) - a result that stays until it is closed.
         window.LoadOutlookAccountsButton.Command.Execute(null);
         await UiWait.UntilAsync(() => window.OutlookAccountBox.Items.Count == FakeOutlookClient.SampleProfile.Accounts.Count, "the accounts of the profile");
-        await UiWait.UntilAsync(() => window.OutlookAccountsText.Visibility == Visibility.Visible, "the outcome of loading the accounts");
+        await UiWait.UntilAsync(() => window.PageStatus.Kind == PageStatusKind.Done, "the outcome of loading the accounts in the status line");
+        Assert.Equal("Profil Outlooka „Outlook” ma 2 konta. Wybierz z listy konto, z którego będą wysyłane wiadomości.", window.PageStatus.Message);
         Assert.Contains(window.OutlookAccountBox.Items.Cast<object>(), a => a.ToString()!.Contains("sekretariat.lodz@contoso.test", StringComparison.Ordinal));
         window.OutlookAccountBox.Text = "sekretariat.lodz@contoso.test";
         window.OutlookOnBehalfBox.IsChecked = true;

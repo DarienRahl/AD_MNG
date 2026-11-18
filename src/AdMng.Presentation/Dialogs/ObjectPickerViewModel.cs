@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Core.Model;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
@@ -38,16 +39,31 @@ public sealed partial class ObjectTypeOption : ObservableObject
 /// "Check Names" (ambiguous name resolution; several matches are listed for choice) and an advanced search list.
 /// <see cref="Result"/> holds the chosen DNs after OK.
 /// </summary>
-public sealed partial class ObjectPickerViewModel : WindowViewModelBase
+/// <remarks>
+/// The dialog has one status line (<see cref="Status"/>; track V, stage V2b, design note
+/// docs/dev/v-interface-renewal.md "V2b-2 as built"). "Find Now" and the check of the typed names (Check Names, and OK
+/// with names in the box) are its operations - one at a time, each command refuses while another runs - and can be
+/// stopped in the line. The line says how they ended: how many objects the list shows (the summary), that more match
+/// than are listed, which names were not resolved, that the operation was stopped or why it failed, with Retry. A
+/// check that resolved every name says nothing - the chosen objects appear - and neither does OK that closes the
+/// dialog. As the state that lasts: the session of the dialog ended.
+/// </remarks>
+public sealed partial class ObjectPickerViewModel : WindowViewModelBase, IHasPageStatus
 {
     /// <summary>Maximum objects listed by Find Now (ADUC shows a hint to refine the search above that).</summary>
     public const int MaxResults = 500;
 
     private const int MaxMatchesPerName = 50;
 
+    /// <summary>How many names that were not resolved the line explains at most (all of them stay in the box).</summary>
+    private const int MaxReasons = 3;
+
     private readonly IDirectorySession _session;
     private readonly SerialCancellation _searches = new();
     private IList? _selectedResults;
+
+    /// <summary>The list of results was filled at least once: the line has its count as the summary.</summary>
+    private bool _listed;
 
     /// <summary>The listed matches of ambiguous names → the typed name each one answers (ADUC "Multiple Names Found").</summary>
     private Dictionary<DirectoryItem, string> _ambiguousMatches = new(ReferenceEqualityComparer.Instance);
@@ -68,11 +84,19 @@ public sealed partial class ObjectPickerViewModel : WindowViewModelBase
         }
 
         LocationDn = session.Info.DefaultNamingContext;
+        Status = new PageStatusHolder(Localizer, services.Dispatcher, services.Lists.StatusLog);
+        UpdateLasting();
     }
 
     /// <summary>"Select Groups" / "Wybieranie: Grupy".</summary>
     public override string WindowTitle =>
         Localizer.Format(L.Picker.WindowTitle, string.Join(", ", ObjectTypes.Select(o => o.Text)));
+
+    /// <summary>
+    /// The status of the dialog - what its one status line shows: the running search or check of names (with Stop), how
+    /// it ended, at rest how many objects the list of results shows, and that the session of the dialog ended.
+    /// </summary>
+    public PageStatusHolder Status { get; }
 
     public bool IsMultiSelect { get; }
 
@@ -116,7 +140,10 @@ public sealed partial class ObjectPickerViewModel : WindowViewModelBase
     [NotifyCanExecuteChangedFor(nameof(FindNowCommand), nameof(CheckNamesCommand), nameof(OkCommand))]
     public partial bool IsSearching { get; private set; }
 
-    /// <summary>Localized status ("3 objects found", "Name not found: x", "Several objects match: x").</summary>
+    /// <summary>
+    /// Localized status ("3 objects found", "Name not found: x", "Several objects match: x") as plain text: the status
+    /// line says it (kept for callers that read it).
+    /// </summary>
     [ObservableProperty]
     public partial string? StatusText { get; private set; }
 
@@ -140,13 +167,31 @@ public sealed partial class ObjectPickerViewModel : WindowViewModelBase
         }
     }
 
-    /// <summary>Lists the objects of the checked types in the location (ANR filtered by the typed text when present).</summary>
+    /// <summary>
+    /// Lists the objects of the checked types in the location (ANR filtered by the typed text when present). The search
+    /// is an operation of the dialog: its line says "Searching in …" with Stop; the list it fills is the result, so the
+    /// line then shows its count - and says, as an attention, when more objects match than are listed. A search that
+    /// was stopped or failed leaves the list as it was.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanSearch))]
     private async Task FindNowAsync()
     {
-        var token = _searches.Next();
+        if (IsSessionEnded)
+        {
+            // The line says so for good.
+            return;
+        }
+
+        var latest = _searches.Next();
         IsSearching = true;
         StatusText = Localizer[L.Common.Loading];
+        var location = LocationText;
+        using var searching = Status.Begin(
+            Localizer.Format(L.ObjectPickerStatus.Searching, location), new PageStatusLog(L.ObjectPickerStatus.Searching));
+
+        // The operator's Stop and "the latest wins" (closing the dialog, the end of its session) both end the search.
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(latest, searching.Token);
+        var token = linked.Token;
         try
         {
             var text = SearchText.Trim();
@@ -154,23 +199,59 @@ public sealed partial class ObjectPickerViewModel : WindowViewModelBase
                 ? LdapFilter.And(KindsFilter(), LdapFilter.Anr(text))
                 : KindsFilter();
             var found = await SearchAsync(filter, MaxResults + 1, token).ConfigureAwait(true);
+            if (searching.IsEnded)
+            {
+                return;
+            }
+
+            if (searching.IsCancelling)
+            {
+                // The domain controller answered although Stop was pressed: the list stays as it was.
+                SearchStopped(searching);
+                return;
+            }
+
             _ambiguousMatches = new(ReferenceEqualityComparer.Instance);
             Results.ReplaceAll(found.Take(MaxResults));
-            StatusText = found.Count > MaxResults
-                ? Localizer.Format(L.Picker.TooMany, MaxResults)
-                : Localizer.Format(L.Picker.Found, found.Count);
+            _listed = true;
+            UpdateSummary();
+            if (found.Count > MaxResults)
+            {
+                StatusText = Localizer.Format(L.Picker.TooMany, MaxResults);
+                searching.CompleteAttention(
+                    Localizer.Format(L.ObjectPickerStatus.TooMany, MaxResults), new PageStatusLog(L.ObjectPickerStatus.TooMany, MaxResults));
+            }
+            else
+            {
+                // The list is the result: the line shows its count as the summary.
+                StatusText = Localizer.Format(L.Picker.Found, found.Count);
+            }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
-            // Superseded.
+            // Only a search the operator stopped says so.
+            if (searching.IsCancelling)
+            {
+                SearchStopped(searching);
+            }
         }
         catch (DirectoryException ex)
         {
+            if (searching.IsEnded)
+            {
+                return;
+            }
+
             StatusText = Errors.Translate(ex);
+            var code = ResultCode.Of(ex);
+            searching.CompleteError(
+                PageStatusText.Failure(Localizer.Format(L.ObjectPickerStatus.SearchFailed, location), StatusText, Localizer[L.Feedback.RetryNext], code),
+                new PageStatusLog(L.ObjectPickerStatus.SearchFailed).WithCode(code),
+                new PageStatusAction(Localizer[L.Common.Retry], FindNowCommand));
         }
         finally
         {
-            if (_searches.IsCurrent(token))
+            if (_searches.IsCurrent(latest))
             {
                 IsSearching = false;
             }
@@ -181,6 +262,12 @@ public sealed partial class ObjectPickerViewModel : WindowViewModelBase
     [RelayCommand(CanExecute = nameof(CanCheckNames))]
     private Task CheckNamesAsync() => ResolveNamesAsync();
 
+    /// <summary>
+    /// The check of the typed names - an operation of the dialog: its line says "Checking the names (3)…" with Stop.
+    /// Every name with exactly one match is chosen, the matches of ambiguous names are listed, and the names that were
+    /// not resolved stay in the box; the line then says which ones and why (three at most). A check that resolved
+    /// everything says nothing. A check that was stopped or failed changes nothing: no object is added.
+    /// </summary>
     private async Task<bool> ResolveNamesAsync()
     {
         var terms = SearchText.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -189,14 +276,27 @@ public sealed partial class ObjectPickerViewModel : WindowViewModelBase
             return true;
         }
 
-        var token = _searches.Next();
+        if (IsSessionEnded)
+        {
+            // The line says so for good.
+            return false;
+        }
+
+        var latest = _searches.Next();
         IsSearching = true;
+        using var checking = Status.Begin(
+            Localizer.Format(L.ObjectPickerStatus.Checking, terms.Length), new PageStatusLog(L.ObjectPickerStatus.Checking, terms.Length));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(latest, checking.Token);
+        var token = linked.Token;
         var unresolved = new List<string>();
         var messages = new List<string>();
         try
         {
+            var resolved = new List<DirectoryItem>();
             var ambiguous = new List<DirectoryItem>();
             var ambiguousMatches = new Dictionary<DirectoryItem, string>(ReferenceEqualityComparer.Instance);
+            var notFound = 0;
+            var several = 0;
             foreach (var term in terms)
             {
                 var matches = await FindByNameAsync(term, token).ConfigureAwait(true);
@@ -205,9 +305,10 @@ public sealed partial class ObjectPickerViewModel : WindowViewModelBase
                     case 0:
                         unresolved.Add(term);
                         messages.Add(Localizer.Format(L.Picker.NotFound, term));
+                        notFound++;
                         break;
                     case 1:
-                        Choose(matches[0]);
+                        resolved.Add(matches[0]);
                         break;
                     default:
                         unresolved.Add(term);
@@ -218,41 +319,107 @@ public sealed partial class ObjectPickerViewModel : WindowViewModelBase
                         }
 
                         messages.Add(Localizer.Format(L.Picker.Ambiguous, term));
+                        several++;
                         break;
                 }
+            }
+
+            if (checking.IsEnded)
+            {
+                return false;
+            }
+
+            if (checking.IsCancelling)
+            {
+                // The domain controller answered although Stop was pressed: nothing is added.
+                CheckStopped(checking);
+                return false;
+            }
+
+            foreach (var item in resolved)
+            {
+                Choose(item);
             }
 
             if (ambiguous.Count > 0)
             {
                 _ambiguousMatches = ambiguousMatches;
                 Results.ReplaceAll(ambiguous);
+                _listed = true;
+                UpdateSummary();
             }
 
             SearchText = string.Join("; ", unresolved);
             StatusText = messages.Count == 0 ? null : string.Join(Environment.NewLine, messages);
+            if (messages.Count > 0)
+            {
+                // What was skipped and why, name by name (the sentences the dialog always had); the rest is in the box.
+                checking.CompleteAttention(
+                    PageStatusText.Failure(Localizer[L.ObjectPickerStatus.NotResolved], string.Join(" ", messages.Take(MaxReasons))),
+                    new PageStatusLog(L.ObjectPickerStatus.NotResolved, notFound, several));
+            }
+
             return unresolved.Count == 0;
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
+            // Only a check the operator stopped says so.
+            if (checking.IsCancelling)
+            {
+                CheckStopped(checking);
+            }
+
             return false;
         }
         catch (DirectoryException ex)
         {
+            if (checking.IsEnded)
+            {
+                return false;
+            }
+
             StatusText = Errors.Translate(ex);
+            var code = ResultCode.Of(ex);
+            checking.CompleteError(
+                PageStatusText.Failure(Localizer[L.ObjectPickerStatus.CheckFailed], StatusText, Localizer[L.Feedback.RetryNext], code),
+                new PageStatusLog(L.ObjectPickerStatus.CheckFailed).WithCode(code),
+                new PageStatusAction(Localizer[L.Common.Retry], CheckNamesCommand));
             return false;
         }
         finally
         {
-            if (_searches.IsCurrent(token))
+            if (_searches.IsCurrent(latest))
             {
                 IsSearching = false;
             }
         }
     }
 
-    private bool CanCheckNames() => !IsSearching && SearchText.Trim().Length > 0;
+    /// <summary>The operator stopped the search: the list is as it was, and "Find Now" searches again.</summary>
+    private void SearchStopped(OperationScope searching)
+    {
+        StatusText = Localizer[L.Errors.Cancelled];
+        var again = Localizer[L.Find.FindNow];
+        searching.CompleteAttention(
+            Localizer.Format(L.ObjectPickerStatus.SearchStopped, again),
+            new PageStatusLog(L.ObjectPickerStatus.SearchStopped),
+            new PageStatusAction(again, FindNowCommand));
+    }
 
-    private bool CanSearch() => !IsSearching && ObjectTypes.Any(o => o.IsChecked);
+    /// <summary>The operator stopped the check of the names: nothing was added, and "Check Names" checks again.</summary>
+    private void CheckStopped(OperationScope checking)
+    {
+        StatusText = Localizer[L.Errors.Cancelled];
+        var again = Localizer[L.Picker.CheckNames];
+        checking.CompleteAttention(
+            Localizer.Format(L.ObjectPickerStatus.CheckStopped, again),
+            new PageStatusLog(L.ObjectPickerStatus.CheckStopped),
+            new PageStatusAction(again, CheckNamesCommand));
+    }
+
+    private bool CanCheckNames() => !IsSearching && !IsSessionEnded && SearchText.Trim().Length > 0;
+
+    private bool CanSearch() => !IsSearching && !IsSessionEnded && ObjectTypes.Any(o => o.IsChecked);
 
     /// <summary>
     /// Adds the selected results to <see cref="Chosen"/>. A match of an ambiguous name answers that name: the name is
@@ -328,6 +495,22 @@ public sealed partial class ObjectPickerViewModel : WindowViewModelBase
     {
         base.OnCultureChanged();
         OnPropertyChanged(nameof(LocationText));
+
+        // The dialog's own sentences in the new language (how a search or a check ended stays as it was said).
+        UpdateLasting();
+        UpdateSummary();
+    }
+
+    protected override void OnSessionEnded()
+    {
+        // The line says for good that the session ended; a search or a check that still runs ends without a word of its
+        // own (the state first, so the line goes straight from "working" to it), and "busy" ends with it at once.
+        UpdateLasting();
+        _searches.Cancel();
+        Status.Operation?.Dispose();
+        IsSearching = false;
+        FindNowCommand.NotifyCanExecuteChanged();
+        CheckNamesCommand.NotifyCanExecuteChanged();
     }
 
     protected override void Dispose(bool disposing)
@@ -335,6 +518,9 @@ public sealed partial class ObjectPickerViewModel : WindowViewModelBase
         if (disposing)
         {
             _searches.Cancel();
+
+            // What still runs says nothing any more.
+            Status.Operation?.Dispose();
             foreach (var option in ObjectTypes)
             {
                 option.Changed -= OnObjectTypesChanged;
@@ -343,6 +529,16 @@ public sealed partial class ObjectPickerViewModel : WindowViewModelBase
     }
 
     private void OnObjectTypesChanged(object? sender, EventArgs e) => FindNowCommand.NotifyCanExecuteChanged();
+
+    /// <summary>
+    /// The state of the dialog that lasts: its session ended - an error that cannot be closed, nothing can be searched
+    /// any more. (The dialog is always opened with the session of its caller, so there is no "not connected".)
+    /// </summary>
+    private void UpdateLasting() => Status.SetLasting(SessionEndedStatus);
+
+    /// <summary>The summary of the list of results: how many objects it shows (nothing before it was filled once).</summary>
+    private void UpdateSummary() => Status.SetIdle(
+        _listed ? Localizer.Format(L.ObjectPickerStatus.Found, PageStatusText.Objects(Localizer, Results.Count)) : null);
 
     private bool HasSelectedResults() => SelectedItems().Any();
 

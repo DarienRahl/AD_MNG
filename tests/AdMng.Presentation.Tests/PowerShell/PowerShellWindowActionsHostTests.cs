@@ -1,0 +1,130 @@
+using System.Globalization;
+using AdMng.Core.PowerShell;
+using AdMng.Presentation.PowerShell;
+using AdMng.Presentation.Tests.Dialogs;
+
+namespace AdMng.Presentation.Tests.PowerShell;
+
+/// <summary>
+/// The actions of the program (<see cref="PowerShellWindowActions"/>): what <c>Out-AdmGrid</c>, <c>Open-AdmObject</c> and
+/// <c>Export-AdmList</c> do through the connection window's services - the grid window, the property sheet, the CSV file.
+/// </summary>
+public sealed class PowerShellWindowActionsHostTests
+{
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    private static PowerShellGridTable Table() => new(
+        ["DistinguishedName", "Name", "note"],
+        [["CN=Jan,DC=a,DC=b", "Jan Kowalski", "=1+1"], ["CN=Ola,DC=a,DC=b", "Ola; \"Nowak\"", null]],
+        "Users",
+        "DistinguishedName");
+
+    private static PowerShellWindowActions Create(B2Harness harness) => new(harness.Services, harness.Engines.Csv);
+
+    [Fact]
+    public async Task TheGrid_IsShownByTheDialogsOfTheConnection()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var table = Table();
+
+        await Create(harness).ShowInGridAsync(table, Ct);
+
+        Assert.Same(table, Assert.Single(harness.Dialogs.PowerShellGrids));
+    }
+
+    [Fact]
+    public async Task AnObject_IsOpenedByItsDistinguishedName_AndNothingElseIsGuessed()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var actions = Create(harness);
+
+        var opened = await actions.OpenObjectAsync("CN=Jan Kowalski,OU=Firma,DC=contoso,DC=test", Ct);
+        var guid = await actions.OpenObjectAsync(Guid.NewGuid().ToString("D"), Ct);
+        var empty = await actions.OpenObjectAsync("   ", Ct);
+        var root = await actions.OpenObjectAsync("", Ct);
+
+        Assert.Equal(PowerShellOpenOutcome.Opened, opened);
+        Assert.Equal(PowerShellOpenOutcome.NotFound, guid);
+        Assert.Equal(PowerShellOpenOutcome.NotFound, empty);
+        Assert.Equal(PowerShellOpenOutcome.NotFound, root);
+        Assert.Equal(["CN=Jan Kowalski,OU=Firma,DC=contoso,DC=test"], harness.Dialogs.PropertiesShown);
+    }
+
+    [Fact]
+    public async Task AnExportWithAPath_WritesExactlyThatFile_WithTheDelimiterOfTheCommand_AndProtectedFormulas()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var path = Path.Combine(Path.GetTempPath(), "admng-actions-" + Guid.NewGuid().ToString("N") + ".csv");
+        try
+        {
+            var written = await Create(harness).ExportListAsync(Table(), path, ',', Ct);
+
+            Assert.Equal(path, written);
+            var lines = await File.ReadAllLinesAsync(path, Ct);
+            Assert.Equal("DistinguishedName,Name,note", lines[0]);
+            Assert.Equal("CN=Jan,DC=a,DC=b,Jan Kowalski,'=1+1", lines[1].Replace("\"CN=Jan,DC=a,DC=b\"", "CN=Jan,DC=a,DC=b", StringComparison.Ordinal));
+            Assert.Contains("\"Ola; \"\"Nowak\"\"\"", lines[2], StringComparison.Ordinal);
+            Assert.Null(harness.Files.LastDefaultFileName);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task AnExportWithoutAPath_AsksInSaveAs_AndUsesTheSeparatorOfTheRegion()
+    {
+        var harness = await B2Harness.CreateAsync(regional: CultureInfo.GetCultureInfo("pl-PL"));
+        var path = Path.Combine(Path.GetTempPath(), "admng-actions-" + Guid.NewGuid().ToString("N") + ".csv");
+        harness.Files.NextSavePath = path;
+        try
+        {
+            var written = await Create(harness).ExportListAsync(Table(), null, null, Ct);
+
+            Assert.Equal(path, written);
+            Assert.StartsWith("DistinguishedName;Name;note", (await File.ReadAllLinesAsync(path, Ct))[0], StringComparison.Ordinal);
+            Assert.StartsWith("Users", harness.Files.LastDefaultFileName, StringComparison.Ordinal);
+            Assert.EndsWith(".csv", harness.Files.LastDefaultFileName, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task AnExport_WhenSaveAsIsCancelled_WritesNothingAndReturnsNull()
+    {
+        var harness = await B2Harness.CreateAsync();
+        harness.Files.NextSavePath = null;
+
+        var written = await Create(harness).ExportListAsync(Table(), null, null, Ct);
+
+        Assert.Null(written);
+    }
+
+    [Fact]
+    public async Task AnExport_WhenTheFileCannotBeWritten_ThrowsSoTheCommandReportsIt()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var path = Path.Combine(Path.GetTempPath(), "admng-no-such-" + Guid.NewGuid().ToString("N"), "x.csv");
+
+        await Assert.ThrowsAnyAsync<IOException>(() => Create(harness).ExportListAsync(Table(), path, null, Ct));
+    }
+
+    [Fact]
+    public async Task AStoppedCommand_StopsEveryAction_BeforeItDoesAnything()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var actions = Create(harness);
+        using var stopped = new CancellationTokenSource();
+        await stopped.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => actions.ShowInGridAsync(Table(), stopped.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => actions.OpenObjectAsync("CN=Jan,DC=a,DC=b", stopped.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => actions.ExportListAsync(Table(), "x.csv", null, stopped.Token));
+        Assert.Empty(harness.Dialogs.PowerShellGrids);
+        Assert.Empty(harness.Dialogs.PropertiesShown);
+    }
+}

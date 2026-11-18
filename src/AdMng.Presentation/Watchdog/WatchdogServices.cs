@@ -1,5 +1,6 @@
 using AdMng.Core.Csv;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Session;
@@ -39,4 +40,11 @@ public sealed class WatchdogServices(WatchdogConnectionService connection, Dialo
 
     /// <summary>Time zone of displayed times (the operator's local zone).</summary>
     public TimeZoneInfo TimeZone => Time.LocalTimeZone;
+
+    /// <summary>
+    /// A new status holder for a page (or a part of one) of the Watchdog tab (track V, stage V2b-4): the localizer, the UI
+    /// dispatcher and the status logger of the window's list services, as every converted page makes it. The holder belongs to
+    /// the view model that asks for it and dies with it.
+    /// </summary>
+    public PageStatusHolder CreateStatus() => new(Localizer, Dispatcher, Ui.Lists.StatusLog);
 }

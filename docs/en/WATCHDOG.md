@@ -595,13 +595,24 @@ message (identifier, operator account, number of recipients) – without address
 Opening: menu **Tools → Watchdog**, the command palette (Ctrl+K → "Watchdog") or **Ctrl+Shift+A**; for a selected
 object: context menu / details pane → **"Change history (Watchdog)"** (the events of that object by GUID).
 The tab works independently of the AD connection (it stays open after a DC change); it connects to the service over
-HTTPS (only `https://`) with the current Windows account (`runas /netonly` works too); the connection bar always shows
+HTTPS (only `https://`) with the current Windows account (`runas /netonly` works too); the connection card always shows
 the service address.
 The tab header shows the number of unacknowledged high and critical events (refreshed every minute, also in the
 background). AD Manager does not write Watchdog data to disk – in the settings it remembers only the service address, the
 layout and the named filters.
 
-- **The status bar** shows "status + host" once; a second row appears only when a problem needs explaining.
+- **The connection card** (under the tab header) shows the service address and - once connected - the account, the role
+  and the detail level; next to it is the "Change address" button. **The status line** under the card is the one place
+  where the tab says what it is doing and how it ended: connecting to the service, reading the events, older events and
+  the configuration, validating and saving the configuration, the preview of the daily report and of a rule, a delivery
+  test, reading the status of the service, the delivery log and the configuration audit. At rest it shows the summary
+  of the subtab: the events with the selection, the version of the configuration (who saved it and when) or the time
+  the status was read. The reads and the delivery test can be stopped with "Stop" in the line (a test also with the
+  button that started it, which turns into "Cancel" while the test runs); saving the configuration, acknowledging
+  events and "Send now" change data of the service and have no "Stop". A connection error (with "Retry" or "Check
+  certificate…"), a missing address, interrupted live updates, a configuration changed by another administrator
+  ("Reload") and an empty, paused event list after a read that failed or was stopped ("Retry" / "Refresh") stay in the
+  line for as long as they are true. What concerns one subtab is said by the line only while that subtab is selected.
   While the Watchdog tab is selected, the details pane of the main window's object is hidden (the Ctrl+D choice is
   remembered for the object lists). Critical events have an outline around the red dot to tell them apart from high
   ones. The event details pane is 400 px wide; with the splitter it can be widened or narrowed down to 300 px.
@@ -618,8 +629,8 @@ layout and the named filters.
   space left after the other columns (3 : 2). A column width changed by the operator (dragging the header edge or
   double-clicking it, which fits the column to its content) is kept, and the other columns make room for it at once.
 - **Connection problems**: a single request that timed out or did not reach the service (e.g. a slow save or a text
-  search) shows an error in its own subtab, and the tab stays open. The tab hides behind a "Retry" banner only when the
-  live updates fail too, and comes back by itself after the next successful status read (within 30–60 s), without
+  search) shows an error in its own subtab, and the tab stays open. The tab hides behind a connection error in the
+  status line ("Retry") only when the live updates fail too, and comes back by itself after the next successful status read (within 30–60 s), without
   clicking "Retry". After a failed connection to a **different** service address you have to click "Retry".
 - "Retry" or F5 after a connection problem **keep** unsaved configuration changes and the passwords/secrets the
   administrator has typed, if the service address has not changed; changing the service address loads the configuration
@@ -649,7 +660,7 @@ layout and the named filters.
 | Subtab | Contents |
 |---|---|
 | Events | a live list (new events appear on their own), filters (priority, category, kind, object, OU, tags – e.g. "privileged", attribution status – e.g. "show undetermined", actor, text also by workstation/IP, dates, unacknowledged) with saved sets, acknowledging many events at once; details: changes old → new, the actor and source with the confidence level and evidence (DC, event number), for lockouts the source of bad passwords, related events, notifications sent; "Acknowledge", "Show in AD Manager" (the current location of the object by GUID; a deleted object – the AD Recycle Bin window), "Unlock account" (through a change plan with preview), "Copy", CSV export (only on the operator's command) |
-| Rules | the rule list, the editor, exclusions and proposed exclusions, preview of the effects, the deployment mode banner |
+| Rules | the rule list, the editor, exclusions and proposed exclusions, preview of the effects, the note about rollout mode with its "End rollout mode" button |
 | Channels and SMTP | SMTP, recipient groups, Teams and webhook channels, test sends with diagnostics |
 | Daily digest | the schedule, recipients, a preview of the content, "Send now" |
 | Status | the connection to the DC, the USN marker, the baseline snapshot, the permissions check, the logs of each DC (attribution coverage, the number and time of source queries), channels, the database and backups, the delivery log (retries), the configuration change history; from 0.3.0 also the sections **Service account** (kvno, last and next password change, encryption types, keytab consistency with AD, membership in privileged groups), **WEF collector** (for each DC: the last record, delay, backlog, records stored and rejected), **GPO content** (read progress, errors, SYSVOL delay) and **Host** (system, .NET environment, secrets key variant, free space, clock difference, LDAP encryption); every reported status code has a description and a recommendation – among others an expiring TLS certificate and its private key, database size and maintenance, notification scheduling, "Configured DNs that no longer exist", domain controller discovery, the attribution source, denied search for changes in the directory (`permission.search`) |

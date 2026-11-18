@@ -33,6 +33,24 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: "true"
 
 jobs:
+  checks:
+    # Seconds, no .NET and no secrets: what tools/release/release.sh checks before it commits a release
+    # (docs/dev/releasing.md). Versions agree in all their places, release notes are well-formed, Polish and English
+    # documents have the same headings, relative links and anchors resolve, the resx pairs have the same keys.
+    name: Checks (versions, release notes, documentation)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Release and documentation checks
+        run: bash tools/release/release.sh check
+      - name: Icon set (sources valid, generated files up to date)
+        run: python3 tools/icon/build-icon-set.py --check
+
   windows:
     name: Build, unit & UI smoke tests (Windows)
     runs-on: windows-latest
@@ -55,6 +73,23 @@ jobs:
         env:
           ADMNG_UI_TESTS: "1"
           ADMNG_WINDOWS_EVENTLOG_TESTS: "1"
+      # The UI tests grew from 11 to 27 minutes within a day of new tests: the thirty slowest of the run, from the trx files,
+      # say where the time goes (a test that waits for its own timeout shows up here).
+      - name: Slowest tests
+        if: always()
+        # A diagnostic: whatever goes wrong in it must never turn a green test run red.
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $rows = Get-ChildItem TestResults -Filter *.trx -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+            # -LiteralPath: a second run of one assembly is named "...net10.0[1].trx", and in -Path the brackets are a wildcard.
+            [xml]$trx = Get-Content -LiteralPath $_.FullName
+            $trx.TestRun.Results.UnitTestResult | ForEach-Object {
+              [pscustomobject]@{ Seconds = [TimeSpan]::Parse($_.duration).TotalSeconds; Outcome = $_.outcome; Test = $_.testName }
+            }
+          }
+          "{0} tests, {1:N0} s in all" -f @($rows).Count, (($rows | Measure-Object Seconds -Sum).Sum)
+          $rows | Sort-Object Seconds -Descending | Select-Object -First 30 | ForEach-Object { '{0,8:N1} s  {1,-9} {2}' -f $_.Seconds, $_.Outcome, $_.Test }
       - name: Publish (self-contained single file)
         run: dotnet publish src/AdMng.App/AdMng.App.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o publish
       - name: Smoke test published app
@@ -66,6 +101,17 @@ jobs:
             -RedirectStandardOutput smoke-out.txt -RedirectStandardError smoke-err.txt
           Get-Content smoke-out.txt, smoke-err.txt -ErrorAction SilentlyContinue
           if ($p.ExitCode -ne 0) { throw "Smoke test failed with exit code $($p.ExitCode)" }
+      - name: Published layout of the PowerShell engine
+        # Track R (ADR-0010): the engine runs from the single-file AdMng.exe (the smoke test above proves it); its all-users configuration and
+        # the help of its commands are published beside the program, and the four sni.dll packages (not OSI licensed) are not in the output.
+        shell: pwsh
+        run: |
+          foreach ($file in 'powershell.config.json', 'AdMng.PowerShell.dll-Help.xml') {
+            if (-not (Test-Path "publish/$file")) { throw "$file is missing from the publish output" }
+          }
+          if (Get-ChildItem publish -Recurse -Filter 'sni*.dll') { throw 'The output has an sni.dll (ADR-0010, Package licenses)' }
+          $folder = (Get-ChildItem publish -Recurse -File | Measure-Object Length -Sum).Sum
+          'AdMng.exe {0:N1} MB, the publish folder {1:N1} MB' -f ((Get-Item publish/AdMng.exe).Length / 1MB), ($folder / 1MB)
       - uses: actions/upload-artifact@v4
         with:
           name: AdMng-win-x64
@@ -84,6 +130,11 @@ jobs:
           foreach ($script in 'Install-AdMngWatchdog.ps1', 'AdMngWatchdog.Install.psm1', 'Uninstall-AdMngWatchdog.ps1') {
             if (-not (Test-Path "publish-watchdog/Deploy/$script")) { throw "Deploy/$script is missing from the publish output" }
           }
+      - name: The Watchdog package has no PowerShell engine
+        # Track R (ADR-0010): the engine is used by AdMng.App only and never ships with the service.
+        shell: pwsh
+        run: |
+          if (Get-ChildItem publish-watchdog -Recurse -Filter 'System.Management.Automation*.dll') { throw 'The Watchdog publish output has the PowerShell engine' }
       - uses: actions/upload-artifact@v4
         with:
           name: AdMng-Watchdog-win-x64
@@ -129,6 +180,14 @@ jobs:
     env:
       # Public test values of the throwaway lab (tools/testlab/README.md) – no secrets are needed.
       ADMNG_TEST_LDAP_SERVER: 127.0.0.1
+      # Connection-level LDAP errors of the lab tests with libldap's own words (LdapErrorLog), printed by "Samba DC log".
+      ADMNG_TEST_LDAP_ERROR_LOG: /tmp/admng-ldap-errors.log
+      # A test process that dies without a managed stack (exit code 134, SIGABRT) leaves a mini dump and a crash report
+      # (stack of the native and managed frames as JSON) here - printed by "Crash reports".
+      DOTNET_DbgEnableMiniDump: "1"
+      DOTNET_DbgMiniDumpType: "1"
+      DOTNET_DbgMiniDumpName: /tmp/admng-crash-%p.dmp
+      DOTNET_EnableCrashReport: "1"
       ADMNG_TEST_LDAP_USER: Administrator@contoso.test
       ADMNG_TEST_LDAP_PASSWORD: P@ssw0rd!2026
       ADMNG_TEST_LDAP_READONLY_USER: odczyt.test@contoso.test
@@ -139,7 +198,8 @@ jobs:
         with:
           dotnet-version: "10.0.x"
       - name: Set up Samba AD DC lab
-        run: sudo LAB_USERS=400 LAB_COMPUTERS=250 tools/testlab/setup-samba-dc.sh
+        # Log level 3: Samba writes why it ended a connection - read by the "Samba DC log" step after a failure.
+        run: sudo LAB_USERS=400 LAB_COMPUTERS=250 LAB_SAMBA_LOG_LEVEL=3 tools/testlab/setup-samba-dc.sh
       - name: Integration tests
         run: dotnet test tests/AdMng.Directory.IntegrationTests -c Release
       # One project per "dotnet test" call (VSTest mode accepts a single project or solution, MSB1008 otherwise):
@@ -172,13 +232,70 @@ jobs:
       - name: Watchdog lab logs
         if: failure()
         run: tail -n 200 ~/.cache/admng/watchdog-lab/watchdog.log ~/.cache/admng/watchdog-lab/webhook-sink.log || true
+      # The report names the signal, the thread and the frames of the crashed process: tools/testlab/crash-report-summary.py
+      # prints the crashed thread in full (the first 20,000 bytes of the JSON, which this step printed before, held only
+      # waiting threads) and the report itself is uploaded; the dump is not.
+      - name: Crash reports
+        if: failure()
+        run: |
+          ls -la /tmp/admng-crash-* 2>/dev/null || echo "no crash dump or report was written"
+          for report in /tmp/admng-crash-*.crashreport.json; do
+            [ -e "$report" ] || continue
+            echo "=== $report ==="
+            python3 tools/testlab/crash-report-summary.py "$report" || head -c 20000 "$report"
+          done
+      - name: Crash report files
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lab-crash-reports
+          path: /tmp/admng-crash-*.crashreport.json
+          if-no-files-found: ignore
+          retention-days: 14
       # A dropped LDAP connection (ServerUnavailable) shows here as a crashed or restarted Samba worker.
       - name: Samba DC log
         if: failure()
         run: |
           sudo grep -n -i -E "panic|internal error|exited with|signal|backtrace|prefork" /var/log/samba/log.samba | tail -n 60 || true
-          sudo tail -n 150 /var/log/samba/log.samba || true
-          ps -eo pid,etimes,args | grep -E "[s]amba" | head -n 30 || true
+          # Why Samba ended connections (the lab runs with log level 3): every reason with its count, then the ones
+          # that are not a client closing its connection, each with the time and place Samba logged it.
+          sudo grep -h -o "Terminating connection - .*" /var/log/samba/log.samba | sort | uniq -c | sort -rn | head -n 30 || true
+          # Not shown one by one: a client that unbound (LOCAL_DISCONNECT), one that closed its connection
+          # (CONNECTION_DISCONNECTED, END_OF_FILE, CONNECTION_RESET) and one that gave up a TLS handshake - the tests do
+          # all of that all the time (a local run of the lab tests: about 1200, 1000 and 180 of them).
+          sudo awk '/^\[/ {head=$0; next} /Terminating connection/ && !/NT_STATUS_LOCAL_DISCONNECT/ && !/NT_STATUS_CONNECTION_DISCONNECTED/ && !/NT_STATUS_END_OF_FILE/ && !/NT_STATUS_CONNECTION_RESET/ && !/tstream_tls_accept_recv/ {print head; print $0}' /var/log/samba/log.samba | tail -n 80 || true
+          sudo grep -h -i -E "ldapsrv.*(fail|error)|backend init|samdb_connect|too many|limit" /var/log/samba/log.samba | sort | uniq -c | sort -rn | head -n 30 || true
+          sudo tail -n 40 /var/log/samba/log.samba || true
+          # What the client library said when a connection failed ("ServerUnavailable" names no cause), and what Samba
+          # logged from the second before to the second after each of those moments.
+          if [ -s "$ADMNG_TEST_LDAP_ERROR_LOG" ]; then
+            echo "--- connection-level LDAP errors the tests saw, in libldap's own words ---"
+            cat "$ADMNG_TEST_LDAP_ERROR_LOG"
+            # The records of that second, without the descriptor_prepare_commit lines (hundreds per second: they
+            # filled the whole of every block before). A record is its header line starting with "[" and the
+            # lines that follow it.
+            cut -c1-19 "$ADMNG_TEST_LDAP_ERROR_LOG" | sort -u | head -n 12 | while read -r stamp; do
+              for offset in -1 0 1; do
+                second=$(date -u -d "$stamp UTC $offset seconds" '+%Y/%m/%d %H:%M:%S')
+                echo "--- Samba log, $second ---"
+                sudo awk -v want="$second" '/^\[/ { keep = (index($0, "[" want) == 1 && $0 !~ /descriptor_prepare_commit/) } keep { print }' /var/log/samba/log.samba | head -n 70 || true
+              done
+            done
+          else
+            echo "No connection-level LDAP error was recorded by the tests."
+          fi
+          # Every Samba process with its age in seconds: a worker that was restarted during the run is younger than
+          # the others (the LDAP workers come last, so the list is not cut).
+          ps -eo pid,etimes,rss,args | grep -E "[s]amba" || true
+          # Why would the DC refuse or drop an LDAP connection: the accept queue of the LDAP listeners and the kernel's
+          # counters of overflowed queues, open descriptors of the LDAP processes against their limit, kernel messages
+          # (SYN flooding, out of memory).
+          sudo ss -ltn '( sport = :389 or sport = :636 )' || true
+          nstat -az TcpExtListenOverflows TcpExtListenDrops TcpExtTCPAbortOnOverflow TcpExtTCPReqQFullDrop 2>/dev/null || true
+          for pid in $(pgrep -f 'task\[ldap\]' || true); do
+            echo "ldap process $pid: $(sudo ls "/proc/$pid/fd" 2>/dev/null | wc -l) descriptors, limit $(sudo awk '/Max open files/ {print $4}' "/proc/$pid/limits" 2>/dev/null)"
+          done
+          sudo dmesg | tail -n 40 || true
       - name: Stop the watchdog lab and Mailpit
         if: always()
         run: |

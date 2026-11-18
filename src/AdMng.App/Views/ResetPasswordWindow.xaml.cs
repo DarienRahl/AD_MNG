@@ -8,7 +8,7 @@ namespace AdMng.App.Views;
 /// <summary>
 /// Reset Password (modal). The password boxes are handed to the view model as <see cref="PasswordBoxInput"/>
 /// adapters; closing while generated passwords were neither shown, copied nor exported asks first
-/// (<see cref="ResetPasswordViewModel.CanCloseAsync"/>, also for the title bar button).
+/// (<see cref="Presentation.Dialogs.WindowViewModelBase.CanCloseAsync"/>, also for the title bar button).
 /// </summary>
 public partial class ResetPasswordWindow : Window, IDialogResultWindow
 {

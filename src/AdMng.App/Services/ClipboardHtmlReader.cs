@@ -2,6 +2,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Media.Imaging;
+using AdMng.Core.Batch.Creation;
 using AdMng.Core.Messaging.Html;
 using AdMng.Presentation.Services;
 
@@ -39,6 +40,31 @@ internal static class ClipboardHtmlReader
         var png = ReadRaw(PngFormat, 64 * 1024 * 1024) ?? BitmapAsPng();
         var text = Clipboard.ContainsText(TextDataFormat.UnicodeText) ? Clipboard.GetText(TextDataFormat.UnicodeText) : null;
         var content = new ClipboardContent(html, htmlText, png, text);
+        return content.IsEmpty ? null : content;
+    }
+
+    /// <summary>
+    /// F3 (docs/dev/phase3-bulk-create.md 2.6): a pasted table – the Unicode text first and the raw HTML format only when
+    /// <see cref="TableTextReader.NeedsHtml"/> says the text is not enough (Excel renders each format on request, and the
+    /// HTML of a 5 000-row range takes seconds and megabytes); never a bitmap (an Excel copy carries a picture of the range).
+    /// An HTML format over <see cref="CfHtmlParser.MaxBytes"/> is ignored by the reader.
+    /// </summary>
+    /// <exception cref="ExternalException">The clipboard could not be opened by WPF (another process holds it).</exception>
+    public static ClipboardContent? ReadTable()
+    {
+        var text = Clipboard.ContainsText(TextDataFormat.UnicodeText) ? Clipboard.GetText(TextDataFormat.UnicodeText) : null;
+        byte[]? html = null;
+        string? htmlText = null;
+        if (TableTextReader.NeedsHtml(text))
+        {
+            html = ReadRaw(HtmlFormat, CfHtmlParser.MaxBytes + 1);
+            if (html is null && Clipboard.ContainsData(DataFormats.Html))
+            {
+                htmlText = Clipboard.GetData(DataFormats.Html) as string;
+            }
+        }
+
+        var content = new ClipboardContent(html, htmlText, null, text);
         return content.IsEmpty ? null : content;
     }
 

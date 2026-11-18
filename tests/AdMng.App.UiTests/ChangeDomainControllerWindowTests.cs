@@ -6,6 +6,7 @@ using AdMng.App.Services;
 using AdMng.App.UiTests.Infrastructure;
 using AdMng.App.Views;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Session;
 using AdMng.Presentation.Views;
@@ -54,8 +55,11 @@ public sealed class ChangeDomainControllerWindowTests
         var window = await OpenAsync(context);
 
         Assert.Equal(window.ViewModel.WindowTitle, window.Title);
-        Assert.Equal(Visibility.Visible, window.ErrorBar.Visibility);
-        Assert.Equal(window.ViewModel.ErrorText, window.ErrorTextBlock.Text);
+
+        // "Not connected" is the state of the window: said by its status line, as an error that cannot be closed.
+        Assert.Equal(PageStatusKind.Error, window.PageStatus.Kind);
+        Assert.Equal(window.ViewModel.ErrorText, window.PageStatus.Message);
+        Assert.False(window.PageStatus.CanClose);
         Assert.Empty(window.DomainControllerList.Items);
         Assert.False(window.ChangeButton.IsEnabled);
         Assert.False(window.RefreshButton.IsEnabled);
@@ -73,7 +77,7 @@ public sealed class ChangeDomainControllerWindowTests
         var window = await OpenAsync(context);
 
         var dialog = window.ViewModel;
-        Assert.Equal(Visibility.Collapsed, window.ErrorBar.Visibility);
+        Assert.Equal(PageStatusKind.Idle, window.PageStatus.Kind);
         Assert.Equal(dialog.CurrentText, window.CurrentTextBlock.Text);
         Assert.Equal(dialog.DomainText, window.DomainTextBlock.Text);
 

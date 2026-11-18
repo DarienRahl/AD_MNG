@@ -268,7 +268,7 @@ public class SavedFiltersTests
     }
 
     private static FilterEditorViewModel Editor(B2Harness harness, SavedFilter? existing = null) =>
-        new(harness.Sessions, harness.Dialogs, harness.Localizer, harness.Errors, harness.Time, existing);
+        new(harness.Sessions, harness.Dialogs, harness.Localizer, harness.Errors, harness.Time, harness.Dispatcher, existing);
 
     private static Task WaitLoadedAsync(ObjectListViewModel list) => list.CurrentLoad;
 }

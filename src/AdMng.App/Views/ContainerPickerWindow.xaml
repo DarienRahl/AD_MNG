@@ -1,4 +1,9 @@
-<!-- ADUC "Browse for Container" (modal): the domain tree with lazily loaded containers. -->
+<!--
+  ADUC "Browse for Container" (modal): the domain tree with lazily loaded containers.
+  Feedback (design note 6.7 and "V2b-2 as built"): one status line at the top - the read of the tree when the dialog
+  opens, that the dialog has no session, or that the selected container could not be read. A container that is being
+  read, or could not be read, is marked in its own row as well (the progress and the state of a row stay in the row).
+-->
 <Window x:Class="AdMng.App.Views.ContainerPickerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -7,7 +12,7 @@
         xmlns:nav="clr-namespace:AdMng.Presentation.Navigation;assembly=AdMng.Presentation"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="460"
-        Height="560"
+        Height="596"
         MinWidth="360"
         MinHeight="360"
         ShowInTaskbar="False"
@@ -58,17 +63,24 @@
       </StackPanel>
     </Border>
 
-    <TextBlock Margin="20,12,20,6"
+    <!--
+      Status line (design note 6.1 and "V2b-2 as built", Dialogs): at the top, above the tree; declared after the
+      footer, so Tab goes from the buttons to what the line offers and then to the tree. Its picture stands over the
+      left edge of the tree.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="12,8,12,0"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+
+    <TextBlock x:Name="PromptText"
+               Margin="20,8,20,6"
                DockPanel.Dock="Top"
                Text="{l:Tr Ui.PickContainer}"
                TextWrapping="Wrap" />
-    <ProgressBar Height="2"
-                 Margin="20,0,20,4"
-                 AutomationProperties.Name="{l:Tr Common.Loading}"
-                 DockPanel.Dock="Top"
-                 IsIndeterminate="{Binding IsLoading, Mode=OneWay}"
-                 Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-    <TextBlock Margin="20,6,20,10"
+    <TextBlock x:Name="SelectedPathText"
+               Margin="20,6,20,10"
                DockPanel.Dock="Bottom"
                Style="{StaticResource Ad.SecondaryText}"
                Text="{Binding SelectedPath, Mode=OneWay}"

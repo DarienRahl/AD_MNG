@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
@@ -12,6 +13,8 @@ namespace AdMng.Presentation.Watchdog;
 /// The "Kanały i SMTP" sub-tab: SMTP (<see cref="SmtpSettingsViewModel"/>) with a test e-mail, recipient groups
 /// (<see cref="RecipientGroupsViewModel"/>) and the Teams / webhook channels (<see cref="ChannelEditorViewModel"/>), each
 /// with a test send. Editors are rebuilt whenever the configuration is loaded, saved or reverted (typed secrets are gone).
+/// The tests are operations of the tab: they say their status in <see cref="Status"/> (in front of the configuration's own
+/// holder), one at a time - a test started while another runs replaces it.
 /// </summary>
 public sealed partial class WatchdogChannelsViewModel : ObservableObject, IDisposable
 {
@@ -21,7 +24,9 @@ public sealed partial class WatchdogChannelsViewModel : ObservableObject, IDispo
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
         Session = session ?? throw new ArgumentNullException(nameof(session));
-        EmailTest = new DeliveryTestViewModel(services);
+        Status = services.CreateStatus();
+        Status.Front = session.Status;
+        EmailTest = new DeliveryTestViewModel(services, Status);
         EmailTest.SecretRebindRequired += OnEmailRebindRequired;
         Session.Reloaded += OnReloaded;
         Session.IssuesChanged += OnIssuesChanged;
@@ -30,6 +35,9 @@ public sealed partial class WatchdogChannelsViewModel : ObservableObject, IDispo
     }
 
     public WatchdogConfigSession Session { get; }
+
+    /// <summary>What the tab says in the status line: its delivery tests; in front of the configuration's status.</summary>
+    public PageStatusHolder Status { get; }
 
     [ObservableProperty]
     public partial SmtpSettingsViewModel? Smtp { get; private set; }
@@ -58,6 +66,7 @@ public sealed partial class WatchdogChannelsViewModel : ObservableObject, IDispo
 
     public void Dispose()
     {
+        Status.Operation?.Dispose();
         Session.Reloaded -= OnReloaded;
         Session.IssuesChanged -= OnIssuesChanged;
         Session.PropertyChanged -= OnSessionPropertyChanged;
@@ -151,7 +160,7 @@ public sealed partial class WatchdogChannelsViewModel : ObservableObject, IDispo
         UserMessaging = new WatchdogUserMessagingViewModel(_services, Session);
         for (var i = 0; i < working.Channels.Count; i++)
         {
-            Channels.Add(new ChannelEditorViewModel(_services, Session, i));
+            Channels.Add(new ChannelEditorViewModel(_services, Session, i, Status));
         }
 
         SelectedChannel = selectIndex is { } index && index >= 0 && index < Channels.Count

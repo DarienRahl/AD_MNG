@@ -32,6 +32,19 @@ public interface IDirectoryConnector
     /// <exception cref="NotSupportedException">The connector cannot reuse <paramref name="current"/> (default implementation).</exception>
     Task<IDirectorySession> ConnectToServerAsync(IDirectorySession current, string server, CancellationToken cancellationToken) =>
         Task.FromException<IDirectorySession>(new NotSupportedException("This connector cannot open a session with the credential of another session."));
+
+    /// <summary>
+    /// Opens a NEW, read-only session to the global catalog port (3268, or 3269 with <see cref="TransportSecurity.Tls"/>) of
+    /// the DC of <paramref name="current"/>, with its connection options and the credential it keeps in memory – the same
+    /// DC (rule 4), used only for the forest-wide uniqueness reads of the bulk creation wizard and never for a write
+    /// (callers keep it as <see cref="IDirectoryReader"/> behind <see cref="ReadOnlyDirectoryReader"/>;
+    /// docs/dev/phase3-bulk-create.md 2.2). Attempted only when <see cref="SessionInfo.IsGlobalCatalogReady"/> is true.
+    /// </summary>
+    /// <exception cref="DirectoryException">The DC is not a global catalog (refused, <see cref="DirectoryErrorKind.ServerUnavailable"/>) or refused the bind.</exception>
+    /// <exception cref="ObjectDisposedException"><paramref name="current"/> was closed (its credential is gone).</exception>
+    /// <exception cref="NotSupportedException">The connector cannot reuse <paramref name="current"/> (default implementation).</exception>
+    Task<IDirectorySession> ConnectGlobalCatalogAsync(IDirectorySession current, CancellationToken cancellationToken) =>
+        Task.FromException<IDirectorySession>(new NotSupportedException("This connector cannot open a global catalog session with the credential of another session."));
 }
 
 /// <summary>

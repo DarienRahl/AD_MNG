@@ -48,13 +48,15 @@ public sealed partial class ShellViewModel
     private IRelayCommand[] StateCommands => _stateCommands ??=
     [
         ChangeDomainControllerCommand,
-        .. GroupPolicyStateCommands, OpenGroupPolicyDiagnosticsCommand,
+        .. GroupPolicyStateCommands, OpenGroupPolicyDiagnosticsCommand, OpenGroupPolicySearchCommand, OpenGroupPolicyCleanupCommand,
         RefreshCommand, PropertiesCommand, DeleteCommand, BeginRenameCommand, MoveCommand, EnableCommand, DisableCommand,
         UnlockCommand, ResetPasswordCommand, AddToGroupCommand, BatchEditCommand, NewUserCommand, NewGroupCommand,
         NewOrganizationalUnitCommand, NewComputerCommand, NewContactCommand, FindCommand, ExportListCommand, CopyDnCommand, .. CopyStateCommands,
         OpenInNewTabCommand, PinContainerCommand, SaveAsViewCommand, ChooseColumnsCommand, GoBackCommand, GoForwardCommand,
-        GoUpCommand, NewTabCommand, DisconnectCommand, ImportCsvCommand, ShowRecycleBinCommand, ShowAccountReviewCommand, ShowWatchdogHistoryCommand,
+        GoUpCommand, NewTabCommand, DisconnectCommand, ImportCsvCommand, ShowRecycleBinCommand, ShowAccountReviewCommand, ShowPowerShellCommand, ShowWatchdogHistoryCommand,
         SendMessageCommand, CompareWithConnectionCommand, .. ComputerStateCommands, .. CorrespondenceStateCommands, .. EventLogStateCommands,
+        .. PkiStateCommands,
+        .. BulkCreateStateCommands,
     ];
 
     /// <summary>Re-evaluates CanExecute of all selection dependent commands.</summary>
@@ -725,6 +727,10 @@ public sealed partial class ShellViewModel
     [RelayCommand]
     private Task ShowSessionLogAsync() => _dialogs.ShowSessionLogAsync();
 
+    /// <summary>The PowerShell window of this connection (track R): AD Manager's read commands in the window's own session.</summary>
+    [RelayCommand(CanExecute = nameof(IsConnected))]
+    private Task ShowPowerShellAsync() => _dialogs.ShowPowerShellAsync();
+
     /// <summary>The AD Recycle Bin of the connected domain (deleted objects, restore).</summary>
     [RelayCommand(CanExecute = nameof(IsConnected))]
     private Task ShowRecycleBinAsync() => _dialogs.ShowRecycleBinAsync();
@@ -828,7 +834,7 @@ public sealed partial class ShellViewModel
 
     private async Task EditAndSaveViewAsync(SavedView view, bool isNew)
     {
-        var editor = new SavedViewEditorViewModel(Sessions, _dialogs, Localizer, Errors, view, isNew);
+        var editor = new SavedViewEditorViewModel(Sessions, _dialogs, Localizer, Errors, _lists.Dispatcher, view, isNew, _lists.StatusLog);
         if (await _dialogs.ShowSavedViewEditorAsync(editor).ConfigureAwait(true) && editor.Result is { } saved)
         {
             await _views.SaveViewAsync(saved).ConfigureAwait(true);

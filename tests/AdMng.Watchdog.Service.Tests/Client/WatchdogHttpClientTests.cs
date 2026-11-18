@@ -179,8 +179,9 @@ public sealed class WatchdogHttpClientTests
     [Fact]
     public async Task NothingListening_IsUnreachable()
     {
+        using var closed = FreeTcpPort.Closed();
         using var client = new WatchdogHttpClient(TimeProvider.System, NullLogger<WatchdogHttpClient>.Instance);
-        client.Configure(new WatchdogClientOptions { BaseAddress = new Uri($"https://127.0.0.1:{FreeTcpPort.Next()}/") });
+        client.Configure(new WatchdogClientOptions { BaseAddress = new Uri($"https://127.0.0.1:{closed.Port}/") });
 
         var error = await Assert.ThrowsAsync<WatchdogClientException>(() => client.GetStatusAsync(Ct));
 

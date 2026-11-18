@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Text;
 using AdMng.Core.Correspondence.Outlook;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
@@ -244,6 +245,34 @@ public sealed partial class OutlookConnectionViewModel : ObservableObject, IAsyn
         ArgumentNullException.ThrowIfNull(settings);
         settings.AccountAddress = _savedAccount;
         settings.OnBehalfOf = OnBehalfOf?.Trim() ?? string.Empty;
+    }
+
+    /// <summary>
+    /// The state of a page that needs Outlook (sending, the responses) while Outlook cannot be used - not installed, not
+    /// supported here, the connection failed or was lost: an attention that lasts, with the reason, and "Connect to
+    /// Outlook" as its action where connecting again can help. Null while Outlook can be used or is being connected. The
+    /// window keeps the state of the connection itself in its footer; this is what it means for the page.
+    /// </summary>
+    internal PageStatus? UnavailableStatus()
+    {
+        if (State is not (OutlookState.NotInstalled or OutlookState.NotSupported or OutlookState.Failed))
+        {
+            return null;
+        }
+
+        var kind = State switch
+        {
+            OutlookState.NotInstalled => OutlookFailureKind.NotInstalled,
+            OutlookState.NotSupported => OutlookFailureKind.NotSupported,
+            _ => OutlookFailureKind.Unknown,
+        };
+        var reason = FailureText ?? Localizer[CorrespondenceText.OutlookCodeKey(OutlookFailureCodes.Of(kind))];
+        var code = ResultCode.Outlook(Failure?.Kind ?? kind);
+        return PageStatus.Attention(
+            Localizer.Format(L.OutlookStatus.Unavailable, reason),
+            new PageStatusLog(L.OutlookStatus.Unavailable).WithCode(code),
+            State == OutlookState.Failed ? new PageStatusAction(Localizer[L.CorrespondenceOutlook.Connect], ConnectCommand) : null,
+            canClose: false);
     }
 
     /// <summary>The texts in the current UI language (the window's language changed).</summary>

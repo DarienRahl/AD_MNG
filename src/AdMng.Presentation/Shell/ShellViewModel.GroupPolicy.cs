@@ -67,6 +67,10 @@ public sealed partial class ShellViewModel
         {
             editor.FocusSetting(focus);
         }
+        else if (request.SearchText is { Length: > 0 } searchText && document is ISearchableDocument searchable)
+        {
+            searchable.SearchText = searchText;
+        }
 
         SelectedTab = document;
         return document;

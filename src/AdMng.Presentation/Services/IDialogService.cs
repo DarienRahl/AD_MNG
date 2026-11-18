@@ -51,6 +51,18 @@ public interface IDialogService
     Task ShowSessionLogAsync();
 
     /// <summary>
+    /// "Tools → PowerShell…" (track R, stage R1): the PowerShell window of this connection window - its own runspace, disposed with
+    /// the window (modeless, one per connection window; an open one is activated).
+    /// </summary>
+    Task ShowPowerShellAsync();
+
+    /// <summary>
+    /// The grid of <c>Out-AdmGrid</c> (track R, stage R1): the objects of a pipeline as rows that can be sorted, filtered, copied,
+    /// exported and opened in the program (modeless, a new window for every call, like <c>Out-GridView</c>).
+    /// </summary>
+    Task ShowPowerShellGridAsync(Core.PowerShell.PowerShellGridTable table);
+
+    /// <summary>
     /// "Pomoc → Zgłoś problem…": the value-free problem report of this connection window (modeless, one per connection
     /// window; an open one is activated).
     /// </summary>
@@ -111,4 +123,19 @@ public sealed record BatchEditorRequest(IReadOnlyList<string> TargetDns)
 
     /// <summary>Localized title of the change ("Disable 120 accounts").</summary>
     public string Title { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Opens the batch editor in create mode – the bulk creation wizard <em>Zakładanie wielu kont</em>
+    /// (docs/dev/phase3-bulk-create.md 2.6); <see cref="TargetDns"/> and <see cref="Operations"/> are ignored then.
+    /// </summary>
+    public BulkCreateRequest? Create { get; init; }
+}
+
+/// <summary>What the bulk creation wizard opens with (docs/dev/phase3-bulk-create.md 2.6).</summary>
+/// <param name="Kind">The kind of the created objects (user, contact, group or computer).</param>
+/// <param name="ParentDn">The pre-filled target container; null = chosen in the wizard.</param>
+public sealed record BulkCreateRequest(ObjectKind Kind, string? ParentDn)
+{
+    /// <summary>The kind only – never the container's DN.</summary>
+    public override string ToString() => $"Bulk create {Kind} (container={(ParentDn is not null)})";
 }

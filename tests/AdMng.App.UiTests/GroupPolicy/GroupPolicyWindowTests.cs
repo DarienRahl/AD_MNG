@@ -11,6 +11,7 @@ using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.Backup;
 using AdMng.Core.GroupPolicy.Security;
 using AdMng.Presentation.Changes;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
 using AdMng.Presentation.GroupPolicy.Modeling;
@@ -39,6 +40,7 @@ public sealed class GroupPolicyWindowTests
         {
             typeof(ChangePlanPreviewViewModel), typeof(NewGpoViewModel), typeof(GpoPickerViewModel), typeof(GpoBackupViewModel),
             typeof(GpoComparisonViewModel), typeof(WmiFilterEditorViewModel), typeof(CentralStoreUpdateViewModel),
+            typeof(Presentation.GroupPolicy.Copy.GpoCopySettingsViewModel),
         })
         {
             Assert.True(windows.IsRegistered(type), type.Name);
@@ -100,7 +102,19 @@ public sealed class GroupPolicyWindowTests
         Assert.True(update.OpenFileButton.IsEnabled);
         Assert.True(update.EdgeButton.IsEnabled);
         Assert.False(update.UpdateButton.IsEnabled);
-        Assert.Equal(Visibility.Collapsed, update.ErrorBar.Visibility);
+        // Opened without a connection, the window says so for good - an error that cannot be closed - and writes nothing.
+        Assert.Equal(PageStatusKind.Error, update.PageStatus.Kind);
+        Assert.Equal("Brak połączenia z domeną.", update.PageStatus.Message);
+        Assert.False(update.PageStatus.CanClose);
+
+        // K7: "Kopiuj ustawienia" renders without a connection (it reads nothing; OK plans afterwards).
+        var copySettings = (GpoCopySettingsWindow)windows.CreateWindow(new Presentation.GroupPolicy.Copy.GpoCopySettingsViewModel(gp.Ui,
+            [new(new Core.GroupPolicy.Management.GpoUnitSelection(GroupPolicySamples.PasswordsId, "S|Computer|System Access|MinimumPasswordLength"),
+                "Stacje robocze – Zasady haseł", "Minimalna długość hasła", null, "12 znaków", null)], "Stacje robocze – Pulpit zdalny"));
+        UiTestSupport.ShowOffScreen(copySettings);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.True(copySettings.OkButton.IsEnabled);
+        Assert.Single(copySettings.ItemsList.Items);
         await UiTestSupport.WaitForIdleAsync();
         context.AssertHealthy();
     });
@@ -156,9 +170,10 @@ public sealed class GroupPolicyWindowTests
                 Assert.Equal(["contoso.admx", "en-US/contoso.adml", "pl-PL/contoso.adml"], w.ViewModel.Rows.Select(r => r.Path));
                 Assert.Equal(3, w.FileList.Items.Count);
                 Assert.Equal(2, w.CultureList.Items.Count);
-                Assert.Equal("Do zapisania: 1, bez zmian: 2, pominięte: 0", w.SummaryTextBlock.Text);
+                Assert.Equal("Do zapisania: 1, bez zmian: 2, pominięte: 0", w.PageStatus.Message); // the summary moved from the footer to the line
+                Assert.Equal(PageStatusKind.Idle, w.PageStatus.Kind);
                 Assert.False(w.PackageIssuesExpander.IsVisible); // the package skips nothing
-                Assert.False(w.WorkingProgress.IsVisible);
+                Assert.False(w.ViewModel.Status.IsWorking);
 
                 // The store exists: a backup folder is required before the update (the box is checked by default).
                 Assert.True(w.MakeBackupBox.IsChecked);
@@ -182,7 +197,10 @@ public sealed class GroupPolicyWindowTests
                 await UiWait.UntilAsync(() => !w.ViewModel.IsWorking && w.ViewModel.Rows.Count == 3
                     && w.ViewModel.Rows.All(r => r.Status == Core.GroupPolicy.Management.CentralStoreFileStatus.Unchanged), "the new comparison");
                 await UiTestSupport.WaitForIdleAsync(rounds: 2);
-                Assert.Equal(Visibility.Visible, w.ResultBar.Visibility);
+                await UiWait.UntilAsync(() => w.PageStatus.Kind == PageStatusKind.Done, "the result of the update in the line");
+                Assert.StartsWith("Magazyn centralny zaktualizowany: zapisano plików: ", w.PageStatus.Message, StringComparison.Ordinal);
+                Assert.StartsWith(w.ViewModel.ResultText!, w.PageStatus.Message, StringComparison.Ordinal);
+                Assert.Contains(backups.FullName, w.PageStatus.Message, StringComparison.Ordinal); // where the backup is
                 Assert.True(w.ViewModel.ChangedStore);
                 Assert.True(w.CloseButton.IsEnabled);
                 w.ViewModel.CloseCommand.Execute(null);
@@ -253,8 +271,10 @@ public sealed class GroupPolicyWindowTests
         Assert.Single(gpoView.LinksList.Items);
         Assert.True(gpoView.DeleteButton.IsEnabled);
         Assert.True(gpoView.RenameButton.IsEnabled);
-        // The button sits in the orphaned-folder bar, which is collapsed for a GPO with its folder.
-        Assert.False(gpoView.DeleteOrphanButton.IsVisible);
+        // "Usuń pozostały folder" is the action of the line of a GPO that is gone: this one exists, so the line says
+        // its summary and offers nothing.
+        Assert.Equal(PageStatusKind.Idle, gpoView.PageStatus.Kind);
+        Assert.False(gpoView.PageStatus.HasAction);
 
         // The settings of the security template and the status tab.
         gpoView.GpoTabs.SelectedItem = gpoView.SettingsTab;
@@ -690,7 +710,8 @@ public sealed class GroupPolicyWindowTests
         comparison.ViewModel.OnlyDifferences = false;
         await UiTestSupport.WaitForIdleAsync();
         Assert.True(comparison.ComparisonList.Items.Count >= differences);
-        Assert.Equal(comparison.ViewModel.SummaryText, comparison.SummaryText.Text);
+        await UiWait.UntilAsync(() => !comparison.ViewModel.Status.IsWorking, "the comparison ended (the templates named the policies)");
+        Assert.Equal(comparison.ViewModel.SummaryText, comparison.PageStatus.Message); // the summary moved from the footer to the line
         context.AssertHealthy();
     });
 
@@ -714,7 +735,8 @@ public sealed class GroupPolicyWindowTests
         await UiTestSupport.WaitForIdleAsync();
         // Every window of a connection names its domain in the title (several connections at once).
         Assert.Equal("Połącz istniejący GPO z Komputery – contoso.test", picker.Title);
-        Assert.Equal(Visibility.Collapsed, picker.ErrorBar.Visibility);
+        Assert.Equal(PageStatusKind.Idle, picker.PageStatus.Kind); // the read said nothing wrong; the line has the count
+        Assert.Equal($"Obiekty zasad grupy: {all.Count - 1}", picker.PageStatus.Message);
         Assert.Equal(all.Count - 1, picker.GpoList.Items.Count);
         Assert.DoesNotContain(picker.GpoList.Items.Cast<GpoPickerItem>(), i => i.Gpo.Id == sample.WorkstationPasswords);
         Assert.False(picker.OkButton.IsEnabled);

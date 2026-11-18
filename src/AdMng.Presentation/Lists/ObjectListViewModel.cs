@@ -10,6 +10,7 @@ using AdMng.Core.Ldap;
 using AdMng.Core.Model;
 using AdMng.Core.Schema;
 using AdMng.Presentation.Changes;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
@@ -29,7 +30,12 @@ namespace AdMng.Presentation.Lists;
 /// results. Results stream in page by page (one dispatcher call per batch), a new load cancels the previous one,
 /// and edits refresh only the affected rows. Public members are UI-thread members.
 /// </summary>
-public sealed partial class ObjectListViewModel : ObservableObject, IShellDocument
+/// <remarks>
+/// The list says what it is doing in its own status line (<see cref="Status"/>; track V, stage V2): the summary of what
+/// is loaded, a running load as an operation that can be stopped, a stopped load as "attention" with Refresh, a failed
+/// one as "error" with Retry. A load is the operation of the page: its cancellation token is the operation's.
+/// </remarks>
+public sealed partial class ObjectListViewModel : ObservableObject, IShellDocument, IHasPageStatus
 {
     /// <summary>Rows of the first batch - small so the first objects appear almost immediately.</summary>
     internal const int FirstBatchSize = 50;
@@ -50,7 +56,6 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
     private readonly Func<IDirectorySession?> _session;
     private readonly List<ObjectRowViewModel> _allRows = [];
     private readonly Dictionary<string, ObjectRowViewModel> _rowsByDn = new(StringComparer.Ordinal);
-    private readonly SerialCancellation _loads = new();
     private readonly NavigationHistory<ListLocation> _history = new();
     private readonly Debouncer _layoutSaver;
     private readonly Debouncer _liveRefresh;
@@ -75,6 +80,18 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
     private IAsyncDisposable? _watch;
     private bool _disposed;
     private bool _settingChips;
+    private string _nothingLoadedText = string.Empty;
+
+    // The first read of what is shown (V2b-5b): placeholder rows stand in for the rows until it has delivered rows or ended,
+    // and never for a reload of a list that was shown already.
+    private bool _firstRead;
+
+    // The rows on screen - or their absence - are the result of a read of the shown location that ended well: only then is an
+    // empty list "empty" (a read that is running, stopped or failed says so in the status line).
+    private bool _readComplete;
+
+    // Rows.Count == 0 as of the last notification (the empty state follows the transitions only).
+    private bool _rowsEmpty = true;
 
     // Saved filters (README U4) of the last search: their client checks (constructed attributes), null when none.
     private Filters.SavedFilterPlan? _clientPlan;
@@ -94,6 +111,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         _layoutSaver = new Debouncer(services.Time, LayoutSaveDelay);
         _liveRefresh = new Debouncer(services.Time, LiveUpdateDelay);
         _inactiveDays = services.Settings.Current.InactiveDays;
+        Status = new PageStatusHolder(services.Localizer, services.Dispatcher, services.StatusLog);
         foreach (var kind in Enum.GetValues<QuickFilterKind>())
         {
             var chip = new FilterChipViewModel(kind, ChipTitle(kind));
@@ -104,6 +122,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         RefreshSavedFilterChips();
 
         Columns.CollectionChanged += (_, _) => OnPropertyChanged(nameof(VisibleColumns));
+        Items.CollectionChanged += OnItemsChanged;
         services.Changes.Changed += OnDirectoryChanged;
         services.Localizer.CultureChanged += OnCultureChanged;
         services.Settings.Changed += OnSettingsChanged;
@@ -182,45 +201,78 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
     /// <summary>True when every result of the current location is loaded (local sorting is exact).</summary>
     public bool IsFullyLoaded => !IsLoading && !Partial && Error is null && Location is not null && !IsVirtual;
 
+    /// <summary>
+    /// The first read of the shown location is running and has delivered no row yet (V2b-5b): the view shows placeholder
+    /// rows instead of blank space. A reload of a location that was shown already never does - its rows come back at
+    /// once - and neither does a read that failed.
+    /// </summary>
+    public bool ShowsSkeleton => IsLoading && _firstRead && Error is null && Rows.Count == 0;
+
+    /// <summary>
+    /// What the list says when it has no rows (V2b-5b): "no objects here" with Refresh, or "no object matches the filter"
+    /// with "Clear the filter" when a filter hides everything. <see cref="EmptyListState.None"/> while the list has rows,
+    /// is read, was stopped or could not be read - those are said by the status line.
+    /// </summary>
+    public EmptyListState EmptyState
+    {
+        get
+        {
+            if (!_readComplete || IsLoading || Partial || Error is not null || Rows.Count > 0)
+            {
+                return EmptyListState.None;
+            }
+
+            var l = _services.Localizer;
+            return HasActiveFilter
+                ? new EmptyListState(l[L.List.EmptyFiltered], ObjectIcon.Query, new PageStatusAction(l[L.List.ClearFilter], ClearFiltersCommand))
+                : new EmptyListState(l[L.List.Empty], Icon, new PageStatusAction(l[L.Commands.Refresh], RefreshCommand));
+        }
+    }
+
+    /// <summary>The quick filter has a text, or a chip (quick or saved filter) is on: what the list shows is narrowed.</summary>
+    public bool HasActiveFilter =>
+        !string.IsNullOrWhiteSpace(QuickFilterText) || FilterChips.Any(c => c.IsActive) || SavedFilterChips.Any(c => c.IsActive);
+
     /// <summary>Number of loaded rows (before the quick filter).</summary>
     public int TotalCount => _allRows.Count;
 
     /// <summary>All loaded rows in the current order (before the quick filter).</summary>
     public IReadOnlyList<ObjectRowViewModel> AllRows => _allRows;
 
-    /// <summary>Status bar text: "428 objects · 0.17 s · as of 14:35:02", "Loading… 1500 objects", errors.</summary>
+    /// <summary>
+    /// The status of the page for its status line: the summary of what is loaded (<see cref="LoadedSummary"/> and the
+    /// selection), a running load, a stopped load, an error.
+    /// </summary>
+    public PageStatusHolder Status { get; }
+
+    /// <summary>
+    /// What the status line says before anything was loaded (the Find window: what to do); empty by default.
+    /// </summary>
+    public string NothingLoadedText
+    {
+        get => _nothingLoadedText;
+        set
+        {
+            _nothingLoadedText = value ?? string.Empty;
+            UpdateIdleStatus();
+        }
+    }
+
+    /// <summary>
+    /// The state of the list in one sentence: "428 objects · 0.17 s · as of 14:35:02", "Loading… 1500 objects", errors.
+    /// The page shows it in its status line (<see cref="Status"/>), in more words; this text is what tab hosts without
+    /// a status line show.
+    /// </summary>
     public string StatusText
     {
         get
         {
-            var l = _services.Localizer;
             if (Error is not null)
             {
                 return Error;
             }
 
-            if (IsLoading)
-            {
-                return l.Format(L.List.Loading, LoadedCount);
-            }
-
-            if (Partial)
-            {
-                return l.Format(L.List.Partial, LoadedCount);
-            }
-
-            if (LoadedAt is null)
-            {
-                return string.Empty;
-            }
-
-            if (IsVirtual)
-            {
-                return VirtualStatusText();
-            }
-
-            var seconds = (Elapsed ?? TimeSpan.Zero).TotalSeconds.ToString("0.00", l.Culture);
-            return l.Format(L.List.LoadSummary, LoadedCount, seconds, LoadedAt.Value.ToString("T", l.Culture));
+            return IsLoading ? _services.Localizer.Format(L.List.Loading, LoadedCount) : LoadedSummary();
         }
     }
 
@@ -440,12 +492,50 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         await ApplyLocalSortAsync().ConfigureAwait(true);
     }
 
-    /// <summary>Stops the running load; already loaded rows stay (status "stopped after N objects").</summary>
+    /// <summary>
+    /// Stops the running load; already loaded rows stay (status "stopped after N objects"). The status line says
+    /// "Stopping…" at once, until the load noticed.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(IsLoading))]
-    public void CancelLoad() => _loads.Cancel();
+    public void CancelLoad() => Status.Operation?.Cancel();
 
     [RelayCommand]
     private void ClearQuickFilter() => QuickFilterText = string.Empty;
+
+    /// <summary>
+    /// The action of the empty list: the quick filter's text and every chip off, and one read when a chip was on (a chip
+    /// is a filter of the server - the rows have to be read again).
+    /// </summary>
+    [RelayCommand]
+    private void ClearFilters()
+    {
+        QuickFilterText = string.Empty;
+        var changed = false;
+        _settingChips = true;
+        try
+        {
+            foreach (var chip in FilterChips.Where(c => c.IsActive))
+            {
+                chip.IsActive = false;
+                changed = true;
+            }
+
+            foreach (var chip in SavedFilterChips.Where(c => c.IsActive))
+            {
+                chip.IsActive = false;
+                changed = true;
+            }
+        }
+        finally
+        {
+            _settingChips = false;
+        }
+
+        if (changed && Location is not null && !_disposed)
+        {
+            LoadAsync().Forget();
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(CanGoBack), AllowConcurrentExecutions = true)]
     private Task GoBackAsync() => _history.GoBack() is { } previous ? ShowLocationAsync(previous) : Task.CompletedTask;
@@ -507,7 +597,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         }
 
         _disposed = true;
-        _loads.Cancel();
+        Status.Operation?.Dispose();
         _layoutSaver.Cancel();
         _liveRefresh.Cancel();
         _lifetime.Cancel();
@@ -559,6 +649,10 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         }
 
         var previousKey = Location?.ColumnLayoutKey;
+
+        // The first read of a location that is not the one shown: placeholder rows until its rows arrive (V2b-5b).
+        _firstRead = !SameSource(Location, location);
+        _readComplete = false;
         Location = location;
         if (!string.Equals(previousKey, location.ColumnLayoutKey, StringComparison.Ordinal) || Columns.Count == 0)
         {
@@ -586,7 +680,12 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
             return;
         }
 
-        var token = _loads.Next();
+        // The load is the operation of the page: the status line says "working" from here on, a newer load replaces
+        // this one (its token is cancelled), and however this method is left the page does not stay in "working". A
+        // disposed list (its window closed, the session of its window ended) says nothing any more: whoever shows the
+        // line then decides what it says.
+        using var scope = _disposed ? null : Status.Begin(ReadingText(0), new PageStatusLog(L.ListStatus.Reading));
+        var token = scope?.Token ?? CancellationToken.None;
         var generation = ++_generation;
 
         // The previous search/context describe the previous location: a row refresh started before this load
@@ -605,6 +704,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         ClearRows();
         Error = null;
         Partial = false;
+        _readComplete = false;
         IsLoading = true;
         OnPropertyChanged(nameof(TotalCount));
         var started = _services.Time.GetTimestamp();
@@ -614,6 +714,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         {
             Error = _services.Localizer[L.Errors.NotConnected];
             IsLoading = false;
+            scope?.Complete(ReadFailedStatus(Error, ResultCode.None));
             return;
         }
 
@@ -665,7 +766,12 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
 
             LoadedAt = _services.Time.GetLocalNow();
             Elapsed = _services.Time.GetElapsedTime(started);
+            _readComplete = true;
             IsLoading = false;
+
+            // The result of a load is the list itself: the operation ends without a message and the status line shows
+            // the summary again. (Not Dispose: the token stays as it is for the steps below.)
+            scope?.Complete(null);
             if (_localSortAttribute is not null && !isVirtual)
             {
                 await ApplyLocalSortAsync().ConfigureAwait(true);
@@ -684,6 +790,10 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
                 Partial = true;
                 LoadedAt = _services.Time.GetLocalNow();
                 Elapsed = _services.Time.GetElapsedTime(started);
+
+                // Ignored when the page took the operation off already (a newer load, the window closed, the container
+                // was deleted): only a load the operator stopped says so.
+                scope?.Complete(StoppedStatus());
             }
         }
         catch (Exception ex)
@@ -691,14 +801,17 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
             if (generation == _generation)
             {
                 Error = _services.Errors.Translate(ex);
+                scope?.Complete(ReadFailedStatus(Error, ResultCode.Of(ex)));
             }
         }
         finally
         {
             if (generation == _generation)
             {
+                _firstRead = false;
                 IsLoading = false;
                 OnPropertyChanged(nameof(QuickFilterStatus));
+                RaiseEmptiness();
             }
         }
     }
@@ -1334,9 +1447,13 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
 
             if (change.Kind == DirectoryChangeKind.Deleted)
             {
-                _loads.Cancel();
+                Status.Operation?.Dispose();
                 ClearRows();
                 Error = _services.Localizer[L.List.LocationDeleted];
+                Status.Show(PageStatus.Attention(
+                    $"{Error} {_services.Localizer[L.ListStatus.GoneNext]}",
+                    new PageStatusLog(L.List.LocationDeleted),
+                    canClose: false));
                 return true;
             }
 
@@ -1802,9 +1919,139 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(QuickFilterStatus));
         OnPropertyChanged(nameof(SelectionText));
+        OnPropertyChanged(nameof(EmptyState));
     }
 
     private void OnSelectedItemsChanged(object? sender, NotifyCollectionChangedEventArgs e) => RaiseSelectionChanged();
+
+    // ---- Status line (track V, stage V2) ---------------------------------------------------------------------------
+
+    /// <summary>
+    /// Every change of what <see cref="StatusText"/> or <see cref="SelectionText"/> say is a change of the summary in
+    /// the status line; rows that arrive while a load runs are its progress.
+    /// </summary>
+    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        switch (e.PropertyName)
+        {
+            case nameof(StatusText) or nameof(SelectionText):
+                UpdateIdleStatus();
+                break;
+            case nameof(LoadedCount) when IsLoading:
+                Status.Operation?.Report(ReadingText(LoadedCount), log: new PageStatusLog(L.ListStatus.Reading, LoadedCount));
+                break;
+            case nameof(IsLoading) or nameof(Error) or nameof(Partial) or nameof(Rows) or nameof(Location) or nameof(QuickFilterText):
+                RaiseEmptiness();
+                break;
+        }
+    }
+
+    // ---- Empty list and placeholder rows (stage V2b-5b) -------------------------------------------------------------
+
+    /// <summary>The list has no rows now, or has some again: what it says instead of rows changes.</summary>
+    private void OnItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        var empty = Rows.Count == 0;
+        if (empty != _rowsEmpty)
+        {
+            _rowsEmpty = empty;
+            RaiseEmptiness();
+        }
+    }
+
+    private void RaiseEmptiness()
+    {
+        OnPropertyChanged(nameof(ShowsSkeleton));
+        OnPropertyChanged(nameof(EmptyState));
+    }
+
+    /// <summary>The same list: the same kind of location with the same base, scope, filter, view and search text.</summary>
+    private static bool SameSource(ListLocation? shown, ListLocation next) =>
+        shown is not null
+        && shown.Kind == next.Kind
+        && shown.Scope == next.Scope
+        && string.Equals(shown.BaseDn, next.BaseDn, StringComparison.OrdinalIgnoreCase)
+        && string.Equals(shown.Filter, next.Filter, StringComparison.Ordinal)
+        && string.Equals(shown.ViewId, next.ViewId, StringComparison.Ordinal)
+        && string.Equals(shown.SearchText, next.SearchText, StringComparison.Ordinal);
+
+    /// <summary>
+    /// What is loaded, in one sentence: "428 objects · 0.17 s · as of 14:35:02", the virtual list summary, "Stopped – 150
+    /// objects loaded (incomplete list)"; empty before the first load.
+    /// </summary>
+    private string LoadedSummary()
+    {
+        var l = _services.Localizer;
+        if (Partial)
+        {
+            return l.Format(L.List.Partial, LoadedCount);
+        }
+
+        if (LoadedAt is null)
+        {
+            return string.Empty;
+        }
+
+        if (IsVirtual)
+        {
+            return VirtualStatusText();
+        }
+
+        var seconds = (Elapsed ?? TimeSpan.Zero).TotalSeconds.ToString("0.00", l.Culture);
+        return l.Format(L.List.LoadSummary, LoadedCount, seconds, LoadedAt.Value.ToString("T", l.Culture));
+    }
+
+    /// <summary>The summary of the status line: what is loaded and how many rows are selected.</summary>
+    private void UpdateIdleStatus()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        var loaded = Error is null ? LoadedSummary() : string.Empty;
+        if (loaded.Length == 0 && Error is null && LoadedAt is null)
+        {
+            loaded = _nothingLoadedText;
+        }
+
+        var selected = SelectionText;
+        Status.SetIdle(loaded.Length == 0 || selected.Length == 0 ? loaded + selected : $"{loaded} · {selected}");
+    }
+
+    /// <summary>"Reading “Kraków”…", then "Reading “Kraków”: 1 500 objects so far…".</summary>
+    private string ReadingText(int count)
+    {
+        var l = _services.Localizer;
+        return count <= 0
+            ? l.Format(L.ListStatus.Reading, Title)
+            : l.Format(L.ListStatus.ReadingCount, Title, PageStatusText.Objects(l, count));
+    }
+
+    /// <summary>The operator stopped the load: what is there, and that Refresh reads the whole list.</summary>
+    private PageStatus StoppedStatus()
+    {
+        var l = _services.Localizer;
+        return PageStatus.Attention(
+            l.Format(L.ListStatus.Stopped, Title, PageStatusText.Objects(l, LoadedCount)),
+            new PageStatusLog(L.ListStatus.Stopped, LoadedCount),
+            new PageStatusAction(l[L.Commands.Refresh], RefreshCommand));
+    }
+
+    /// <summary>
+    /// The list could not be read: what was tried, why it failed, what to do, with Retry. It stays until the next load:
+    /// it is the only explanation of the empty list.
+    /// </summary>
+    private PageStatus ReadFailedStatus(string reason, ResultCode code)
+    {
+        var l = _services.Localizer;
+        return PageStatus.Error(
+            PageStatusText.Failure(l.Format(L.ListStatus.ReadFailed, Title), reason, l[L.ListStatus.ReadFailedNext], code),
+            new PageStatusLog(L.ListStatus.ReadFailed).WithCode(code),
+            new PageStatusAction(l[L.Common.Retry], RefreshCommand),
+            canClose: false);
+    }
 
     private void RaiseSelectionChanged()
     {

@@ -1,11 +1,17 @@
 name: Release
 
-# Releases of AD Manager. Two ways to start one:
+# Releases of AD Manager (docs/dev/releasing.md; tools/release/release.sh writes the commits). Three ways to start one:
 #  - push release notes docs/releases/v<major>.<minor>.<patch>[-suffix].md to a release branch (below). The first line
 #    may name the commit to release: <!-- release-commit: <sha> --> (default: the pushed commit; it must be in the
 #    branch history). The workflow creates the tag on that commit and the GitHub release. Changing the notes of a tag
 #    that already exists only updates the release description;
-#  - push a tag v<major>.<minor>.<patch>[-suffix] (notes from docs/releases/<tag>.md at that commit).
+#  - push a tag v<major>.<minor>.<patch>[-suffix] (notes from docs/releases/<tag>.md at that commit);
+#  - start it by hand (Actions, Release, Run workflow, or gh workflow run release.yml --ref <branch> -f version=<version>)
+#    with the version to release: docs/releases/v<version>.md of the branch it runs on, the commit named by its marker
+#    or, without a marker, the head of that branch. This retries a release whose run failed and releases notes that
+#    are already pushed, without touching the notes. For a tag that already has a published release it only updates
+#    the description, like a push of changed notes.
+# The tag is created by the last job only: after the build, the tests and all packages succeeded.
 # The build job builds, tests and publishes AdMng.exe on Windows and – only for a major release X.0.0 (X >= 1) or when
 # the notes contain <!-- screenshots --> – renders screenshots of exactly that commit (they are large); the
 # openwec-package and linux-package jobs build the Debian packages of AdMng Watchdog from the same commit exactly like
@@ -22,6 +28,12 @@ on:
     tags: ["v*"]
     branches: ["claude/active-directory-manager-w9v9i8", "main"]
     paths: ["docs/releases/v*.md"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release from this branch: its notes docs/releases/v<version>.md must be there (e.g. 0.16.0)"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -53,6 +65,8 @@ jobs:
       - name: Plan
         id: plan
         env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
           PUSHED_SHA: ${{ github.sha }}
@@ -62,7 +76,29 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          if [ "$REF_TYPE" = tag ]; then
+          if [ "$EVENT_NAME" = workflow_dispatch ]; then
+            # Started by hand: the notes of the given version as they are on this branch (PUSHED_SHA is its head).
+            if ! [[ "$INPUT_VERSION" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+              echo "::error::The version must be <major>.<minor>.<patch>[-suffix], e.g. 0.16.0."
+              exit 1
+            fi
+            if [ "$REF_TYPE" != branch ]; then
+              echo "::error::Start the release from a branch, not from the tag $REF_NAME."
+              exit 1
+            fi
+            tag="v${INPUT_VERSION#v}"
+            notes="docs/releases/$tag.md"
+            if [ ! -f "$notes" ]; then
+              echo "::error::Release notes $notes are missing on $REF_NAME."
+              exit 1
+            fi
+            marker="$(sed -n '1s/^<!-- *release-commit: *\([0-9a-fA-F]\{7,40\}\) *-->.*$/\1/p' "$notes")"
+            target="$(git rev-parse --verify "${marker:-$PUSHED_SHA}^{commit}")"
+            if ! git merge-base --is-ancestor "$target" "$PUSHED_SHA"; then
+              echo "::error::Release commit $target is not in the history of $REF_NAME."
+              exit 1
+            fi
+          elif [ "$REF_TYPE" = tag ]; then
             tag="$REF_NAME"
             target="$PUSHED_SHA"
             notes="docs/releases/$tag.md"
@@ -132,6 +168,12 @@ jobs:
               exit 1
             fi
             mode=notes
+            if [ "$EVENT_NAME" = workflow_dispatch ] \
+              && [ "$(gh release view "$tag" --json isDraft --jq .isDraft 2>/dev/null || true)" != false ]; then
+              # Started by hand for a tag without a published release (a pushed tag whose run failed, a draft left
+              # behind): build and publish it. A published release only gets its description updated.
+              mode=full
+            fi
           fi
           # Screenshots are large: only a major release (X.0.0, X >= 1) or notes asking for them with <!-- screenshots -->.
           screenshots=false

@@ -52,6 +52,15 @@ public sealed class FakeUserMessageTransport : IDirectSmtpTransport, IDirectSmtp
     /// <summary>Called before every send (e.g. to cancel a run in the middle).</summary>
     public Action<OutgoingUserMessage>? BeforeSend { get; set; }
 
+    /// <summary>
+    /// Called at the start of every <see cref="ConnectAsync"/>, before the cancellation is looked at (e.g. to hold a
+    /// send before anything reached the "server").
+    /// </summary>
+    public Action? BeforeConnect { get; set; }
+
+    /// <summary>Called at the start of <see cref="TestConnectionAsync"/>, before the cancellation is looked at (e.g. to hold a connection test).</summary>
+    public Action? BeforeTestConnection { get; set; }
+
     private int _connections;
     private int _disposed;
 
@@ -76,6 +85,7 @@ public sealed class FakeUserMessageTransport : IDirectSmtpTransport, IDirectSmtp
 
     public Task<IUserMessageConnection> ConnectAsync(CancellationToken cancellationToken)
     {
+        BeforeConnect?.Invoke();
         cancellationToken.ThrowIfCancellationRequested();
         if (ConnectFailure is { } failure)
         {
@@ -86,7 +96,12 @@ public sealed class FakeUserMessageTransport : IDirectSmtpTransport, IDirectSmtp
         return Task.FromResult<IUserMessageConnection>(new Connection(this));
     }
 
-    public Task<SmtpConnectionTest> TestConnectionAsync(CancellationToken cancellationToken) => Task.FromResult(TestResult);
+    public Task<SmtpConnectionTest> TestConnectionAsync(CancellationToken cancellationToken)
+    {
+        BeforeTestConnection?.Invoke();
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(TestResult);
+    }
 
     public IDirectSmtpTransport Create(DirectSmtpOptions options, NetworkCredential? credential)
     {

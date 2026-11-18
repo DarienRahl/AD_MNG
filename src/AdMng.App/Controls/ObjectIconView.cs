@@ -1,16 +1,27 @@
-using System.Globalization;
 using System.Windows;
 using System.Windows.Automation.Peers;
 using System.Windows.Documents;
 using System.Windows.Media;
 using AdMng.Presentation.Icons;
+using AdMng.Presentation.Settings;
 
 namespace AdMng.App.Controls;
 
 /// <summary>
-/// Draws the glyph of an <see cref="ObjectIcon"/> with the ADUC overlay badges (down arrow for disabled accounts,
-/// padlock for locked-out accounts). A lightweight element without template or bindings inside, so thousands of list
-/// rows stay cheap. Colours come from the Fluent theme resources and follow light/dark/high contrast switches.
+/// Draws the icon of an <see cref="ObjectIcon"/> in the effective icon style (the application resource
+/// <c>Ad.IconStyle</c>, set by <c>IconStyleService</c>):
+/// <list type="bullet">
+/// <item><b>colour</b> (the default): the picture of the icon set (<see cref="AppIcons.KeyFor"/>) scaled to
+/// <see cref="Size"/> - one shared frozen image per icon, nothing cloned per element. Disabled and locked accounts have
+/// their own pictures with the state overlay drawn in, so no badge is added here. Where the text is dimmed (the inherited
+/// <see cref="Foreground"/> is a secondary, tertiary or disabled text colour: disabled accounts in the object list,
+/// disabled rows) the picture is dimmed with it (<see cref="IconDrawing.PictureOpacity"/>);</item>
+/// <item><b>monochrome</b> (the setting, and always in Windows High Contrast): the glyph of the icon font with the ADUC
+/// overlay badges (down arrow for disabled accounts, padlock for locked-out accounts). Colours come from the Fluent
+/// theme resources and follow light/dark/high contrast switches.</item>
+/// </list>
+/// A lightweight element without template or bindings inside, so thousands of list rows stay cheap; a change of the
+/// style re-renders it through the resource reference (no event subscription per element).
 /// Decorative: it is not exposed to UI Automation (the row text carries the information).
 /// </summary>
 public sealed class ObjectIconView : FrameworkElement
@@ -24,7 +35,10 @@ public sealed class ObjectIconView : FrameworkElement
         new FrameworkPropertyMetadata(16d, FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsRender),
         value => value is double d && d > 0 && !double.IsInfinity(d));
 
-    /// <summary>Glyph colour of leaf objects (inherits the text colour, so selected/disabled rows look right).</summary>
+    /// <summary>
+    /// Glyph colour of leaf objects (inherits the text colour, so selected/disabled rows look right); in the colour style
+    /// its alpha dims the picture on rows with dimmed text.
+    /// </summary>
     public static readonly DependencyProperty ForegroundProperty = TextElement.ForegroundProperty.AddOwner(
         typeof(ObjectIconView),
         new FrameworkPropertyMetadata(Brushes.Black, FrameworkPropertyMetadataOptions.Inherits | FrameworkPropertyMetadataOptions.AffectsRender));
@@ -35,10 +49,15 @@ public sealed class ObjectIconView : FrameworkElement
     private static readonly DependencyProperty DisabledBadgeBrushProperty = RegisterBrush("DisabledBadgeBrush");
     private static readonly DependencyProperty LockedBadgeBrushProperty = RegisterBrush("LockedBadgeBrush");
 
-    private static readonly Typeface IconTypeface = new(new FontFamily(Glyphs.FontFamilyName), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+    /// <summary>The effective icon style, from the application resource (colour when the resource is not set).</summary>
+    private static readonly DependencyProperty IconStyleProperty = DependencyProperty.Register(
+        "IconStyle", typeof(IconStylePreference), typeof(ObjectIconView),
+        new FrameworkPropertyMetadata(IconStylePreference.Colour, FrameworkPropertyMetadataOptions.AffectsRender));
 
     public ObjectIconView()
     {
+        SetResourceReference(IconStyleProperty, IconDrawing.StyleResourceKey);
+
         // Theme brushes as resource references: a theme switch re-renders the icon.
         SetResourceReference(ContainerBrushProperty, "AccentTextFillColorPrimaryBrush");
         SetResourceReference(MutedBrushProperty, "TextFillColorSecondaryBrush");
@@ -55,7 +74,7 @@ public sealed class ObjectIconView : FrameworkElement
         set => SetValue(IconProperty, value);
     }
 
-    /// <summary>Edge length in device independent pixels (glyph font size).</summary>
+    /// <summary>Edge length in device independent pixels (picture edge, glyph font size).</summary>
     public double Size
     {
         get => (double)GetValue(SizeProperty);
@@ -77,7 +96,15 @@ public sealed class ObjectIconView : FrameworkElement
         ArgumentNullException.ThrowIfNull(drawingContext);
         var icon = Icon;
         var size = Size;
-        var pixelsPerDip = VisualTreeHelper.GetDpi(this).PixelsPerDip;
+        var dpi = VisualTreeHelper.GetDpi(this);
+        if ((IconStylePreference)GetValue(IconStyleProperty) == IconStylePreference.Colour && IconDrawing.ObjectImage(icon) is { } image)
+        {
+            IconDrawing.DrawImage(drawingContext, image, RenderSize, size, dpi, Foreground);
+            return;
+        }
+
+        // Monochrome style (and the fallback when a picture is missing): today's glyph with its badges.
+        var pixelsPerDip = dpi.PixelsPerDip;
         var origin = new Point((RenderSize.Width - size) / 2, (RenderSize.Height - size) / 2);
         var overlay = Glyphs.OverlayFor(icon);
         var baseBrush = Glyphs.ToneFor(icon) switch
@@ -92,7 +119,7 @@ public sealed class ObjectIconView : FrameworkElement
             drawingContext.PushOpacity(0.55);
         }
 
-        DrawGlyph(drawingContext, Glyphs.For(icon), size, baseBrush, origin, pixelsPerDip);
+        IconDrawing.DrawGlyph(drawingContext, Glyphs.For(icon), size, baseBrush, origin, pixelsPerDip);
         if (overlay == IconOverlay.Disabled)
         {
             drawingContext.Pop();
@@ -112,25 +139,12 @@ public sealed class ObjectIconView : FrameworkElement
             : Brush(DisabledBadgeBrushProperty) ?? Foreground;
         var glyph = overlay == IconOverlay.Locked ? Glyphs.Lock : Glyphs.DownArrow;
         var glyphSize = badge * 0.8;
-        DrawGlyph(drawingContext, glyph, glyphSize, badgeBrush, new Point(center.X - (glyphSize / 2), center.Y - (glyphSize / 2)), pixelsPerDip);
+        IconDrawing.DrawGlyph(drawingContext, glyph, glyphSize, badgeBrush, new Point(center.X - (glyphSize / 2), center.Y - (glyphSize / 2)), pixelsPerDip);
     }
 
     private static DependencyProperty RegisterBrush(string name) =>
         DependencyProperty.Register(name, typeof(Brush), typeof(ObjectIconView),
             new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
-
-    private static void DrawGlyph(DrawingContext context, string glyph, double size, Brush brush, Point topLeft, double pixelsPerDip)
-    {
-        var text = new FormattedText(glyph, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, IconTypeface, size, brush, pixelsPerDip)
-        {
-            TextAlignment = TextAlignment.Left,
-        };
-
-        // Icon fonts have no descenders: centre the ink box in the target square.
-        var x = topLeft.X + ((size - text.Width) / 2);
-        var y = topLeft.Y + ((size - text.Height) / 2);
-        context.DrawText(text, new Point(x, y));
-    }
 
     private Brush? Brush(DependencyProperty property) => GetValue(property) as Brush;
 }

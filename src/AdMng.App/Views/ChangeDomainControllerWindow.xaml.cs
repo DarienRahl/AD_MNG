@@ -7,7 +7,7 @@ namespace AdMng.App.Views;
 
 /// <summary>
 /// "Change Domain Controller" (modal). Closing the window while the new DC is being contacted cancels the switch
-/// (<see cref="ChangeDomainControllerViewModel.CanCloseAsync"/>): the session stays on its DC.
+/// (<see cref="Presentation.Dialogs.WindowViewModelBase.CanCloseAsync"/>): the session stays on its DC.
 /// </summary>
 public partial class ChangeDomainControllerWindow : Window, IDialogResultWindow
 {

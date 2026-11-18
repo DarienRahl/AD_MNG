@@ -4,6 +4,7 @@ using AdMng.Core.GroupPolicy.Management;
 using AdMng.Core.GroupPolicy.Security;
 using AdMng.Core.Model;
 using AdMng.Core.PrivilegedAccess;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -25,6 +26,15 @@ namespace AdMng.Presentation.GroupPolicy.SecuritySettings;
 /// K6 (20.3): search and "Tylko zdefiniowane" / "Tylko zmienione" on every page, Ctrl+S and Ctrl+F, "Edytuj to
 /// ustawienie" at a page and row (<see cref="FocusSetting"/>), and "Zmiany ustawień" in the save's preview.
 /// </summary>
+/// <remarks>
+/// <para><b>What the status line says</b> (track V, stage V2b-3; docs/dev/v-interface-renewal.md "V2b-3 as built"). The
+/// read of the three files is the load of the document (<see cref="LoadCoreAsync"/>; it has no stage that takes long
+/// enough to name), the plan of a save is the operation of <see cref="GroupPolicyDocumentBase.Actions"/>, and what this
+/// kind of document adds to the state that lasts is "the GPO's files changed on SYSVOL under your edits"
+/// (<see cref="DocumentLastingState"/>, with Discard as its action). Which file cannot be read (<see cref="FileNote"/>)
+/// and what the audit pages leave open (<see cref="AuditNote"/>) are notes of the view: they are true of the content
+/// for as long as it is shown.</para>
+/// </remarks>
 public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumentBase, ISaveableDocument, ISearchableDocument, IGroupPolicySettingEditor
 {
     private const string TemplatePath = SecurityTemplate.RelativePath;
@@ -83,9 +93,15 @@ public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumen
     [ObservableProperty]
     public partial string? FileNote { get; private set; }
 
-    /// <summary>The GPO's files changed on SYSVOL since the edits started (a save would be a conflict), else null.</summary>
+    /// <summary>
+    /// The GPO's files changed on SYSVOL since the edits started (a save would be a conflict), else null. The status line
+    /// says it as the state of the document that lasts (<see cref="DocumentLastingState"/>).
+    /// </summary>
     [ObservableProperty]
     public partial string? ConflictNote { get; private set; }
+
+    /// <summary>The domain controller whose SYSVOL changed under the edits (null: no conflict); the sentence follows the language.</summary>
+    private string? _conflictServer;
 
     /// <summary>Settings changed and not saved.</summary>
     [ObservableProperty]
@@ -180,6 +196,7 @@ public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumen
         _template = _template?.Discarded();
         _audit = _audit?.Discarded();
         _groups = _groups?.Discarded();
+        _conflictServer = null;
         ConflictNote = null;
         RebuildAll();
         await LoadAsync().ConfigureAwait(true);
@@ -242,8 +259,8 @@ public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumen
         if (gpo is null)
         {
             _gpo = null;
-            Error = Localizer[L.GroupPolicy.Missing];
-            LoadedText = Error;
+            ShowUnavailable(L.GroupPolicy.Missing);
+            LoadedText = Localizer[L.GroupPolicy.Missing];
             OnPropertyChanged(nameof(Title));
             return;
         }
@@ -260,9 +277,8 @@ public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumen
         _template = Reconcile(_template, TemplatePath, template, c => SecurityTemplateDocument.Parse(c), d => d.ToBytes());
         _audit = Reconcile(_audit, AuditPath, audit, c => AuditPolicyDocument.Parse(c), d => d.ToBytes());
         _groups = Reconcile(_groups, GroupsPath, groups, c => GppGroupsDocument.Parse(c), d => d.ToBytes());
-        ConflictNote = (_template?.Conflict ?? false) || (_audit?.Conflict ?? false) || (_groups?.Conflict ?? false)
-            ? Localizer.Format(L.SecuritySettings.ConflictNote, session.Info.Server)
-            : null;
+        _conflictServer = (_template?.Conflict ?? false) || (_audit?.Conflict ?? false) || (_groups?.Conflict ?? false) ? session.Info.Server : null;
+        ConflictNote = ConflictText();
         FileNote = string.Join(Environment.NewLine, new[] { _template?.Error, _audit?.Error, _groups?.Error }.OfType<string>()) is { Length: > 0 } note ? note : null;
 
         // Names of the domain's SIDs for display (memory only); a SID that cannot be resolved stays a SID.
@@ -315,8 +331,31 @@ public sealed partial class SecuritySettingsEditorViewModel : GroupPolicyDocumen
     {
         BuildCatalogRows();
         RebuildAll();
+
+        // The conflict is said in the new language at once, not when the read is through.
+        ConflictNote = ConflictText();
         base.OnCultureChanged();
     }
+
+    // ---- Status line (track V, stage V2b-3) -------------------------------------------------------------------------
+
+    /// <summary>"The security settings of this GPO changed on dc01 since the edits started …" (null: nothing changed under the edits).</summary>
+    private string? ConflictText() =>
+        _conflictServer is { } server ? Localizer.Format(L.SecuritySettings.ConflictNote, server) : null;
+
+    /// <summary>
+    /// The state of this kind of document that lasts: a file of the GPO changed on SYSVOL under the edits, so the save
+    /// would be refused as a conflict. It is the state of the whole document - the edits are of all its pages - and it has
+    /// one way out, which the line offers: discard the edits (the operator is asked first), and the current files are shown.
+    /// </summary>
+    protected override PageStatus? DocumentLastingState => ConflictNote is { } note
+        ? PageStatus.Attention(
+            note,
+            new PageStatusLog(L.SecuritySettings.ConflictNote),
+            new PageStatusAction(Localizer[L.SecuritySettings.Discard], DiscardCommand))
+        : null;
+
+    partial void OnConflictNoteChanged(string? value) => UpdateLasting();
 
     /// <summary>A file of the GPO: its content (null: none) or a localized reason it cannot be read.</summary>
     private async Task<(byte[]? Content, string? Error)> ReadFileAsync(ISysvolConnection sysvol, string path, CancellationToken cancellationToken)

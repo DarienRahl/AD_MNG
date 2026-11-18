@@ -1,0 +1,14 @@
+<Project>
+  <!-- Imported by every project that references AdMng.PowerShell and is an executable or a test run (AdMng.App, the test
+       projects). Microsoft.PowerShell.SDK pulls in System.Data.SqlClient, whose native sni.dll packages are under the
+       Microsoft .NET Library license - redistributable but not OSI approved (CLAUDE.md: new components need an OSI license;
+       SignPath Foundation signing needs every component open source). Nothing in AD Manager or in the commands the window
+       offers uses SQL Server, so the four packages are excluded from the build, the deps file and the publish output.
+       The versions are central (Directory.Packages.props). A test (PackageLicenseTests) asserts that no sni.dll is left. -->
+  <ItemGroup>
+    <PackageReference Include="runtime.native.System.Data.SqlClient.sni" ExcludeAssets="all" />
+    <PackageReference Include="runtime.win-arm64.runtime.native.System.Data.SqlClient.sni" ExcludeAssets="all" />
+    <PackageReference Include="runtime.win-x64.runtime.native.System.Data.SqlClient.sni" ExcludeAssets="all" />
+    <PackageReference Include="runtime.win-x86.runtime.native.System.Data.SqlClient.sni" ExcludeAssets="all" />
+  </ItemGroup>
+</Project>

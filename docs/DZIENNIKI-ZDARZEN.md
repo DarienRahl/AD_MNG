@@ -55,8 +55,11 @@ Każda karta należy do swojego okna połączenia i korzysta z jego poświadcze�
   z tego zapytanie XPath i bezpiecznie wstawia wartości (nie da się nimi zmienić zapytania). **Tryb XPath (ekspert)**
   przyjmuje własne wyrażenie po kontroli składni; resztę sprawdza komputer docelowy (w tym trybie przedział czasu z
   listy nie obowiązuje).
-- **Wyszukaj** czyta najwyżej cztery komputery naraz, z postępem dla każdego; *Przerwij* zatrzymuje odczyt na
-  komputerach docelowych. Wyniki: wspólna **oś czasu** wszystkich źródeł (od najnowszych), najwyżej 50 000 zdarzeń –
+- **Wyszukaj** czyta najwyżej cztery komputery naraz, z postępem dla każdego; wiersz stanu pod nagłówkiem mówi, ile źródeł
+  jest gotowych i ile zdarzeń odczytano, a jego *Zatrzymaj* (albo sam *Wyszukaj*, który w trakcie odczytu jest jego
+  przyciskiem *Anuluj*) zatrzymuje odczyt na komputerach docelowych. Źródło, którego nie udało się odczytać, wiersz nazywa;
+  przyczyna jest w wierszu tego źródła w sekcji *Zasięg i dostęp*. Ten sam wiersz obsługuje badanie blokady konta i
+  nieudane logowania. Wyniki: wspólna **oś czasu** wszystkich źródeł (od najnowszych), najwyżej 50 000 zdarzeń –
   przy większej liczbie karta mówi, ile pominięto, i prosi o zawężenie zapytania. *Ctrl+F* filtruje wczytane zdarzenia.
 - **Szczegóły zdarzenia:** wszystkie pola po nazwach z objaśnieniami kodów po polsku (np. `0xC000006A` – złe hasło,
   Kerberos `0x18`, typy logowania, typy szyfrowania z oznaczeniem słabych RC4 i DES), konta i SID-y połączone z

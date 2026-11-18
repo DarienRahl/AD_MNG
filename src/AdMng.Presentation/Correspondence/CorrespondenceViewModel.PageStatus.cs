@@ -2,7 +2,7 @@ using System.ComponentModel;
 
 namespace AdMng.Presentation.Correspondence;
 
-/// <summary>The status lines of the recipients and mailbox owners pages go to the window's status bar.</summary>
+/// <summary>The last sentence of the recipients and mailbox owners pages is kept in <see cref="StatusText"/> (the line says it through the pages' holders).</summary>
 public sealed partial class CorrespondenceViewModel
 {
     private void OnPagePropertyChanged(object? sender, PropertyChangedEventArgs e)

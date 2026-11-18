@@ -1,0 +1,162 @@
+<!--
+  The line editor of the PowerShell window (track R, stage R1, decision D5): our own control, no package. A TextBox does the
+  editing (selection, undo, clipboard, input methods, a screen reader reads it) and draws nothing of its text: its text is
+  transparent, and under it a TextBlock draws the same text in the colours of the parser's tokens (command, parameter, variable,
+  string, number, operator, comment ...), placed where the box puts its first character, so that the caret and the selection of
+  the box are over the coloured text. While a command asks for a secret the box is a PasswordBox. The completion is a list under the
+  caret, taken with Tab or Enter, closed with Esc. The colours are the theme's text colours (they follow light, dark and High
+  Contrast), the font is the monospace token of Tokens.xaml. Everything the keys do is the model's (PowerShellInputModel): the control forwards keys
+  and draws what the model says.
+-->
+<UserControl x:Class="AdMng.App.PowerShell.PowerShellEditor"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             Focusable="False"
+             IsTabStop="False">
+  <UserControl.Resources>
+    <!-- A box with nothing of its own but the text host: no frame, no fill, no focus rectangle (the editor's frame is below). -->
+    <ControlTemplate x:Key="BareBoxTemplate" TargetType="TextBoxBase">
+      <ScrollViewer x:Name="PART_ContentHost" Focusable="False" />
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="BarePasswordTemplate" TargetType="PasswordBox">
+      <ScrollViewer x:Name="PART_ContentHost" Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden" />
+    </ControlTemplate>
+
+    <Style x:Key="CompletionItemStyle" TargetType="ListBoxItem">
+      <Setter Property="Focusable" Value="False" />
+      <Setter Property="Padding" Value="6,2" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="ToolTip" Value="{Binding ToolTip, Mode=OneWay}" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding ListText, Mode=OneWay}" />
+      <EventSetter Event="PreviewMouseLeftButtonUp" Handler="OnCompletionItemClick" />
+    </Style>
+  </UserControl.Resources>
+
+  <Grid PreviewKeyDown="OnPreviewKeyDown" PreviewTextInput="OnPreviewTextInput">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <Border x:Name="Frame"
+            BorderThickness="1"
+            CornerRadius="{StaticResource Ad.Radius.Control}">
+      <Border.Style>
+        <Style TargetType="Border">
+          <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+          <Style.Triggers>
+            <DataTrigger Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+              <Setter Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+            </DataTrigger>
+          </Style.Triggers>
+        </Style>
+      </Border.Style>
+      <DockPanel>
+        <TextBlock x:Name="PromptText"
+                   Margin="8,4,0,4"
+                   VerticalAlignment="Top"
+                   DockPanel.Dock="Left"
+                   FontFamily="{StaticResource Ad.Font.Mono}"
+                   FontSize="{StaticResource Ad.FontSize.Body}"
+                   Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                   Text="PS&gt; "
+                   TextOptions.TextFormattingMode="Display" />
+        <Grid x:Name="EditorHost" Margin="0,0,4,0" ClipToBounds="True">
+          <!-- What the operator sees: the text in colours. It takes no pointer (the box has the same text and is what a screen reader reads). -->
+          <TextBlock x:Name="HighlightLayer"
+                     HorizontalAlignment="Left"
+                     VerticalAlignment="Top"
+                     FontFamily="{StaticResource Ad.Font.Mono}"
+                     FontSize="{StaticResource Ad.FontSize.Body}"
+                     Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                     IsHitTestVisible="False"
+                     TextOptions.TextFormattingMode="Display"
+                     TextWrapping="NoWrap" />
+          <TextBlock x:Name="HintText"
+                     Margin="0,4,0,4"
+                     VerticalAlignment="Top"
+                     FontFamily="{StaticResource Ad.Font.Mono}"
+                     FontSize="{StaticResource Ad.FontSize.Caption}"
+                     Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                     IsHitTestVisible="False"
+                     TextTrimming="CharacterEllipsis" />
+          <TextBox x:Name="InputBox"
+                   Padding="0,4"
+                   AcceptsReturn="True"
+                   AcceptsTab="False"
+                   AutomationProperties.Name="{l:Tr PowerShell.Editor.Name}"
+                   Background="Transparent"
+                   BorderThickness="0"
+                   CaretBrush="{DynamicResource TextFillColorPrimaryBrush}"
+                   FontFamily="{StaticResource Ad.Font.Mono}"
+                   FontSize="{StaticResource Ad.FontSize.Body}"
+                   Foreground="Transparent"
+                   HorizontalScrollBarVisibility="Hidden"
+                   IsUndoEnabled="True"
+                   SelectionChanged="OnSelectionChanged"
+                   SpellCheck.IsEnabled="False"
+                   Template="{StaticResource BareBoxTemplate}"
+                   TextChanged="OnTextChanged"
+                   TextOptions.TextFormattingMode="Display"
+                   TextWrapping="NoWrap"
+                   VerticalScrollBarVisibility="Auto" />
+          <PasswordBox x:Name="SecretBox"
+                       Padding="0,4"
+                       AutomationProperties.Name="{l:Tr PowerShell.Editor.Name}"
+                       Background="Transparent"
+                       BorderThickness="0"
+                       CaretBrush="{DynamicResource TextFillColorPrimaryBrush}"
+                       FontFamily="{StaticResource Ad.Font.Mono}"
+                       FontSize="{StaticResource Ad.FontSize.Body}"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                       PasswordChanged="OnSecretChanged"
+                       Template="{StaticResource BarePasswordTemplate}"
+                       Visibility="Collapsed" />
+        </Grid>
+      </DockPanel>
+    </Border>
+
+    <!-- Ctrl+R: what was typed and the line it found. -->
+    <TextBlock x:Name="SearchText"
+               Grid.Row="1"
+               Margin="2,4,0,0"
+               FontFamily="{StaticResource Ad.Font.Mono}"
+               FontSize="{StaticResource Ad.FontSize.Caption}"
+               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+               TextTrimming="CharacterEllipsis"
+               Visibility="Collapsed" />
+
+    <Popup x:Name="CompletionPopup"
+           AllowsTransparency="False"
+           Focusable="False"
+           Placement="Relative"
+           PlacementTarget="{Binding ElementName=InputBox}"
+           StaysOpen="True">
+      <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+              BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+              BorderThickness="1"
+              MaxWidth="560"
+              MinWidth="240"
+              Padding="2">
+        <ListBox x:Name="CompletionList"
+                 MaxHeight="220"
+                 AutomationProperties.Name="{l:Tr PowerShell.Completion.Name}"
+                 BorderThickness="0"
+                 Focusable="False"
+                 FontFamily="{StaticResource Ad.Font.Mono}"
+                 FontSize="{StaticResource Ad.FontSize.Caption}"
+                 ItemContainerStyle="{StaticResource CompletionItemStyle}"
+                 VirtualizingPanel.IsVirtualizing="True">
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <TextBlock Text="{Binding ListText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Border>
+    </Popup>
+  </Grid>
+</UserControl>

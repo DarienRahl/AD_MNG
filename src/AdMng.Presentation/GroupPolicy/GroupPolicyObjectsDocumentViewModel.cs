@@ -1,7 +1,9 @@
+using System.ComponentModel;
 using System.Globalization;
 using AdMng.Core.Directory;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.Management;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Shell;
@@ -57,6 +59,9 @@ public sealed partial class GroupPolicyObjectsDocumentViewModel(GroupPolicyServi
     /// <summary>"Obiekty zasad grupy: N, z różnymi wersjami …" of the last load.</summary>
     private string _countText = string.Empty;
 
+    /// <summary>A load ended well and <see cref="_all"/> is its result (an empty domain is then an empty list, not an unread one).</summary>
+    private bool _hasRead;
+
     /// <summary>Ctrl+F: the view focuses the search box.</summary>
     public event EventHandler? SearchFocusRequested;
 
@@ -64,8 +69,25 @@ public sealed partial class GroupPolicyObjectsDocumentViewModel(GroupPolicyServi
     [ObservableProperty]
     public partial string SearchText { get; set; } = string.Empty;
 
-    /// <summary>"Żaden GPO nie pasuje do wyszukiwania." (null when the list has rows or nothing was read).</summary>
-    public string? ListNote => Rows.Count == 0 && _all.Count > 0 ? Localizer[L.GroupPolicyEditing.GpoNoMatches] : null;
+    /// <summary>
+    /// What the list says when it has no rows (V2b-5b): "Żaden GPO nie pasuje do wyszukiwania." with "Wyczyść wyszukiwanie"
+    /// when the search hides every GPO, "W tej domenie nie ma obiektów zasad grupy." with Refresh when the domain has none.
+    /// <see cref="EmptyListState.None"/> while the list has rows, is read or could not be read.
+    /// </summary>
+    public EmptyListState EmptyState
+    {
+        get
+        {
+            if (!_hasRead || IsLoading || Error is not null || Rows.Count > 0)
+            {
+                return EmptyListState.None;
+            }
+
+            return _all.Count > 0
+                ? new EmptyListState(Localizer[L.GroupPolicyEditing.GpoNoMatches], ObjectIcon.Query, new PageStatusAction(Localizer[L.GroupPolicyEditing.ClearSearch], ClearSearchCommand))
+                : new EmptyListState(Localizer[L.GroupPolicyEditing.GpoNone], ObjectIcon.GroupPolicy, new PageStatusAction(Localizer[L.Commands.Refresh], RefreshCommand));
+        }
+    }
 
     /// <summary>Ctrl+F (<see cref="ISearchableDocument"/>).</summary>
     public void FocusSearch() => SearchFocusRequested?.Invoke(this, EventArgs.Empty);
@@ -89,7 +111,17 @@ public sealed partial class GroupPolicyObjectsDocumentViewModel(GroupPolicyServi
         Selection = [.. selected.Where(Rows.Contains)];
         SelectedRow = focused is not null && Rows.Contains(focused) ? focused : null;
         LoadedText = search.Length == 0 ? _countText : Localizer.Format(L.GroupPolicyEditing.GposShown, Rows.Count, _all.Count);
-        OnPropertyChanged(nameof(ListNote));
+        OnPropertyChanged(nameof(EmptyState));
+    }
+
+    /// <summary>The empty state follows what is read and what the document is doing (and the language of its sentences).</summary>
+    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (e.PropertyName is nameof(IsLoading) or nameof(Error))
+        {
+            OnPropertyChanged(nameof(EmptyState));
+        }
     }
 
     public override string Title => Localizer[L.GroupPolicy.ObjectsTitle];
@@ -124,6 +156,8 @@ public sealed partial class GroupPolicyObjectsDocumentViewModel(GroupPolicyServi
 
     protected override async Task LoadCoreAsync(IDirectorySession session, ISysvolWriteConnection? sysvol, CancellationToken cancellationToken)
     {
+        // A read that is stopped or fails says nothing about whether the domain has GPOs: no empty state until one ended well.
+        _hasRead = false;
         var reader = Gp.Reader;
         var gpos = await Task.Run(() => reader.ReadPoliciesAsync(session, cancellationToken), cancellationToken).ConfigureAwait(true);
         var containers = await Task.Run(() => reader.ReadLinkingContainersAsync(session, cancellationToken), cancellationToken).ConfigureAwait(true);
@@ -159,15 +193,17 @@ public sealed partial class GroupPolicyObjectsDocumentViewModel(GroupPolicyServi
         _countText = Localizer.Format(L.GroupPolicy.ObjectsCount, _all.Count, _all.Count(r => r.HasVersionMismatch));
         Selection = [.. _all.Where(r => selected.Contains(r.Gpo.Id))];
         SelectedRow = _all.FirstOrDefault(r => r.Gpo.Id == focused);
+        _hasRead = true;
         ApplySearch();
     }
 
     protected override void OnNotConnected()
     {
+        _hasRead = false;
         _all = [];
         Rows = [];
         Selection = [];
-        OnPropertyChanged(nameof(ListNote));
+        OnPropertyChanged(nameof(EmptyState));
     }
 
     protected override void RefreshCommands()

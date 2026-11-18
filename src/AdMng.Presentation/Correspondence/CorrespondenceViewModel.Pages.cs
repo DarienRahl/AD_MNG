@@ -9,6 +9,8 @@ public sealed partial class CorrespondenceViewModel
     /// </summary>
     partial void OnSelectedTabChanged(CorrespondenceTab value)
     {
+        // The line says what the tab that is shown says (a page says it again when it comes to the front).
+        Status.Front = PageStatusOf(value);
         switch (value)
         {
             case CorrespondenceTab.Preview:

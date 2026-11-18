@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Track R, stage R1 (docs/dev/r1-powershell-window.md, ADR-0010): the embedded PowerShell 7 engine of the PowerShell
+       window - one runspace per window with a custom host, the program's commands, the command guards, completion, syntax
+       and the history policy. Used by AdMng.App only (never by a Watchdog project, never in the Watchdog package, like
+       AdMng.Remote); the view models reach it through the contracts in AdMng.Core/PowerShell. Runs on Linux too (the tests
+       do); the WPF window is Windows only. Writes no file (CLAUDE.md rule 1): PowerShellEnvironment sets the engine up
+       before its first use. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>AdMng.PowerShell</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AdMng.Core\AdMng.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- 7.6.x is the LTS line that targets net10.0 (7.7 targets net11.0); a version change is a new AD Manager release. -->
+    <PackageReference Include="Microsoft.PowerShell.SDK" />
+  </ItemGroup>
+  <!-- The sni.dll packages of the SDK's closure are not OSI licensed (ADR-0010, "Package licenses"): every program that uses
+       the engine imports this file. -->
+  <Import Project="PowerShellEngineConsumer.props" />
+  <ItemGroup>
+    <InternalsVisibleTo Include="AdMng.PowerShell.Tests" />
+  </ItemGroup>
+  <!-- The help of the commands (MAML, English only: the engine's help is its own language). Beside the assembly, where the engine
+       looks for it; a publish that bundles the assembly puts it beside the program (docs/dev/r1-powershell-window.md 12.2). -->
+  <ItemGroup>
+    <None Include="Help\AdMng.PowerShell.dll-Help.xml" Link="AdMng.PowerShell.dll-Help.xml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

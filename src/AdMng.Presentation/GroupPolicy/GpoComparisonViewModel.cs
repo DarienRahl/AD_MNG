@@ -5,6 +5,7 @@ using AdMng.Core.GroupPolicy.Content;
 using AdMng.Core.GroupPolicy.Management;
 using AdMng.Core.Ldap;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.GroupPolicy.Settings;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
@@ -46,11 +47,30 @@ public sealed record GpoComparisonRowViewModel(GpoComparisonRow Row, string Sect
 /// read on the session's DC into memory. "Tylko różnice" filters the rows; masked settings (passwords) show only that they
 /// are set. CSV only when the operator chooses a file (rule 1).
 /// </summary>
-public sealed partial class GpoComparisonViewModel : WindowViewModelBase
+/// <remarks>
+/// The window has one status line (<see cref="Status"/>; track V, stage V2b-3, design note docs/dev/v-interface-renewal.md
+/// "V2b-3 as built"). The comparison is its operation, with Stop: reading, then - once the rows are shown - the
+/// administrative templates that name the policies. At rest the line says how many differences the rows hold (the
+/// summary). A comparison that was stopped before it showed anything or failed is the state of the window until it is
+/// repeated (Retry); one that was stopped while the templates were read is a result: the rows are there, under the
+/// registry names of the settings. What the comparison could not compare - the settings and files, when SYSVOL cannot
+/// be read - is a note above the rows, true for as long as they are shown. As the state that lasts: the session of the
+/// window ended, or it was opened without one.
+/// </remarks>
+public sealed partial class GpoComparisonViewModel : WindowViewModelBase, IHasPageStatus
 {
     private readonly GroupPolicyServices _gp;
     private readonly SerialCancellation _load = new();
     private IReadOnlyList<GpoComparisonRowViewModel> _all = [];
+
+    /// <summary>The comparison was shown at least once: the line has its count of differences as the summary.</summary>
+    private bool _compared;
+
+    /// <summary>The comparison that is running (the one that owns <see cref="IsLoading"/>).</summary>
+    private OperationScope? _comparing;
+
+    /// <summary>What the last comparison left, when it left no rows: it was stopped or failed (null: nothing wrong).</summary>
+    private PageStatus? _compareState;
 
     public GpoComparisonViewModel(GroupPolicyServices services, GpoInfo a, GpoInfo b)
         : base((services ?? throw new ArgumentNullException(nameof(services))).Ui)
@@ -58,7 +78,16 @@ public sealed partial class GpoComparisonViewModel : WindowViewModelBase
         _gp = services;
         A = a ?? throw new ArgumentNullException(nameof(a));
         B = b ?? throw new ArgumentNullException(nameof(b));
+        Status = new PageStatusHolder(Localizer, Services.Dispatcher, Services.Lists.StatusLog);
+        UpdateLasting();
     }
+
+    /// <summary>
+    /// The status of the window - what its one status line shows: the running comparison (with Stop), at rest how many
+    /// differences the rows hold, why there are no rows after a comparison that was stopped or failed, and that the
+    /// session of the window ended.
+    /// </summary>
+    public PageStatusHolder Status { get; }
 
     public GpoInfo A { get; }
 
@@ -80,13 +109,15 @@ public sealed partial class GpoComparisonViewModel : WindowViewModelBase
     [ObservableProperty]
     public partial bool IsLoading { get; private set; }
 
+    /// <summary>What could not be compared (SYSVOL) - a note above the rows: they are complete as far as it says.</summary>
     [ObservableProperty]
     public partial string? Warning { get; private set; }
 
+    /// <summary>Why the comparison failed, or the last export did, as plain text: what the status line says (kept for callers that read it).</summary>
     [ObservableProperty]
     public partial string? Error { get; private set; }
 
-    /// <summary>"12 różnic w 140 pozycjach".</summary>
+    /// <summary>"12 różnic w 140 pozycjach": the summary of the status line (kept for callers that read it).</summary>
     [ObservableProperty]
     public partial string SummaryText { get; private set; } = string.Empty;
 
@@ -94,19 +125,38 @@ public sealed partial class GpoComparisonViewModel : WindowViewModelBase
 
     partial void OnOnlyDifferencesChanged(bool value) => ApplyFilter();
 
+    /// <summary>
+    /// Reads both GPOs and compares them - the operation of the window: its line says "Comparing … with …" with Stop. The
+    /// rows are the result, so a comparison that ended says nothing and the line shows the count of differences; one that
+    /// was stopped before it showed anything, or failed, is the state of the window until it is repeated. Closing the
+    /// window and the end of its session end the comparison without a word. Never throws.
+    /// </summary>
     [RelayCommand]
     private async Task LoadAsync()
     {
-        var token = _load.Next();
+        var latest = _load.Next();
         if (Session is not { } session)
         {
             Error = NoSessionMessage;
+            UpdateLasting();
             return;
         }
 
         IsLoading = true;
         Error = null;
         Warning = null;
+        using var comparing = Status.Begin(
+            Localizer.Format(L.GpoComparisonStatus.Comparing, A.DisplayName, B.DisplayName), new PageStatusLog(L.GpoComparisonStatus.Comparing));
+        _comparing = comparing;
+
+        // What the last comparison left is over: this one decides.
+        _compareState = null;
+        UpdateLasting();
+
+        // The operator's Stop and "the latest wins" (Refresh, closing the window) both end the comparison.
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(latest, comparing.Token);
+        var token = linked.Token;
+        var shown = false;
         try
         {
             var reader = _gp.Reader;
@@ -149,20 +199,18 @@ public sealed partial class GpoComparisonViewModel : WindowViewModelBase
             var settingSids = GpoSettingPresenter.Sids(rows.SelectMany(r => new[] { r.A, r.B }).OfType<GpoSetting>());
             var sids = GpoPermissionLevels.Read(gpoA.SecurityDescriptor).Concat(GpoPermissionLevels.Read(gpoB.SecurityDescriptor)).Select(p => p.Sid).Concat(settingSids);
             var names = await TrusteeNames.ResolveAsync(session, sids, Localizer, token).ConfigureAwait(true);
-            if (token.IsCancellationRequested)
-            {
-                return;
-            }
+            token.ThrowIfCancellationRequested();
 
             var filterNames = filters.ToDictionary(f => f.Id, f => f.Name, StringComparer.OrdinalIgnoreCase);
             var linkMap = linksA.Concat(linksB).GroupBy(l => l.ContainerDn, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First().ContainerName, StringComparer.OrdinalIgnoreCase);
             var other = rows.Where(r => r.Section != GpoComparisonSection.Settings).Select(r => ToRow(r, names, filterNames, linkMap, linksA, linksB)).ToList();
             var (presenterA, presenterB) = Presenters(Localizer, names, rows, contentA, contentB, null);
             ShowRows(other, SettingRows(rows, presenterA, presenterB));
+            shown = true;
 
             // The rows are shown with registry names; the administrative templates then name the policies.
             IsLoading = false;
-            if (await DefinitionsAsync(session, rows, token).ConfigureAwait(true) is { } definitions && !token.IsCancellationRequested)
+            if (await DefinitionsAsync(session, rows, comparing, token).ConfigureAwait(true) is { } definitions && !token.IsCancellationRequested)
             {
                 var localizer = Localizer;
                 var named = await Task.Run(
@@ -177,22 +225,69 @@ public sealed partial class GpoComparisonViewModel : WindowViewModelBase
                     ShowRows(other, named);
                 }
             }
+
+            if (comparing.IsCancelling)
+            {
+                // The templates were not read although the rows are there, and Stop was pressed: the rows say so.
+                TemplatesStopped(comparing);
+            }
         }
         catch (OperationCanceledException)
         {
-            // Reloaded or closed.
+            // Reloaded or closed - or the operator's Stop.
+            if (comparing.IsCancelling)
+            {
+                if (shown)
+                {
+                    TemplatesStopped(comparing);
+                }
+                else
+                {
+                    // Nothing is shown (the first comparison), or the rows of the comparison before this one are.
+                    var refresh = Localizer[L.Commands.Refresh];
+                    var key = _compared ? L.GpoComparisonStatus.StoppedStale : L.GpoComparisonStatus.Stopped;
+                    _compareState = PageStatus.Attention(
+                        Localizer.Format(key, refresh), new PageStatusLog(key), new PageStatusAction(refresh, LoadCommand));
+                }
+            }
         }
         catch (Exception ex) when (GroupPolicyText.IsExpected(ex))
         {
-            Error = GroupPolicyText.Error(Localizer, Errors, ex);
+            if (!comparing.IsEnded)
+            {
+                Error = GroupPolicyText.Error(Localizer, Errors, ex);
+                var code = ResultCode.Of(ex);
+                _compareState = PageStatus.Error(
+                    PageStatusText.Failure(
+                        Localizer.Format(L.GpoComparisonStatus.CompareFailed, A.DisplayName, B.DisplayName), Error, Localizer[L.Feedback.RetryNext], code),
+                    new PageStatusLog(L.GpoComparisonStatus.CompareFailed).WithCode(code),
+                    new PageStatusAction(Localizer[L.Common.Retry], LoadCommand),
+                    canClose: false);
+            }
         }
         finally
         {
-            if (!token.IsCancellationRequested)
+            if (ReferenceEquals(_comparing, comparing))
             {
+                _comparing = null;
                 IsLoading = false;
             }
+
+            UpdateLasting();
         }
+    }
+
+    /// <summary>
+    /// The operator stopped the comparison while the administrative templates were read: the rows are all there, the
+    /// policies under their registry names; "Refresh" compares again. A result that can be closed.
+    /// </summary>
+    private void TemplatesStopped(OperationScope comparing)
+    {
+        var refresh = Localizer[L.Commands.Refresh];
+        comparing.CompleteAttention(
+            Localizer.Format(L.GpoComparisonStatus.TemplatesStopped, refresh),
+            new PageStatusLog(L.GpoComparisonStatus.TemplatesStopped),
+            new PageStatusAction(refresh, LoadCommand));
     }
 
     /// <summary>Exports the shown rows to a CSV file the operator chooses (never automatically).</summary>
@@ -227,36 +322,81 @@ public sealed partial class GpoComparisonViewModel : WindowViewModelBase
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+            // The answer to the press: nothing was exported, and why - in the line, unless a comparison runs (it keeps the line).
             Error = Localizer[L.GroupPolicy.FolderFailed];
+            if (!Status.IsWorking)
+            {
+                var code = ResultCode.Of(ex);
+                Status.Show(PageStatus.Error(
+                    PageStatusText.Failure(Localizer[L.GpoComparisonStatus.ExportFailed], Error, null, code),
+                    new PageStatusLog(L.GpoComparisonStatus.ExportFailed).WithCode(code)));
+            }
         }
     }
 
     [RelayCommand]
-    private void Close() => RequestClose(null);
+    private Task CloseAsync() => CloseByOperatorAsync(null);
 
-    protected override void OnSessionEnded() => Error = SessionEndedMessage;
+    protected override void OnCultureChanged()
+    {
+        base.OnCultureChanged();
+
+        // The window's own sentences in the new language (why a comparison was stopped or failed stays as it was said).
+        UpdateLasting();
+        UpdateSummary();
+    }
+
+    protected override void OnSessionEnded()
+    {
+        // The line says for good that the session ended; a comparison that still runs ends without a word of its own
+        // (the state first, so the line goes straight from "working" to it), and "busy" ends with it at once.
+        Error = SessionEndedMessage;
+        UpdateLasting();
+        _load.Cancel();
+        Status.Operation?.Dispose();
+        _comparing = null;
+        IsLoading = false;
+    }
 
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
             _load.Cancel();
+
+            // What still runs says nothing any more.
+            Status.Operation?.Dispose();
         }
 
         base.Dispose(disposing);
+    }
+
+    /// <summary>
+    /// The state of the window that lasts, the most important first: its session ended, or it was opened without one (an
+    /// error that cannot be closed - nothing can be compared), else why there are no rows after a comparison that did not end.
+    /// </summary>
+    private void UpdateLasting() => Status.SetLasting(
+        SessionEndedStatus ?? (Session is null ? PageStatus.Error(NoSessionMessage, new PageStatusLog(L.Errors.NotConnected), canClose: false) : _compareState));
+
+    /// <summary>The summary: how many differences the rows hold (nothing before they were shown once).</summary>
+    private void UpdateSummary()
+    {
+        SummaryText = _compared ? Localizer.Format(L.GroupPolicy.CompareSummary, _all.Count(r => r.IsDifferent), _all.Count) : string.Empty;
+        Status.SetIdle(_compared ? SummaryText : null);
     }
 
     /// <summary>The rows in the comparer's section order: core, permissions, links, settings, files.</summary>
     private void ShowRows(IReadOnlyList<GpoComparisonRowViewModel> other, IReadOnlyList<GpoComparisonRowViewModel> settings)
     {
         _all = [.. other.Where(r => r.Row.Section < GpoComparisonSection.Settings), .. settings, .. other.Where(r => r.Row.Section > GpoComparisonSection.Settings)];
+        _compared = true;
         ApplyFilter();
     }
 
     private void ApplyFilter()
     {
         Rows = OnlyDifferences ? [.. _all.Where(r => r.IsDifferent)] : _all;
-        SummaryText = Localizer.Format(L.GroupPolicy.CompareSummary, _all.Count(r => r.IsDifferent), _all.Count);
+        UpdateSummary();
     }
 
     private GpoComparisonRowViewModel ToRow(

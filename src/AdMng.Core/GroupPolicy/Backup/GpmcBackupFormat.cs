@@ -697,6 +697,19 @@ public static class GpmcBackupFormat
         return rest.Length == 0 ? token : token + "\\" + string.Join('\\', rest);
     }
 
+    /// <summary>
+    /// K7 (docs/dev/k-computers-and-gpo.md 21.5): the client-side extension of a preference type, or null for a type the
+    /// table does not know (<see cref="ExtensionOf"/> falls back to the Registry CSE for those, which clients would ignore
+    /// for a preference file – a copy refuses such units instead).
+    /// </summary>
+    public static Guid? TryPreferenceExtension(string? type)
+    {
+        var (id, _) = PreferenceExtension(type);
+        return id == UnknownPreferenceExtension ? null : id;
+    }
+
+    private static readonly Guid UnknownPreferenceExtension = new("35378EAC-683F-11D2-A89A-00C04FBBCFA2");
+
     private static (Guid, string) PreferenceExtension(string? type) => (type ?? string.Empty).ToUpperInvariant() switch
     {
         "GROUPS" => (new Guid("17D89FEC-5C44-4972-B12D-241CAEF74509"), "Local Users and Groups"),

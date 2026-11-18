@@ -6,6 +6,7 @@ using AdMng.Core.Model;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Connections;
 using AdMng.Presentation.Errors;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
@@ -25,7 +26,7 @@ namespace AdMng.Presentation.Shell;
 /// Main window: header (DC, identity, channel security), navigation tree, document tabs with object lists,
 /// address bar, global quick search, details pane, command palette, status bar and all object commands.
 /// </summary>
-public sealed partial class ShellViewModel : ObservableObject, IDisposable
+public sealed partial class ShellViewModel : ObservableObject, IDisposable, IHasPageStatusParts, IHasFrontStatus
 {
     private static readonly TimeSpan DetailsDelay = TimeSpan.FromMilliseconds(150);
 
@@ -112,6 +113,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Tree.PropertyChanged += OnTreePropertyChanged;
         AttachGroupPolicy();
         AttachEventLogs();
+        AttachPki();
         Sessions.SessionChanged += OnSessionChanged;
         Settings.Changed += OnSettingsChanged;
         Localizer.CultureChanged += OnCultureChanged;
@@ -145,8 +147,20 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     /// <summary>The selected tab (bound to the tab strip).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SelectedDocument), nameof(IsDetailsPaneShown))]
+    [NotifyPropertyChangedFor(nameof(SelectedDocument), nameof(IsDetailsPaneShown), nameof(FrontStatus))]
     public partial IShellDocument? SelectedTab { get; set; }
+
+    /// <summary>
+    /// The holder of the selected tab - what the status line of the window shows, and what its taskbar button follows
+    /// (<see cref="IHasFrontStatus"/>); null for a tab without a status line of its own.
+    /// </summary>
+    public PageStatusHolder? FrontStatus => (SelectedTab as IHasPageStatus)?.Status;
+
+    /// <summary>
+    /// The holders of every open tab (and of the pages they hold), whichever is selected: a write that runs in a tab that is
+    /// not in front is asked about when the window is closed (<see cref="RunningWork"/>).
+    /// </summary>
+    public IEnumerable<PageStatusHolder> StatusParts => RunningWork.HoldersOf([.. Documents]);
 
     /// <summary>
     /// The selected object list, or null when no list tab is selected (the list commands disable themselves on the
@@ -223,6 +237,16 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     public string StatusText => SelectedTab?.StatusText ?? string.Empty;
 
     public string SelectionText => SelectedTab?.SelectionText ?? string.Empty;
+
+    /// <summary>
+    /// What the status bar of the window says about the selected tab: nothing for a tab whose page has a status line of
+    /// its own (<see cref="IHasPageStatus"/>: the object list) - one window never says the same sentence twice (design
+    /// note docs/dev/v-interface-renewal.md 6.1) - and <see cref="StatusText"/> for the tabs that have none yet.
+    /// </summary>
+    public string StatusBarText => SelectedTab is IHasPageStatus ? string.Empty : StatusText;
+
+    /// <summary>The selection of the selected tab for the status bar; see <see cref="StatusBarText"/>.</summary>
+    public string StatusBarSelectionText => SelectedTab is IHasPageStatus ? string.Empty : SelectionText;
 
     /// <summary>A tab is loading or a background operation runs.</summary>
     public bool IsBusy => SelectedTab?.IsLoading == true || _activities.HasRunning;
@@ -338,6 +362,14 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     {
         document ??= SelectedTab;
         if (document is null || !Documents.Contains(document))
+        {
+            return;
+        }
+
+        // A tab that writes - the Watchdog tab saving its configuration - is asked about first; a tab that only reads is closed and
+        // its read is cancelled, as before.
+        if (!await RunningWork.ConfirmCloseAsync(Localizer, _dialogs, document.Title, RunningWork.HoldersOf(document)).ConfigureAwait(true)
+            || !Documents.Contains(document))
         {
             return;
         }
@@ -525,6 +557,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Tree.PropertyChanged -= OnTreePropertyChanged;
         DetachGroupPolicy();
         DetachEventLogs();
+        DetachPki();
         _activities.PropertyChanged -= OnActivitiesChanged;
         _views.Changed -= OnViewsChanged;
         Sessions.SessionChanged -= OnSessionChanged;
@@ -553,6 +586,21 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         Documents.Clear();
         Tree.Dispose();
+    }
+
+    /// <summary>The status bar texts follow the texts of the selected tab.</summary>
+    protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        switch (e.PropertyName)
+        {
+            case nameof(StatusText):
+                base.OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(StatusBarText)));
+                break;
+            case nameof(SelectionText):
+                base.OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(StatusBarSelectionText)));
+                break;
+        }
     }
 
     partial void OnSelectedTabChanged(IShellDocument? value)
@@ -810,6 +858,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         }
 
         if (TryActivateGroupPolicyNode(node))
+        {
+            return;
+        }
+
+        if (TryActivatePkiNode(node))
         {
             return;
         }

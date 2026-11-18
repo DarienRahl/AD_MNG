@@ -232,7 +232,6 @@ public static partial class L
         public const string SendDraftsHint = "Correspondence.App.Send.DraftsHint";
         public const string SendButton = "Correspondence.App.Send.Send";
         public const string SendRetryFailed = "Correspondence.App.Send.RetryFailed";
-        public const string SendProgress = "Correspondence.App.Send.Progress";
         public const string SendSent = "Correspondence.App.Send.Sent";
         public const string SendFailed = "Correspondence.App.Send.Failed";
         public const string SendSkipped = "Correspondence.App.Send.Skipped";

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -14,6 +15,11 @@ namespace AdMng.Presentation.Watchdog;
 /// and the plain-text alternative in a read-only box, kept in memory only, never written to disk – plus "Wyślij teraz"
 /// (Admin).
 /// </summary>
+/// <remarks>
+/// The preview and "Wyślij teraz" are operations of the tab (<see cref="Status"/>, in front of the configuration's own
+/// holder: a save can run while a preview is prepared). The preview is stoppable and its result is the content itself - the
+/// subject, the text and the info line show it; a failure leaves the preview as it was. "Send now" is a write: no Stop.
+/// </remarks>
 public sealed partial class WatchdogDigestViewModel : ObservableObject, IDisposable
 {
     private readonly WatchdogServices _services;
@@ -24,6 +30,8 @@ public sealed partial class WatchdogDigestViewModel : ObservableObject, IDisposa
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
         Session = session ?? throw new ArgumentNullException(nameof(session));
+        Status = services.CreateStatus();
+        Status.Front = session.Status;
         Weekdays = CreateWeekdays();
 
         // Not an edit: Load() fills every field from the working copy without writing back.
@@ -37,6 +45,9 @@ public sealed partial class WatchdogDigestViewModel : ObservableObject, IDisposa
     }
 
     public WatchdogConfigSession Session { get; }
+
+    /// <summary>What the tab says in the status line: its preview and its "send now"; in front of the configuration's status.</summary>
+    public PageStatusHolder Status { get; }
 
     public bool CanEdit => Session.CanEdit;
 
@@ -133,6 +144,7 @@ public sealed partial class WatchdogDigestViewModel : ObservableObject, IDisposa
 
     public void Dispose()
     {
+        Status.Operation?.Dispose();
         Session.Reloaded -= OnReloaded;
         Session.IssuesChanged -= OnIssuesChanged;
         Session.PropertyChanged -= OnSessionPropertyChanged;
@@ -142,12 +154,18 @@ public sealed partial class WatchdogDigestViewModel : ObservableObject, IDisposa
     [RelayCommand(CanExecute = nameof(CanPreview))]
     private async Task PreviewAsync()
     {
+        var localizer = _services.Localizer;
+        using var scope = Status.Begin(localizer[L.WatchdogDigestStatus.Previewing], new PageStatusLog(L.WatchdogDigestStatus.Previewing));
         IsBusy = true;
         Error = null;
         try
         {
-            var preview = await _services.Client.PreviewDigestAsync(CancellationToken.None).ConfigureAwait(true);
-            var localizer = _services.Localizer;
+            var preview = await _services.Client.PreviewDigestAsync(scope.Token).ConfigureAwait(true);
+            if (scope.IsEnded)
+            {
+                return;
+            }
+
             var zone = _services.TimeZone;
             PreviewSubject = preview.Subject;
             PreviewText = preview.Text;
@@ -159,9 +177,25 @@ public sealed partial class WatchdogDigestViewModel : ObservableObject, IDisposa
                 preview.NextScheduledAt is { } next ? localizer.FormatTime(next, zone) : "—",
                 preview.LastSentAt is { } last ? localizer.FormatTime(last, zone) : "—");
         }
+        catch (Exception ex) when (ex is not OutOfMemoryException && scope.IsCancelling)
+        {
+            var label = localizer[L.WatchdogUi.DigestPreview];
+            scope.CompleteAttention(
+                localizer.Format(L.WatchdogDigestStatus.PreviewStopped, label),
+                new PageStatusLog(L.WatchdogDigestStatus.PreviewStopped),
+                new PageStatusAction(label, PreviewCommand));
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException && scope.IsEnded)
+        {
+            // Replaced or closed: nothing to say.
+        }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             Error = _services.Connection.Describe(ex);
+            scope.CompleteError(
+                PageStatusText.Failure(localizer[L.WatchdogDigestStatus.PreviewFailed], Error, localizer[L.Feedback.RetryNext], ResultCode.Of(ex)),
+                new PageStatusLog(L.WatchdogDigestStatus.PreviewFailed).WithCode(ResultCode.Of(ex)),
+                new PageStatusAction(localizer[L.Common.Retry], PreviewCommand));
         }
         finally
         {
@@ -181,6 +215,8 @@ public sealed partial class WatchdogDigestViewModel : ObservableObject, IDisposa
             return;
         }
 
+        // A write: no Stop, and the call is not given the token of a scope that another operation could end.
+        using var scope = Status.Begin(localizer[L.WatchdogDigestStatus.Queuing], new PageStatusLog(L.WatchdogDigestStatus.Queuing), canCancel: false, writes: OperationWrites.Other);
         IsBusy = true;
         Error = null;
         try
@@ -188,10 +224,14 @@ public sealed partial class WatchdogDigestViewModel : ObservableObject, IDisposa
             await _services.Client.SendDigestNowAsync(CancellationToken.None).ConfigureAwait(true);
             Message = localizer[L.Watchdog.DigestQueued];
             _services.Ui.Notifications.Show(NotificationSeverity.Success, Message);
+            scope.CompleteDone(Message, new PageStatusLog(L.Watchdog.DigestQueued));
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             Error = _services.Connection.Describe(ex);
+            scope.CompleteError(
+                PageStatusText.Failure(localizer[L.WatchdogDigestStatus.QueueFailed], Error, null, ResultCode.Of(ex)),
+                new PageStatusLog(L.WatchdogDigestStatus.QueueFailed).WithCode(ResultCode.Of(ex)));
         }
         finally
         {

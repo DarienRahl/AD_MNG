@@ -3,6 +3,7 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Batch;
 using AdMng.Core.Directory;
 using AdMng.Presentation.AccountReview;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
@@ -380,10 +381,15 @@ public class AccountReviewViewModelTests
         Assert.Empty(harness.Dialogs.Errors);
         Assert.Empty(review.Items);
         Assert.Equal(0, review.Tiles.Single(t => t.Check == AccountCheck.Inactive).Count);
-        var (severity, message) = harness.Notifications.Items[^1];
-        Assert.Equal(NotificationSeverity.Warning, severity);
-        Assert.StartsWith("Exact last logon read from 2 of 3 domain controllers; 1 accounts are active after all.", message, StringComparison.Ordinal);
-        Assert.Contains("dc03.contoso.test:", message, StringComparison.Ordinal);
+
+        // How the read ended is said in the status line of the window (track V, stage V2b) - not a toast: an
+        // "attention", because one domain controller did not answer.
+        Assert.DoesNotContain(harness.Notifications.Items, n => n.Message.Contains("domain controllers", StringComparison.Ordinal));
+        var result = review.Status.Current;
+        Assert.Equal(PageStatusKind.Attention, result.Kind);
+        Assert.Equal(
+            "The exact last logon was read on 2 of 3 domain controllers. Accounts that are active after all: 1. No answer from: dc03.contoso.test.",
+            result.Message);
         Assert.All(opened, s => Assert.True(s.IsDisposed));
 
         // Paweł is still a finding of other checks, now with the exact value and its DC.

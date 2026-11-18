@@ -762,7 +762,7 @@ public sealed class ScreenshotTests
     public Task Screenshot13_Watchdog_Status() => ShootWatchdogAsync(WatchdogStatus, async (tab, _) =>
     {
         await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Status);
-        await UiWait.UntilAsync(() => tab.Status.HasStatus && tab.Status.DeliveryLog.Items.Count > 0 && tab.Status.Audit.Count > 0, "the status");
+        await UiWait.UntilAsync(() => tab.ServiceStatus.HasStatus && tab.ServiceStatus.DeliveryLog.Items.Count > 0 && tab.ServiceStatus.Audit.Count > 0, "the status");
     }, client => client.Status = SampleStatus.CreateLinux());
 
     [Fact]

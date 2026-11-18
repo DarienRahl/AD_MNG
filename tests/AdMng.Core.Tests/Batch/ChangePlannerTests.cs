@@ -894,7 +894,9 @@ public class ChangePlannerTests
 
         Assert.Equal(8, plan.ExecutableCount);
         Assert.InRange(Session.MaxObservedConcurrency, 1, 2);
-        Assert.Equal(Enumerable.Range(1, 8), progress.Values.Order());
+
+        // In the order they arrive: a report of one worker never overtakes the report of another.
+        Assert.Equal(Enumerable.Range(1, 8), progress.Values);
         Assert.Equal(targets, plan.Objects.Select(o => o.DistinguishedName));
         Assert.Equal(8, Session.Operations.Count(o => o.Kind == FakeOperationKind.Get && targets.Contains(o.DistinguishedName)));
     }

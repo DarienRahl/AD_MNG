@@ -3,6 +3,9 @@
   layout: the account's actions and the window at the top, the summary and the notes, then the sources, the timeline, the
   domain controllers and the audit evidence (with "Pokaż w modelu" and "Diagnostyka zasad grupy") in tabs, and beside them,
   behind a splitter, the details of the selected source with "Sprawdź komputer źródłowy" (K1 pivot) and "Otwórz zdalne akcje".
+  Feedback (track V, stage V2b-4): one status line under the header (PageStatus) says the summary, the stage of the
+  investigation and Stop, the sources that were not read, a stopped or failed investigation, and what lasts - an object that
+  is no account, not connected; "Sprawdź" is an action button that is the Cancel of the investigation.
 -->
 <UserControl x:Class="AdMng.App.EventLogs.LockoutView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -39,12 +42,14 @@
                  TextTrimming="CharacterEllipsis"
                  ToolTip="{Binding Title, Mode=OneWay}" />
       <WrapPanel Grid.Column="2" VerticalAlignment="Center">
-        <Button x:Name="RunButton"
-                Margin="0,0,6,0"
-                Command="{Binding RunCommand}"
-                Content="{l:Tr EvtLock.Run}"
-                Style="{StaticResource AccentButtonStyle}" />
-        <Button x:Name="CancelButton" Margin="0,0,12,0" Command="{Binding CancelCommand}" Content="{l:Tr Common.Cancel}" />
+        <c:ActionButton x:Name="RunButton"
+                        Margin="0,0,12,0"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding RunCommand}"
+                        Content="{l:Tr EvtLock.Run}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsRunning="{Binding Status.IsWorking, Mode=OneWay}"
+                        Style="{StaticResource Ad.AccentActionButton}" />
         <Button x:Name="UnlockButton" Margin="0,0,6,0" Command="{Binding UnlockCommand}" Content="{l:Tr Commands.Unlock}" />
         <Button x:Name="AccountButton" Margin="0,0,6,0" Command="{Binding OpenAccountCommand}" Content="{l:Tr Commands.Properties}" />
         <Button x:Name="WatchdogHistoryButton"
@@ -57,23 +62,18 @@
       </WrapPanel>
     </Grid>
 
-    <Border x:Name="NotSupportedBar"
-            Margin="0,0,0,6"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding IsNotSupported, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-      <DockPanel>
-        <TextBlock Margin="0,1,10,0"
-                   VerticalAlignment="Center"
-                   DockPanel.Dock="Left"
-                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Warning}" />
-        <TextBlock x:Name="NotSupportedText" VerticalAlignment="Center" Text="{Binding NotSupportedText, Mode=OneWay}" TextWrapping="Wrap" />
-      </DockPanel>
-    </Border>
+    <!--
+      Status line (design note 6.1): what the last run read (and the selected record), the run with its stage - sources and
+      events so far - and Stop, sources that could not be read, a stopped or failed run, and what lasts: not connected, or
+      that this window cannot read event logs. Always present, so nothing under it moves while a run works.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="0,0,0,6"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
 
-    <!-- The window and the status (or the progress) -->
+    <!-- The window -->
     <WrapPanel Margin="0,0,0,6" DockPanel.Dock="Top">
       <TextBlock Margin="0,0,6,0" VerticalAlignment="Center" Text="{l:Tr EvtLock.WindowLabel}" />
       <ComboBox x:Name="WindowBox"
@@ -89,19 +89,6 @@
         <TextBlock Margin="0,0,6,0" VerticalAlignment="Center" Text="{l:Tr EvtLog.ToLabel}" />
         <DatePicker Margin="0,0,8,0" AutomationProperties.Name="{l:Tr EvtLog.ToLabel}" SelectedDate="{Binding CustomTo}" />
       </StackPanel>
-      <ProgressBar x:Name="RunProgress"
-                   Width="180"
-                   Height="4"
-                   Margin="8,0,10,0"
-                   VerticalAlignment="Center"
-                   AutomationProperties.Name="{Binding StatusText, Mode=OneWay}"
-                   IsIndeterminate="True"
-                   Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-      <TextBlock x:Name="StatusLine"
-                 VerticalAlignment="Center"
-                 AutomationProperties.LiveSetting="Polite"
-                 Style="{StaticResource Ad.SecondaryText}"
-                 Text="{Binding StatusText, Mode=OneWay}" />
     </WrapPanel>
 
     <!-- Summary -->

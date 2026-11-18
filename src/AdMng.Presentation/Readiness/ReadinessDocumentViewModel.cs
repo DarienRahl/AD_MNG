@@ -1,6 +1,7 @@
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Core.Model;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -20,7 +21,14 @@ namespace AdMng.Presentation.Readiness;
 /// say so). Read-only (nothing is written anywhere – rule 5 is not involved), on the window's DC (rule 4), results in
 /// memory only (rule 1); each finished run is published as code/status pairs to <see cref="IReadinessResults"/>.
 /// </summary>
-public sealed partial class ReadinessDocumentViewModel : ObservableObject, IShellDocument
+/// <remarks>
+/// The tab has one status line over <see cref="Status"/> (track V, stage V2b-4; design note
+/// docs/dev/v-interface-renewal.md "V2b-4 as built"): the summary - what the last check found, then when and where it was
+/// made -, the running check as the operation of the tab (the area it is at, how far, with Stop - the button that started
+/// it is its Cancel) and the states that last: not connected, the connection changed after the shown check, the shown
+/// check was stopped. What each check found stays in its row.
+/// </remarks>
+public sealed partial class ReadinessDocumentViewModel : ObservableObject, IShellDocument, IHasPageStatus
 {
     private readonly ReadinessServices _services;
     private readonly CancellationTokenSource _lifetime = new();
@@ -28,15 +36,26 @@ public sealed partial class ReadinessDocumentViewModel : ObservableObject, IShel
     private ReadinessReport? _report;
     private string? _pickedDn;
     private string? _pickedName;
+    private ReadinessDepth? _runningDepth;
     private bool _disposed;
 
     public ReadinessDocumentViewModel(ReadinessServices services)
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
+        Status = new PageStatusHolder(Localizer, _services.Ui.Dispatcher, _services.Ui.Lists.StatusLog);
+        Status.PropertyChanged += OnStatusChanged;
         LastRunText = Localizer[L.Readiness.NeverRun];
+        UpdateIdle();
+        UpdateLasting();
         _services.Ui.Sessions.SessionChanged += OnSessionChanged;
         Localizer.CultureChanged += OnCultureChanged;
     }
+
+    /// <summary>
+    /// What the tab says in its status line: its summary, the running check and the state that lasts (see the remarks of
+    /// the class).
+    /// </summary>
+    public PageStatusHolder Status { get; }
 
     public string Title => Localizer[L.Readiness.Title];
 
@@ -61,10 +80,6 @@ public sealed partial class ReadinessDocumentViewModel : ObservableObject, IShel
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StatusText))]
     public partial string ProgressText { get; private set; } = string.Empty;
-
-    /// <summary>The share of the areas done, in percent.</summary>
-    [ObservableProperty]
-    public partial double ProgressValue { get; private set; }
 
     /// <summary>"Ostatnie sprawdzenie: pełne, 3.11.2026 14:32, na dc01.contoso.test" (or "Jeszcze nie sprawdzono…").</summary>
     [ObservableProperty]
@@ -92,6 +107,12 @@ public sealed partial class ReadinessDocumentViewModel : ObservableObject, IShel
     /// <summary>The window's connection changed after the shown run ("sprawdź ponownie").</summary>
     [ObservableProperty]
     public partial bool IsStale { get; private set; }
+
+    /// <summary>The quick check runs - the button that started it is its Cancel.</summary>
+    public bool IsQuickChecking => Status.IsWorking && _runningDepth == ReadinessDepth.Quick;
+
+    /// <summary>The full check runs - the button that started it is its Cancel.</summary>
+    public bool IsFullChecking => Status.IsWorking && _runningDepth == ReadinessDepth.Full;
 
     /// <summary>The depth of the shown run (null before the first one).</summary>
     [ObservableProperty]
@@ -127,9 +148,12 @@ public sealed partial class ReadinessDocumentViewModel : ObservableObject, IShel
     [RelayCommand(CanExecute = nameof(CanCheck))]
     private Task CheckAgainAsync() => CheckAsync(LastDepth ?? ReadinessDepth.Quick);
 
-    /// <summary>"Anuluj": stops the run; the checks it did not reach are shown as not checked.</summary>
+    /// <summary>
+    /// "Anuluj": stops the run - the same Stop as the one of the status line, which says "Stopping…" at once; the checks
+    /// it did not reach are shown as not checked.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanCancel))]
-    public void Cancel() => _running?.Cancel();
+    public void Cancel() => Status.Operation?.Cancel();
 
     private bool CanCheck() => !IsLoading && !_disposed && HasSession;
 
@@ -169,11 +193,18 @@ public sealed partial class ReadinessDocumentViewModel : ObservableObject, IShel
 
     private async Task RunAsync(IDirectorySession session, ReadinessDepth depth)
     {
-        using var running = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token, _services.Lifetime);
+        // The check is the operation of the tab: the line says the area it is at and how far it is, from the first moment,
+        // with Stop. The linked token ends it without a word when the window's connection changes or the window closes;
+        // Stop is the operator's and what it left is the state of the tab (WasCancelled).
+        var areas = Enum.GetValues<ReadinessArea>().Count(a => depth == ReadinessDepth.Full || ReadinessCodes.IsQuick(a));
+        _runningDepth = depth;
+        using var operation = Status.Begin(
+            CheckingText(depth, ReadinessArea.Connection, 1, areas),
+            new PageStatusLog(L.ReadinessStatus.Checking, 1, areas),
+            PageProgress.Of(0, areas));
+        using var running = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token, _services.Lifetime, operation.Token);
         _running = running;
         IsLoading = true;
-        ProgressValue = 0;
-        var areas = Enum.GetValues<ReadinessArea>().Count(a => depth == ReadinessDepth.Full || ReadinessCodes.IsQuick(a));
         ProgressText = Localizer.Format(L.Readiness.Progress, Localizer[ReadinessText.AreaKey(ReadinessArea.Connection)], 1, areas);
         var request = new ReadinessRequest(depth, TestComputer());
         var progress = _services.Ui.Dispatcher.CreateProgress<ReadinessProgress>(p =>
@@ -181,7 +212,10 @@ public sealed partial class ReadinessDocumentViewModel : ObservableObject, IShel
             if (ReferenceEquals(_running, running))
             {
                 ProgressText = Localizer.Format(L.Readiness.Progress, Localizer[ReadinessText.AreaKey(p.Area)], p.Done + 1, p.Total);
-                ProgressValue = p.Total == 0 ? 0 : 100.0 * p.Done / p.Total;
+                operation.Report(
+                    CheckingText(depth, p.Area, p.Done + 1, p.Total),
+                    PageProgress.Of(p.Done, p.Total),
+                    new PageStatusLog(L.ReadinessStatus.Checking, p.Done + 1, p.Total));
             }
         });
         try
@@ -199,12 +233,20 @@ public sealed partial class ReadinessDocumentViewModel : ObservableObject, IShel
         }
         finally
         {
+            // The state first (Show), then the operation ends with the scope: the line goes from "working" straight to
+            // what the check left.
             _running = null;
             ProgressText = string.Empty;
-            ProgressValue = 0;
             IsLoading = false;
         }
     }
+
+    /// <summary>"Quick check: 5 of 8 – Event logs…": the check, how far it is, the area it is at.</summary>
+    private string CheckingText(ReadinessDepth depth, ReadinessArea area, int number, int total) => Localizer.Format(
+        L.ReadinessStatus.Checking,
+        Localizer[depth == ReadinessDepth.Full ? L.Readiness.FullCheck : L.Readiness.QuickCheck],
+        PageStatusText.Progress(Localizer, number, total),
+        Localizer[ReadinessText.AreaKey(area)]);
 
     /// <summary>The test computer of a full check: the picked DN while the text still shows its name, else the text.</summary>
     private string? TestComputer()
@@ -228,6 +270,7 @@ public sealed partial class ReadinessDocumentViewModel : ObservableObject, IShel
         if (_report is not { } report)
         {
             LastRunText = Localizer[L.Readiness.NeverRun];
+            UpdateIdle();
             return;
         }
 
@@ -238,6 +281,53 @@ public sealed partial class ReadinessDocumentViewModel : ObservableObject, IShel
         ];
         LastRunText = Localizer.Format(L.Readiness.LastRun, DepthText(report.Depth), report.At.ToString("g", Localizer.Culture), report.Server);
         SummaryText = Summary(Localizer, report.Results.Select(r => r.Status), all: true);
+        UpdateIdle();
+    }
+
+    // ---- Status line (track V, stage V2b-4) ------------------------------------------------------------------------
+
+    /// <summary>The summary: what the shown check found, then when and where it was made ("OK: 20 · … · Last check: full, …").</summary>
+    private void UpdateIdle() =>
+        Status.SetIdle(string.Join(" · ", new[] { SummaryText, LastRunText }.Where(part => !string.IsNullOrEmpty(part)).Distinct(StringComparer.Ordinal)));
+
+    /// <summary>
+    /// The state of the tab that lasts, the most important first: the window is not connected, its connection changed after
+    /// the shown check, the shown check was stopped (and some of its rows are "not checked"). Computed from the facts, so it
+    /// follows a language switch; called whenever one of them changes.
+    /// </summary>
+    private void UpdateLasting() => Status.SetLasting(LastingState());
+
+    private PageStatus? LastingState()
+    {
+        if (!HasSession)
+        {
+            return PageStatus.Error(Localizer[L.Errors.NotConnected], new PageStatusLog(L.Errors.NotConnected));
+        }
+
+        var again = Localizer[L.Readiness.CheckAgain];
+        var action = new PageStatusAction(again, CheckAgainCommand);
+        if (IsStale)
+        {
+            return PageStatus.Attention(Localizer.Format(L.ReadinessStatus.Stale, again), new PageStatusLog(L.ReadinessStatus.Stale), action);
+        }
+
+        return WasCancelled
+            ? PageStatus.Attention(Localizer.Format(L.ReadinessStatus.Stopped, again), new PageStatusLog(L.ReadinessStatus.Stopped), action)
+            : null;
+    }
+
+    partial void OnIsStaleChanged(bool value) => UpdateLasting();
+
+    partial void OnWasCancelledChanged(bool value) => UpdateLasting();
+
+    /// <summary>The check that runs is the one the flags of the two buttons follow.</summary>
+    private void OnStatusChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(PageStatusHolder.IsWorking))
+        {
+            OnPropertyChanged(nameof(IsQuickChecking));
+            OnPropertyChanged(nameof(IsFullChecking));
+        }
     }
 
     private string DepthText(ReadinessDepth depth) => Localizer[depth == ReadinessDepth.Full ? L.Readiness.DepthFull : L.Readiness.DepthQuick];
@@ -308,6 +398,7 @@ public sealed partial class ReadinessDocumentViewModel : ObservableObject, IShel
         IsStale = _report is not null;
         OnPropertyChanged(nameof(HasSession));
         OnPropertyChanged(nameof(StatusText));
+        UpdateLasting();
         QuickCheckCommand.NotifyCanExecuteChanged();
         FullCheckCommand.NotifyCanExecuteChanged();
         CheckAgainCommand.NotifyCanExecuteChanged();
@@ -320,6 +411,7 @@ public sealed partial class ReadinessDocumentViewModel : ObservableObject, IShel
         {
             OnPropertyChanged(nameof(Title));
             Rebuild();
+            UpdateLasting();
         }
     });
 
@@ -331,6 +423,8 @@ public sealed partial class ReadinessDocumentViewModel : ObservableObject, IShel
         }
 
         _disposed = true;
+        Status.Operation?.Dispose();
+        Status.PropertyChanged -= OnStatusChanged;
         _services.Ui.Sessions.SessionChanged -= OnSessionChanged;
         Localizer.CultureChanged -= OnCultureChanged;
         _lifetime.Cancel();

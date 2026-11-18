@@ -159,6 +159,22 @@ public class ChangePipelineTests
     }
 
     [Fact]
+    public async Task Coordinator_AStopThatLeftNothingUndone_IsAnExecutedPlan_NotACancelledOne()
+    {
+        // Stop finishes the object in progress: a one-object plan whose Stop comes while it runs is carried through. The
+        // caller's follow-up (the re-read after an unlock, "renamed") depends on ChangeOutcome.Executed.
+        var harness = await TestHarness.ConnectedAsync();
+        harness.Executor.OnExecute = _ => harness.Activities.Activities[0].CancelCommand.Execute(null);
+
+        var outcome = await harness.Coordinator.ApplyAsync(new ChangeRequest([Ewa], [new UnlockAccountOperation()], "Unlock"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(ChangeOutcome.Executed, outcome);
+        Assert.Empty(harness.Dialogs.Errors);
+        var toast = Assert.Single(harness.Notifications.Items);
+        Assert.Equal(NotificationSeverity.Success, toast.Severity);
+    }
+
+    [Fact]
     public async Task ApplyAsync_SessionReplacedDuringPlanning_WritesNothing()
     {
         // Planning is not an activity, so "Rozłącz" does not wait for it and the (modeless) connect window lets the operator

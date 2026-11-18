@@ -14,15 +14,6 @@ public static partial class L
 
         public const string WindowLabel = "EvtLock.WindowLabel";
 
-        public const string StageAccount = "EvtLock.StageAccount";
-
-        public const string StageDomainControllers = "EvtLock.StageDomainControllers";
-
-        /// <summary>{0} = the reading progress.</summary>
-        public const string StageLogs = "EvtLock.StageLogs";
-
-        public const string StageAnalysis = "EvtLock.StageAnalysis";
-
         /// <summary>{0} sources, {1} lockouts, {2} events.</summary>
         public const string StatusDone = "EvtLock.StatusDone";
 

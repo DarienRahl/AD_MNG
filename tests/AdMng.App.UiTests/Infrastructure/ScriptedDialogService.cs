@@ -15,13 +15,24 @@ internal sealed class ScriptedDialogService : IDialogService
     /// <summary>Titles of the confirmations asked so far.</summary>
     public List<string> Confirmations { get; } = [];
 
-    public Task ShowInfoAsync(string title, string message) => Task.CompletedTask;
+    /// <summary>The texts of the confirmations asked so far, in the same order as <see cref="Confirmations"/>.</summary>
+    public List<string> ConfirmationMessages { get; } = [];
+
+    /// <summary>The texts of the notices shown so far (<see cref="ShowInfoAsync"/>).</summary>
+    public List<string> InfoMessages { get; } = [];
+
+    public Task ShowInfoAsync(string title, string message)
+    {
+        InfoMessages.Add(message);
+        return Task.CompletedTask;
+    }
 
     public Task ShowErrorAsync(string title, string message) => Task.CompletedTask;
 
     public Task<bool> ConfirmAsync(string title, string message, bool destructive)
     {
         Confirmations.Add(title);
+        ConfirmationMessages.Add(message);
         return Task.FromResult(ConfirmAnswer);
     }
 
@@ -47,6 +58,16 @@ internal sealed class ScriptedDialogService : IDialogService
     public Task ShowFindAsync(string? startDn) => Task.CompletedTask;
 
     public Task ShowSessionLogAsync() => Task.CompletedTask;
+
+    public Task ShowPowerShellAsync() => Task.CompletedTask;
+
+    public List<AdMng.Core.PowerShell.PowerShellGridTable> PowerShellGrids { get; } = [];
+
+    public Task ShowPowerShellGridAsync(AdMng.Core.PowerShell.PowerShellGridTable table)
+    {
+        PowerShellGrids.Add(table);
+        return Task.CompletedTask;
+    }
 
     public Task ShowProblemReportAsync() => Task.CompletedTask;
 

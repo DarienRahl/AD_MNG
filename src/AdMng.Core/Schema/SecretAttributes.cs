@@ -21,11 +21,25 @@ public static class SecretAttributes
         "msLAPS-EncryptedDSRMPassword", "msLAPS-EncryptedDSRMPasswordHistory",
         "msFVE-RecoveryPassword", "msFVE-KeyPackage", "msTPM-OwnerInformation", "msTPM-OwnerInformationTemp",
         "msDS-ManagedPassword", "msPKIAccountCredentials", "msPKIDPAPIMasterKeys",
+
+        // The PKCS #12 blob of a user's certificates and private keys (P1, docs/dev/p-certificate-services.md decision 7).
+        "userPKCS12",
         "initialAuthIncoming", "initialAuthOutgoing", "trustAuthIncoming", "trustAuthOutgoing",
 
         // The rest of the MS-DRSR secret set (schema entries not marked confidential): LSA secret objects incl. the
         // DPAPI backup keys, and the SFU (Services for UNIX) password.
         "currentValue", "priorValue", "msDS-ExecuteScriptPassword", "msSFU30Password",
+    };
+
+    /// <summary>
+    /// Key material and other secrets that are never shown, not even in the attribute editor (P1,
+    /// docs/dev/p-certificate-services.md decision 7): binary secrets are covered by their syntax, these by name.
+    /// </summary>
+    private static readonly HashSet<string> NeverShownNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "userPKCS12", "msPKIAccountCredentials", "msPKIDPAPIMasterKeys", "msFVE-KeyPackage", "msDS-ManagedPassword",
+        "supplementalCredentials", "msLAPS-EncryptedPassword", "msLAPS-EncryptedPasswordHistory",
+        "msLAPS-EncryptedDSRMPassword", "msLAPS-EncryptedDSRMPasswordHistory",
     };
 
     /// <summary>Secret attributes known by name (whatever the schema says).</summary>
@@ -43,5 +57,27 @@ public static class SecretAttributes
         var separator = attribute.IndexOf(';', StringComparison.Ordinal);
         var name = separator < 0 ? attribute : attribute[..separator];
         return WellKnownNames.Contains(name) || schema?.FindAttribute(name) is { IsConfidential: true };
+    }
+
+    /// <summary>
+    /// True when the values of the attribute are never shown, copied or edited, not even in the attribute editor: a
+    /// secret (<see cref="IsSecret"/>) that is key material - the schema gives it a binary syntax, or it is one of
+    /// <c>userPKCS12</c>, the roaming credentials, the BitLocker key package, the managed and the encrypted LAPS passwords,
+    /// <c>supplementalCredentials</c>. Operator-readable secrets (the LAPS clear-text password, the BitLocker recovery
+    /// password, confidential text attributes) are not. Attribute options are ignored.
+    /// </summary>
+    /// <param name="attribute">LDAP display name.</param>
+    /// <param name="schema">Schema of the session (null: only the names).</param>
+    public static bool IsNeverShown(string attribute, ISchemaCatalog? schema)
+    {
+        ArgumentNullException.ThrowIfNull(attribute);
+        if (!IsSecret(attribute, schema))
+        {
+            return false;
+        }
+
+        var separator = attribute.IndexOf(';', StringComparison.Ordinal);
+        var name = separator < 0 ? attribute : attribute[..separator];
+        return NeverShownNames.Contains(name) || schema?.IsBinary(name) == true;
     }
 }

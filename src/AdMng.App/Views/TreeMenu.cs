@@ -73,6 +73,8 @@ internal static class TreeMenu
                 items.Add(Item(L.GroupPolicy.NewCommand, new AsyncRelayCommand(() => gpoRoot.GroupPolicy.Actions.NewAsync())));
                 items.Add(Item(L.GroupPolicy.RestoreCommand, new AsyncRelayCommand(gpoRoot.GroupPolicy.Actions.RestoreAsync)));
                 items.Add(Item(L.GpoDiagnostics.Command, shell.OpenGroupPolicyDiagnosticsCommand));
+                items.Add(Item(L.GpoSearch.Command, shell.OpenGroupPolicySearchCommand));
+                items.Add(Item(L.GpoCleanup.Command, shell.OpenGroupPolicyCleanupCommand));
                 items.Add(new Separator());
                 items.Add(Item(L.GroupPolicy.RefreshCommand, gpoRoot.RefreshCommand));
                 break;
@@ -90,6 +92,22 @@ internal static class TreeMenu
                 items.Add(Item(L.GroupPolicy.ContainerPoliciesCommand, shell.OpenContainerPoliciesCommand, site.Dn));
                 items.Add(Item(L.GroupPolicy.NewLinkedCommand, shell.NewLinkedGpoCommand, site.Dn));
                 items.Add(Item(L.GroupPolicy.LinkExistingCommand, shell.LinkExistingGpoCommand, site.Dn));
+                break;
+
+            case PkiNodeViewModel pki:
+                // P1 (docs/dev/p-certificate-services.md 2.5): the node's document, and from the root node the four PKI documents.
+                var openPki = Item(L.Pki.OpenCommand, new RelayCommand(() => shell.OpenPkiDocument(pki.Request)));
+                openPki.FontWeight = System.Windows.FontWeights.SemiBold;
+                items.Add(openPki);
+                if (pki is PublicKeyServicesNodeViewModel)
+                {
+                    items.Add(new Separator());
+                    items.Add(CommandItem("pki.overview", shell));
+                    items.Add(CommandItem("pki.templates", shell));
+                    items.Add(CommandItem("pki.security", shell));
+                    items.Add(CommandItem("pki.readiness", shell));
+                }
+
                 break;
 
             case FolderNodeViewModel folder when ReferenceEquals(folder, shell.Tree.ViewsNode):
@@ -154,6 +172,7 @@ internal static class TreeMenu
         menu.Items.Add(NewItem(shell, L.Commands.NewOrganizationalUnit, shell.NewOrganizationalUnitCommand, ObjectKind.OrganizationalUnit, container.Dn));
         menu.Items.Add(NewItem(shell, L.Commands.NewComputer, shell.NewComputerCommand, ObjectKind.Computer, container.Dn));
         menu.Items.Add(NewItem(shell, L.Commands.NewContact, shell.NewContactCommand, ObjectKind.Contact, container.Dn));
+        menu.Items.Add(Item(L.BulkCreate.Command, shell.BulkCreateCommand, container.Dn)); // F3: enabled when connected; the wizard checks the kind
         shell.LoadCreatePermissionsAsync(container.Dn).Forget();
         return menu;
     }

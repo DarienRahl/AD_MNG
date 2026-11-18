@@ -1,6 +1,7 @@
 using AdMng.Core.Directory;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.Diagnostics;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.GroupPolicy.Diagnostics;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
@@ -18,6 +19,15 @@ namespace AdMng.Presentation.GroupPolicy;
 /// with the document's load when it opens on "Stan", otherwise when the tab is selected (and again after every reload).
 /// "Wyrównaj wersje" and "Napraw uprawnienia folderu" follow its findings. Results live in memory only (rule 1).
 /// </summary>
+/// <remarks>
+/// <b>What the tab says</b> (track V, stage V2b-3): the tab has a status of its own, <see cref="HealthStatus"/>, which
+/// is in front of the document's while the tab is shown - the one status line of the document then says it. A check
+/// the tab starts (it was selected, "Sprawdź ponownie") is the operation of the tab, with its stages and Stop; a check
+/// that is a step of the document's load belongs to that load and reports its stages there. At rest the tab says when
+/// the GPO was checked and how many findings there are; a check that failed is its state until the GPO is checked
+/// again (with Retry), a check the operator stopped a result. What a check could not evaluate
+/// (<see cref="HealthNotes"/>) is a note above the findings: it is about how complete they are.
+/// </remarks>
 public sealed partial class GroupPolicyObjectDocumentViewModel
 {
     private readonly SerialCancellation _healthLoad = new();
@@ -30,6 +40,12 @@ public sealed partial class GroupPolicyObjectDocumentViewModel
 
     private GpoQuickFixRunner? _healthFixes;
     private HealthCheck? _health;
+
+    /// <summary>
+    /// What the "Stan" tab says: its check, how it ended and - at rest - when the GPO was checked. In front of the
+    /// document's status (<see cref="GroupPolicyDocumentBase.Status"/>) while the tab is shown.
+    /// </summary>
+    public PageStatusHolder HealthStatus { get; }
 
     /// <summary>The findings of the GPO, most severe first.</summary>
     [ObservableProperty]
@@ -50,16 +66,25 @@ public sealed partial class GroupPolicyObjectDocumentViewModel
     [NotifyCanExecuteChangedFor(nameof(CheckHealthCommand), nameof(FixHealthFindingCommand))]
     public partial bool IsCheckingHealth { get; private set; }
 
-    /// <summary>"Pełne sprawdzenie, 3.11.2026 14:32 – 2 uwagi" or the progress of the running check.</summary>
+    /// <summary>
+    /// "Pełne sprawdzenie, 3.11.2026 14:32 – 2 uwagi" or the progress of the running check. The status line says both
+    /// (<see cref="HealthStatus"/>); the text is kept for the code that reads it.
+    /// </summary>
     [ObservableProperty]
     public partial string HealthStatusText { get; private set; } = string.Empty;
 
-    /// <summary>What the check could not evaluate (SYSVOL unavailable, a failed read).</summary>
+    /// <summary>
+    /// What the check could not evaluate (SYSVOL unavailable, folders that were not read): how complete the findings
+    /// below are. A check that failed altogether is no note - the status line says it.
+    /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasHealthNotes))]
+    [NotifyPropertyChangedFor(nameof(HasHealthNotes), nameof(HealthNote))]
     public partial IReadOnlyList<string> HealthNotes { get; private set; } = [];
 
     public bool HasHealthNotes => HealthNotes.Count > 0;
+
+    /// <summary><see cref="HealthNotes"/> as the text of the note above the findings, one per line (null: no note).</summary>
+    public string? HealthNote => HealthNotes.Count == 0 ? null : string.Join(Environment.NewLine, HealthNotes);
 
     /// <summary>"Nie wykryto problemów w tym obiekcie GPO." is shown.</summary>
     public bool HasNoHealthFindings => _health is not null && !IsCheckingHealth && HealthFindings.Count == 0;
@@ -75,7 +100,8 @@ public sealed partial class GroupPolicyObjectDocumentViewModel
         _healthLoad.Cancel();
         if (SelectedTab == GpoDocumentTab.Status)
         {
-            await CheckHealthCoreAsync(session, sysvol, SysvolWarning, cancellationToken).ConfigureAwait(true);
+            // A step of the load: no operation of its own - its stages are reported by the load of the document.
+            await CheckHealthCoreAsync(session, sysvol, SysvolWarning, null, cancellationToken).ConfigureAwait(true);
         }
     }
 
@@ -85,6 +111,8 @@ public sealed partial class GroupPolicyObjectDocumentViewModel
     /// </summary>
     partial void OnSelectedTabChanged(GpoDocumentTab oldValue, GpoDocumentTab newValue)
     {
+        // The tab shown is in front before it is activated: what its check says is said by the line of the document.
+        Status.Front = newValue == GpoDocumentTab.Status ? HealthStatus : null;
         if (newValue == GpoDocumentTab.Status && !_healthCurrent && !IsCheckingHealth && Gpo is not null)
         {
             if (IsLoading)
@@ -147,7 +175,10 @@ public sealed partial class GroupPolicyObjectDocumentViewModel
 
     private bool CanEditHealthSetting() => SelectedHealthFinding is { CanEditSetting: true };
 
-    /// <summary>The engine on the window's current session with SYSVOL opened for it (the tab was selected, "Sprawdź ponownie").</summary>
+    /// <summary>
+    /// The engine on the window's current session with SYSVOL opened for it (the tab was selected, "Sprawdź ponownie"):
+    /// the operation of the tab - "Checking the GPO…", then its stages, with Stop.
+    /// </summary>
     private async Task RefreshHealthAsync()
     {
         var token = _healthLoad.Next();
@@ -156,14 +187,15 @@ public sealed partial class GroupPolicyObjectDocumentViewModel
             return;
         }
 
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, Gp.Lifetime);
+        using var checking = HealthStatus.Begin(Localizer[L.GpoDiagnostics.HealthChecking], new PageStatusLog(L.GpoDiagnostics.HealthChecking));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, Gp.Lifetime, checking.Token);
         try
         {
             var access = await Gp.OpenSysvolAsync(session, linked.Token).ConfigureAwait(true);
             var warning = access.Connection is null ? Gp.SysvolText(access.Reason ?? SysvolUnavailableReason.Failed, session.Info.Server) : null;
             try
             {
-                await CheckHealthCoreAsync(session, access.Connection, warning, linked.Token).ConfigureAwait(true);
+                await CheckHealthCoreAsync(session, access.Connection, warning, checking, linked.Token).ConfigureAwait(true);
             }
             finally
             {
@@ -175,7 +207,16 @@ public sealed partial class GroupPolicyObjectDocumentViewModel
         }
         catch (OperationCanceledException)
         {
-            // A newer check, a reload or the window closed.
+            // A newer check, a reload or the window closed: nothing to say. The operator's Stop: the tab keeps what the
+            // check before found, and says that it was not updated.
+            if (checking.IsCancelling)
+            {
+                var again = Localizer[L.GpoDiagnostics.CheckAgain];
+                checking.CompleteAttention(
+                    Localizer.Format(L.GroupPolicyStatus.HealthStopped, again),
+                    new PageStatusLog(L.GroupPolicyStatus.HealthStopped),
+                    new PageStatusAction(again, CheckHealthCommand));
+            }
         }
         finally
         {
@@ -184,22 +225,35 @@ public sealed partial class GroupPolicyObjectDocumentViewModel
     }
 
     /// <summary>
-    /// Reads and analyses the GPO; failures are shown on the tab (never the whole document's error).
+    /// Reads and analyses the GPO; a failure is the state of the tab (never the whole document's error).
     /// <paramref name="sysvolWarning"/> says why <paramref name="sysvol"/> is null (the SYSVOL open this check made or shares).
+    /// <paramref name="checking"/> is the operation of the tab when the tab started the check, null when the check is a
+    /// step of the document's load: the stages are then reported by that load.
     /// </summary>
-    private async Task CheckHealthCoreAsync(IDirectorySession session, ISysvolWriteConnection? sysvol, string? sysvolWarning, CancellationToken cancellationToken)
+    private async Task CheckHealthCoreAsync(IDirectorySession session, ISysvolWriteConnection? sysvol, string? sysvolWarning, OperationScope? checking,
+        CancellationToken cancellationToken)
     {
         var depth = sysvol is null ? GpoDiagnosticsDepth.Quick : GpoDiagnosticsDepth.Full;
         var keep = SelectedHealthFinding?.Key;
         IsCheckingHealth = true;
         HealthStatusText = Localizer[L.GpoDiagnostics.HealthChecking];
+        HealthStatus.SetLasting(null);
         try
         {
             var progress = Gp.Dispatcher.CreateProgress<GpoDiagnosticsProgress>(p =>
             {
                 if (IsCheckingHealth)
                 {
-                    HealthStatusText = GpoFindingText.Stage(Localizer, p);
+                    var stage = GpoFindingText.Stage(Localizer, p);
+                    HealthStatusText = stage;
+                    if (checking is not null)
+                    {
+                        checking.Report(stage, log: new PageStatusLog(L.GpoDiagnostics.HealthChecking, p.Done, p.Total));
+                    }
+                    else
+                    {
+                        LoadOperation?.Report(stage);
+                    }
                 }
             });
             var request = new GpoDiagnosticsRequest(GpoId, depth);
@@ -222,8 +276,17 @@ public sealed partial class GroupPolicyObjectDocumentViewModel
             Checks = [];
             HasVersionMismatch = false;
             HasFolderAclMismatch = false;
-            HealthNotes = [GroupPolicyText.Error(Localizer, Gp.Errors, ex)];
+            HealthNotes = [];
             HealthStatusText = string.Empty;
+
+            // The tab is empty because of it: its state until the GPO is checked again (shown when the running
+            // operation - the tab's or the document's - is over).
+            var code = ResultCode.Of(ex);
+            HealthStatus.SetIdle(null);
+            HealthStatus.SetLasting(PageStatus.Error(
+                PageStatusText.Failure(Localizer[L.GroupPolicyStatus.HealthFailed], GroupPolicyText.Error(Localizer, Gp.Errors, ex), Localizer[L.Feedback.RetryNext], code),
+                new PageStatusLog(L.GroupPolicyStatus.HealthFailed).WithCode(code),
+                new PageStatusAction(Localizer[L.Common.Retry], CheckHealthCommand)));
         }
         finally
         {
@@ -254,6 +317,7 @@ public sealed partial class GroupPolicyObjectDocumentViewModel
         HealthStatusText = Localizer.Format(L.GpoDiagnostics.LastRun, depth, health.At.ToString("g", Localizer.Culture)) + " – "
             + Correspondence.CorrespondenceText.Plural(Localizer, HealthFindings.Count, L.GpoDiagnostics.FindingsOne, L.GpoDiagnostics.FindingsFew,
                 L.GpoDiagnostics.FindingsMany);
+        HealthStatus.SetIdle(HealthStatusText);
         OnPropertyChanged(nameof(HasNoHealthFindings));
         RefreshCommands();
     }
@@ -305,6 +369,11 @@ public sealed partial class GroupPolicyObjectDocumentViewModel
         HealthFindings = [];
         HealthNotes = [];
         HealthStatusText = string.Empty;
+
+        // Nothing of the tab is left to talk about: its state, its summary and what it said last go with the findings.
+        HealthStatus.SetLasting(null);
+        HealthStatus.SetIdle(null);
+        HealthStatus.Clear();
     }
 
     protected override void Dispose(bool disposing)
@@ -312,6 +381,7 @@ public sealed partial class GroupPolicyObjectDocumentViewModel
         if (disposing)
         {
             _healthLoad.Cancel();
+            HealthStatus.Operation?.Dispose();
             _health = null;
         }
 

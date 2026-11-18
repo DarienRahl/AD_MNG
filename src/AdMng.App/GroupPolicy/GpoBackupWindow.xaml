@@ -1,16 +1,20 @@
 <!--
   Backup, restore, import and the backup before a delete (GpoBackupViewModel, modal). Backups go only to the folder the
   operator chooses (CLAUDE.md rule 1); restore and import read a backup of that folder and open the change plan preview.
+  The one status line (design note 6.1 and "V2b-3 as built") says the operations of the window - the read of the folder,
+  of the selected backup, the backup itself, the plan of a restore or an import, each with Stop -, how many backups the
+  folder holds and that the session of the window ended; that a backup comes from another domain is a note under the list.
 -->
 <Window x:Class="AdMng.App.GroupPolicy.GpoBackupWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="clr-namespace:AdMng.App.Controls"
         xmlns:gpm="clr-namespace:AdMng.Presentation.GroupPolicy;assembly=AdMng.Presentation"
         xmlns:l="clr-namespace:AdMng.App.Localization"
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="780"
-        Height="600"
+        Height="636"
         MinWidth="560"
         MinHeight="420"
         ShowInTaskbar="False"
@@ -34,38 +38,39 @@
   </Window.Resources>
   <DockPanel>
     <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
-      <DockPanel>
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-          <Button x:Name="RunButton"
-                  Command="{Binding RunCommand}"
-                  Content="{Binding RunText, Mode=OneWay}"
-                  IsDefault="True"
-                  Style="{StaticResource Ad.AccentDialogButton}" />
-          <Button x:Name="CloseButton"
-                  Command="{Binding CloseCommand}"
-                  Content="{l:Tr Common.Close}"
-                  IsCancel="True"
-                  Style="{StaticResource Ad.DialogButton}" />
-        </StackPanel>
-        <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
-          <ProgressBar Width="72"
-                       Margin="0,0,10,0"
-                       VerticalAlignment="Center"
-                       IsIndeterminate="True"
-                       Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-          <TextBlock x:Name="StatusTextBlock"
-                     VerticalAlignment="Center"
-                     AutomationProperties.LiveSetting="Polite"
-                     Style="{StaticResource Ad.SecondaryText}"
-                     Text="{Binding StatusText, Mode=OneWay}"
-                     TextTrimming="CharacterEllipsis" />
-        </StackPanel>
-      </DockPanel>
+      <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+        <!--
+          The main button is an action button: while the backup or the plan it started runs, the same button is its Cancel
+          (it keeps the keyboard focus), then "Stopping…". Close is the dialog's own cancel button and is disabled meanwhile.
+        -->
+        <c:ActionButton x:Name="RunButton"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding RunCommand}"
+                        Content="{Binding RunText, Mode=OneWay}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsDefault="True"
+                        IsRunning="{Binding IsBusy, Mode=OneWay}"
+                        Style="{StaticResource Ad.AccentDialogActionButton}" />
+        <Button x:Name="CloseButton"
+                Command="{Binding CloseCommand}"
+                Content="{l:Tr Common.Close}"
+                IsCancel="True"
+                Style="{StaticResource Ad.DialogButton}" />
+      </StackPanel>
     </Border>
 
-    <Grid Margin="24,16,24,8">
+    <!--
+      Status line: at the top, above the title and the fields; declared after the footer, so Tab goes from the buttons to
+      what the line offers and then to the fields. Its picture stands over the left edge of the content.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="16,8,16,0"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+
+    <Grid Margin="24,8,24,8">
       <Grid.RowDefinitions>
-        <RowDefinition Height="Auto" />
         <RowDefinition Height="Auto" />
         <RowDefinition Height="Auto" />
         <RowDefinition Height="Auto" />
@@ -107,19 +112,21 @@
         <TextBox x:Name="CommentBox" AutomationProperties.Name="{l:Tr GroupPolicy.LabelComment}" Text="{Binding Comment, UpdateSourceTrigger=PropertyChanged}" />
       </StackPanel>
 
-      <Border x:Name="ErrorBar"
-              Grid.Row="3"
-              Margin="0,10,0,0"
-              Style="{StaticResource Ad.ErrorBar}"
-              Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-        <TextBlock x:Name="ErrorText" AutomationProperties.LiveSetting="Assertive" Text="{Binding Error, Mode=OneWay}" TextWrapping="Wrap" />
-      </Border>
-
       <!-- Restore / import: the backups of the folder -->
-      <DockPanel Grid.Row="4"
+      <DockPanel Grid.Row="3"
                  Margin="0,10,0,0"
                  Visibility="{Binding ListsBackups, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
         <StackPanel DockPanel.Dock="Bottom">
+          <!-- True for as long as that backup is selected: restore is refused, import is possible. -->
+          <ContentControl x:Name="OtherDomainNote"
+                          Margin="0,6,0,0"
+                          Style="{StaticResource Ad.Note.Attention}"
+                          Visibility="{Binding HasOtherDomain, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+            <TextBlock x:Name="OtherDomainTextBlock"
+                       AutomationProperties.LiveSetting="Polite"
+                       Text="{Binding OtherDomainText, Mode=OneWay}"
+                       TextWrapping="Wrap" />
+          </ContentControl>
           <TextBlock x:Name="BackupDetailsText"
                      Margin="0,6,0,0"
                      Style="{StaticResource Ad.SecondaryText}"
@@ -155,7 +162,7 @@
         </ListView>
       </DockPanel>
 
-      <DockPanel Grid.Row="4"
+      <DockPanel Grid.Row="3"
                  Margin="0,10,0,0"
                  Visibility="{Binding IsBackup, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
         <DockPanel Margin="0,0,0,4" DockPanel.Dock="Top">
@@ -175,7 +182,7 @@
       </DockPanel>
 
       <TextBlock x:Name="CompatibilityNoteText"
-                 Grid.Row="5"
+                 Grid.Row="4"
                  Margin="0,10,0,0"
                  Style="{StaticResource Ad.SecondaryText}"
                  Text="{Binding CompatibilityNote, Mode=OneWay}"

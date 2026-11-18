@@ -17,7 +17,6 @@ public static partial class L
         public const string ColumnRoles = "ChangeDc.ColumnRoles";
         public const string RoleCurrent = "ChangeDc.RoleCurrent";
         public const string RolePdcEmulator = "ChangeDc.RolePdcEmulator";
-        public const string ListUnavailable = "ChangeDc.ListUnavailable";
         public const string ThisDomainController = "ChangeDc.ThisDomainController";
         public const string ServerPlaceholder = "ChangeDc.ServerPlaceholder";
         public const string AnyWritableInSite = "ChangeDc.AnyWritableInSite";

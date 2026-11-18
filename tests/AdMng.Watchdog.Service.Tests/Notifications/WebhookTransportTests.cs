@@ -196,7 +196,8 @@ public sealed class WebhookTransportTests : IAsyncLifetime
     [Fact]
     public async Task NothingListening_IsTransient()
     {
-        await ConfigureAsync($"https://127.0.0.1:{Testing.Net.FreeTcpPort.Next()}/hooks");
+        using var closed = Testing.Net.FreeTcpPort.Closed();
+        await ConfigureAsync($"https://127.0.0.1:{closed.Port}/hooks");
 
         var result = await _fixture.Webhook.SendAsync(Message(), Ct);
 

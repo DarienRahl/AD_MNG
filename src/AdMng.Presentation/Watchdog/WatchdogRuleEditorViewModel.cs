@@ -3,6 +3,7 @@ using System.Globalization;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
 using AdMng.Core.Model;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Watchdog.Contracts.Api;
@@ -18,18 +19,23 @@ namespace AdMng.Presentation.Watchdog;
 /// scope DNs (container picker with an AD session, else text checked with DistinguishedName.TryParse), attributes, tags,
 /// group filter, actor exclusions (SIDs), severities, delivery (immediate, recipient groups, channels, digest, hours,
 /// aggregation, rate, repeat suppression) and exclusions – plus the preview of what the rule would have matched. Every
-/// edit goes to the shared <see cref="WatchdogConfigSession"/>; the service's validation issues are shown per field.
+/// edit goes to the shared <see cref="WatchdogConfigSession"/>; the service's validation issues are shown per field. The
+/// preview is an operation of the rules tab (its holder is handed in; a standalone editor makes its own): stoppable, its
+/// result is the content under the button, a failure leaves the preview as it was.
 /// </summary>
 public sealed partial class WatchdogRuleEditorViewModel : ObservableObject
 {
     private readonly WatchdogServices _services;
     private readonly WatchdogConfigSession _session;
+    private readonly PageStatusHolder _status;
+    private OperationScope? _preview;
     private bool _loading;
 
-    public WatchdogRuleEditorViewModel(WatchdogServices services, WatchdogConfigSession session, int index)
+    public WatchdogRuleEditorViewModel(WatchdogServices services, WatchdogConfigSession session, int index, PageStatusHolder? status = null)
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
         _session = session ?? throw new ArgumentNullException(nameof(session));
+        _status = status ?? services.CreateStatus();
         Index = index;
         var configuration = session.Working ?? throw new InvalidOperationException("The configuration is not loaded.");
         Original = configuration.Rules[index];
@@ -337,24 +343,53 @@ public sealed partial class WatchdogRuleEditorViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanPreview))]
     private async Task PreviewAsync()
     {
+        var localizer = _services.Localizer;
+        using var scope = _status.Begin(localizer[L.WatchdogRulesStatus.Previewing], new PageStatusLog(L.WatchdogRulesStatus.Previewing));
+        _preview = scope;
         IsPreviewing = true;
         PreviewError = null;
         try
         {
             var result = await _services.Client.PreviewRuleAsync(
                 new RulePreviewRequest { Rule = Build(), Days = Math.Clamp(PreviewDays, 1, 90) },
-                CancellationToken.None).ConfigureAwait(true);
-            ShowPreview(result);
+                scope.Token).ConfigureAwait(true);
+            if (!scope.IsEnded)
+            {
+                ShowPreview(result);
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException && scope.IsCancelling)
+        {
+            var label = localizer[L.WatchdogUi.RunPreview];
+            scope.CompleteAttention(
+                localizer.Format(L.WatchdogRulesStatus.PreviewStopped, label),
+                new PageStatusLog(L.WatchdogRulesStatus.PreviewStopped),
+                new PageStatusAction(label, PreviewCommand));
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException && scope.IsEnded)
+        {
+            // Replaced, or the rule is no longer shown: nothing to say.
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             PreviewError = _services.Connection.Describe(ex);
+            scope.CompleteError(
+                PageStatusText.Failure(localizer[L.WatchdogRulesStatus.PreviewFailed], PreviewError, localizer[L.Feedback.RetryNext], ResultCode.Of(ex)),
+                new PageStatusLog(L.WatchdogRulesStatus.PreviewFailed).WithCode(ResultCode.Of(ex)),
+                new PageStatusAction(localizer[L.Common.Retry], PreviewCommand));
         }
         finally
         {
             IsPreviewing = false;
+            if (ReferenceEquals(_preview, scope))
+            {
+                _preview = null;
+            }
         }
     }
+
+    /// <summary>The rule is no longer shown (another one was selected, the tab was closed): a running preview ends without a word.</summary>
+    public void EndPreview() => _preview?.Dispose();
 
     private bool CanPreview() => !IsPreviewing && _session.IsAdmin;
 

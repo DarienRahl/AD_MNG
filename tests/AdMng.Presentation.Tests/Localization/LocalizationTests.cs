@@ -65,6 +65,9 @@ public partial class LocalizationTests
         keys.AddRange(DisplayNames.NamedGroupScopes.SelectMany(s => new[] { DisplayNames.GroupTypeKey(true, s), DisplayNames.GroupTypeKey(false, s) }));
         keys.AddRange(DisplayNames.CommonAttributes.Select(DisplayNames.AttributeKey));
         keys.AddRange(Enum.GetValues<ThemePreference>().Select(DisplayNames.ThemeKey));
+        keys.AddRange(Enum.GetValues<IconStylePreference>().Select(DisplayNames.IconStyleKey));
+        keys.AddRange(Enum.GetValues<WindowBackgroundPreference>().Select(DisplayNames.WindowBackgroundKey));
+        keys.AddRange(Enum.GetValues<MotionPreference>().Select(DisplayNames.MotionKey));
         keys.AddRange(Enum.GetValues<AuthenticationMode>().Select(DisplayNames.AuthenticationKey));
         keys.AddRange(Enum.GetValues<TransportSecurity>().Select(DisplayNames.SecurityKey));
         keys.AddRange(Enum.GetValues<SearchScope>().Select(DisplayNames.ScopeKey));

@@ -53,7 +53,8 @@ public sealed partial class SavedFiltersViewModel : WindowViewModelBase
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(library);
-        var editor = new FilterEditorViewModel(services.Sessions, services.Dialogs, services.Localizer, services.Errors, services.Time, existing);
+        var editor = new FilterEditorViewModel(
+            services.Sessions, services.Dialogs, services.Localizer, services.Errors, services.Time, services.Dispatcher, existing, services.Lists.StatusLog);
         if (!await services.Dialogs.ShowFilterEditorAsync(editor).ConfigureAwait(true) || editor.Result is not { } result)
         {
             return null;

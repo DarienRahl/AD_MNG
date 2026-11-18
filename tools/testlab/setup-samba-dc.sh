@@ -13,6 +13,9 @@
 #   LAB_COMPUTERS    default 250
 #   LAB_BULK_USERS   default 0     extra users in OU=Masowe (performance tests)
 #   LAB_SKIP_INSTALL set to 1 when samba/ldap-utils are already installed
+#   LAB_SAMBA_LOG_LEVEL  Samba "log level" (default: Samba's own). 3 makes /var/log/samba/log.samba say why the DC
+#                    ended a connection ("Terminating connection - ...") - what CI uses to explain a dropped LDAP
+#                    connection.
 set -euo pipefail
 
 REALM="${LAB_REALM:-CONTOSO.TEST}"
@@ -21,6 +24,7 @@ ADMIN_PASS="${LAB_ADMIN_PASS:-P@ssw0rd!2026}"
 USERS="${LAB_USERS:-400}"
 COMPUTERS="${LAB_COMPUTERS:-250}"
 BULK_USERS="${LAB_BULK_USERS:-0}"
+SAMBA_LOG_LEVEL="${LAB_SAMBA_LOG_LEVEL:-}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 dns_domain="$(echo "$REALM" | tr '[:upper:]' '[:lower:]')"
@@ -63,6 +67,10 @@ samba_tool domain provision \
 # Lab only: allow simple binds without TLS so that ldapsearch -x works. The
 # application itself always uses Negotiate (Kerberos/NTLM) with signing or TLS.
 sed -i 's/^\[global\]$/[global]\n\tldap server require strong auth = no/' /etc/samba/smb.conf
+if [[ "$SAMBA_LOG_LEVEL" =~ ^[0-9]+$ ]]; then
+  # The log grows fast at 3 and above: no size limit, so nothing is rotated away before it is read.
+  sed -i "s/^\[global\]$/[global]\n\tlog level = ${SAMBA_LOG_LEVEL}\n\tmax log size = 0/" /etc/samba/smb.conf
+fi
 cp /var/lib/samba/private/krb5.conf /etc/krb5.conf
 
 samba -D

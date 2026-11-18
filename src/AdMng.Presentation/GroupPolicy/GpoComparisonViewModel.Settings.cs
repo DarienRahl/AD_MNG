@@ -3,6 +3,7 @@ using AdMng.Core.GroupPolicy.AdministrativeTemplates;
 using AdMng.Core.GroupPolicy.Comparison;
 using AdMng.Core.GroupPolicy.Content;
 using AdMng.Core.GroupPolicy.Management;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.GroupPolicy.Settings;
 using AdMng.Presentation.Localization;
 
@@ -116,9 +117,11 @@ public sealed partial class GpoComparisonViewModel
 
     /// <summary>
     /// The administrative templates of the session's DC (cached per window), read after the rows are shown; null when there
-    /// are none or they cannot be read (Registry.pol values then stay registry values).
+    /// are none or they cannot be read (Registry.pol values then stay registry values). Reading them is a stage of the
+    /// comparison: the line of <paramref name="comparing"/> says so (under the key of the comparison, so it is no new message).
     /// </summary>
-    private async Task<PolicyDefinitionSet?> DefinitionsAsync(Core.Directory.IDirectorySession session, IReadOnlyList<GpoComparisonRow> rows, CancellationToken token)
+    private async Task<PolicyDefinitionSet?> DefinitionsAsync(
+        Core.Directory.IDirectorySession session, IReadOnlyList<GpoComparisonRow> rows, OperationScope comparing, CancellationToken token)
     {
         if (_gp.Definitions is not { } service
             || !rows.Any(r => r.Section == GpoComparisonSection.Settings
@@ -127,6 +130,7 @@ public sealed partial class GpoComparisonViewModel
             return null;
         }
 
+        comparing.Report(Localizer[L.GpoComparisonStatus.ReadingTemplates], PageProgress.Indeterminate, new PageStatusLog(L.GpoComparisonStatus.Comparing));
         try
         {
             var access = await _gp.OpenSysvolAsync(session, token).ConfigureAwait(true);

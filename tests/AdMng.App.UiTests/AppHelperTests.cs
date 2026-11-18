@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Windows.Input;
 using AdMng.App.Controls;
 using AdMng.App.Infrastructure;
@@ -159,6 +160,38 @@ public sealed class AppHelperTests
 
         Assert.Equal(TimeSpan.FromSeconds(60), ClipboardService.SecretLifetime);
     }
+
+    [Theory]
+    [InlineData(WindowBackgroundPreference.Theme, false)]
+    [InlineData(WindowBackgroundPreference.Solid, true)]
+    public void WindowBackdrop_OnlySolidDisablesTheBackdropOfTheTheme(WindowBackgroundPreference preference, bool disables)
+    {
+        SkipUnlessWindows();
+        Assert.Equal(disables, WindowBackdrop.DisablesBackdrop(preference));
+    }
+
+    [Fact]
+    public void WindowBackdrop_NamesTheSwitchOfTheFluentTheme_AndLeavesItAloneForTheThemeBackground()
+    {
+        SkipUnlessWindows();
+        Assert.Equal("Switch.System.Windows.Appearance.DisableFluentThemeWindowBackdrop", WindowBackdrop.DisableSwitchName);
+
+        // The name is WPF's own constant: an SDK that renames the switch fails here instead of silently ignoring the setting.
+        var switches = typeof(System.Windows.Window).Assembly.GetType("MS.Internal.FrameworkAppContextSwitches");
+        Assert.NotNull(switches);
+        var name = switches!.GetField("DisableFluentThemeWindowBackdropSwitchName", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(name);
+        Assert.Equal(WindowBackdrop.DisableSwitchName, name!.GetRawConstantValue() as string);
+
+        // The theme's background never touches the switch, and no test flips the real one (it is read once per process).
+        var before = ReadBackdropSwitch();
+        WindowBackdrop.Apply(WindowBackgroundPreference.Theme);
+        Assert.Equal(before, ReadBackdropSwitch());
+        Assert.True(ReadBackdropSwitch() is not true, "a test disabled the window backdrop of the whole test process");
+    }
+
+    private static bool? ReadBackdropSwitch() =>
+        AppContext.TryGetSwitch(WindowBackdrop.DisableSwitchName, out var disabled) ? disabled : null;
 
     private static void SkipUnlessWindows() => Assert.SkipUnless(OperatingSystem.IsWindows(), "WPF tests need Windows.");
 }

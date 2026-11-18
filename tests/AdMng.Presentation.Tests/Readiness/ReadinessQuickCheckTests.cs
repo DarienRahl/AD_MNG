@@ -162,7 +162,7 @@ public sealed class ReadinessQuickCheckTests
         Assert.Equal(ReadinessStatus.Warning, pdc.Status);
         Assert.StartsWith("Okno pracuje na dc02.contoso.test, a emulatorem PDC jest dc01.contoso.test.", pdc.Explanation, StringComparison.Ordinal);
         Assert.Equal("Przed edycją zasad grupy użyj polecenia „Zmień kontroler domeny…” i wybierz dc01.contoso.test.", pdc.Remedy);
-        Assert.Equal("ZASADY-GRUPY.md, rozdział 12 „Kontroler domeny, emulator PDC i SYSVOL”", pdc.Documentation);
+        Assert.Equal("ZASADY-GRUPY.md, rozdział 13 „Kontroler domeny, emulator PDC i SYSVOL”", pdc.Documentation);
         Assert.Equal(ReadinessStatus.Warning, report.Status(ReadinessCodes.ConnectionGlobalCatalog));
         Assert.Equal(ReadinessStatus.Ok, report.Status(ReadinessCodes.ConnectionReadOnlyDc));
     }

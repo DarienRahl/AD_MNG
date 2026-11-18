@@ -156,6 +156,10 @@ internal sealed class ComputerAwareDialogs(ScriptedDialogService inner) : IDialo
 
     public Task ShowSessionLogAsync() => Inner.ShowSessionLogAsync();
 
+    public Task ShowPowerShellAsync() => Inner.ShowPowerShellAsync();
+
+    public Task ShowPowerShellGridAsync(AdMng.Core.PowerShell.PowerShellGridTable table) => Inner.ShowPowerShellGridAsync(table);
+
     public Task ShowProblemReportAsync() => Inner.ShowProblemReportAsync();
 
     public Task ShowRecycleBinAsync(Guid? select = null) => Inner.ShowRecycleBinAsync(select);

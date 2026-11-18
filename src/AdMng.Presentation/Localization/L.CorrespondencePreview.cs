@@ -47,7 +47,6 @@ public static partial class L
         public const string GroupedSubjectRowField = "Correspondence.Preview.GroupedSubjectRowField";
         public const string Ok = "Correspondence.Preview.Ok";
         public const string LargeAttachments = "Correspondence.Preview.LargeAttachments";
-        public const string OutlookFailed = "Correspondence.Preview.OutlookFailed";
         public const string BrowserTitle = "Correspondence.Preview.BrowserTitle";
         public const string BrowserFailed = "Correspondence.Preview.BrowserFailed";
         public const string SaveTitle = "Correspondence.Preview.SaveTitle";

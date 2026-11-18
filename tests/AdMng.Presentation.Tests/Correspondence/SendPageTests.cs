@@ -1,6 +1,7 @@
 using AdMng.Core.Correspondence.Import;
 using AdMng.Core.Correspondence.Outlook;
 using AdMng.Presentation.Correspondence;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
 using AdMng.Testing;
@@ -85,7 +86,6 @@ public sealed class SendPageTests
             window.Send.Results.Select(r => r.Text));
         Assert.All(window.Send.Results, r => Assert.True(r.IsSuccess));
         Assert.Equal((3, 0, 0), (window.Send.SentCount, window.Send.FailedCount, window.Send.SkippedCount));
-        Assert.Equal((3d, 3d), (window.Send.ProgressValue, window.Send.ProgressMaximum));
         Assert.Equal("Wysyłka zakończona: udane 3, błędy 0.", window.Send.ProgressText);
         Assert.False(window.Send.IsSending);
         Assert.Equal([TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3)], scenario.Delays);
@@ -762,15 +762,22 @@ public sealed class SendPageTests
             "Wiadomości nie można jeszcze wysłać:" + NewLine + "• Wpisz temat wiadomości." + NewLine + "• Treść wiadomości jest pusta.",
             scenario.Ui.Errors[^1].Message);
 
+        // The press that comes to nothing says it in the line of the page - nothing was sent, and why - not in a dialog.
+        var errors = scenario.Ui.Errors.Count;
         window.Message.Subject = Subject;
         window.Message.BodyHtml = "<p>Treść</p>";
         await window.Send.SendCommand.ExecuteAsync(null);
-        Assert.Equal("Nie ma do kogo wysłać – sprawdź zaznaczenia i listę pominięć.", scenario.Ui.Errors[^1].Message);
+        Assert.Equal(PageStatusKind.Attention, window.Send.Status.Current.Kind);
+        Assert.Equal("Nic nie wysłano: Nie ma do kogo wysłać – sprawdź zaznaczenia i listę pominięć.", window.Send.Status.Current.Message);
+        Assert.Equal(errors, scenario.Ui.Errors.Count);
 
         CorrespondencePagesScenario.AddRows(window, CorrespondencePagesScenario.Offices());
         await window.Send.SendCommand.ExecuteAsync(null);
-        Assert.StartsWith("Nie można użyć Outlooka: ", scenario.Ui.Errors[^1].Message, StringComparison.Ordinal);
-        Assert.Contains("Outlook nie odpowiada", scenario.Ui.Errors[^1].Message, StringComparison.Ordinal);
+        Assert.Equal(PageStatusKind.Error, window.Send.Status.Current.Kind);
+        Assert.StartsWith("Nic nie wysłano: Nie można użyć Outlooka: ", window.Send.Status.Current.Message, StringComparison.Ordinal);
+        Assert.Contains("Outlook nie odpowiada", window.Send.Status.Current.Message, StringComparison.Ordinal);
+        Assert.EndsWith("(NotResponding)", window.Send.Status.Current.Message, StringComparison.Ordinal);
+        Assert.Equal(errors, scenario.Ui.Errors.Count);
         Assert.Empty(scenario.Outlook.Items);
         Assert.Empty(scenario.Ui.Shown);
         Assert.Empty(scenario.Harness.AuditLog.Entries);
@@ -904,8 +911,11 @@ public sealed class SendPageTests
         Assert.False(window.Send.IsSending);
         Assert.Single(scenario.Outlook.Items);
         Assert.Contains("■ zatrzymano", window.Send.Results.Select(r => r.Text));
+
+        // The one question of every window that works (RunningWork): what runs - the text of the line - and what the stop does.
         Assert.Equal(
-            "confirm:Trwa wysyłka przez Outlooka. Przerwać wysyłkę i zamknąć okno? Wiadomości, które Outlook już wysłał, nie da się wycofać.",
+            "confirm:Wysyłam wiadomości: 0 z 3…\n\nZatrzymać trwającą operację i zamknąć okno? Wiadomości, które jeszcze nie zostały wysłane, "
+            + "nie zostaną wysłane; wiadomości przyjętych już przez serwer lub przez Outlooka nie da się wycofać.",
             scenario.Ui.Shown[^1]);
     }
 

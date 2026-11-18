@@ -25,6 +25,21 @@ internal sealed class FakeDirectoryConnector(FakeDirectorySession session) : IDi
     /// <summary>When set, binds wait for it (a slow DC) and ignore cancellation, like a native bind.</summary>
     public TaskCompletionSource? Gate { get; set; }
 
+    /// <summary>What a bind throws instead of answering (a DC that refuses it).</summary>
+    public Exception? ConnectError { get; set; }
+
+    /// <summary>When set, the search for domain controllers waits for it (a slow locator) and ignores cancellation.</summary>
+    public TaskCompletionSource? FindGate { get; set; }
+
+    /// <summary>What the search for domain controllers throws instead of answering.</summary>
+    public Exception? FindError { get; set; }
+
+    /// <summary>When set, "Change domain controller" waits for it before the new DC answers, and ignores cancellation.</summary>
+    public TaskCompletionSource? ServerGate { get; set; }
+
+    /// <summary>What "Change domain controller" throws instead of opening a session on the new DC.</summary>
+    public Exception? ServerError { get; set; }
+
     /// <summary>Another domain the connect window can reach (by its DNS name).</summary>
     public void AddDomain(FakeDirectorySession directory)
     {
@@ -34,12 +49,24 @@ internal sealed class FakeDirectoryConnector(FakeDirectorySession session) : IDi
 
     public string? GetComputerDomain() => FakeDirectoryBuilder.DefaultDomain;
 
-    public Task<IReadOnlyList<DomainControllerInfo>> FindDomainControllersAsync(string domain, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyList<DomainControllerInfo>>(
+    public async Task<IReadOnlyList<DomainControllerInfo>> FindDomainControllersAsync(string domain, CancellationToken cancellationToken)
+    {
+        if (FindGate is { } gate)
+        {
+            await gate.Task.ConfigureAwait(false);
+        }
+
+        if (FindError is { } error)
+        {
+            throw error;
+        }
+
+        return
         [
             new($"dc01.{domain}", "Warszawa", true, false, true),
             new($"dc02.{domain}", "Kraków", true, true, false),
-        ]);
+        ];
+    }
 
     public async Task<IDirectorySession> ConnectAsync(ConnectionOptions options, NetworkCredential? credential, CancellationToken cancellationToken)
     {
@@ -48,6 +75,11 @@ internal sealed class FakeDirectoryConnector(FakeDirectorySession session) : IDi
         if (Gate is { } gate)
         {
             await gate.Task;
+        }
+
+        if (ConnectError is { } error)
+        {
+            throw error;
         }
 
         if (NextSession is { } next)
@@ -64,11 +96,37 @@ internal sealed class FakeDirectoryConnector(FakeDirectorySession session) : IDi
         return NonOwning ? Wrap(session, user) : session;
     }
 
-    public Task<IDirectorySession> ConnectToServerAsync(IDirectorySession current, string server, CancellationToken cancellationToken)
+    public async Task<IDirectorySession> ConnectToServerAsync(IDirectorySession current, string server, CancellationToken cancellationToken)
     {
+        if (ServerGate is { } gate)
+        {
+            await gate.Task.ConfigureAwait(false);
+        }
+
+        if (ServerError is { } error)
+        {
+            throw error;
+        }
+
         var directory = current is FakeDomainControllerSession wrapper ? wrapper.Directory : session;
         var identity = current.Info.BoundIdentity;
-        return Task.FromResult<IDirectorySession>(new FakeDomainControllerSession(directory, server, info => info with { BoundIdentity = identity }));
+        return new FakeDomainControllerSession(directory, server, info => info with { BoundIdentity = identity });
+    }
+
+    /// <summary>F3: global-catalog sessions opened so far (docs/dev/phase3-bulk-create.md 2.2).</summary>
+    public int GlobalCatalogConnectCount { get; private set; }
+
+    /// <summary>F3: the last global-catalog session handed out (its <c>IsDisposed</c> shows whether the wizard closed it).</summary>
+    public FakeDomainControllerSession? LastGlobalCatalogSession { get; private set; }
+
+    public Task<IDirectorySession> ConnectGlobalCatalogAsync(IDirectorySession current, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(current);
+        GlobalCatalogConnectCount++;
+        var directory = current is FakeDomainControllerSession wrapper ? wrapper.Directory : session;
+        var identity = current.Info.BoundIdentity;
+        LastGlobalCatalogSession = new FakeDomainControllerSession(directory, current.Info.Server, info => info with { BoundIdentity = identity, IsGlobalCatalog = true });
+        return Task.FromResult<IDirectorySession>(LastGlobalCatalogSession);
     }
 
     private static FakeDomainControllerSession Wrap(FakeDirectorySession directory, string? user) =>

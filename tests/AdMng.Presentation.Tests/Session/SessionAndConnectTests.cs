@@ -150,7 +150,7 @@ public class SessionAndConnectTests
         Assert.Equal("Produkcja", harness.Settings.Current.LastProfileName);
         Assert.DoesNotContain("Tajne", JsonSettingsStore.Serialize(harness.Settings.Current), StringComparison.Ordinal);
 
-        var next = new ConnectViewModel(harness.Connector, harness.Sessions, harness.Settings, harness.Localizer, harness.Errors);
+        var next = new ConnectViewModel(harness.Connector, harness.Sessions, harness.Settings, harness.Localizer, harness.Errors, harness.Dispatcher);
         next.Initialize();
         Assert.Equal("Produkcja", next.SelectedProfile?.Name);
         Assert.Equal("dc02.contoso.test", next.Server);
@@ -162,7 +162,7 @@ public class SessionAndConnectTests
     public async Task Connect_Succeeds_EvenWhenTheProfileCannotBeSaved()
     {
         var harness = TestHarness.Disconnected();
-        var vm = new ConnectViewModel(harness.Connector, harness.Sessions, new UnwritableSettingsStore(), harness.Localizer, harness.Errors);
+        var vm = new ConnectViewModel(harness.Connector, harness.Sessions, new UnwritableSettingsStore(), harness.Localizer, harness.Errors, harness.Dispatcher);
         vm.Initialize();
         vm.SaveProfile = true;
         vm.ProfileName = "Produkcja";
@@ -224,7 +224,7 @@ public class SessionAndConnectTests
     {
         var harness = TestHarness.Disconnected();
         var password = new FakePasswordInput("Tajne!Hasło1");
-        var vm = new ConnectViewModel(harness.Connector, harness.Sessions, harness.Settings, harness.Localizer, harness.Errors)
+        var vm = new ConnectViewModel(harness.Connector, harness.Sessions, harness.Settings, harness.Localizer, harness.Errors, harness.Dispatcher)
         {
             PasswordInput = password,
         };

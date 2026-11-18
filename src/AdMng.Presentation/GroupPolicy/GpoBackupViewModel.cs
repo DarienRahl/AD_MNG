@@ -6,6 +6,7 @@ using AdMng.Core.GroupPolicy.Backup;
 using AdMng.Core.GroupPolicy.Management;
 using AdMng.Core.Model;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -57,13 +58,33 @@ public sealed class GpoBackupRowViewModel(GpoBackupEntry entry, string timeText,
 /// center and is read-only for the directory. Restore and import read a backup of the folder (untrusted input, checked by
 /// <see cref="GpmcBackupFormat"/>), plan on the session's DC and show the change plan preview.
 /// </summary>
-public sealed partial class GpoBackupViewModel : WindowViewModelBase
+/// <remarks>
+/// <para>The window has one status line (<see cref="Status"/>; track V, stage V2b-3, design note
+/// docs/dev/v-interface-renewal.md "V2b-3 as built"). Its operations, each with Stop: reading the backups of the folder
+/// (restore, import), the backups themselves - "Backing up the GPOs: 1 of 3…" with the part done -, and making the plan of a
+/// restore or an import until the change plan preview opens (that window says its own status). A backup that ended says
+/// nothing - the window closes, the toast of the main window says it -; one that was stopped says how many GPOs were
+/// written, one that failed says why. A folder that could not be read is the state of the window until it is read again
+/// (Retry).</para>
+/// <para>The read of the selected backup - its files, checked, for the details and the plan - is the operation of the list
+/// and has a holder of its own (<see cref="DetailsStatus"/>), in front of the window's: it starts with every selection, also
+/// while the window plans. A backup that could not be read is the state of that selection, with Retry. That a backup
+/// comes from another domain is a note under the list, true for as long as it is selected.</para>
+/// </remarks>
+public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageStatus
 {
     private readonly GroupPolicyServices _gp;
     private readonly SerialCancellation _details = new();
     private readonly SerialCancellation _work = new();
+    private readonly SerialCancellation _listing = new();
     private IReadOnlyList<GpoBackupEntry> _entries = [];
     private GpoBackup? _selectedBackup;
+
+    /// <summary>The folder was read at least once: the line has the count of backups as the summary.</summary>
+    private bool _listed;
+
+    /// <summary>Why the list is empty after a read of the folder that failed (null: nothing wrong).</summary>
+    private PageStatus? _listState;
 
     public GpoBackupViewModel(GroupPolicyServices services, GpoBackupMode mode, IReadOnlyList<GpoInfo> gpos)
         : base((services ?? throw new ArgumentNullException(nameof(services))).Ui)
@@ -75,7 +96,28 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase
         Folder = settings.LastBackupFolder ?? string.Empty;
         Comment = settings.BackupCommentTemplate is { } template ? SafeFormat(template, services.Time.GetLocalNow()) : string.Empty;
         BackupFirst = settings.BackupBeforeDelete;
+        Status = new PageStatusHolder(Localizer, Services.Dispatcher, Services.Lists.StatusLog);
+        DetailsStatus = new PageStatusHolder(Localizer, Services.Dispatcher, Services.Lists.StatusLog);
+        if (ListsBackups)
+        {
+            // The line says what the read of the selected backup says whenever the window itself has nothing more important.
+            Status.Front = DetailsStatus;
+        }
+
+        UpdateLasting();
     }
+
+    /// <summary>
+    /// The status of the window - what its one status line shows: the running operation (with Stop), how it ended, at
+    /// rest how many backups the folder holds, and that the session of the window ended.
+    /// </summary>
+    public PageStatusHolder Status { get; }
+
+    /// <summary>
+    /// The status of the selected backup (restore, import): its read, with Stop, and why it could not be read. In front of
+    /// <see cref="Status"/> while the backups of the folder are listed.
+    /// </summary>
+    public PageStatusHolder DetailsStatus { get; }
 
     public GpoBackupMode Mode { get; }
 
@@ -153,11 +195,23 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase
     [NotifyCanExecuteChangedFor(nameof(RunCommand), nameof(BrowseCommand), nameof(CloseCommand))]
     public partial bool IsBusy { get; private set; }
 
+    /// <summary>What the last operation said, as plain text: what the status line says (kept for callers that read it).</summary>
     [ObservableProperty]
     public partial string? StatusText { get; private set; }
 
+    /// <summary>Why the last operation failed, as plain text: what the status line says (kept for callers that read it).</summary>
     [ObservableProperty]
     public partial string? Error { get; private set; }
+
+    /// <summary>
+    /// The selected backup comes from another domain (restore only: it is refused, import is possible) - a note under the
+    /// list, true for as long as that backup is selected; null otherwise.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasOtherDomain))]
+    public partial string? OtherDomainText { get; private set; }
+
+    public bool HasOtherDomain => OtherDomainText is not null;
 
     /// <summary>Something was written to the directory or SYSVOL (restore, import).</summary>
     public bool ChangedDirectory { get; private set; }
@@ -217,33 +271,74 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase
         }
     }
 
-    /// <summary>Lists the backups of <see cref="Folder"/> (restore, import).</summary>
+    /// <summary>
+    /// Lists the backups of <see cref="Folder"/> (restore, import) - the operation of the window: its line says "Reading the
+    /// backups in the folder…" with Stop (a folder on a share that does not answer is waited for off the UI thread, and
+    /// Stop returns control). The list is the result: the line then shows its count. A folder that could not be read leaves
+    /// an empty list - the state of the window until it is read again (Retry); a read that was stopped leaves the list as
+    /// it was, and its message can be closed. Closing the window and the end of its session end the read without a word.
+    /// </summary>
     [RelayCommand]
     private async Task LoadBackupsAsync()
     {
         Error = null;
         var folder = Folder?.Trim();
+        var latest = _listing.Next();
         if (string.IsNullOrEmpty(folder))
         {
             Backups = [];
+            _listed = false;
+            _listState = null;
+            UpdateLasting();
+            UpdateSummary();
             return;
         }
 
+        using var reading = Status.Begin(Localizer[L.GpoBackupStatus.ReadingFolder], new PageStatusLog(L.GpoBackupStatus.ReadingFolder));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(latest, reading.Token);
+        var token = linked.Token;
+
+        // What the last read left is over: this one decides.
+        _listState = null;
+        UpdateLasting();
         try
         {
-            _entries = await Task.Run(() => GpmcBackupFormat.List(folder)).ConfigureAwait(true);
+            _entries = await Task.Run(() => GpmcBackupFormat.List(folder)).WaitOrAbandonAsync(token).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            // Only a read the operator stopped says so: the list is as it was.
+            if (reading.IsCancelling)
+            {
+                var retry = Localizer[L.Common.Retry];
+                reading.CompleteAttention(
+                    Localizer.Format(L.GpoBackupStatus.ListStopped, retry),
+                    new PageStatusLog(L.GpoBackupStatus.ListStopped),
+                    new PageStatusAction(retry, LoadBackupsCommand));
+            }
+
+            return;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or System.Security.SecurityException)
         {
             _entries = [];
             Error = Localizer[L.GroupPolicy.FolderFailed];
+            var code = ResultCode.Of(ex);
+            _listState = PageStatus.Error(
+                PageStatusText.Failure(Localizer[L.GpoBackupStatus.ListFailed], Error, Localizer[L.Feedback.RetryNext], code),
+                new PageStatusLog(L.GpoBackupStatus.ListFailed).WithCode(code),
+                new PageStatusAction(Localizer[L.Common.Retry], LoadBackupsCommand),
+                canClose: false);
         }
 
+        _listed = true;
         var domain = Session?.Info.DomainDnsName;
         Backups = [.. _entries.Select(e => new GpoBackupRowViewModel(e, GroupPolicyText.Date(Localizer, e.BackupTime, TimeZoneInfo.Local),
             domain is not null && !string.Equals(e.Domain, domain, StringComparison.OrdinalIgnoreCase)))];
         SelectedBackup = Mode == GpoBackupMode.Import ? Backups.FirstOrDefault() : Backups.FirstOrDefault(b => b.Entry.GpoId == Gpos.FirstOrDefault()?.Id) ?? Backups.FirstOrDefault();
         StatusText = Backups.Count == 0 ? Localizer[L.GroupPolicy.NoBackups] : Localizer.Format(L.GroupPolicy.BackupsFound, Backups.Count);
+        UpdateLasting();
+        UpdateSummary();
         await RememberFolderAsync(folder).ConfigureAwait(true);
     }
 
@@ -290,22 +385,29 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase
     [RelayCommand(CanExecute = nameof(IsIdle))]
     private void Close() => RequestClose(ChangedDirectory);
 
-    /// <summary>Cancels a running backup (the activity center cancels it too).</summary>
-    [RelayCommand]
-    private void CancelWork() => _work.Cancel();
-
-    public override Task<bool> CanCloseAsync() => Task.FromResult(!IsBusy);
+    protected override Task<bool> CanCloseCoreAsync() => Task.FromResult(!IsBusy);
 
     protected override void OnCultureChanged()
     {
         base.OnCultureChanged();
         OnPropertyChanged(nameof(RunText));
         OnPropertyChanged(nameof(CompatibilityNote));
+
+        // The window's own sentences in the new language (how an operation ended stays as it was said).
+        UpdateLasting();
+        UpdateSummary();
     }
 
     protected override void OnSessionEnded()
     {
+        // The line says for good that the session ended; what still runs ends without a word of its own (the state
+        // first, so the line goes straight from "working" to it).
         Error = SessionEndedMessage;
+        UpdateLasting();
+        _work.Cancel();
+        _listing.Cancel();
+        Status.Operation?.Dispose();
+        DetailsStatus.Operation?.Dispose();
         RunCommand.NotifyCanExecuteChanged();
     }
 
@@ -315,25 +417,59 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase
         {
             _details.Cancel();
             _work.Cancel();
+            _listing.Cancel();
+
+            // What still runs says nothing any more.
+            Status.Operation?.Dispose();
+            Status.Front = null;
+            DetailsStatus.Operation?.Dispose();
         }
 
         base.Dispose(disposing);
     }
 
-    /// <summary>Writes one backup per GPO into the folder (activity center); true when every backup was written.</summary>
+    /// <summary>
+    /// The state of the window that lasts, the most important first: its session ended, or it was opened without one (an
+    /// error that cannot be closed - nothing can be backed up, restored or imported), else why the list is empty after a
+    /// folder that could not be read.
+    /// </summary>
+    private void UpdateLasting() => Status.SetLasting(
+        SessionEndedStatus ?? (Session is null ? PageStatus.Error(NoSessionMessage, new PageStatusLog(L.Errors.NotConnected), canClose: false) : _listState));
+
+    /// <summary>The summary: how many backups the folder holds (nothing before it was read once, and in a mode that lists none).</summary>
+    private void UpdateSummary() => Status.SetIdle(!ListsBackups || !_listed ? null
+        : Backups.Count == 0 ? Localizer[L.GpoBackupStatus.NoneFound]
+        : Localizer.Format(L.GpoBackupStatus.Found, Backups.Count));
+
+    /// <summary>
+    /// Writes one backup per GPO into the folder (activity center); true when every backup was written. The backup is the
+    /// operation of the window: "Backing up the GPOs: 1 of 3…" with the part done and Stop (the activity of the activity
+    /// center is stopped with it). It says nothing when it ended well - the window closes and the toast says it -; stopped,
+    /// it says how many GPOs were written; failed, why.
+    /// </summary>
     private async Task<bool> BackupAsync()
     {
         var session = Session;
         var folder = Folder.Trim();
         if (session is null)
         {
+            // The line says so for good.
             Error = NoSessionMessage;
             return false;
         }
 
         IsBusy = true;
         StatusText = Localizer[L.GroupPolicy.BackupRunning];
-        var token = _work.Next();
+        var total = Gpos.Count;
+        using var backingUp = Status.Begin(
+            Localizer[L.GpoBackupStatus.BackingUp], new PageStatusLog(L.GpoBackupStatus.BackingUp, 0, total), PageProgress.Of(0, total),
+            writes: OperationWrites.Other);
+
+        // The operator's Stop, closing the window and the end of its session all end the backup.
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(_work.Next(), backingUp.Token);
+        var token = linked.Token;
+        var progressOnScreen = Services.Dispatcher.CreateProgress<BatchProgress>(p => ReportBackup(backingUp, p, total));
+        Exception? firstFailure = null;
         try
         {
             await Task.Run(() => System.IO.Directory.CreateDirectory(folder), token).ConfigureAwait(true);
@@ -341,6 +477,10 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase
             if (access.Connection is not { } sysvol)
             {
                 Error = _gp.SysvolText(access.Reason ?? SysvolUnavailableReason.Failed, session.Info.Server);
+                backingUp.CompleteAttention(
+                    PageStatusText.Failure(Localizer[L.GpoBackupStatus.NotBackedUp], Error, Localizer[L.Feedback.RetryNext]),
+                    new PageStatusLog(L.GroupPolicy.SysvolFailedShort),
+                    new PageStatusAction(Localizer[L.Common.Retry], RunCommand));
                 return false;
             }
 
@@ -353,13 +493,13 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase
                 var withDirectorySettings = 0;
                 var run = Services.Activities.Start(Localizer.Format(L.GroupPolicy.BackupActivity, gpos.Count), gpos.Count, async (progress, activityToken) =>
                 {
-                    using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, activityToken);
+                    using var linkedActivity = CancellationTokenSource.CreateLinkedTokenSource(token, activityToken);
                     var started = time.GetUtcNow();
                     var results = new List<ObjectResult>();
                     var cancelled = false;
                     foreach (var gpo in gpos)
                     {
-                        if (linked.IsCancellationRequested)
+                        if (linkedActivity.IsCancellationRequested)
                         {
                             cancelled = true;
                             break;
@@ -370,8 +510,8 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase
                         ObjectResultStatus status;
                         try
                         {
-                            var backup = await planner.ReadBackupAsync(session, sysvol, gpo.Id, comment, linked.Token).ConfigureAwait(false);
-                            await GpmcBackupFormat.WriteAsync(folder, backup, AppVersion.Display, linked.Token).ConfigureAwait(false);
+                            var backup = await planner.ReadBackupAsync(session, sysvol, gpo.Id, comment, linkedActivity.Token).ConfigureAwait(false);
+                            await GpmcBackupFormat.WriteAsync(folder, backup, AppVersion.Display, linkedActivity.Token).ConfigureAwait(false);
                             status = ObjectResultStatus.Succeeded;
                             if (backup.DirectoryObjectCount > 0)
                             {
@@ -385,12 +525,15 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase
                         }
                         catch (Exception ex) when (GroupPolicyText.IsExpected(ex))
                         {
+                            firstFailure ??= ex;
                             status = ObjectResultStatus.Failed;
                         }
 
                         var result = new ObjectResult(objectPlan, status, [], gpo.Dn, begin, time.GetUtcNow());
                         results.Add(result);
-                        progress.Report(new BatchProgress(results.Count, gpos.Count, results.Count(r => r.Status == ObjectResultStatus.Failed), result));
+                        var reported = new BatchProgress(results.Count, gpos.Count, results.Count(r => r.Status == ObjectResultStatus.Failed), result);
+                        progress.Report(reported);
+                        progressOnScreen.Report(reported);
                     }
 
                     return new BatchResult(new ChangePlan { Objects = [], Title = "Backup-GPO", Server = session.Info.Server }, results, session.Info.Server,
@@ -399,15 +542,31 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase
                 var outcome = await run.Execution.ConfigureAwait(true);
                 var failed = outcome.FailedCount;
                 await RememberFolderAsync(folder).ConfigureAwait(true);
+                if (backingUp.IsEnded)
+                {
+                    return false;
+                }
+
                 if (outcome.WasCancelled)
                 {
+                    // Stopped in the line, in the list of background operations or by closing the window.
                     StatusText = Localizer[L.Activity.Cancelled];
+                    var again = RunText;
+                    backingUp.CompleteAttention(
+                        Localizer.Format(L.GpoBackupStatus.BackupStopped, outcome.SucceededCount, gpos.Count, again),
+                        new PageStatusLog(L.GpoBackupStatus.BackupStopped, outcome.SucceededCount, gpos.Count),
+                        new PageStatusAction(again, RunCommand));
                     return false;
                 }
 
                 if (failed > 0)
                 {
                     Error = Localizer.Format(L.GroupPolicy.BackupFailed, failed, gpos.Count);
+                    var reason = firstFailure is null ? null : GroupPolicyText.Error(Localizer, Errors, firstFailure);
+                    var code = ResultCode.Of(firstFailure);
+                    backingUp.CompleteError(
+                        PageStatusText.Failure(Localizer.Format(L.GpoBackupStatus.BackupFailed, failed, gpos.Count), reason, null, code),
+                        new PageStatusLog(L.GpoBackupStatus.BackupFailed, failed, gpos.Count).WithCode(code));
                     return false;
                 }
 
@@ -423,12 +582,32 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase
                     Services.Notifications.Show(NotificationSeverity.Success, StatusText);
                 }
 
+                // The window closes: what the operator learns is the toast, as before.
                 return true;
             }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            // Only a backup the operator stopped says so (nothing was written before the first GPO).
+            if (backingUp.IsCancelling)
+            {
+                var again = RunText;
+                StatusText = Localizer[L.Activity.Cancelled];
+                backingUp.CompleteAttention(
+                    Localizer.Format(L.GpoBackupStatus.BackupStopped, 0, total, again),
+                    new PageStatusLog(L.GpoBackupStatus.BackupStopped, 0, total),
+                    new PageStatusAction(again, RunCommand));
+            }
+
+            return false;
         }
         catch (Exception ex) when (GroupPolicyText.IsExpected(ex))
         {
             Error = GroupPolicyText.Error(Localizer, Errors, ex);
+            var code = ResultCode.Of(ex);
+            backingUp.CompleteError(
+                PageStatusText.Failure(Localizer[L.GpoBackupStatus.NotBackedUp], Error, null, code),
+                new PageStatusLog(L.GpoBackupStatus.NotBackedUp).WithCode(code));
             return false;
         }
         finally
@@ -437,11 +616,24 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase
         }
     }
 
-    /// <summary>Plans the restore (or import) of the selected backup and shows the preview.</summary>
+    /// <summary>How far the backup is: "Backing up the GPOs: 1 of 3…" with the part done in the ring.</summary>
+    private void ReportBackup(OperationScope backingUp, BatchProgress progress, int total) => backingUp.Report(
+        Localizer.Format(L.GpoBackupStatus.BackingUpProgress, PageStatusText.Progress(Localizer, progress.Completed, total)),
+        PageProgress.Of(progress.Completed, total),
+        new PageStatusLog(L.GpoBackupStatus.BackingUp, progress.Completed, total));
+
+    /// <summary>
+    /// Plans the restore (or import) of the selected backup and shows the preview. Making the plan is the operation of the
+    /// window - "Restore “…”: preparing the changes…" with Stop - until the change plan preview opens: that window says its
+    /// own status, and the line is the window's again. When nothing comes of it - SYSVOL is not available, the plan could not
+    /// be made, the operator stopped it - the line says why, with Retry, which makes the plan again. Stop must hold: a
+    /// plan that was made although Stop was pressed is not previewed.
+    /// </summary>
     private async Task RestoreOrImportAsync()
     {
         if (_selectedBackup is not { } backup || Session is not { } session)
         {
+            // The line says that the session ended or that there is none; a backup that is still being read is waited for.
             Error ??= NoSessionMessage;
             return;
         }
@@ -451,26 +643,50 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase
             ? Localizer.Format(L.GroupPolicy.TitleImport, Gpos.FirstOrDefault()?.DisplayName ?? string.Empty)
             : Localizer.Format(L.GroupPolicy.TitleRestore, backup.DisplayName);
         IsBusy = true;
+        using var preparing = Status.Begin(Localizer.Format(L.GroupPolicyStatus.Preparing, title), new PageStatusLog(L.GroupPolicyStatus.Preparing));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(preparing.Token, _gp.Lifetime);
+        var token = linked.Token;
+        var retry = new PageStatusAction(Localizer[L.Common.Retry], RunCommand);
         ChangePlan plan;
         try
         {
-            var access = await _gp.OpenSysvolAsync(session, _gp.Lifetime).ConfigureAwait(true);
+            var access = await _gp.OpenSysvolAsync(session, token).ConfigureAwait(true);
             if (access.Connection is not { } sysvol)
             {
                 Error = _gp.SysvolText(access.Reason ?? SysvolUnavailableReason.Failed, session.Info.Server);
+                preparing.CompleteAttention(NotChanged(title, Error, retryable: true), new PageStatusLog(L.GroupPolicy.SysvolFailedShort), retry);
                 return;
             }
 
             await using (sysvol.ConfigureAwait(true))
             {
                 plan = Mode == GpoBackupMode.Import
-                    ? await _gp.Planner.PlanImportAsync(session, sysvol, Gpos[0].Id, backup, folder, _gp.Lifetime).ConfigureAwait(true)
-                    : await _gp.Planner.PlanRestoreAsync(session, sysvol, backup, folder, RestoreLinks, _gp.Lifetime).ConfigureAwait(true);
+                    ? await _gp.Planner.PlanImportAsync(session, sysvol, Gpos[0].Id, backup, folder, token).ConfigureAwait(true)
+                    : await _gp.Planner.PlanRestoreAsync(session, sysvol, backup, folder, RestoreLinks, token).ConfigureAwait(true);
             }
+
+            if (preparing.IsCancelling)
+            {
+                // Stop must hold: a planner that finished although Stop was pressed does not lead to the preview.
+                PlanningStopped(preparing, title, retry);
+                return;
+            }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            // Only a plan the operator stopped says so: nothing was changed.
+            if (preparing.IsCancelling)
+            {
+                PlanningStopped(preparing, title, retry);
+            }
+
+            return;
         }
         catch (Exception ex) when (GroupPolicyText.IsExpected(ex))
         {
             Error = GroupPolicyText.Error(Localizer, Errors, ex);
+            var code = ResultCode.Of(ex);
+            preparing.CompleteError(NotChanged(title, Error, retryable: true, code), new PageStatusLog(L.GroupPolicyStatus.NotChanged).WithCode(code), retry);
             return;
         }
         finally
@@ -478,6 +694,8 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase
             IsBusy = false;
         }
 
+        // The plan is made: the line is the window's again while the preview - which says its own status - is open.
+        preparing.Dispose();
         if (await _gp.PreviewAsync(plan, title, session).ConfigureAwait(true))
         {
             ChangedDirectory = true;
@@ -485,30 +703,51 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase
         }
     }
 
-    /// <summary>Reads the selected backup (its files into memory, checked) for the details and the plan.</summary>
+    /// <summary>"Restore “…” – nothing was changed: why. Press Retry to try again. (code)".</summary>
+    private string NotChanged(string title, string reason, bool retryable, ResultCode code = default) =>
+        PageStatusText.Failure(Localizer.Format(L.GroupPolicyStatus.NotChanged, title), reason, retryable ? Localizer[L.Feedback.RetryNext] : null, code);
+
+    /// <summary>The operator stopped the plan: nothing was changed, and Retry makes the plan again.</summary>
+    private void PlanningStopped(OperationScope preparing, string title, PageStatusAction retry) => preparing.CompleteAttention(
+        NotChanged(title, Localizer[L.GroupPolicyStatus.PreparingStopped], retryable: true),
+        new PageStatusLog(L.GroupPolicyStatus.PreparingStopped),
+        retry);
+
+    /// <summary>
+    /// Reads the selected backup (its files into memory, checked) for the details and the plan - the operation of the list,
+    /// in <see cref="DetailsStatus"/>: "Reading the backup of “…”…" with Stop. It says nothing when it ended well; stopped
+    /// or failed it is the state of that selection - the backup cannot be restored yet - with Retry, until another backup is
+    /// selected or it is read again. The previous selection's read ends without a word.
+    /// </summary>
     private async Task ReadSelectedAsync(GpoBackupRowViewModel? row)
     {
-        var token = _details.Next();
+        var latest = _details.Next();
         _selectedBackup = null;
         BackupDetails = null;
+        OtherDomainText = null;
         CanRestoreLinks = false;
         RestoreLinks = false;
         RestoreLinksText = Localizer.Format(L.GroupPolicy.RestoreLinks, 0);
         RunCommand.NotifyCanExecuteChanged();
+
+        // What the last selection left is over: this one decides.
+        DetailsStatus.SetLasting(null);
         if (row is null)
         {
+            DetailsStatus.Operation?.Dispose();
             return;
         }
 
         var folder = Folder.Trim();
+        using var reading = DetailsStatus.Begin(Localizer.Format(L.GpoBackupStatus.ReadingBackup, row.Name), new PageStatusLog(L.GpoBackupStatus.ReadingBackup));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(latest, reading.Token);
+        var token = linked.Token;
         try
         {
-            // Off the UI thread: the synchronous part (File.Exists, XML loads of up to 16 MB) may sit on a slow share.
-            var backup = await Task.Run(() => GpmcBackupFormat.ReadAsync(folder, row.Entry.BackupId, token), token).ConfigureAwait(true);
-            if (token.IsCancellationRequested)
-            {
-                return;
-            }
+            // Off the UI thread: the synchronous part (File.Exists, XML loads of up to 16 MB) may sit on a slow share, and
+            // Stop (or another selection) must not wait for it.
+            var backup = await Task.Run(() => GpmcBackupFormat.ReadAsync(folder, row.Entry.BackupId, token)).WaitOrAbandonAsync(token).ConfigureAwait(true);
+            token.ThrowIfCancellationRequested();
 
             _selectedBackup = backup;
             CanRestoreLinks = Mode == GpoBackupMode.Restore && backup.Links.Count > 0;
@@ -516,24 +755,35 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase
             BackupDetails = Localizer.Format(L.GroupPolicy.BackupDetails, backup.Files.Count,
                 backup.Files.Values.Sum(f => (long)f.Length).ToString("N0", Localizer.Culture),
                 Localizer[backup.HasSidecar ? L.GroupPolicy.BackupWithSidecar : L.GroupPolicy.BackupGpmcOnly]);
-            if (row.IsOtherDomain && Mode == GpoBackupMode.Restore)
-            {
-                Error = Localizer.Format(L.GroupPolicy.BackupOtherDomain, row.Domain);
-            }
-            else if (Error is not null && !IsBusy)
+            OtherDomainText = row.IsOtherDomain && Mode == GpoBackupMode.Restore ? Localizer.Format(L.GroupPolicy.BackupOtherDomain, row.Domain) : null;
+            if (Error is not null && !IsBusy)
             {
                 Error = null;
             }
         }
         catch (OperationCanceledException)
         {
-            // Another backup was selected.
+            // Another backup was selected - or the operator pressed Stop, which says so.
+            if (reading.IsCancelling)
+            {
+                var retry = Localizer[L.Common.Retry];
+                DetailsStatus.SetLasting(PageStatus.Attention(
+                    Localizer.Format(L.GpoBackupStatus.BackupReadStopped, retry),
+                    new PageStatusLog(L.GpoBackupStatus.BackupReadStopped),
+                    new PageStatusAction(retry, RetryBackupCommand)));
+            }
         }
         catch (Exception ex) when (GroupPolicyText.IsExpected(ex))
         {
             if (!token.IsCancellationRequested)
             {
                 Error = GroupPolicyText.Error(Localizer, Errors, ex);
+                var code = ResultCode.Of(ex);
+                DetailsStatus.SetLasting(PageStatus.Error(
+                    PageStatusText.Failure(Localizer.Format(L.GpoBackupStatus.BackupReadFailed, row.Name), Error, Localizer[L.Feedback.RetryNext], code),
+                    new PageStatusLog(L.GpoBackupStatus.BackupReadFailed).WithCode(code),
+                    new PageStatusAction(Localizer[L.Common.Retry], RetryBackupCommand),
+                    canClose: false));
             }
         }
         finally
@@ -541,6 +791,10 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase
             RunCommand.NotifyCanExecuteChanged();
         }
     }
+
+    /// <summary>Reads the selected backup again (the Retry of the line).</summary>
+    [RelayCommand]
+    private Task RetryBackupAsync() => ReadSelectedAsync(SelectedBackup);
 
     private Task RememberFolderAsync(string folder) => _gp.Settings.UpdateAsync(s => s.GroupPolicy.LastBackupFolder = folder);
 

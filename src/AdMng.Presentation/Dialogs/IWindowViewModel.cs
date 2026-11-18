@@ -16,7 +16,8 @@ namespace AdMng.Presentation.Dialogs;
 /// <list type="number">
 /// <item>create the view model through <see cref="IDialogViewModelFactory"/>, set it as the window's DataContext and
 /// bind the title to <see cref="WindowTitle"/>;</item>
-/// <item>subscribe to <see cref="CloseRequested"/>: close the window (modal windows set DialogResult to the argument);</item>
+/// <item>subscribe to <see cref="CloseRequested"/>: close the window (modal windows set DialogResult to the argument) -
+/// the view model has decided this close, the host asks nothing;</item>
 /// <item>when the operator closes the window with the title bar button / Alt+F4, cancel the close, await
 /// <see cref="CanCloseAsync"/> and close only when it returns true;</item>
 /// <item>after the window is shown call <see cref="InitializeAsync"/> (it never throws; failures are shown by the view model);</item>
@@ -86,6 +87,16 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
     /// </summary>
     public string? SessionEndedMessage => IsSessionEnded ? EndedMessage : null;
 
+    /// <summary>
+    /// <see cref="SessionEndedMessage"/> as the state of the window that lasts (track V, stage V2b): what a window with a
+    /// status line hands to <see cref="Feedback.PageStatusHolder.SetLasting"/> - first among its conditions - once its
+    /// session ended; null while the session lasts. An error that cannot be closed: nothing in the window can be read
+    /// or written any more.
+    /// </summary>
+    protected Feedback.PageStatus? SessionEndedStatus => SessionEndedMessage is { } message
+        ? Feedback.PageStatus.Error(message, new Feedback.PageStatusLog(L.WindowSession.Ended), canClose: false)
+        : null;
+
     protected DialogServices Services { get; }
 
     protected ILocalizer Localizer => Services.Localizer;
@@ -131,7 +142,28 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
 
     public virtual Task InitializeAsync() => Task.CompletedTask;
 
-    public virtual Task<bool> CanCloseAsync() => Task.FromResult(true);
+    /// <summary>
+    /// The window is about to be closed by the operator. First the one question of every window that works
+    /// (<see cref="Feedback.RunningWork"/>, track V stage V2b-5b): an operation that writes and can be stopped is asked
+    /// about - "Stop the running operation and close the window?" - and stopped on Yes, and the window closes after it
+    /// ended; one that cannot be stopped keeps the window open and says so; a read is cancelled without a question. Then
+    /// the window's own questions (<see cref="CanCloseCoreAsync"/>: unsaved changes, generated passwords).
+    /// </summary>
+    public async Task<bool> CanCloseAsync()
+    {
+        if (!await Feedback.RunningWork.ConfirmCloseAsync(Services.Localizer, Services.Dialogs, WindowTitle, Feedback.RunningWork.HoldersOf(this)).ConfigureAwait(true))
+        {
+            return false;
+        }
+
+        return await CanCloseCoreAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// The window's own questions before it closes (pending changes, generated passwords, "not while it is busy"), asked
+    /// after the question about a running operation. True when the window may close.
+    /// </summary>
+    protected virtual Task<bool> CanCloseCoreAsync() => Task.FromResult(true);
 
     public void Dispose()
     {
@@ -152,8 +184,28 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
     {
     }
 
-    /// <summary>Raises <see cref="CloseRequested"/>.</summary>
+    /// <summary>
+    /// Raises <see cref="CloseRequested"/>: the window closes at once. For a close that follows from what the window
+    /// did - a choice was made, Apply succeeded. The host does not ask <see cref="CanCloseAsync"/> for it, so a Close or
+    /// Cancel command of the operator must not come here directly: see <see cref="CloseByOperatorAsync"/>.
+    /// </summary>
     protected void RequestClose(bool? dialogResult) => CloseRequested?.Invoke(this, dialogResult);
+
+    /// <summary>
+    /// The operator closes the window with a control of its own - the Close or Cancel button, Esc: the same close as
+    /// the title bar's. <see cref="CanCloseAsync"/> is asked first (the question about a running operation that writes,
+    /// then the window's own questions), and the window closes only when it allows it. A command that raised
+    /// <see cref="CloseRequested"/> directly closed over a running restore, send or remote command without a word,
+    /// while the title bar of the same window asked.
+    /// </summary>
+    /// <param name="dialogResult">The dialog result of the close.</param>
+    protected async Task CloseByOperatorAsync(bool? dialogResult)
+    {
+        if (!IsDisposed && await CanCloseAsync().ConfigureAwait(true) && !IsDisposed)
+        {
+            RequestClose(dialogResult);
+        }
+    }
 
     /// <summary>Called after the UI language changed (on the thread that changed it). Refreshes the title by default.</summary>
     protected virtual void OnCultureChanged()

@@ -123,7 +123,22 @@ public sealed class FakeOutlookClient : IOutlookClient
         _ => "outlook.error",
     };
 
-    public Task<OutlookConnectResult> ConnectAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Awaited at the start of every <see cref="ConnectAsync"/>, before the cancellation is looked at (e.g. to hold a
+    /// connect until the test releases it).
+    /// </summary>
+    public Func<CancellationToken, Task>? BeforeConnect { get; set; }
+
+    public Task<OutlookConnectResult> ConnectAsync(CancellationToken cancellationToken) =>
+        BeforeConnect is { } before ? ConnectAfterAsync(before, cancellationToken) : Connect(cancellationToken);
+
+    private async Task<OutlookConnectResult> ConnectAfterAsync(Func<CancellationToken, Task> before, CancellationToken cancellationToken)
+    {
+        await before(cancellationToken).ConfigureAwait(false);
+        return await Connect(cancellationToken).ConfigureAwait(false);
+    }
+
+    private Task<OutlookConnectResult> Connect(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         Interlocked.Increment(ref _connections);

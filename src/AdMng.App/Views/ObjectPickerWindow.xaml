@@ -1,6 +1,9 @@
 <!--
   ADUC "Select Users, Contacts, Computers, or Groups" (modal): object types, location, names resolved with Check Names
   (';'-separated, ambiguous names listed below), Find Now and the chosen objects returned by OK.
+  Feedback (design note 6.7 and "V2b-2 as built"): one status line at the top - the search of Find Now and the check of
+  the names (each with Stop), how many objects the list shows, which names were not resolved, why a search failed, and
+  that the session of the dialog ended.
 -->
 <Window x:Class="AdMng.App.Views.ObjectPickerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -11,7 +14,7 @@
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="720"
-        Height="640"
+        Height="676"
         MinWidth="540"
         MinHeight="460"
         ShowInTaskbar="False"
@@ -49,7 +52,18 @@
       </StackPanel>
     </Border>
 
-    <Grid Margin="20,12,20,12">
+    <!--
+      Status line (design note 6.1 and "V2b-2 as built", Dialogs): at the top, above the object types; declared after
+      the footer, so Tab goes from the buttons to what the line offers and then to the fields. It says what the row
+      under the names box said. Its picture stands over the left edge of the fields.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="12,8,12,0"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+
+    <Grid Margin="20,8,20,12">
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto" />
         <RowDefinition Height="Auto" />
@@ -86,7 +100,8 @@
                   Command="{Binding BrowseLocationCommand}"
                   Content="{l:Tr Common.Browse}"
                   DockPanel.Dock="Right" />
-          <TextBox AutomationProperties.Name="{l:Tr Picker.Location}"
+          <TextBox x:Name="LocationBox"
+                   AutomationProperties.Name="{l:Tr Picker.Location}"
                    IsReadOnly="True"
                    Text="{Binding LocationText, Mode=OneWay}" />
         </DockPanel>
@@ -97,28 +112,18 @@
         <TextBlock Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr Picker.EnterNames}" />
         <DockPanel>
           <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-            <Button Margin="6,0,0,0"
+            <Button x:Name="CheckNamesButton"
+                    Margin="6,0,0,0"
                     Command="{Binding CheckNamesCommand}"
                     Content="{l:Tr Picker.CheckNames}" />
-            <Button Margin="6,0,0,0"
+            <Button x:Name="FindNowButton"
+                    Margin="6,0,0,0"
                     Command="{Binding FindNowCommand}"
                     Content="{l:Tr Find.FindNow}" />
           </StackPanel>
           <TextBox x:Name="SearchBox"
                    AutomationProperties.Name="{l:Tr Picker.EnterNames}"
                    Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
-        </DockPanel>
-        <DockPanel Margin="0,4,0,0" Visibility="{Binding StatusText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-          <ProgressBar Width="60"
-                       Margin="0,0,8,0"
-                       VerticalAlignment="Center"
-                       DockPanel.Dock="Left"
-                       IsIndeterminate="{Binding IsSearching, Mode=OneWay}"
-                       Visibility="{Binding IsSearching, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-          <TextBlock AutomationProperties.LiveSetting="Polite"
-                     Style="{StaticResource Ad.SecondaryText}"
-                     Text="{Binding StatusText, Mode=OneWay}"
-                     TextWrapping="Wrap" />
         </DockPanel>
       </StackPanel>
 
@@ -146,7 +151,7 @@
                   <c:ObjectIconView Margin="0,0,6,0"
                                     VerticalAlignment="Center"
                                     Icon="{Binding Icon, Mode=OneWay}"
-                                    Size="14" />
+                                    Size="16" />
                   <TextBlock VerticalAlignment="Center" Text="{Binding Name, Mode=OneWay}" />
                   <Button Margin="4,0,0,0"
                           AutomationProperties.Name="{l:Tr Common.Remove}"

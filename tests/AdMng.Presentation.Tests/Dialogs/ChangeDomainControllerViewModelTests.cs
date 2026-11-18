@@ -3,6 +3,7 @@ using System.Net;
 using AdMng.Core.Directory;
 using AdMng.Presentation.Connection;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
@@ -50,7 +51,7 @@ public class ChangeDomainControllerViewModelTests
         Assert.Equal("Domain: contoso.test", dialog.DomainText);
         Assert.False(dialog.IsLoading);
         Assert.Null(dialog.ErrorText);
-        Assert.Null(dialog.ListNote);
+        Assert.Null(dialog.ListStatus.Lasting);
         Assert.Equal(["dc01.contoso.test", "dc02.contoso.test", "rodc-gdańsk.contoso.test"], dialog.DomainControllers.Select(d => d.HostName));
         var current = dialog.DomainControllers[0];
         Assert.Same(current, dialog.SelectedDomainController);
@@ -555,7 +556,7 @@ public class ChangeDomainControllerViewModelTests
 
         using var dialog = await OpenAsync(harness);
 
-        Assert.Equal(Text(harness, L.ChangeDc.ListUnavailable), dialog.ListNote);
+        Assert.Equal(PageStatusKind.Attention, dialog.ListStatus.Lasting?.Kind);
         var current = Assert.Single(dialog.DomainControllers);
         Assert.True(current.Entry.IsCurrent);
         dialog.ServerText = "dc02.contoso.test";
@@ -572,7 +573,7 @@ public class ChangeDomainControllerViewModelTests
         // Without DsGetDcName (Linux), or when it found nothing, the locator returns only the domain name itself.
         using (var dialog = await OpenAsync(harness, new DomainControllerInfo("contoso.test", null, false, false, false)))
         {
-            Assert.Equal(Text(harness, L.ChangeDc.ListUnavailable), dialog.ListNote);
+            Assert.Equal(PageStatusKind.Attention, dialog.ListStatus.Lasting?.Kind);
             var current = Assert.Single(dialog.DomainControllers);
             Assert.True(current.Entry.IsCurrent);
             Assert.False(dialog.CanUseAnyWritableInSite);
@@ -581,7 +582,7 @@ public class ChangeDomainControllerViewModelTests
         // A locator that knows a DC fills the list: nothing to report.
         using (var dialog = await OpenAsync(harness, new DomainControllerInfo("dc02.contoso.test", "Kraków", true, false, true)))
         {
-            Assert.Null(dialog.ListNote);
+            Assert.Null(dialog.ListStatus.Lasting);
             Assert.Equal(["dc02.contoso.test", "dc01.contoso.test"], dialog.DomainControllers.Select(d => d.HostName));
         }
     }

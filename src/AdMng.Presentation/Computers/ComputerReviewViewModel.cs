@@ -11,6 +11,7 @@ using AdMng.Core.Model;
 using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
@@ -31,7 +32,14 @@ namespace AdMng.Presentation.Computers;
 /// change goes through the change pipeline; results exist only in memory, the parameters, reports and scope are
 /// remembered in the settings.
 /// </summary>
-public sealed partial class ComputerReviewViewModel : WindowViewModelBase
+/// <remarks>
+/// The window has one status line (<see cref="Status"/>; track V, stage V2b-4, design note docs/dev/v-interface-renewal.md
+/// "V2b-4 as built"): the summary of the last run, whatever the window is doing - the check with the computers read so far,
+/// the read of the exact last logon, the finding of the sites, a ping -, one operation at a time, each with Stop and ended as
+/// a result of its own, and the states that last: the session of the window ended, the window was opened without one, the
+/// check failed. The buttons that start the three long operations are the Cancel of what they started.
+/// </remarks>
+public sealed partial class ComputerReviewViewModel : WindowViewModelBase, IHasPageStatus
 {
     /// <summary>Above this many rows "Ustal lokację" for the whole list asks first.</summary>
     public const int SiteConfirmationThreshold = 500;
@@ -58,6 +66,15 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
     // Servers whose owner is still to be resolved and that no other report holds (they may be servers without owner).
     private readonly Dictionary<string, ComputerReviewFacts> _ownerPending = new(StringComparer.Ordinal);
     private RunContext? _run;
+
+    /// <summary>The running check (null when none runs), the scope it names, and why it failed (the state of the window).</summary>
+    private OperationScope? _checking;
+    private OperationScope? _pingScope;
+    private string _checkingScope = string.Empty;
+    private PageStatus? _failure;
+
+    /// <summary>What the running read of the window is: the flags of the two buttons that start one.</summary>
+    private ReadKind _readKind;
     private Task _currentRun = Task.CompletedTask;
     private Task _refreshing = Task.CompletedTask;
     private int _generation;
@@ -82,6 +99,14 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
         _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
         _actions = actions ?? throw new ArgumentNullException(nameof(actions));
         _resolver = resolver;
+        Status = new PageStatusHolder(Localizer, services.Dispatcher, services.Lists.StatusLog);
+        Status.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(PageStatusHolder.Operation))
+            {
+                OnPropertyChanged(nameof(IsPinging));
+            }
+        };
         _refreshDebouncer = new Debouncer(services.Time, TimeSpan.FromMilliseconds(300));
         var settings = services.Settings.Current.Computers;
         ReportOptions = [.. Enum.GetValues<ComputerReport>().Select(r => new ComputerReportOptionViewModel(r) { IsEnabled = !settings.DisabledReports.Contains(r) })];
@@ -96,9 +121,16 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
         LoadParameters(settings.Parameters);
         LoadScope(settings.Scope);
         RefreshTexts();
+        UpdateLasting();
         Services.Changes.Changed += OnDirectoryChanged;
         _views.Changed += OnViewsChanged;
     }
+
+    /// <summary>
+    /// What the window says in its status line: the summary, the operation that runs and how it ended, and the state of
+    /// the window that lasts (see the remarks of the class).
+    /// </summary>
+    public PageStatusHolder Status { get; }
 
     public override string WindowTitle => Session is { } session
         ? Localizer.Format(L.ComputerReview.WindowTitleDomain, session.Info.DomainDnsName)
@@ -174,6 +206,15 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
     public partial bool IsReading { get; private set; }
 
     public bool IsBusy => IsRunning || IsReading;
+
+    /// <summary>The exact last logon is being read - "Dokładne ostatnie logowanie" is its Cancel.</summary>
+    public bool IsReadingExact => IsReading && _readKind == ReadKind.ExactLastLogon;
+
+    /// <summary>The sites are being found - "Ustal lokację" is its Cancel.</summary>
+    public bool IsResolvingSites => IsReading && _readKind == ReadKind.Sites;
+
+    /// <summary>A ping is on its way - "Ping" is its Cancel.</summary>
+    public bool IsPinging => Status.Operation is { } operation && ReferenceEquals(operation, _pingScope);
 
     [ObservableProperty]
     public partial bool HasRun { get; private set; }
@@ -254,9 +295,14 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
         _ => true,
     };
 
+    /// <summary>
+    /// Stops whatever runs - the check, a read, a ping - as the operator's Stop: the status line says "Stopping…" at once
+    /// and what was stopped says so when it ended.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanStop))]
     private void Stop()
     {
+        Status.Operation?.Cancel();
         _runs.Cancel();
         _reads.Cancel();
     }
@@ -375,13 +421,21 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
             return;
         }
 
-        var token = _reads.Next();
+        // The read is the operation of the window: the line says so with Stop (the button that started it is its Cancel),
+        // and how it ended - how many domain controllers answered and what that changed - is its result. A new check
+        // replaces it without a word.
+        var latest = _reads.Next();
+        using var reading = Status.Begin(
+            Localizer.Format(L.ComputerReviewStatus.ReadingExact, rows.Count), new PageStatusLog(L.ComputerReviewStatus.ReadingExact, rows.Count));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(latest, reading.Token);
+        var token = linked.Token;
+        _readKind = ReadKind.ExactLastLogon;
         IsReading = true;
         StatusText = Localizer.Format(L.ComputerReview.ReadingDomainControllers, rows.Count);
         try
         {
             var reads = await Task.Run(() => _domainControllers.ReadAsync(session, Dns(rows), [Attr.LastLogon], token), token).ConfigureAwait(true);
-            if (!ReferenceEquals(run, _run))
+            if (!ReferenceEquals(run, _run) || reading.IsEnded)
             {
                 return;
             }
@@ -419,30 +473,51 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
 
             UpdateTiles(complete: true);
             RebuildItems();
-            var failed = reads.Where(r => !r.Succeeded).ToList();
+
+            // What happened: how many domain controllers answered and how many computers left the lists; with the ones that
+            // did not answer it is an "attention". Their names are on screen only - the log copy has the numbers.
+            var failed = reads.Where(r => !r.Succeeded).Select(r => r.Server).ToList();
             var message = Localizer.Format(L.ComputerReview.ExactDone, answered.Count, reads.Count, active);
             if (targets.Count > rows.Count)
             {
                 message = Localizer.Format(L.ComputerReview.ExactChecked, rows.Count, targets.Count) + " " + message;
             }
-            if (failed.Count > 0)
-            {
-                message += Environment.NewLine + string.Join(Environment.NewLine, failed.Select(f => $"{f.Server}: {f.Error}"));
-            }
 
-            Services.Notifications.Show(failed.Count > 0 ? NotificationSeverity.Warning : NotificationSeverity.Success, message);
+            var log = new PageStatusLog(L.ComputerReview.ExactDone, answered.Count, reads.Count, active);
+            if (failed.Count == 0)
+            {
+                reading.CompleteDone(message, log);
+            }
+            else
+            {
+                reading.CompleteAttention($"{message} {Localizer.Format(L.ComputerReviewStatus.ExactNoAnswer, string.Join(", ", failed))}", log);
+            }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
-            // Stopped by the operator or a new run.
+            // Replaced by a new check, or the window closed: nothing to say. Stopped by the operator: the list is as it
+            // was, and the button reads again.
+            if (reading.IsCancelling)
+            {
+                var again = Localizer[L.ComputerReview.ExactLastLogon];
+                reading.CompleteAttention(
+                    Localizer.Format(L.ComputerReviewStatus.ExactStopped, again),
+                    new PageStatusLog(L.ComputerReviewStatus.ExactStopped),
+                    new PageStatusAction(again, ReadExactLastLogonCommand));
+            }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            await Services.Dialogs.ShowErrorAsync(Localizer[L.ComputerReview.ExactLastLogon], Errors.Translate(ex)).ConfigureAwait(true);
+            var code = ResultCode.Of(ex);
+            reading.CompleteError(
+                PageStatusText.Failure(Localizer[L.ComputerReviewStatus.ExactFailed], Errors.Translate(ex), Localizer[L.Feedback.RetryNext], code),
+                new PageStatusLog(L.ComputerReviewStatus.ExactFailed).WithCode(code),
+                new PageStatusAction(Localizer[L.Common.Retry], ReadExactLastLogonCommand));
         }
         finally
         {
             IsReading = false;
+            _readKind = ReadKind.None;
             UpdateStatus();
         }
     }
@@ -467,15 +542,27 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
             return;
         }
 
-        var token = _reads.Next();
+        // The sites are found as the operation of the window, with how far it is (the part done is the ring); a new check
+        // replaces it without a word and nothing is applied before every computer was looked at.
+        var latest = _reads.Next();
+        using var finding = Status.Begin(
+            Localizer.Format(L.ComputerReviewStatus.ResolvingSites, rows.Count), new PageStatusLog(L.ComputerReviewStatus.ResolvingSites, rows.Count));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(latest, finding.Token);
+        var token = linked.Token;
+        _readKind = ReadKind.Sites;
         IsReading = true;
         StatusText = Localizer.Format(L.ComputerReview.ResolvingSites, rows.Count);
         try
         {
             run.Topology ??= await Task.Run(() => ComputerSites.ReadTopologyAsync(session, token), token).ConfigureAwait(true);
             var topology = run.Topology;
-            var resolved = await Task.Run(() => ComputerSites.ResolveAsync(resolver, topology, rows.Select(r => r.Facts.Facts).ToList(), token), token).ConfigureAwait(true);
-            if (!ReferenceEquals(run, _run))
+            var progress = Services.Dispatcher.CreateProgress<int>(done => finding.Report(
+                Localizer.Format(L.ComputerReviewStatus.ResolvingSitesCount, PageStatusText.Progress(Localizer, done, rows.Count)),
+                PageProgress.Of(done, rows.Count),
+                new PageStatusLog(L.ComputerReviewStatus.ResolvingSites, done, rows.Count)));
+            var resolved = await Task.Run(
+                () => ComputerSites.ResolveAsync(resolver, topology, rows.Select(r => r.Facts.Facts).ToList(), token, progress), token).ConfigureAwait(true);
+            if (!ReferenceEquals(run, _run) || finding.IsEnded)
             {
                 return;
             }
@@ -491,23 +578,45 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
             Columns = CreateColumns();
             OnPropertyChanged(nameof(HasSites));
             UpdateDetails();
+
+            // How many computers have a site now - and, once per check, the subnets that were skipped because their names
+            // are not valid (an attention: part of what the operator sees in the site column is missing for that reason).
+            var found = resolved.Values.Count(r => r.State is SiteResolutionState.Resolved or SiteResolutionState.DomainController);
+            var done = Localizer.Format(L.ComputerReviewStatus.SitesDone, PageStatusText.Progress(Localizer, found, rows.Count));
+            var log = new PageStatusLog(L.ComputerReviewStatus.SitesDone, found, rows.Count);
             if (topology.Topology.Subnets.Invalid.Count > 0 && !run.InvalidSubnetsReported)
             {
                 run.InvalidSubnetsReported = true;
-                Services.Notifications.Show(NotificationSeverity.Warning, Localizer.Format(L.ComputerReview.InvalidSubnets, string.Join(", ", topology.Topology.Subnets.Invalid)));
+                finding.CompleteAttention($"{done} {Localizer.Format(L.ComputerReview.InvalidSubnets, string.Join(", ", topology.Topology.Subnets.Invalid))}", log);
+            }
+            else
+            {
+                finding.CompleteDone(done, log);
             }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
-            // Stopped.
+            if (finding.IsCancelling)
+            {
+                var again = Localizer[L.ComputerReview.ResolveSites];
+                finding.CompleteAttention(
+                    Localizer.Format(L.ComputerReviewStatus.SitesStopped, again),
+                    new PageStatusLog(L.ComputerReviewStatus.SitesStopped),
+                    new PageStatusAction(again, ResolveSitesCommand));
+            }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            await Services.Dialogs.ShowErrorAsync(Localizer[L.ComputerReview.ResolveSites], Errors.Translate(ex)).ConfigureAwait(true);
+            var code = ResultCode.Of(ex);
+            finding.CompleteError(
+                PageStatusText.Failure(Localizer[L.ComputerReviewStatus.SitesFailed], Errors.Translate(ex), Localizer[L.Feedback.RetryNext], code),
+                new PageStatusLog(L.ComputerReviewStatus.SitesFailed).WithCode(code),
+                new PageStatusAction(Localizer[L.Common.Retry], ResolveSitesCommand));
         }
         finally
         {
             IsReading = false;
+            _readKind = ReadKind.None;
             UpdateStatus();
         }
     }
@@ -615,12 +724,67 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
     private Task RemoteDesktopAsync() =>
         Session is { } session && SelectedItem is { } row ? _actions.LaunchAsync(session, LocalTool.RemoteDesktop, row.Dn) : Task.CompletedTask;
 
-    [RelayCommand(CanExecute = nameof(HasSingleSelection))]
-    private Task PingAsync() =>
-        Session is { } session && SelectedItem is { } row ? _actions.PingAsync(session, row.Dn) : Task.CompletedTask;
+    /// <summary>
+    /// "Ping": four echoes to the selected computer - an operation of the window (up to eight seconds when the computer
+    /// drops ICMP), with Stop, ended as the result of the ping: done with the replies, an attention when none came, an error
+    /// when it could not be done at all.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanPing))]
+    private async Task PingAsync()
+    {
+        if (Session is not { } session || SelectedItem is not { } row)
+        {
+            return;
+        }
+
+        var name = row.Name;
+        using var pinging = Status.Begin(Localizer.Format(L.ComputerReviewStatus.Pinging, name), new PageStatusLog(L.ComputerReviewStatus.Pinging));
+        _pingScope = pinging;
+        OnPropertyChanged(nameof(IsPinging));
+        try
+        {
+            var attempt = await _actions.TryPingAsync(session, row.Dn, pinging.Token).ConfigureAwait(true);
+            if (pinging.IsEnded)
+            {
+                return;
+            }
+
+            if (attempt.Result is { } result)
+            {
+                var log = new PageStatusLog(result.Succeeded ? L.Computers.PingReplies : L.Computers.PingNoReply, result.Received, result.RoundTrips.Count);
+                if (result.Succeeded)
+                {
+                    pinging.CompleteDone(RemoteText.Ping(Localizer, result), log);
+                }
+                else
+                {
+                    pinging.CompleteAttention(RemoteText.Ping(Localizer, result), log);
+                }
+            }
+            else
+            {
+                pinging.CompleteError(
+                    PageStatusText.Failure(Localizer.Format(L.ComputerReviewStatus.PingFailed, name), attempt.Problem, null, attempt.Code),
+                    new PageStatusLog(L.ComputerReviewStatus.PingFailed).WithCode(attempt.Code));
+            }
+        }
+        catch (OperationCanceledException) when (pinging.Token.IsCancellationRequested)
+        {
+            if (pinging.IsCancelling)
+            {
+                var again = Localizer[L.Computers.Ping];
+                pinging.CompleteAttention(
+                    Localizer.Format(L.ComputerReviewStatus.PingStopped, name, again),
+                    new PageStatusLog(L.ComputerReviewStatus.PingStopped),
+                    new PageStatusAction(again, PingCommand));
+            }
+        }
+    }
+
+    private bool CanPing() => HasSingleSelection() && !IsBusy;
 
     [RelayCommand]
-    private void Close() => RequestClose(true);
+    private Task CloseAsync() => CloseByOperatorAsync(true);
 
     private bool HasRows() => Items.Count > 0 && !IsSessionEnded;
 
@@ -658,6 +822,10 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
         _runs.Cancel();
         _reads.Cancel();
         _refreshDebouncer.Cancel();
+
+        // The state first, then what still runs: the line goes from "working" straight to "the session ended".
+        UpdateLasting();
+        Status.Operation?.Dispose();
         RunCommand.NotifyCanExecuteChanged();
         BrowseScopeCommand.NotifyCanExecuteChanged();
         RefreshCommandStates();
@@ -685,6 +853,7 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
         UpdateTiles(complete: !IsRunning);
         UpdateStatus();
         NotifySelectionChanged();
+        UpdateLasting();
     }
 
     protected override void Dispose(bool disposing)
@@ -694,6 +863,7 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
             _runs.Cancel();
             _reads.Cancel();
             _refreshDebouncer.Cancel();
+            Status.Operation?.Dispose();
             Services.Changes.Changed -= OnDirectoryChanged;
             _views.Changed -= OnViewsChanged;
         }
@@ -725,7 +895,7 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
 
     private async Task RunCoreAsync()
     {
-        var token = _runs.Next();
+        var latest = _runs.Next();
         _reads.Cancel();
         var generation = ++_generation;
         _rows.Clear();
@@ -741,21 +911,34 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
             return;
         }
 
-        var reports = ReportOptions.Where(o => o.IsEnabled).Select(o => o.Report).ToHashSet();
-        var parameters = CurrentParameters();
-        LoadParameters(parameters);
-        await RememberAsync(parameters).ConfigureAwait(true);
-        var now = Services.Time.GetUtcNow();
-        var zone = Services.Time.LocalTimeZone;
+        // The check is the operation of the window: the line says "working" from here on - with the computers read so far
+        // - and Stop (in the line, or "Sprawdź" as its Cancel) ends it as "stopped". "The latest check wins" and the end of
+        // the session cancel it without a word. Why a check failed is the state of the window.
+        var scope = ScopeLabel(session);
+        using var checking = Status.Begin(Localizer.Format(L.ComputerReviewStatus.Checking, scope), new PageStatusLog(L.ComputerReviewStatus.Checking));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(latest, checking.Token);
+        var token = linked.Token;
+        _checking = checking;
+        _checkingScope = scope;
+        _failure = null;
+        UpdateLasting();
+        var code = ResultCode.None;
+        var unresolved = false;
         var previous = SelectedTile is { } selected ? (selected.Report, selected.Release) : ((ComputerReport, string?)?)null;
-        Tiles.ReplaceAll(reports.Where(r => r != ComputerReport.Releases).Order().Select(r => new ComputerReportTileViewModel(r)));
-        RefreshTexts();
-        HasRun = true;
-        AsOf = now;
         IsRunning = true;
         var stopped = false;
         try
         {
+            var reports = ReportOptions.Where(o => o.IsEnabled).Select(o => o.Report).ToHashSet();
+            var parameters = CurrentParameters();
+            LoadParameters(parameters);
+            await RememberAsync(parameters).ConfigureAwait(true);
+            var now = Services.Time.GetUtcNow();
+            var zone = Services.Time.LocalTimeZone;
+            Tiles.ReplaceAll(reports.Where(r => r != ComputerReport.Releases).Order().Select(r => new ComputerReportTileViewModel(r)));
+            RefreshTexts();
+            HasRun = true;
+            AsOf = now;
             var settings = Services.Settings.Current.Computers;
             var wellKnown = await Services.Sessions.GetWellKnownObjectsAsync(token).ConfigureAwait(true);
             var nc = session.Info.DefaultNamingContext;
@@ -808,7 +991,9 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
         {
             if (generation == _generation)
             {
-                Error = ex is ScopeException scope ? scope.Message : Errors.Translate(ex);
+                unresolved = ex is ScopeException;
+                Error = unresolved ? ex.Message : Errors.Translate(ex);
+                code = unresolved ? ResultCode.None : ResultCode.Of(ex);
             }
         }
         finally
@@ -820,9 +1005,45 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
                 SelectedTile = (previous is { } p ? Tiles.FirstOrDefault(t => t.Report == p.Item1 && t.Release == p.Item2) : null) ?? Tiles.FirstOrDefault();
                 RebuildItems();
                 UpdateStatus(stopped);
+                if (Error is { } reason)
+                {
+                    // The list shows nothing, or not everything, and this is why: the state of the window until the next
+                    // check. A scope that cannot be resolved is not repeated - the operator changes it first.
+                    _failure = unresolved
+                        ? PageStatus.Error(
+                            PageStatusText.Failure(Localizer[L.ComputerReviewStatus.NotChecked], reason),
+                            new PageStatusLog(L.ComputerReviewStatus.NotChecked))
+                        : PageStatus.Error(
+                            PageStatusText.Failure(Localizer[L.ComputerReviewStatus.Failed], reason, Localizer[L.Feedback.RetryNext], code),
+                            new PageStatusLog(L.ComputerReviewStatus.Failed).WithCode(code),
+                            new PageStatusAction(Localizer[L.Common.Retry], RunCommand));
+                    UpdateLasting();
+                }
+                else if (stopped && checking.IsCancelling)
+                {
+                    // Only a check the operator stopped says so: what is there is incomplete, and "Sprawdź" runs it again.
+                    var again = Localizer[L.ComputerReview.Run];
+                    checking.CompleteAttention(
+                        Localizer.Format(L.ComputerReviewStatus.Stopped, _readCount, again),
+                        new PageStatusLog(L.ComputerReviewStatus.Stopped, _readCount),
+                        new PageStatusAction(again, RunCommand));
+                }
+            }
+
+            if (ReferenceEquals(_checking, checking))
+            {
+                _checking = null;
             }
         }
     }
+
+    /// <summary>What the scope of a check is called in the status line: the domain, the path of the organizational unit or of the group, or the saved view.</summary>
+    private string ScopeLabel(IDirectorySession session) => ScopeKind.Value switch
+    {
+        AccountReviewScopeKind.SavedView => SavedView?.Text ?? string.Empty,
+        AccountReviewScopeKind.OrganizationalUnit or AccountReviewScopeKind.GroupMembers when ScopeDn is { } dn => AddressResolver.ToDisplayPath(dn),
+        _ => session.Info.DomainDnsName,
+    };
 
     private async Task<ReviewScope> ResolveScopeAsync(IDirectorySession session, DateTimeOffset now, CancellationToken token)
     {
@@ -895,6 +1116,11 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
         UpdateTiles(complete: false);
         RebuildItems();
         UpdateStatus();
+
+        // One report per batch: the same message with the computers read and the computers with findings so far.
+        _checking?.Report(
+            Localizer.Format(L.ComputerReviewStatus.CheckingCount, _checkingScope, read, _rows.Count),
+            log: new PageStatusLog(L.ComputerReviewStatus.Checking, read, _rows.Count));
     });
 
     /// <summary>The owners (managedBy: missing, present, disabled or deleted) and the creators' names of the computers.</summary>
@@ -1303,7 +1529,32 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
         OpenCommand.NotifyCanExecuteChanged();
     }
 
-    partial void OnIsReadingChanged(bool value) => RefreshCommandStates();
+    partial void OnIsReadingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsReadingExact));
+        OnPropertyChanged(nameof(IsResolvingSites));
+        RefreshCommandStates();
+    }
+
+    partial void OnStatusTextChanged(string value) => UpdateSummary();
+
+    partial void OnSelectionTextChanged(string value) => UpdateSummary();
+
+    /// <summary>The summary of the line: what was read and when, and what is selected (joined by " · ").</summary>
+    private void UpdateSummary()
+    {
+        var read = StatusText;
+        var selected = SelectionText;
+        Status.SetIdle(read.Length == 0 || selected.Length == 0 ? read + selected : $"{read} · {selected}");
+    }
+
+    /// <summary>
+    /// The state of the window that lasts, the most important first: its session ended, it was opened without one, the check
+    /// failed (the list is empty or incomplete and this is why). Called whenever one of them changes.
+    /// </summary>
+    private void UpdateLasting() => Status.SetLasting(
+        SessionEndedStatus
+        ?? (Session is null ? PageStatus.Error(NoSessionMessage, new PageStatusLog(L.Errors.NotConnected), canClose: false) : _failure));
 
     partial void OnIsRunningChanged(bool value) => RefreshCommandStates();
 
@@ -1412,6 +1663,14 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
     }
 
     private sealed record ReviewScope(string BaseDn, SearchScope Scope, string? Filter);
+
+    /// <summary>What the running read of the window is.</summary>
+    private enum ReadKind
+    {
+        None,
+        ExactLastLogon,
+        Sites,
+    }
 
     private sealed class ScopeException(string message) : Exception(message);
 }
