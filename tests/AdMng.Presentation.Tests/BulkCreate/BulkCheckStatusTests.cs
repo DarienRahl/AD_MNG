@@ -1,5 +1,6 @@
 using System.Globalization;
 using AdMng.Core.ActiveDirectory;
+using AdMng.Core.Batch;
 using AdMng.Core.Batch.Creation;
 using AdMng.Core.Directory;
 using AdMng.Presentation.BulkCreate;
@@ -402,4 +403,103 @@ public sealed class BulkCheckStatusTests
         Assert.Equal(PageStatusKind.Idle, status.Current.Kind);
         Assert.Null(status.Lasting);
     }
+    // ---- The plan step never takes a grid older than the operator's last change ------------------------------------------
+
+    private static string? PlannedValue(ObjectPlan plan, string attribute) =>
+        plan.Changes.SelectMany(c => c.Attributes)
+            .FirstOrDefault(a => string.Equals(a.Attribute, attribute, StringComparison.OrdinalIgnoreCase))?.NewValues.FirstOrDefault();
+
+    private static async Task<B4Wizard> WizardWithAManagerToChooseAsync()
+    {
+        var wizard = await B4Wizard.CreateAsync();
+        wizard.Use(wizard.Input(
+            [["Łukasz", "Wójcik", "Piotr Zieliński"], ["Zofia", "Kamińska", "Ewa Wiśniewska"]],
+            [.. B4Wizard.NameMappings, new(2, ColumnTargetKind.Manager)]));
+        await wizard.EnterCheckAsync();
+        return wizard;
+    }
+
+    [Fact]
+    public async Task AChoiceWhoseRecomputeFailed_IsInThePlan_WhenTheDomainControllerAnswersAgain()
+    {
+        // The operator chooses one of two managers; the recompute of that choice fails (the DC does not answer once).
+        // The old grid stays, Preview is available - and the plan used to be built from that grid, without the manager:
+        // the preview was the only thing between this and an account written without the operator's choice.
+        using var wizard = await WizardWithAManagerToChooseAsync();
+        var check = wizard.Check;
+        var before = check.Computation;
+        var fail = true;
+        wizard.Harness.Session.BeforeOperation = _ =>
+        {
+            if (fail)
+            {
+                throw new DirectoryException(DirectoryErrorKind.ServerUnavailable, "81: Server Down") { LdapResultCode = 81 };
+            }
+        };
+
+        check.Rows[0].Cell(BulkCheckViewModel.ManagerKey)!.ChosenCandidate = wizard.Sample.PiotrZielinski2;
+        await B2Harness.WaitUntilAsync(() => !check.HasPendingRecompute && !check.IsComputing && check.Error is not null);
+        Assert.Same(before, check.Computation);
+        Assert.False(check.IsGridCurrent);
+        fail = false;
+        wizard.Harness.Session.BeforeOperation = null;
+
+        await wizard.Editor.PreviewCommand.ExecuteAsync(null);
+
+        Assert.True(wizard.Editor.IsPreviewStep, wizard.Editor.Error);
+        Assert.True(check.IsGridCurrent);
+        Assert.NotSame(before, check.Computation);
+        Assert.Contains(
+            wizard.Editor.PreviewObjects.Select(p => PlannedValue(p.Plan, Attr.Manager)),
+            manager => manager is not null && Core.Ldap.DistinguishedName.AreEqual(manager, wizard.Sample.PiotrZielinski2));
+    }
+
+    [Fact]
+    public async Task APreview_WhoseOwnRecomputeFails_IsRefused_AndPlansNothingFromTheOldGrid()
+    {
+        using var wizard = await WizardWithAManagerToChooseAsync();
+        var check = wizard.Check;
+        wizard.Harness.Session.BeforeOperation = _ =>
+            throw new DirectoryException(DirectoryErrorKind.ServerUnavailable, "81: Server Down") { LdapResultCode = 81 };
+        check.Rows[0].Cell(BulkCheckViewModel.ManagerKey)!.ChosenCandidate = wizard.Sample.PiotrZielinski2;
+        await B2Harness.WaitUntilAsync(() => !check.HasPendingRecompute && !check.IsComputing && check.Error is not null);
+
+        // The DC still does not answer: the recompute the plan step runs fails too.
+        await wizard.Editor.PreviewCommand.ExecuteAsync(null);
+
+        Assert.False(wizard.Editor.IsPreviewStep);
+        Assert.Empty(wizard.Editor.PreviewObjects);
+        Assert.False(check.IsGridCurrent);
+        Assert.NotNull(check.Error);
+        wizard.Harness.Session.BeforeOperation = null;
+    }
+
+    [Fact]
+    public async Task ARecompute_ThatThePlanStepStartedAndThePlansStopCancelled_IsComputedAgainByTheNextPreview()
+    {
+        // The cancellation comes from the plan's token, not from the check's Stop: the check's line says nothing, and
+        // nothing remembered that the grid lacks the edit - the next preview planned the old grid.
+        using var wizard = await WizardWithAManagerToChooseAsync();
+        var check = wizard.Check;
+        var before = check.Computation;
+        using var held = new HeldDirectoryCall(wizard.Harness.Session);
+        check.Rows[0].Cell(BulkCheckViewModel.ManagerKey)!.ChosenCandidate = wizard.Sample.PiotrZielinski2;
+        await held.Reached.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        using var plan = new CancellationTokenSource();
+        var ensure = check.EnsureCurrentAsync(plan.Token);
+        await B2Harness.WaitUntilAsync(() => check.IsComputing);
+        plan.Cancel();
+        held.Release();
+        await ensure;
+        await B2Harness.WaitUntilAsync(() => !check.IsComputing);
+        Assert.Same(before, check.Computation);
+        Assert.False(check.IsGridCurrent);
+
+        await check.EnsureCurrentAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(check.IsGridCurrent);
+        Assert.NotSame(before, check.Computation);
+        Assert.NotNull(check.Computation!.Rows[0].ManagerDn);
+    }
+
 }

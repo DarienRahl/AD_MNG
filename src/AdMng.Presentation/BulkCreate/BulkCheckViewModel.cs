@@ -129,6 +129,10 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IHasPageStatu
     private PageStatus? _problem;
     private bool _stopped;
 
+    // See IsGridCurrent.
+    private int _inputVersion;
+    private int _computedVersion = -1;
+
     /// <param name="services">The dialog services of the window.</param>
     /// <param name="planner">The planner (<see cref="IBulkCreatePlanner.ComputeAsync"/>).</param>
     /// <param name="input">The wizard's current input (<see cref="BulkCreateViewModel.BuildInput"/>; null while a step is invalid).</param>
@@ -270,6 +274,22 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IHasPageStatu
     /// <summary>An edit or an exclusion waits for its recompute (the plan step computes first).</summary>
     internal bool HasPendingRecompute { get; private set; }
 
+    /// <summary>
+    /// The grid shown was computed from everything the operator has entered and chosen by now. Every change of what a
+    /// computation is made from - an edit, an exclusion, a revert, new pins, an earlier step, a new table, a fresh look at
+    /// the directory - counts <c>_inputVersion</c> up, and a computation that is applied notes the count it was made for.
+    /// One number in place of a flag per cause: a recompute that failed, or that anybody cancelled (the check's Stop, the
+    /// plan's Stop, a computation that was overtaken), simply leaves the two apart - and the plan step never takes such a
+    /// grid, whose rows lack the operator's last change.
+    /// </summary>
+    internal bool IsGridCurrent => Computation is not null && _computedVersion == _inputVersion;
+
+    /// <summary>Why the grid is not current, as the sentence the plan step refuses with: what the check failed with, that it was stopped, or that it is out of date.</summary>
+    internal string NotCurrentReason =>
+        Error
+        ?? LastingState()?.Message
+        ?? Services.Localizer.Format(L.BulkCheckStatus.Stale, Services.Localizer[L.BulkCreateCheck.Recheck]);
+
     /// <summary>The global-catalog session is open (a multi-domain forest whose DC is a ready GC).</summary>
     internal bool HasGlobalCatalog => _globalCatalogReader is not null;
 
@@ -300,6 +320,7 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IHasPageStatu
     [RelayCommand]
     private Task RecheckAsync()
     {
+        _inputVersion++;
         Lookups.Refresh();
         return RunComputeAsync(CancellationToken.None, CheckRunKind.Check);
     }
@@ -308,6 +329,7 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IHasPageStatu
     [RelayCommand]
     private Task RenumberAsync()
     {
+        _inputVersion++;
         PinnedNumbers = new Dictionary<int, int>();
         return RunComputeAsync(CancellationToken.None, CheckRunKind.Renumber);
     }
@@ -448,6 +470,7 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IHasPageStatu
             return;
         }
 
+        _inputVersion++;
         if (Computation is not null)
         {
             IsStale = true;
@@ -470,6 +493,7 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IHasPageStatu
         _recompute.Cancel();
         _computing.Cancel();
         ResetGeneration++;
+        _inputVersion++;
 
         // The cache may predate accounts this window created: the rows of the new table are checked against them.
         Lookups.Refresh();
@@ -547,12 +571,14 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IHasPageStatu
     }
 
     /// <summary>
-    /// The plan step: a pending recompute or a stale grid is computed now, so the frozen values are the latest ones. So is
-    /// a grid whose recompute the operator stopped: it lacks the edit that started that recompute, and the line says so.
+    /// The plan step: a grid that is not current (<see cref="IsGridCurrent"/>) is computed now, so the frozen values are
+    /// the latest ones - whatever left it behind: a recompute that still waits, an earlier step that changed, a recompute
+    /// that failed, or one that was stopped by the check's Stop or by the Stop of an earlier preview. The caller must look
+    /// at <see cref="IsGridCurrent"/> afterwards: this computation can fail or be stopped as well.
     /// </summary>
     internal async Task EnsureCurrentAsync(CancellationToken cancellationToken)
     {
-        if (Computation is null || IsStale || HasPendingRecompute || IsComputing || _stopped)
+        if (!IsGridCurrent || IsComputing)
         {
             _recompute.Cancel();
             await RunComputeAsync(cancellationToken).ConfigureAwait(true);
@@ -669,6 +695,9 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IHasPageStatu
         try
         {
             await WaitForGlobalCatalogAsync(linked.Token).ConfigureAwait(true);
+
+            // The count the input is read at: what this computation will be current for when it is applied.
+            var version = _inputVersion;
             if (Input() is not { } input)
             {
                 Refuse(localizer[L.BulkCreateCheck.InputIncomplete]);
@@ -704,6 +733,7 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IHasPageStatu
             }
 
             _counterSignature = signature;
+            _computedVersion = version;
             Apply(computation);
         }
         catch (OperationCanceledException) when (linked.IsCancellationRequested)
@@ -838,6 +868,7 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IHasPageStatu
 
         // A computation still running was started before this edit or exclusion: its rows must not be shown over them.
         _computing.Cancel();
+        _inputVersion++;
         HasPendingRecompute = true;
         Changed?.Invoke(this, EventArgs.Empty);
         _recompute.RunAsync(token => RunComputeAsync(token)).Forget();

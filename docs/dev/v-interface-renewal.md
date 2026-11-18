@@ -3867,7 +3867,15 @@ what each unit left behind on purpose), and what nobody has seen on a screen yet
       without that edit although the line said "the results may not match … your changes". The plan step
       (`EnsureCurrentAsync`) now also computes again when the last computation was stopped (`_stopped`); the preview
       does not refuse, it has the edit. A test holds the recompute of a manager choice at the directory call, stops it and
-      proves that the plan step brings a new computation with the choice.
+      proves that the plan step brings a new computation with the choice. *Corrected after the audit of this increment:*
+      that fix closed one of three routes. A recompute that **failed** (the DC did not answer once), and one that the plan
+      step itself had started and the Stop of the **preview** cancelled, left the old grid with no flag set - and the next
+      *Podgląd* planned from it, without the operator's manager choice or exclusion. One flag per cause could not hold:
+      the check now counts every change of its input (an edit, an exclusion, a revert, new pins, an earlier step, a new
+      table, *Sprawdź ponownie*) and notes the count a computation was applied for (`IsGridCurrent`); the plan step
+      computes whenever the two differ and **refuses** - with the check's own sentence - when the grid is still not
+      current afterwards. Tests: the failed recompute end to end (the manager is in the plan once the DC answers), a
+      preview whose own recompute fails (refused, nothing planned), and the plan's Stop.
     - **A result goes with what it was about.** Choosing another profile closes what the line said about the last profile
       command (V2b-2 Dialogs 18); the next action in the table (a row, a column, *Wyczyść*) closes the last read's answer
       (6.7: a result stays until the next operation or until it is closed).

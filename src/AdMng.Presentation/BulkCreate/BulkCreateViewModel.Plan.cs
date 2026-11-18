@@ -188,6 +188,13 @@ public sealed partial class BulkCreateViewModel
             throw PlanError(Check.Error ?? Services.Localizer[L.BulkCreateCheck.InputIncomplete]);
         }
 
+        if (!Check.IsGridCurrent)
+        {
+            // The computation above failed or was stopped: the grid is the one of before the operator's last change (a
+            // manager that was chosen, a row that was excluded). The plan is what gets written - never from that grid.
+            throw PlanError(Check.NotCurrentReason);
+        }
+
         var frozen = new Dictionary<int, IReadOnlyList<BulkValue>>(checkedRows.Rows.Count);
         foreach (var row in checkedRows.Rows)
         {
