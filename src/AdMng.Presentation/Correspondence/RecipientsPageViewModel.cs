@@ -49,6 +49,10 @@ public sealed partial class RecipientsPageViewModel : ObservableObject, IHasPage
     private string _downloadsPattern = CorrespondenceSettings.DefaultDownloadsPattern;
     private (bool Loaded, int Count, DateTimeOffset? Newest)? _journalState;
     private CancellationTokenSource _directoryReads = new();
+
+    // One operation that adds rows at a time (TakeAdditionTurnAsync). Never disposed: a read may still wait on it when the
+    // window closes, and a semaphore without a wait handle holds no unmanaged resource.
+    private readonly SemaphoreSlim _additions = new(1, 1);
     private bool _bulk;
     private IReadOnlyList<string> _lastDirectoryRead = [];
     private PageStatus? _sessionEnded;
@@ -256,7 +260,8 @@ public sealed partial class RecipientsPageViewModel : ObservableObject, IHasPage
     /// <summary>
     /// The answer to an action that is over at once: <see cref="StatusText"/> (also when it repeats the previous one, so the
     /// window's status text changes again) and the result in the status line - <paramref name="attention"/> for what came to
-    /// nothing or was skipped. The line is left alone while an operation of the page runs: a quick action never ends a read.
+    /// nothing or was skipped. While an operation of the page runs the line is the operation's - a quick action never ends
+    /// a read - and the answer is a toast (<see cref="Say"/>).
     /// </summary>
     /// <param name="text">The sentence, as the operator reads it.</param>
     /// <param name="key">The resource key of the sentence: its copy in the diagnostic log (with the counts, never the text).</param>
@@ -266,13 +271,55 @@ public sealed partial class RecipientsPageViewModel : ObservableObject, IHasPage
     {
         StatusText = string.Empty;
         StatusText = text ?? string.Empty;
-        if (Status.IsWorking || string.IsNullOrEmpty(StatusText))
+        if (string.IsNullOrEmpty(StatusText))
         {
             return;
         }
 
         var log = new PageStatusLog(key, counts);
-        Status.Show(attention ? PageStatus.Attention(StatusText, log) : PageStatus.Done(StatusText, log));
+        Say(attention ? PageStatus.Attention(StatusText, log) : PageStatus.Done(StatusText, log));
+    }
+
+    /// <summary>
+    /// Says the answer of an action that is not the page's operation: in the line - or, while an operation of the page
+    /// runs, as a toast, because the line is the operation's and showing a result there would end the read (design note
+    /// 6.7: what finished elsewhere is a toast). It is never dropped: "this exclusion file could not be read" said nowhere
+    /// leaves addresses on the list that must not be written to.
+    /// </summary>
+    private void Say(PageStatus status)
+    {
+        if (!Status.IsWorking)
+        {
+            Status.Show(status);
+            return;
+        }
+
+        var severity = status.Kind switch
+        {
+            PageStatusKind.Error => NotificationSeverity.Error,
+            PageStatusKind.Attention => NotificationSeverity.Warning,
+            _ => NotificationSeverity.Success,
+        };
+        Services.Notifications.Show(severity, status.Message);
+    }
+
+    /// <summary>
+    /// The turn of an operation that adds rows - a read of the directory, an import of files: they run one after another.
+    /// The page has one line, and an operation that begins takes the line and cancels the one that runs (right for a list
+    /// that follows the operator, wrong here): a file import started during a long read of a group silently cost the
+    /// members that were not read yet, and the letter then went out without them. Dispose the result to give the turn back.
+    /// </summary>
+    private async Task<IDisposable> TakeAdditionTurnAsync(CancellationToken cancellationToken = default)
+    {
+        await _additions.WaitAsync(cancellationToken).ConfigureAwait(true);
+        return new AdditionTurn(_additions);
+    }
+
+    private sealed class AdditionTurn(SemaphoreSlim additions) : IDisposable
+    {
+        private SemaphoreSlim? _additions = additions;
+
+        public void Dispose() => Interlocked.Exchange(ref _additions, null)?.Release();
     }
 
     /// <summary>

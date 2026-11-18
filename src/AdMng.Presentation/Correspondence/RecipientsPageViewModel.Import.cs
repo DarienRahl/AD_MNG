@@ -185,6 +185,8 @@ public sealed partial class RecipientsPageViewModel
             return;
         }
 
+        // One after another with the other operations that add rows (see TakeAdditionTurnAsync).
+        using var turn = await TakeAdditionTurnAsync().ConfigureAwait(true);
         var errors = new List<string>();
         int added = 0, duplicates = 0, overLimit = 0, invalid = 0, hiddenSheets = 0, hiddenRows = 0, read = 0;
         ContactSourceFormat? format = null;
@@ -239,7 +241,7 @@ public sealed partial class RecipientsPageViewModel
         if (stopped)
         {
             // What the files read before the stop added stays on the list; the page says so and how far it got - when the
-            // operator asked for it. A read that another operation of the page replaced says nothing.
+            // operator asked for it.
             if (scope.IsCancelling)
             {
                 StatusText = string.Empty;
@@ -421,10 +423,7 @@ public sealed partial class RecipientsPageViewModel
     {
         StatusText = string.Empty;
         StatusText = PageStatusText.Failure(Localizer[L.RecipientsStatus.NothingLoaded], reason);
-        if (!Status.IsWorking)
-        {
-            Status.Show(PageStatus.Attention(StatusText, new PageStatusLog(key)));
-        }
+        Say(PageStatus.Attention(StatusText, new PageStatusLog(key)));
     }
 
     /// <summary>Every address of the files becomes a "Nie wysyłać" entry – in any column, cell or sheet, not only the e-mail
@@ -458,11 +457,12 @@ public sealed partial class RecipientsPageViewModel
         }
 
         AddExclusions(addresses);
-        if (errors.Count > 0 && !Status.IsWorking)
+        if (errors.Count > 0)
         {
-            // The files that could not be read are part of the answer: what was added and what was not read.
+            // The files that could not be read are part of the answer: what was added and what was not read. Never
+            // dropped: an exclusion file that was silently not read leaves addresses on the list that must not be written to.
             StatusText = Localizer.Format(L.RecipientsStatus.ImportPartly, StatusText, FileErrors(errors));
-            Status.Show(PageStatus.Attention(StatusText, new PageStatusLog(L.RecipientsStatus.ImportPartly, addresses.Count, errors.Count)));
+            Say(PageStatus.Attention(StatusText, new PageStatusLog(L.RecipientsStatus.ImportPartly, addresses.Count, errors.Count)));
         }
     }
 

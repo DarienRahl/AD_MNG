@@ -207,12 +207,104 @@ public sealed class RecipientsStatusTests
         using var held = new HeldDirectoryCall(scenario.Harness.Session);
         var run = page.AddFromSelectionCommand.ExecuteAsync(null);
         await held.Reached.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+        var toastsBefore = scenario.Harness.Notifications.Items.Count;
         page.ClearExclusionsCommand.Execute(null);
         Assert.Equal(PageStatusKind.Working, window.Status.Current.Kind);
         Assert.True(page.Status.IsWorking);
+
+        // The answer is not dropped while the line is the read's: it is a toast, with the same sentence.
+        var toast = Assert.Single(scenario.Harness.Notifications.Items.Skip(toastsBefore));
+        Assert.Equal(page.StatusText, toast.Message);
         held.Release();
         await run.WaitAsync(TimeSpan.FromSeconds(20), Ct);
         Assert.Equal(PageStatusKind.Done, window.Status.Current.Kind);
         Assert.Single(page.Items);
+    }
+
+    [Fact]
+    public async Task AFileImport_StartedWhileTheDirectoryIsRead_WaitsForItsTurn_AndBothAddTheirRows()
+    {
+        // The window was opened from a selection (a group with thousands of members) and the operator imports a file
+        // meanwhile. The import used to take the line and cancel the read without a word: the members not read yet were
+        // missing from the list, and the letter went out without them.
+        using var scenario = await CorrespondenceShellScenario.CreateAsync(English);
+        using var window = await scenario.OpenAsync();
+        var page = window.Recipients;
+        page.SelectedObjects = [scenario.Company.JanKowalski, scenario.Company.LukaszWisniewski];
+        using var held = new HeldDirectoryCall(scenario.Harness.Session);
+        var reading = page.AddFromSelectionCommand.ExecuteAsync(null);
+        await held.Reached.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+
+        scenario.Dialogs.Files.Enqueue([File(scenario, "kontakty.csv", Cp1250.GetBytes(ContactsCsv))]);
+        Assert.True(page.ImportFilesCommand.CanExecute(null));
+        var importing = page.ImportFilesCommand.ExecuteAsync(null);
+
+        // The read still has the line and its token: nothing replaced it.
+        await Task.Delay(100, Ct);
+        Assert.False(importing.IsCompleted);
+        Assert.Equal("Correspondence.Recipients.Status.DirectoryReading (2)", window.Status.Current.Log.ToString());
+        Assert.Empty(page.Items);
+
+        held.Release();
+        await reading.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+        await importing.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+
+        Assert.Equal(
+            ["jan.kowalski@contoso.test", "lukasz.wisniewski@contoso.test", "sekretariat@andrespol.pl", "urzad@gmina-zgierz.pl"],
+            page.Items.Where(r => r.IsValid).Select(r => r.Email).Order(StringComparer.Ordinal));
+        Assert.Equal(PageStatusKind.Done, window.Status.Current.Kind);
+    }
+
+    [Fact]
+    public async Task ADirectoryRead_StartedWhileFilesAreRead_WaitsForItsTurn_AndBothAddTheirRows()
+    {
+        using var scenario = await CorrespondenceShellScenario.CreateAsync(English);
+        using var window = await scenario.OpenAsync();
+        var page = window.Recipients;
+        var first = File(scenario, "a.csv", Cp1250.GetBytes(ContactsCsv));
+        var second = File(scenario, "b.csv", Cp1250.GetBytes("Nazwa;E-mail;Miejscowość\r\nUrząd Miasta Pabianice;sekretariat@pabianice.pl;Pabianice\r\nUrząd Gminy Ksawerów;urzad@ksawerow.pl;Ksawerów\r\n"));
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        page.ReadGate = gate.Task;
+        scenario.Dialogs.Files.Enqueue([first, second]);
+        var importing = page.ImportFilesCommand.ExecuteAsync(null);
+        await B2Harness.WaitUntilAsync(() => page.Status.IsWorking);
+
+        page.SelectedObjects = [scenario.Company.JanKowalski];
+        var reading = page.AddFromSelectionCommand.ExecuteAsync(null);
+        await Task.Delay(100, Ct);
+        Assert.False(reading.IsCompleted);
+        Assert.StartsWith("Correspondence.Recipients.Status.FilesReading", window.Status.Current.Log.ToString(), StringComparison.Ordinal);
+
+        gate.SetResult();
+        await importing.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+        await reading.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+
+        Assert.Equal(
+            ["jan.kowalski@contoso.test", "sekretariat@andrespol.pl", "sekretariat@pabianice.pl", "urzad@gmina-zgierz.pl", "urzad@ksawerow.pl"],
+            page.Items.Where(r => r.IsValid).Select(r => r.Email).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public async Task Stop_OfTheReadThatRuns_LeavesTheOneThatWaitsForItsTurn()
+    {
+        using var scenario = await CorrespondenceShellScenario.CreateAsync(English);
+        using var window = await scenario.OpenAsync();
+        var page = window.Recipients;
+        page.SelectedObjects = [scenario.Company.JanKowalski];
+        using var held = new HeldDirectoryCall(scenario.Harness.Session);
+        var reading = page.AddFromSelectionCommand.ExecuteAsync(null);
+        await held.Reached.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+        scenario.Dialogs.Files.Enqueue([File(scenario, "kontakty.csv", Cp1250.GetBytes(ContactsCsv))]);
+        var importing = page.ImportFilesCommand.ExecuteAsync(null);
+
+        // Stop is about what the line says: the read. The import that waited runs after it.
+        window.Status.Current.Action!.Command.Execute(null);
+        held.Release();
+        await reading.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+        await importing.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+
+        Assert.Equal(
+            ["sekretariat@andrespol.pl", "urzad@gmina-zgierz.pl"],
+            page.Items.Where(r => r.IsValid).Select(r => r.Email).Order(StringComparer.Ordinal));
     }
 }

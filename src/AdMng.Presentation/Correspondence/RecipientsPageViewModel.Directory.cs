@@ -54,11 +54,25 @@ public sealed partial class RecipientsPageViewModel
             return;
         }
 
+        // One after another with the other operations that add rows (see TakeAdditionTurnAsync).
+        var reads = _directoryReads.Token;
+        IDisposable turn;
+        try
+        {
+            turn = await TakeAdditionTurnAsync(reads).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            // The session ended while this read waited for its turn: the page says why in its state that lasts.
+            return;
+        }
+
+        using var held = turn;
         _lastDirectoryRead = dns;
         using var scope = Status.Begin(
             Localizer.Format(L.RecipientsStatus.DirectoryReading, PageStatusText.Objects(Localizer, dns.Count)),
             new PageStatusLog(L.RecipientsStatus.DirectoryReading, dns.Count));
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(_directoryReads.Token, scope.Token);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(reads, scope.Token);
         var token = linked.Token;
         DirectoryRead read;
         try
@@ -74,7 +88,7 @@ public sealed partial class RecipientsPageViewModel
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
             // Only the operator's Stop says so: nothing was added, and the read is repeated by the action of the line. The
-            // end of the session and a newer operation say nothing here.
+            // end of the session says nothing here (the page says it as its state that lasts).
             if (scope.IsCancelling)
             {
                 scope.CompleteAttention(
@@ -297,15 +311,10 @@ public sealed partial class RecipientsPageViewModel
         }
     }
 
-    private void NothingAdded(string reason, ResultCode code)
-    {
-        if (!Status.IsWorking)
-        {
-            Status.Show(PageStatus.Error(
-                PageStatusText.Failure(Localizer[L.RecipientsStatus.DirectoryNothingAdded], reason, null, code),
-                new PageStatusLog(L.RecipientsStatus.DirectoryNothingAdded).WithCode(code)));
-        }
-    }
+    private void NothingAdded(string reason, ResultCode code) =>
+        Say(PageStatus.Error(
+            PageStatusText.Failure(Localizer[L.RecipientsStatus.DirectoryNothingAdded], reason, null, code),
+            new PageStatusLog(L.RecipientsStatus.DirectoryNothingAdded).WithCode(code)));
 
     /// <summary>Reads the objects of the last read again (the action of its stopped or failed result).</summary>
     [RelayCommand]
