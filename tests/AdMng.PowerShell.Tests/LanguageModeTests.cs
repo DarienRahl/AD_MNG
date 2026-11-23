@@ -7,6 +7,31 @@ public sealed class LanguageModeTests
 {
     private const string DotNetCall = "[System.IO.File]::Exists('/x')";
 
+    /// <summary>
+    /// The ways a script could get code to run in another language mode: a runspace of its own (ForEach-Object -Parallel and -AsJob,
+    /// [powershell], [runspacefactory]), a script block made from text, a type of its own, a module, a job. Each would print the
+    /// language mode it ran in (audit PS-01: -Parallel printed FullLanguage in a "Constrained" window).
+    /// </summary>
+    public static TheoryData<string> WaysToAnotherLanguageMode =>
+    [
+        "1 | ForEach-Object -Parallel { $ExecutionContext.SessionState.LanguageMode }",
+        "1 | ForEach-Object -Parallel { $ExecutionContext.SessionState.LanguageMode } -AsJob | Out-Null",
+        "1 | % -Parallel { $ExecutionContext.SessionState.LanguageMode }",
+        "$p = @{ Parallel = { $ExecutionContext.SessionState.LanguageMode } }; 1 | ForEach-Object @p",
+        "[powershell]::Create().AddScript('$ExecutionContext.SessionState.LanguageMode').Invoke()",
+        "[runspacefactory]::CreateRunspace()",
+        "$ExecutionContext.InvokeCommand.InvokeScript('$ExecutionContext.SessionState.LanguageMode')",
+        "& ([scriptblock]::Create('$ExecutionContext.SessionState.LanguageMode'))",
+        "& ([scriptblock]'$ExecutionContext.SessionState.LanguageMode')",
+        "Invoke-Expression '$ExecutionContext.SessionState.LanguageMode'",
+        "${function:Probe} = '$ExecutionContext.SessionState.LanguageMode'; Probe",
+        "Add-Type -TypeDefinition 'public static class Probe { public static string Mode() { return \"FullLanguage\"; } }'; [Probe]::Mode()",
+        "Start-Job { $ExecutionContext.SessionState.LanguageMode } | Receive-Job -Wait",
+        "Start-ThreadJob { $ExecutionContext.SessionState.LanguageMode } | Receive-Job -Wait",
+        "Invoke-Command -ScriptBlock { $ExecutionContext.SessionState.LanguageMode } -AsJob | Receive-Job -Wait",
+        "$ExecutionContext.SessionState.LanguageMode = 'FullLanguage'; $ExecutionContext.SessionState.LanguageMode",
+    ];
+
     [Fact]
     public async Task The_window_starts_in_constrained_language_and_a_dotnet_method_call_fails_with_the_language_mode_error()
     {
@@ -21,6 +46,19 @@ public sealed class LanguageModeTests
         Assert.True(TestSessions.End(call).HadErrors);
     }
 
+    [Theory]
+    [MemberData(nameof(WaysToAnotherLanguageMode))]
+    public async Task No_way_of_the_window_runs_code_in_another_language_mode(string script)
+    {
+        await using var session = await TestSessions.CreateAsync();
+
+        var items = await TestSessions.RunAsync(session, script);
+
+        Assert.DoesNotContain("FullLanguage", TestSessions.Text(items), StringComparison.Ordinal);
+        Assert.True(TestSessions.End(items).HadErrors, $"'{script}' ran without an error.");
+        Assert.Equal(PowerShellLanguageMode.Constrained, session.LanguageMode);
+    }
+
     [Fact]
     public async Task The_programs_commands_work_in_constrained_language()
     {
@@ -31,8 +69,12 @@ public sealed class LanguageModeTests
         Assert.Equal("Constrained\n", TestSessions.Text(items));
     }
 
+    /// <summary>
+    /// What the switch back proves: a command typed after it is constrained again. Code defined while the mode was on (a function, a
+    /// script block in a variable) is a separate matter - audit PS-02, a fresh runspace when the mode is turned off.
+    /// </summary>
     [Fact]
-    public async Task The_trusted_mode_is_on_after_the_switch_and_back_to_constrained_on_request()
+    public async Task The_trusted_mode_is_on_after_the_switch_and_a_command_typed_after_the_switch_back_is_constrained()
     {
         await using var session = await TestSessions.CreateAsync();
 

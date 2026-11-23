@@ -137,6 +137,31 @@ public sealed class PowerShellSessionTests
         Assert.False(session.IsRunning);
     }
 
+    /// <summary>
+    /// A script that keeps writing (the case Stop exists for) stops too, and nothing it wrote arrives after the end item. The consumer
+    /// keeps up here; a consumer that falls behind a flood is the case of audit PS-07.
+    /// </summary>
+    [Fact]
+    public async Task A_running_script_that_keeps_writing_is_stopped_and_ends_as_stopped()
+    {
+        await using var session = await TestSessions.CreateAsync();
+        var items = new List<PowerShellOutputItem>();
+
+        await foreach (var item in session.RunAsync("'started'; while ($true) { 'line'; Start-Sleep -Milliseconds 5 }", TestContext.Current.CancellationToken))
+        {
+            items.Add(item);
+            if (item is PowerShellTextItem { Text: "line\n" } && items.Count == 5)
+            {
+                await session.StopAsync();
+            }
+        }
+
+        Assert.Equal(PowerShellRunState.Stopped, TestSessions.End(items).State);
+        Assert.IsType<PowerShellRunEndItem>(items[^1]);
+        Assert.True(items.Count >= 5);
+        Assert.False(session.IsRunning);
+    }
+
     [Fact]
     public async Task Cancelling_the_token_stops_the_pipeline_and_the_enumeration_still_ends_with_the_end_item()
     {
