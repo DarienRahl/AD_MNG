@@ -15,8 +15,10 @@ namespace AdMng.PowerShell;
 
 /// <summary>
 /// One window's PowerShell session (docs/dev/r1-powershell-window.md 4.1): one runspace made from the AD Manager initial
-/// session state, never shared with another window, with the custom host, AD Manager's commands and the guards. It runs one
-/// pipeline at a time and streams what the pipeline produces as <see cref="PowerShellOutputItem"/>s, in memory only.
+/// session state - an allow-list of commands (<see cref="CommandGuards"/>) - never shared with another window, with the custom host
+/// and AD Manager's commands. It refuses what the text of a command would do past that list (<see cref="InputGuard"/>), runs one
+/// pipeline at a time and streams what the pipeline produces as <see cref="PowerShellOutputItem"/>s, in memory only. Nothing a
+/// command starts outlives it: a job left in the session's job repository is stopped when the command ends, on Stop and on dispose.
 /// Disposing it stops the pipeline and closes the runspace.
 /// </summary>
 public sealed class PowerShellSession : IPowerShellSession
@@ -26,6 +28,7 @@ public sealed class PowerShellSession : IPowerShellSession
     private readonly Runspace _runspace;
     private readonly WindowHost _host;
     private readonly WindowHostRawUserInterface _raw;
+    private readonly JobRepository _jobs;
     private readonly IPowerShellLockdownProbe _probe;
     private readonly TimeProvider _time;
     private readonly TimeSpan _grace;
@@ -43,7 +46,7 @@ public sealed class PowerShellSession : IPowerShellSession
         _time = options.TimeProvider;
         _grace = options.StopGracePeriod;
         _raw = new WindowHostRawUserInterface(options.OutputWidth);
-        _host = new WindowHost(options.Context, ResolveVersion(options.Context), options.Culture ?? CultureInfo.CurrentCulture, _raw);
+        _host = new WindowHost(ResolveVersion(options.Context), options.Culture ?? CultureInfo.CurrentCulture, _raw);
         _lockdown = _probe.Probe();
         _runspace = RunspaceFactory.CreateRunspace(_host, CreateInitialState(options));
         _runspace.ThreadOptions = PSThreadOptions.ReuseThread;
@@ -53,6 +56,18 @@ public sealed class PowerShellSession : IPowerShellSession
         }
 
         _runspace.Open();
+        try
+        {
+            _runspace.SessionStateProxy.InvokeCommand.PostCommandLookupAction = ScriptFileGuard.DropScriptFiles;
+            var setup = SetUp();
+            _jobs = setup.Jobs;
+            WindowRegistry.Register(_runspace, new WindowEntry(options.Context, setup.Bridge));
+        }
+        catch
+        {
+            _runspace.Dispose();
+            throw;
+        }
     }
 
     /// <summary>
@@ -132,11 +147,13 @@ public sealed class PowerShellSession : IPowerShellSession
 
         if (run is null)
         {
+            EndJobs();
             return;
         }
 
         RequestStop(run);
         await Task.WhenAny(run.Completed.Task, run.Grace.Task).ConfigureAwait(false);
+        EndJobs();
     }
 
     /// <inheritdoc />
@@ -243,6 +260,8 @@ public sealed class PowerShellSession : IPowerShellSession
             abandoned = finished != run.Completed.Task;
         }
 
+        EndJobs();
+        WindowRegistry.Remove(_runspace);
         if (abandoned)
         {
             // A command stuck in .NET code cannot be interrupted; Dispose would wait for it, so only ask the runspace to close.
@@ -278,13 +297,19 @@ public sealed class PowerShellSession : IPowerShellSession
         return typeof(PowerShellSession).Assembly.GetName().Version ?? new Version(0, 0);
     }
 
+    /// <summary>
+    /// The engine's default state (it brings the formatting and type data, the providers and the built-in variables) reduced to the
+    /// window's allow-list of commands (<see cref="CommandGuards.Apply"/>), plus AD Manager's commands.
+    /// </summary>
     private static InitialSessionState CreateInitialState(PowerShellSessionOptions options)
     {
         var state = InitialSessionState.CreateDefault();
         state.LanguageMode = PSLanguageMode.ConstrainedLanguage;
         state.ThrowOnRunspaceOpenError = true;
 
-        // No .ps1 file runs in R1. The execution policy exists on Windows only (setting it elsewhere throws).
+        // No .ps1 file runs in R1 (ScriptFileGuard): the window's authorization manager refuses every script file on Windows, whatever
+        // the execution policy says. The policy itself exists on Windows only (setting it elsewhere throws) and stays Restricted.
+        state.AuthorizationManager = new WindowAuthorizationManager();
         if (OperatingSystem.IsWindows())
         {
             state.ExecutionPolicy = Microsoft.PowerShell.ExecutionPolicy.Restricted;
@@ -308,6 +333,63 @@ public sealed class PowerShellSession : IPowerShellSession
         }
 
         return state;
+    }
+
+    /// <summary>
+    /// Runs <see cref="WindowSetupCommand"/> once, before anything of the operator runs, with the session briefly in FullLanguage: the
+    /// bridge of the replacement commands takes that mode, which lets them build a steppable pipeline in a constrained session (their
+    /// cmdlet itself then runs in the caller's mode). The session is constrained again before this returns, also when it fails.
+    /// </summary>
+    private WindowSetup SetUp()
+    {
+        _runspace.SessionStateProxy.LanguageMode = PSLanguageMode.FullLanguage;
+        try
+        {
+            using var ps = SmaPowerShell.Create();
+            ps.Runspace = _runspace;
+            ps.AddCommand(new CmdletInfo("Initialize-AdmWindowSession", typeof(WindowSetupCommand)));
+            var result = ps.Invoke();
+            return result.Count == 1 && result[0].BaseObject is WindowSetup setup
+                ? setup
+                : throw new InvalidOperationException("The PowerShell session of the window could not be set up.");
+        }
+        finally
+        {
+            _runspace.SessionStateProxy.LanguageMode = PSLanguageMode.ConstrainedLanguage;
+        }
+    }
+
+    /// <summary>
+    /// Stops and forgets every job in the session's job repository (no command of the window creates one; .NET code of the trusted mode
+    /// can, e.g. ForEach-Object -Parallel -AsJob through the engine's cmdlet object). <c>Jobs</c> is a copy. A job is stopped on a pool
+    /// thread: a job stuck in .NET code cannot be interrupted, and the window does not wait for it.
+    /// </summary>
+    private void EndJobs()
+    {
+        foreach (var job in _jobs.Jobs)
+        {
+            try
+            {
+                _jobs.Remove(job);
+            }
+            catch (ArgumentException)
+            {
+                // Already removed.
+            }
+
+            _ = Task.Run(() =>
+            {
+                try
+                {
+                    job.StopJob();
+                    job.Dispose();
+                }
+                catch (Exception)
+                {
+                    // A job that fails to stop has nothing left for the window to do; the window is not told.
+                }
+            });
+        }
     }
 
     private PowerShellCompletionResult Complete(string input, int cursorIndex)
@@ -360,6 +442,19 @@ public sealed class PowerShellSession : IPowerShellSession
             }
 
             _running = true;
+        }
+
+        if (InputGuard.Refusal(script) is { } refusal)
+        {
+            // Refused before it runs, like a command that does not parse: the error, then the end of a failed run.
+            lock (_sync)
+            {
+                _running = false;
+            }
+
+            yield return new PowerShellTextItem(PowerShellStream.Error, refusal + "\n");
+            yield return new PowerShellRunEndItem(PowerShellRunState.Failed, HadErrors: true);
+            yield break;
         }
 
         try
@@ -507,6 +602,9 @@ public sealed class PowerShellSession : IPowerShellSession
         {
             state = PowerShellRunState.Stopped;
         }
+
+        // Nothing the command started outlives it.
+        EndJobs();
 
         // The session is idle before the consumer sees the end item, so it can run the next command at once.
         _host.Output.Attach(null);

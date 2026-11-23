@@ -15,8 +15,11 @@ public abstract class AdmCmdlet : PSCmdlet
     /// <summary>Cancelled by <see cref="StopProcessing"/>: pass it to every directory call (CLAUDE.md rule 6).</summary>
     protected CancellationToken StopToken => _stop.Token;
 
-    /// <summary>The window's services, or null when the session has none (a command that needs them calls <see cref="RequireContext"/>).</summary>
-    protected IAdmWindowContext? ContextOrNull => (Host?.PrivateData?.BaseObject as WindowPrivateData)?.Context;
+    /// <summary>
+    /// The window's services, or null when the session has none (a command that needs them calls <see cref="RequireContext"/>). Found in
+    /// <see cref="WindowRegistry"/> by the runspace the command runs in - not in anything a script can read.
+    /// </summary>
+    protected IAdmWindowContext? ContextOrNull => WindowRegistry.Current()?.Context;
 
     /// <summary>The window's services.</summary>
     /// <exception cref="PSInvalidOperationException">The command runs outside an AD Manager window.</exception>

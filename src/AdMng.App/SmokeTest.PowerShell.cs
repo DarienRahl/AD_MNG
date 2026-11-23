@@ -5,6 +5,7 @@ using AdMng.App.Services;
 using AdMng.Core.PowerShell;
 using AdMng.PowerShell;
 using AdMng.PowerShell.Commands;
+using AdMng.PowerShell.Guards;
 using AdMng.Presentation.Dialogs;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -16,8 +17,9 @@ internal static partial class SmokeTest
     /// <summary>
     /// Proves that the published <c>AdMng.exe</c> - a single file, self-contained - starts the embedded PowerShell engine (ADR-0010
     /// decision 1): a runspace is created, <c>1 + 1</c> and <c>Get-AdmVersion</c> run, the window starts in ConstrainedLanguage with the
-    /// execution policy Restricted, the ten commands of AD Manager are registered, no write command exists, and the help of a
-    /// command (the file beside the program) is found. No directory is involved: the commands that need one are covered by the UI tests.
+    /// execution policy Restricted, the ten commands of AD Manager are registered, no write command exists, the help of a
+    /// command (the file beside the program) is found, the session has exactly the commands of the allow-list and the window's
+    /// ForEach-Object (without -Parallel) works. No directory is involved: the commands that need one are covered by the UI tests.
     /// What it found goes to the report (the version, <c>$PSHOME</c>, the time of the first runspace), so that the log of a CI run says
     /// how the single-file layout behaves.
     /// </summary>
@@ -48,6 +50,15 @@ internal static partial class SmokeTest
 
         var refused = await RunPowerShellAsync(session, "Import-Module Microsoft.PowerShell.Utility 2>&1 | Out-String").ConfigureAwait(true);
         Expect(refused.Contains("limited", StringComparison.OrdinalIgnoreCase), $"Import-Module was not refused: '{refused}'.");
+
+        // The allow-list of the session and the window's ForEach-Object (its bridge to the engine's cmdlet) in the single file.
+        var count = await RunPowerShellAsync(session, "(Get-Command -CommandType Cmdlet, Function | Measure-Object).Count").ConfigureAwait(true);
+        var allowed = CommandGuards.EngineCmdlets.Count + CommandGuards.EngineFunctions.Count + CommandGuards.Replacements.Count + CommandGuards.Refusals.Count + AdmCommands.Names.Count;
+        Expect(count == allowed.ToString(CultureInfo.InvariantCulture), $"The session has {count} commands, the allow-list {allowed}.");
+        var doubled = await RunPowerShellAsync(session, "(1, 2 | ForEach-Object { $_ * 2 }) -join ','").ConfigureAwait(true);
+        Expect(doubled == "2,4", $"ForEach-Object gave '{doubled}'.");
+        var syntax = await RunPowerShellAsync(session, "Get-Command ForEach-Object -Syntax | Out-String").ConfigureAwait(true);
+        Expect(!syntax.Contains("Parallel", StringComparison.Ordinal), "ForEach-Object of the window has -Parallel.");
 
         var home = await RunPowerShellAsync(session, "$PSHOME").ConfigureAwait(true);
         var second = await TimeASecondRunspaceAsync().ConfigureAwait(true);

@@ -74,8 +74,9 @@ internal static class Program
 
         await RunAsync(first, "Get-Date; Get-Command *-Adm* | Out-Null; 1..200 | ForEach-Object { \"line $_\" } | Out-String | Out-Null; Get-Date | Format-List; Write-Warning 'w'; Get-AdmVersion");
 
-        // Module discovery as the engine does it for an explicit listing. Not on Windows: there the engine's files go to known
-        // folders that this test cannot watch, and a listing of a runner's installed modules (hundreds) takes from 20 s to minutes.
+        // An explicit module listing, as an operator would type it. Get-Module is not in the window's command list (CommandGuards), so
+        // the line fails and only shows that trying writes nothing; discovery runs through Get-Command and completion above and below.
+        // Not on Windows: there the engine's files go to known folders that this test cannot watch.
         if (!OperatingSystem.IsWindows())
         {
             await RunAsync(first, "Get-Module -ListAvailable | Out-Null");
@@ -120,7 +121,8 @@ internal static class Program
 
     private static async Task CacheWindowAsync()
     {
-        // The window's session: auto-loading off and the cache unwritable; discovery as hard as an operator can make it.
+        // The window's session: auto-loading off and the cache unwritable; discovery as hard as an operator can make it (Get-Module is
+        // not in the window, so its line only fails; Get-Command and completion discover).
         await using var session = await CreateAsync();
         await RunAsync(session, "Get-Command Get-Fake* | Out-Null; Get-Module -ListAvailable | Out-Null; Get-Command | Out-Null");
         await session.CompleteAsync("Get-", 4, CancellationToken.None);

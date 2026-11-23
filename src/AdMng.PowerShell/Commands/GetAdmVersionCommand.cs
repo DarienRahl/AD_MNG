@@ -6,7 +6,7 @@ namespace AdMng.PowerShell.Commands;
 /// <summary>
 /// <c>Get-AdmVersion</c>: the program's and the engine's version, the language mode and the window's domain, DC and account.
 /// It is the one command of R1 part 1 and it proves the mechanism end to end: the window's services reach a plain command
-/// class through the host, and a fake session in a test reaches it the same way.
+/// class through the window registry of its runspace, and a fake session in a test reaches it the same way.
 /// </summary>
 [Cmdlet(VerbsCommon.Get, "AdmVersion")]
 [OutputType(typeof(AdmVersionInfo))]

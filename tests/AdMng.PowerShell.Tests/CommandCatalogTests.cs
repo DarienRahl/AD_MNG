@@ -40,13 +40,25 @@ public sealed class CommandCatalogTests
         Assert.All(AdmCommands.Catalog, entry => Assert.Contains("-Adm", entry.Name, StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// Every public command class is in the catalog, derives from AdmCmdlet and has no write verb. The engine's other command classes
+    /// are internal: the window's replacements of engine cmdlets (ForEach-Object without -Parallel and the like, in CommandGuards) and
+    /// the setup of a session; no script sees them under a name of their own.
+    /// </summary>
     [Fact]
     public void Every_command_class_of_the_assembly_is_in_the_catalog_and_none_has_a_write_verb()
     {
-        var found = typeof(AdmCommands).Assembly.GetTypes()
+        var all = typeof(AdmCommands).Assembly.GetTypes()
             .Select(type => (Type: type, Attribute: type.GetCustomAttribute<CmdletAttribute>()))
             .Where(entry => entry.Attribute is not null)
             .ToList();
+        var internalOnes = all.Where(entry => !entry.Type.IsPublic).Select(entry => entry.Type).ToList();
+        var found = all.Where(entry => entry.Type.IsPublic).ToList();
+
+        Assert.All(internalOnes, type => Assert.False(type.IsSubclassOf(typeof(AdmCmdlet)), $"{type.Name} is an internal AdmCmdlet"));
+        Assert.Equal(
+            Guards.CommandGuards.Replacements.Select(r => r.Type).Append(typeof(Hosting.WindowSetupCommand)).OrderBy(t => t.FullName, StringComparer.Ordinal).ToArray(),
+            internalOnes.OrderBy(t => t.FullName, StringComparer.Ordinal).ToArray());
 
         Assert.Equal(
             AdmCommands.Catalog.Select(entry => entry.Name).Order(StringComparer.Ordinal).ToArray(),
@@ -74,7 +86,7 @@ public sealed class CommandCatalogTests
     }
 
     [Fact]
-    public async Task Get_AdmVersion_reads_the_window_through_the_host_and_reports_what_the_session_is()
+    public async Task Get_AdmVersion_finds_its_window_and_reports_what_the_session_is()
     {
         var context = new FakeWindowContext();
         await using var session = await TestSessions.CreateAsync(context);
@@ -140,14 +152,29 @@ public sealed class CommandCatalogTests
         Assert.Equal("two.test", second.Domain);
     }
 
+    /// <summary>
+    /// No variable, parameter or member of the session carries the window's context: the host's private data is empty (audit PS-01
+    /// reached the session through it from a parallel runspace). The commands find their window in a table inside the engine, keyed
+    /// by the runspace they run in (EscapeTests tries the audit's reflection chain in both modes).
+    /// </summary>
     [Fact]
     public async Task A_script_finds_nothing_to_read_the_context_from()
     {
-        await using var session = await TestSessions.CreateAsync();
+        await using var session = await TestSessions.CreateAsync(new FakeWindowContext());
 
-        var items = await TestSessions.RunAsync(session, "$Host.PrivateData | Get-Member -MemberType Properties,Methods | Where-Object { $_.Name -ne 'ToString' -and $_.Name -ne 'GetType' -and $_.Name -ne 'Equals' -and $_.Name -ne 'GetHashCode' } | Measure-Object | ForEach-Object { $_.Count }");
+        var items = await TestSessions.RunAsync(session, "$null -eq $Host.PrivateData");
+        var values = new List<object?>();
+        await foreach (var item in session.RunObjectsAsync("Get-Variable | ForEach-Object { $_.Value }", TestContext.Current.CancellationToken))
+        {
+            if (item is PowerShellObjectItem { Value: PSObject value })
+            {
+                values.Add(value.BaseObject);
+            }
+        }
 
-        Assert.Equal("0\n", TestSessions.Text(items));
+        Assert.Equal("True\n", TestSessions.Text(items));
+        Assert.NotEmpty(values);
+        Assert.DoesNotContain(values, value => value is IAdmWindowContext or IDirectoryReader or IDirectorySession);
     }
 
     private static async Task<AdmVersionInfo> ReadVersionAsync(PowerShellSession session)

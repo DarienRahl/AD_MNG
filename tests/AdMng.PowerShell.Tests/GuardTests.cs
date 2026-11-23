@@ -36,26 +36,46 @@ public sealed class GuardTests
         Assert.True(TestSessions.End(items).HadErrors);
     }
 
-    [Fact]
-    public async Task The_guards_cannot_be_bypassed_by_the_module_qualified_name()
+    /// <summary>
+    /// Every way to reach a refused command meets the refusal or finds nothing: the name, the alias, the module-qualified name (the
+    /// cmdlet is not in the session), the command object of Get-Command, a call by a string, and the two ways that never look up a
+    /// name at all - the background operator (it starts the engine's Start-Job directly) and <c>using module</c> (it imports directly).
+    /// </summary>
+    [Theory]
+    [InlineData("Start-Job { 1 }", "Background jobs are not available")]
+    [InlineData("sajb { 1 }", "Background jobs are not available")]
+    [InlineData("& 'Start-Job' { 1 }", "Background jobs are not available")]
+    [InlineData("& (Get-Command Start-Job) { 1 }", "Background jobs are not available")]
+    [InlineData("Microsoft.PowerShell.Core\\Start-Job { 1 }", "is not recognized")]
+    [InlineData("Get-Date &", "background operator")]
+    [InlineData("Import-Module Foo", "Import-Module is limited to a list of modules")]
+    [InlineData("ipmo Foo", "Import-Module is limited to a list of modules")]
+    [InlineData("& (Get-Command Import-Module) Foo", "Import-Module is limited to a list of modules")]
+    [InlineData("Microsoft.PowerShell.Core\\Import-Module Foo", "is not recognized")]
+    [InlineData("using module Foo", "using module")]
+    public async Task Every_way_to_a_refused_command_meets_the_refusal(string script, string expected)
     {
         await using var session = await TestSessions.CreateAsync();
 
-        var items = await TestSessions.RunAsync(session, "Microsoft.PowerShell.Core\\Import-Module Foo; Microsoft.PowerShell.Core\\Start-Job { 1 }");
+        var items = await TestSessions.RunAsync(session, script);
 
-        Assert.Equal(2, CountWord(TestSessions.Text(items, PowerShellStream.Error), "is not recognized"));
+        Assert.Contains(expected, TestSessions.Text(items, PowerShellStream.Error), StringComparison.Ordinal);
         Assert.True(TestSessions.End(items).HadErrors);
     }
 
     [Fact]
-    public async Task The_guarded_names_are_functions_of_the_session_and_every_refusal_is_listed()
+    public async Task The_refused_names_are_functions_of_the_session_and_every_refusal_is_listed()
     {
         await using var session = await TestSessions.CreateAsync();
+        var names = string.Join(", ", CommandGuards.Refusals.Select(r => r.Name));
 
-        var items = await TestSessions.RunAsync(session, "Get-Command Start-Job, Import-Module | ForEach-Object { $_.Name + ':' + $_.CommandType }");
+        var items = await TestSessions.RunAsync(session, "Get-Command " + names + " | ForEach-Object { $_.Name + ':' + $_.CommandType }");
 
-        Assert.Equal("Import-Module:Function\nStart-Job:Function\n", TestSessions.Text(items).Replace("Start-Job:Function\nImport-Module:Function\n", "Import-Module:Function\nStart-Job:Function\n", StringComparison.Ordinal));
-        Assert.Equal(["Start-Job", "Import-Module"], CommandGuards.Refusals.Select(r => r.Name).ToArray());
+        Assert.Equal(
+            CommandGuards.Refusals.Select(r => r.Name + ":Function").Order(StringComparer.Ordinal).ToArray(),
+            TestSessions.Text(items).Split('\n', StringSplitOptions.RemoveEmptyEntries).Order(StringComparer.Ordinal).ToArray());
+        Assert.Contains(CommandGuards.Refusals, r => r.Name == "Start-Job");
+        Assert.Contains(CommandGuards.Refusals, r => r.Name == "Import-Module");
     }
 
     [Fact]
@@ -63,12 +83,12 @@ public sealed class GuardTests
     {
         await using var session = await TestSessions.CreateAsync();
 
-        // PSReadLine may be INSTALLED on the machine (the Windows runner has it): it is listed, but nothing loads it.
+        // PSReadLine may be INSTALLED on the machine (the Windows runner has it): nothing loads it.
         var items = await TestSessions.RunAsync(
             session,
-            "\"[$PROFILE]\"; (Get-Module -Name PSReadLine | Measure-Object).Count; (Get-Command Get-PSReadLineOption -ErrorAction SilentlyContinue | Measure-Object).Count; Import-Module PSReadLine -ErrorAction SilentlyContinue; (Get-Module -Name PSReadLine | Measure-Object).Count");
+            "\"[$PROFILE]\"; (Get-Command -Name Get-PSReadLineOption, Set-PSReadLineOption -ErrorAction SilentlyContinue | Measure-Object).Count; Import-Module PSReadLine -ErrorAction SilentlyContinue; (Get-Command -Name Get-PSReadLineOption, Set-PSReadLineOption -ErrorAction SilentlyContinue | Measure-Object).Count");
 
-        Assert.Equal("[]\n0\n0\n0\n", TestSessions.Text(items));
+        Assert.Equal("[]\n0\n0\n", TestSessions.Text(items));
         Assert.Contains("Import-Module is limited", TestSessions.Text(items, PowerShellStream.Error), StringComparison.Ordinal);
     }
 
@@ -91,16 +111,5 @@ public sealed class GuardTests
         var items = await TestSessions.RunAsync(session, "Get-ExecutionPolicy");
 
         Assert.Equal("Restricted\n", TestSessions.Text(items));
-    }
-
-    private static int CountWord(string text, string word)
-    {
-        var count = 0;
-        for (var index = text.IndexOf(word, StringComparison.Ordinal); index >= 0; index = text.IndexOf(word, index + word.Length, StringComparison.Ordinal))
-        {
-            count++;
-        }
-
-        return count;
     }
 }

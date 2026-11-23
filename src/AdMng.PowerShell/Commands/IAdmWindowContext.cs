@@ -3,9 +3,9 @@ using AdMng.Core.Directory;
 namespace AdMng.PowerShell.Commands;
 
 /// <summary>
-/// What an AD Manager command may use of the window it runs in (docs/dev/r1-powershell-window.md 4.5). The session injects
-/// it through the host, so no global, no variable and no parameter carries it. <see cref="Services"/> are the window's own
-/// services (open an object, the grid, the export); R2 adds the pending plan.
+/// What an AD Manager command may use of the window it runs in (docs/dev/r1-powershell-window.md 4.5). The session keeps it in
+/// the engine's window registry, keyed by its runspace, so no variable, no parameter and no member of <c>$Host</c> carries it.
+/// <see cref="Services"/> are the window's own services (open an object, the grid, the export); R2 adds the pending plan.
 /// </summary>
 public interface IAdmWindowContext
 {
