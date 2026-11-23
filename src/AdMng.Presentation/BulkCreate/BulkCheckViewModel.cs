@@ -535,8 +535,9 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IHasPageStatu
     }
 
     /// <summary>
-    /// Shows a finished computation without computing (the plan step's statuses, the smoke test and screenshots of a window
-    /// without a directory): the grid is updated in place, the pins are its numbers.
+    /// Shows a finished computation without computing (the smoke test, the screenshots and the UI tests of a window that
+    /// has no earlier steps to compute from): the grid is updated in place, the pins are its numbers, and it is the current
+    /// grid (<see cref="IsGridCurrent"/>) - the plan is built from it, not from a computation the window cannot make.
     /// </summary>
     public void Show(BulkCreateComputation computation)
     {
@@ -546,6 +547,7 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IHasPageStatu
             return;
         }
 
+        _computedVersion = _inputVersion;
         Apply(computation);
     }
 

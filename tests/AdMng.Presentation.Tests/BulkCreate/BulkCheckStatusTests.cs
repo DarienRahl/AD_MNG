@@ -502,4 +502,24 @@ public sealed class BulkCheckStatusTests
         Assert.NotNull(check.Computation!.Rows[0].ManagerDn);
     }
 
+
+    [Fact]
+    public async Task AComputationShownAsFinished_IsTheGridThePlanIsBuiltFrom_WithoutComputingAgain()
+    {
+        // A window that shows a finished computation (the smoke test, the screenshots, the UI tests: ShowSample) has no
+        // earlier steps to compute from. The grid it shows is current: the plan is built from it, not refused as
+        // "complete the earlier steps first".
+        using var source = await WizardWithAManagerToChooseAsync();
+        var computation = source.Check.Computation!;
+        using var wizard = await B4Wizard.CreateAsync();
+        Assert.Null(wizard.Current);
+
+        wizard.Bulk.ShowSample(computation, new ChangePlan { Objects = [] });
+
+        Assert.True(wizard.Check.IsGridCurrent);
+        await wizard.Editor.PreviewCommand.ExecuteAsync(null);
+        Assert.True(wizard.Editor.IsPreviewStep, wizard.Editor.Error);
+        Assert.Same(computation, wizard.Check.Computation);
+        Assert.NotEmpty(wizard.Editor.PreviewObjects);
+    }
 }
