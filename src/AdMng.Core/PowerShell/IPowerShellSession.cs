@@ -27,6 +27,7 @@ public interface IPowerShellSession : IAsyncDisposable
     /// in a new runspace.
     /// </summary>
     /// <exception cref="InvalidOperationException">A run is already active.</exception>
+    /// <exception cref="PowerShellSessionUnavailableException">The session has no runspace any more (a new one could not be made).</exception>
     IAsyncEnumerable<PowerShellOutputItem> RunAsync(string script, CancellationToken cancellationToken);
 
     /// <summary>Stops the active run (no effect when idle); completes when the session is idle again: the run ended, or the session left it.</summary>
@@ -44,7 +45,15 @@ public interface IPowerShellSession : IAsyncDisposable
     /// <summary>False for a line that must not enter the history (empty, or a plain-text password).</summary>
     bool ShouldRemember(string line);
 
-    /// <summary>Switches the language mode; refused (throws) under a lockdown or while a run is active.</summary>
+    /// <summary>
+    /// Switches the language mode; refused (throws, nothing changes) under a lockdown or while a run is active. Turning the trusted mode
+    /// on keeps the runspace and its variables. Turning it off makes a new runspace in ConstrainedLanguage (audit PS-02): nothing the
+    /// trusted mode defined - variables, functions, aliases, script blocks, modules, members of the host - is in it, so none of it runs
+    /// in FullLanguage afterwards; the lockdown is asked again. It takes as long as a new runspace (a fraction of a second).
+    /// </summary>
     /// <exception cref="InvalidOperationException">A run is active, or a lockdown forbids the trusted mode.</exception>
+    /// <exception cref="PowerShellSessionUnavailableException">
+    /// The new runspace could not be made: the session is constrained, has no runspace and runs no command any more.
+    /// </exception>
     Task SetLanguageModeAsync(PowerShellLanguageMode mode, CancellationToken cancellationToken);
 }

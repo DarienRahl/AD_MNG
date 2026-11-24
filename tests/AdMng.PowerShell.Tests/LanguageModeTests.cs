@@ -70,8 +70,9 @@ public sealed class LanguageModeTests
     }
 
     /// <summary>
-    /// What the switch back proves: a command typed after it is constrained again. Code defined while the mode was on (a function, a
-    /// script block in a variable) is a separate matter - audit PS-02, a fresh runspace when the mode is turned off.
+    /// What the switch back proves here: a command typed after it is constrained again. That nothing defined while the mode was on (a
+    /// function, a script block in a variable) runs in FullLanguage afterwards - the switch back makes a new runspace - is in
+    /// <see cref="TrustedModeOffTests"/> (audit PS-02).
     /// </summary>
     [Fact]
     public async Task The_trusted_mode_is_on_after_the_switch_and_a_command_typed_after_the_switch_back_is_constrained()

@@ -18,8 +18,11 @@ internal sealed class WindowHostRawUserInterface : PSHostRawUserInterface
     public int Width
     {
         get => Volatile.Read(ref _width);
-        set => Volatile.Write(ref _width, Math.Clamp(value, 40, 400));
+        set => Volatile.Write(ref _width, Clamp(value));
     }
+
+    /// <summary>The narrowest and the widest the formatting is made: 40 to 400 columns.</summary>
+    public static int Clamp(int width) => Math.Clamp(width, 40, 400);
 
     public override ConsoleColor ForegroundColor { get; set; } = ConsoleColor.Gray;
 

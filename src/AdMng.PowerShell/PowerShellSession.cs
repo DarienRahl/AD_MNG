@@ -20,7 +20,9 @@ namespace AdMng.PowerShell;
 /// pipeline at a time and streams what the pipeline produces as <see cref="PowerShellOutputItem"/>s, in memory only. No job
 /// outlives its command: a job left in the session's job repository is stopped when the command ends, on Stop and on dispose. A
 /// command that Stop cannot end (stuck in .NET code) is left to its thread after the grace period, and the session goes on in a new
-/// runspace (<see cref="PowerShellRunState.Abandoned"/>). Disposing it stops the pipeline and closes the runspace.
+/// runspace (<see cref="PowerShellRunState.Abandoned"/>). Turning the trusted mode off also gives it a new runspace, in ConstrainedLanguage
+/// (<see cref="SetLanguageModeAsync"/>, audit PS-02): nothing the trusted mode defined runs in FullLanguage after it. Every runspace has a
+/// host and a raw user interface of its own. Disposing it stops the pipeline and closes the runspace.
 /// </summary>
 public sealed class PowerShellSession : IPowerShellSession
 {
@@ -33,7 +35,6 @@ public sealed class PowerShellSession : IPowerShellSession
     private readonly PowerShellSessionOptions _options;
     private readonly Version _version;
     private readonly CultureInfo _culture;
-    private readonly WindowHostRawUserInterface _raw;
     private readonly IPowerShellLockdownProbe _probe;
     private readonly TimeProvider _time;
     private readonly TimeSpan _grace;
@@ -42,6 +43,12 @@ public sealed class PowerShellSession : IPowerShellSession
     private ActiveRun? _run;
     private bool _running;
     private bool _disposed;
+
+    /// <summary>The width of the formatting: a new runspace starts with it.</summary>
+    private int _width;
+
+    /// <summary>How many runspaces the session made (the test seam <see cref="PowerShellSessionOptions.RunspaceCreating"/> is told).</summary>
+    private int _runspaces;
 
     /// <summary>The runspace the next command runs in; replaced when a run is left; null once disposed or when a new one could not be made.</summary>
     private Engine? _engine;
@@ -57,7 +64,7 @@ public sealed class PowerShellSession : IPowerShellSession
         _probe = options.LockdownProbe;
         _time = options.TimeProvider;
         _grace = options.StopGracePeriod;
-        _raw = new WindowHostRawUserInterface(options.OutputWidth);
+        _width = WindowHostRawUserInterface.Clamp(options.OutputWidth);
         _version = ResolveVersion(options.Context);
         _culture = options.Culture ?? CultureInfo.CurrentCulture;
         _lockdown = _probe.Probe();
@@ -114,8 +121,15 @@ public sealed class PowerShellSession : IPowerShellSession
     /// <inheritdoc />
     public int OutputWidth
     {
-        get => _raw.Width;
-        set => _raw.Width = value;
+        get => CurrentEngine()?.Raw.Width ?? Volatile.Read(ref _width);
+        set
+        {
+            Volatile.Write(ref _width, WindowHostRawUserInterface.Clamp(value));
+            if (CurrentEngine() is { } engine)
+            {
+                engine.Raw.Width = value;
+            }
+        }
     }
 
     /// <inheritdoc />
@@ -189,6 +203,14 @@ public sealed class PowerShellSession : IPowerShellSession
     public bool ShouldRemember(string line) => PowerShellHistoryPolicy.ShouldRemember(line);
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Turning the trusted mode on sets the language mode of the runspace: its variables stay (the engine itself drops the functions that
+    /// were defined in ConstrainedLanguage). Turning it off does not set the mode of the same runspace back - a function, an alias, a
+    /// script block in a variable or a member the trusted mode defined would go on running in FullLanguage (audit PS-02) - but makes a
+    /// new runspace in ConstrainedLanguage, on a pool thread, with a new host; the old one is closed on a pool thread, its jobs ended,
+    /// and the lockdown is asked again. When the new runspace cannot be made, the session has none any more: the method throws
+    /// <see cref="PowerShellSessionUnavailableException"/> and so does every later command; the trusted runspace is closed all the same.
+    /// </remarks>
     public async Task SetLanguageModeAsync(PowerShellLanguageMode mode, CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -207,6 +229,7 @@ public sealed class PowerShellSession : IPowerShellSession
                 }
             }
 
+            var engine = CurrentEngine() ?? throw NoRunspace();
             if (mode == PowerShellLanguageMode.Full)
             {
                 var state = _probe.Probe();
@@ -219,13 +242,19 @@ public sealed class PowerShellSession : IPowerShellSession
                 {
                     throw new InvalidOperationException("A system lockdown (WDAC or AppLocker) enforces ConstrainedLanguage: the trusted mode is not available.");
                 }
+
+                engine.Runspace.SessionStateProxy.LanguageMode = PSLanguageMode.FullLanguage;
+                lock (_sync)
+                {
+                    _mode = PowerShellLanguageMode.Full;
+                }
+
+                return;
             }
 
-            var engine = CurrentEngine() ?? throw NoRunspace();
-            engine.Runspace.SessionStateProxy.LanguageMode = mode == PowerShellLanguageMode.Full ? PSLanguageMode.FullLanguage : PSLanguageMode.ConstrainedLanguage;
-            lock (_sync)
+            if (LanguageMode == PowerShellLanguageMode.Full)
             {
-                _mode = mode;
+                await EndTrustedModeAsync(engine).ConfigureAwait(false);
             }
         }
         finally
@@ -271,6 +300,76 @@ public sealed class PowerShellSession : IPowerShellSession
         EndJobs(engine.Jobs);
         WindowRegistry.Remove(engine.Runspace);
         await Task.Run(() => DisposeRunspace(engine.Runspace)).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The trusted mode ends in a new runspace (<see cref="SetLanguageModeAsync"/>): made on a pool thread - the window's caller is its
+    /// UI thread - while the session's gate is held, so no command and no completion reaches either runspace meanwhile. The session is
+    /// constrained from here on whatever happens; a session disposed meanwhile closes the new runspace too.
+    /// </summary>
+    private async Task EndTrustedModeAsync(Engine trusted)
+    {
+        Engine? fresh = null;
+        Exception? failure = null;
+        var lockdown = PowerShellLockdownState.None;
+        try
+        {
+            (fresh, lockdown) = await Task.Run(() => (CreateEngine(PSLanguageMode.ConstrainedLanguage), _probe.Probe()), CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            failure = ex;
+        }
+
+        bool disposed;
+        bool ours;
+        lock (_sync)
+        {
+            disposed = _disposed;
+
+            // DisposeAsync takes the runspace it finds; the trusted one is retired here only when it did not.
+            ours = ReferenceEquals(_engine, trusted);
+            _mode = PowerShellLanguageMode.Constrained;
+            if (fresh is not null)
+            {
+                _lockdown = lockdown;
+            }
+
+            if (!disposed)
+            {
+                _engine = fresh;
+                _restartFailure = failure;
+            }
+        }
+
+        if (ours)
+        {
+            Retire(trusted);
+        }
+
+        if (disposed)
+        {
+            if (fresh is not null)
+            {
+                Retire(fresh);
+            }
+
+            throw new ObjectDisposedException(nameof(PowerShellSession));
+        }
+
+        if (failure is not null)
+        {
+            throw NoRunspace();
+        }
+    }
+
+    /// <summary>A runspace the session no longer uses: out of the registry, its jobs ended, closed on a pool thread (the caller does not wait).</summary>
+    private static void Retire(Engine engine)
+    {
+        engine.Host.Output.Attach(null);
+        WindowRegistry.Remove(engine.Runspace);
+        EndJobs(engine.Jobs);
+        _ = Task.Run(() => DisposeRunspace(engine.Runspace));
     }
 
     private static Version ResolveVersion(IAdmWindowContext? context)
@@ -333,7 +432,9 @@ public sealed class PowerShellSession : IPowerShellSession
     /// </summary>
     private Engine CreateEngine(PSLanguageMode mode)
     {
-        var host = new WindowHost(_version, _culture, _raw);
+        _options.RunspaceCreating?.Invoke(Interlocked.Increment(ref _runspaces));
+        var raw = new WindowHostRawUserInterface(Volatile.Read(ref _width));
+        var host = new WindowHost(_version, _culture, raw);
         var runspace = RunspaceFactory.CreateRunspace(host, CreateInitialState(_options));
         runspace.ThreadOptions = PSThreadOptions.ReuseThread;
         if (OperatingSystem.IsWindows())
@@ -348,7 +449,7 @@ public sealed class PowerShellSession : IPowerShellSession
             var setup = SetUp(runspace);
             WindowRegistry.Register(runspace, new WindowEntry(_options.Context, setup.Bridge));
             runspace.SessionStateProxy.LanguageMode = mode;
-            return new Engine(runspace, host, setup.Jobs);
+            return new Engine(runspace, host, raw, setup.Jobs);
         }
         catch
         {
@@ -390,7 +491,7 @@ public sealed class PowerShellSession : IPowerShellSession
         }
     }
 
-    private InvalidOperationException NoRunspace()
+    private PowerShellSessionUnavailableException NoRunspace()
     {
         Exception? failure;
         lock (_sync)
@@ -398,9 +499,7 @@ public sealed class PowerShellSession : IPowerShellSession
             failure = _restartFailure;
         }
 
-        return new InvalidOperationException(
-            "The PowerShell session of the window could not be started again after a command that did not stop; open a new PowerShell window.",
-            failure);
+        return new PowerShellSessionUnavailableException(PowerShellSessionUnavailableException.DefaultMessage, failure);
     }
 
     private static void DisposeRunspace(Runspace runspace)
@@ -849,8 +948,8 @@ public sealed class PowerShellSession : IPowerShellSession
         }
     }
 
-    /// <summary>A runspace of the window, its host and its job repository.</summary>
-    private sealed record Engine(Runspace Runspace, WindowHost Host, JobRepository Jobs);
+    /// <summary>A runspace of the window, its host, the host's raw user interface and its job repository.</summary>
+    private sealed record Engine(Runspace Runspace, WindowHost Host, WindowHostRawUserInterface Raw, JobRepository Jobs);
 
     private sealed class ActiveRun
     {

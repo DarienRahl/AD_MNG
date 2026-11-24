@@ -27,4 +27,7 @@ public sealed class PowerShellSessionOptions
 
     /// <summary>Test seam: commands added to the session state besides the program's.</summary>
     internal IReadOnlyList<SessionStateCommandEntry> ExtraCommands { get; init; } = [];
+
+    /// <summary>Test seam: called before each runspace of the session is made, with its number (1 is the first); what it throws is that runspace's failure.</summary>
+    internal Action<int>? RunspaceCreating { get; init; }
 }
