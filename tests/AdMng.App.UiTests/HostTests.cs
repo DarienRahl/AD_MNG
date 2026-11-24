@@ -29,6 +29,20 @@ namespace AdMng.App.UiTests;
 [Collection(UiTestCollection.Name)]
 public sealed class HostTests
 {
+    /// <summary>
+    /// The program's module initializer (<c>ProcessStart</c>) gives regular expressions their time limit before any code of the program
+    /// runs (docs/dev/r1-powershell-window.md 4.2): .NET reads the setting once, at the first regular expression of the process. This
+    /// process is the test runner, whose regular expressions were made before the program's module was loaded, so only the setting is
+    /// checked here; the smoke test of the published program checks that the limit is in effect there.
+    /// </summary>
+    [Fact]
+    public void The_program_sets_the_time_limit_of_regular_expressions_when_its_module_is_loaded()
+    {
+        System.Runtime.CompilerServices.RuntimeHelpers.RunModuleConstructor(typeof(App).Module.ModuleHandle);
+
+        Assert.Equal(AdMng.PowerShell.PowerShellEnvironment.RegexMatchTimeout, AppContext.GetData("REGEX_DEFAULT_MATCH_TIMEOUT"));
+    }
+
     [Fact]
     public Task AppHost_RegistersTheUiServices_AndTheDialogWindows() => WpfTestHost.RunAsync(async () =>
     {

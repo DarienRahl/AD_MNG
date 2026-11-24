@@ -105,6 +105,12 @@ scope. `PowerShellSession.CreateAsync(options)` builds it on a pool thread: the 
   **grace period** (`StopGracePeriod`, 5 s). A run that ends ends with `PowerShellRunEndItem(Stopped)`. A pipeline stuck in
   .NET code cannot be interrupted: after the grace period the enumeration ends anyway with a synthetic
   `PowerShellRunEndItem(Stopped)`, `IsRunning` stays true until the thread returns and a new run is refused meanwhile.
+  ConstrainedLanguage reaches such code too: a match of a regular expression (`-match`, `-replace`, `-split`, `switch -regex`,
+  `Select-String`, `[regex]`) is .NET code that Stop does not interrupt, and one pattern that backtracks held the runspace and a
+  processor core until the process ended (red team of R1, goal h). The time limit of 4.2 ends every match of a regular
+  expression without a limit of its own after 2 s – shorter than the grace period, so Stop ends the command itself; a `[regex]`
+  made with a longer limit of its own and the trusted mode's .NET code can still hold the thread. `DisposeAsync` abandons such a
+  thread: the window closes, the thread runs on – and keeps its core busy – until it returns or the process ends.
 - **Jobs.** No job outlives its command: every job left in the session's job repository is stopped (on a pool thread,
   not waited for) and removed when the command ends, on `StopAsync` and on dispose. No command of the window creates a job; .NET
   code of the trusted mode can (`ForEach-Object -Parallel -AsJob` through the engine's cmdlet object). A thread or a runspace that
@@ -149,6 +155,22 @@ was not observed, whereas "a folder that cannot be created" is the failure the e
 about 40 s; it passed here with the path above). `NUL\ModuleAnalysisCache` on Windows is the one part not verified: if the engine
 did not swallow its error, the process could fail 12 s after an operator lists the modules – part 4's Windows run is where
 this is looked at (the opt-in test passes or fails there the same way).
+
+**The time limit of regular expressions.** Not an environment variable but a setting of the .NET runtime:
+`PowerShellEnvironment.LimitRegularExpressions()` sets `REGEX_DEFAULT_MATCH_TIMEOUT` (an `AppContext` value) to
+`RegexMatchTimeout`, 2 s, so every regular expression of the process made without a limit of its own fails a match that takes
+longer with `RegexMatchTimeoutException` – an error of its statement; the script goes on and the session stays usable.
+Observed with .NET 10.0: the runtime reads the value once, when the first regular expression of the process is made (a later
+call changes nothing), and the same value given as text in the runtime configuration (`RuntimeHostConfigurationOption`) makes
+every regular expression throw a `TypeInitializationException`. So `Apply()` cannot set it; the program's module initializer
+(`src/AdMng.App/ProcessStart.cs`, run before `Main`) calls it before any other code of the program, and the engine's tests do
+the same (`tests/AdMng.PowerShell.Tests/ProcessStart.cs`). `HostTests` checks that the program's module sets it; the smoke test
+checks in the published `AdMng.exe` that it is in effect (`RegularExpressionsLimited`) and that a script catches the error of a
+match that backtracks. The limit applies to the whole process: the program's own patterns do not backtrack and run on short
+values or on messages, where a match of 2 s would need hundreds of megabytes; a regular expression made with its own limit keeps
+it (batch editing gives the operator's pattern 1 s; the Watchdog service, another process, gives its patterns 1 s). Measured
+here: `'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!' -match '^(a+)+$'` did not end in 20 s without the limit; with it each of the seven ways
+of the language to a regular expression ended after 2.0 s, in both language modes (`RegexLimitTests`).
 
 **Other process-level facts** found while proving it, relevant to later parts:
 
@@ -503,6 +525,10 @@ This is the plan of the parts; the files that exist are in the records of 12.1-1
   binary module and `using assembly`, the background operator, every file writer and redirection, `Start-Transcript` with and
   without a path, the commands that run code elsewhere or load it, `$Host.PrivateData` and the audit's reflection chain, and that
   `ForEach-Object -MemberName` and `New-Object` keep the language mode.
+- **`RegexLimitTests`** – the process limits every regular expression without a limit of its own (4.2); a match that backtracks for
+  hours ends as an error of its statement after 2 s, for each way of the language (`-match`, `-replace`, `-split`,
+  `switch -regex`, `Select-String`, `[regex]::IsMatch`, `[regex]::new`), and the next command runs; a script catches the error;
+  Stop during such matches ends the command itself (a fake clock that nobody advances: the grace period never passes).
 - **`InputGuardTests`** – what `InputGuard` refuses and what it must not (the call operator, strings, `&&`, `> $null`, `2>&1`).
 - **`EnvironmentTests`** – the variables of 4.2 are set and visible to a script; no `PSHost.*` pipe exists (Windows
   `\\.\pipe\`, Unix the temp folder).

@@ -18,8 +18,9 @@ internal static partial class SmokeTest
     /// Proves that the published <c>AdMng.exe</c> - a single file, self-contained - starts the embedded PowerShell engine (ADR-0010
     /// decision 1): a runspace is created, <c>1 + 1</c> and <c>Get-AdmVersion</c> run, the window starts in ConstrainedLanguage with the
     /// execution policy Restricted, the ten commands of AD Manager are registered, no write command exists, the help of a
-    /// command (the file beside the program) is found, the session has exactly the commands of the allow-list and the window's
-    /// ForEach-Object (without -Parallel) works. No directory is involved: the commands that need one are covered by the UI tests.
+    /// command (the file beside the program) is found, the session has exactly the commands of the allow-list, the window's
+    /// ForEach-Object (without -Parallel) works and a regular expression that backtracks ends with an error (the time limit that
+    /// <c>ProcessStart</c> sets before the first regular expression of the process). No directory is involved: the commands that need one are covered by the UI tests.
     /// What it found goes to the report (the version, <c>$PSHOME</c>, the time of the first runspace), so that the log of a CI run says
     /// how the single-file layout behaves.
     /// </summary>
@@ -59,6 +60,12 @@ internal static partial class SmokeTest
         Expect(doubled == "2,4", $"ForEach-Object gave '{doubled}'.");
         var syntax = await RunPowerShellAsync(session, "Get-Command ForEach-Object -Syntax | Out-String").ConfigureAwait(true);
         Expect(!syntax.Contains("Parallel", StringComparison.Ordinal), "ForEach-Object of the window has -Parallel.");
+
+        // The time limit of regular expressions (ProcessStart, docs/dev/r1-powershell-window.md 4.2): without it this match holds the
+        // window and a processor core for hours.
+        Expect(PowerShellEnvironment.RegularExpressionsLimited, "Regular expressions have no time limit: ProcessStart did not run before the first one.");
+        var limited = await RunPowerShellAsync(session, "try { $null = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!' -match '^(a+)+$'; 'matched' } catch { 'limited' }").ConfigureAwait(true);
+        Expect(limited == "limited", $"A match that backtracks gave '{limited}'.");
 
         var home = await RunPowerShellAsync(session, "$PSHOME").ConfigureAwait(true);
         var second = await TimeASecondRunspaceAsync().ConfigureAwait(true);

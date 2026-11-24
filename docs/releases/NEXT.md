@@ -96,7 +96,10 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   (`.ps1`) się nie uruchamiają – na Windows okno odrzuca je niezależnie od polityki wykonywania. Kilka nazw, które łatwo wpisać
   odruchowo (`Start-Job`, `Export-Csv`, `Out-GridView` i inne), odpowiada komunikatem, czego użyć zamiast nich. Żadne zadanie
   nie działa dłużej niż polecenie, które je uruchomiło: zadanie zostawione w sesji okno zatrzymuje, gdy polecenie się kończy,
-  przy **Stop** i przy zamknięciu okna.
+  przy **Stop** i przy zamknięciu okna. Jedno dopasowanie wyrażenia regularnego (`-match`, `-replace`, `-split`,
+  `switch -regex`, `Select-String`, `[regex]`) trwa najwyżej 2 sekundy, a potem kończy się błędem polecenia, więc wzorzec
+  z katastrofalnym nawracaniem (np. `'^(a+)+$'`) nie zawiesza okna ani nie zajmuje procesora do zamknięcia programu; limit
+  obowiązuje każde wyrażenie regularne programu, które nie ma własnego.
   Przełącznik **Tryb zaufany (FullLanguage)** po potwierdzeniu, które mówi, co daje (dowolny kod .NET, zapis do katalogu
   z pominięciem planu zmian – bez podglądu, dziennika i cofania), włącza pełny język tylko w tym oknie, na stałej uwadze i
   w tytule okna; nie jest pamiętany. Nie dodaje poleceń – tylko kod .NET, a ten sięga do całego procesu AD Managera, także do

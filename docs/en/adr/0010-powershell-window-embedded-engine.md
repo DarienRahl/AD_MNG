@@ -116,7 +116,11 @@ the Watchdog package.
    the trusted mode .NET reflection can (decision 3). Filters are built with `AdMng.Core.Ldap.LdapFilter` and DNs with
    `DistinguishedName` (rule 3). The commands read only from the window's `IDirectorySession` – one DC, no `-Server` and
    no `-Credential` (rule 4). Every directory call is asynchronous with the pipeline's cancellation token
-   (`StopProcessing` cancels it); results are streamed and paged, and 100,000 results do not block the window (rule 6).
+   (`StopProcessing` cancels it); results are streamed and paged, and 100,000 results do not block the window (rule 6). Stop
+   does not interrupt a match of a regular expression, and `-match`, `-replace`, `-split`, `switch -regex`, `Select-String`
+   and `[regex]` work in ConstrainedLanguage, so before the first regular expression of the process (the program's module
+   initializer) the program gives every regular expression without a limit of its own a time limit of 2 s: a pattern that
+   backtracks catastrophically ends as an error of its command instead of holding the window and a processor core.
 9. **Writes (D9): none in R1.** There is no `Set-`/`New-`/`Remove-`/`Move-`/`Rename-`/`Add-`/`Enable-`/`Disable-`/`Unlock-`/
    `Reset-Adm*` command, no `AD:` drive and no RSAT; a test asserts that the registered AD Manager command list contains
    only the read commands of item 4 (and `Get-AdmVersion`). The window has a place for the pending plan that R2 adds.

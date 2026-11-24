@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace AdMng.PowerShell;
 
 /// <summary>
@@ -11,6 +13,9 @@ namespace AdMng.PowerShell;
 /// </summary>
 public static class PowerShellEnvironment
 {
+    /// <summary>The name of the setting .NET reads for the default time limit of a regular expression.</summary>
+    private const string RegexTimeoutKey = "REGEX_DEFAULT_MATCH_TIMEOUT";
+
     private static readonly object Gate = new();
     private static bool _applied;
 
@@ -56,6 +61,32 @@ public static class PowerShellEnvironment
             return string.IsNullOrEmpty(location) ? AppContext.BaseDirectory : Path.GetDirectoryName(location) ?? AppContext.BaseDirectory;
         }
     }
+
+    /// <summary>
+    /// The longest one match of a regular expression may take in a process that hosts the engine (<see cref="LimitRegularExpressions"/>).
+    /// Shorter than the grace period of Stop (5 s), so that Stop during a match that backtracks ends the command, not only the window's
+    /// wait for it; long enough for any pattern that does not backtrack, on any text the program handles.
+    /// </summary>
+    public static TimeSpan RegexMatchTimeout { get; } = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// True when a regular expression made without its own time limit gets <see cref="RegexMatchTimeout"/> in this process, i.e. when
+    /// <see cref="LimitRegularExpressions"/> ran before the first regular expression of the process.
+    /// </summary>
+    public static bool RegularExpressionsLimited => new Regex(string.Empty).MatchTimeout == RegexMatchTimeout;
+
+    /// <summary>
+    /// Gives every regular expression of the process that has no time limit of its own the limit <see cref="RegexMatchTimeout"/>: a match
+    /// of .NET's regular expression engine is not interrupted by Stop, and <c>-match</c>, <c>-replace</c>, <c>-split</c>,
+    /// <c>switch -regex</c>, <c>Select-String</c> and <c>[regex]</c> - all of ConstrainedLanguage - use it, so one pattern that backtracks
+    /// ('^(a+)+$' against thirty a's and a '!') held the window's runspace and a processor core until the program ended. With the limit
+    /// the match fails with <see cref="RegexMatchTimeoutException"/>, an error of its statement. .NET reads the setting once, when the
+    /// first regular expression of the process is made (observed with .NET 10: a later call changes nothing, and the same setting given
+    /// as text in the runtime configuration makes every regular expression throw), so a process that hosts the engine calls this before
+    /// any other code of its own runs - the program and the engine's tests in their module initializers. The limit applies to the whole
+    /// process; a regular expression made with its own time limit keeps it. Idempotent.
+    /// </summary>
+    public static void LimitRegularExpressions() => AppContext.SetData(RegexTimeoutKey, RegexMatchTimeout);
 
     /// <summary>True once <see cref="Apply"/> ran in this process.</summary>
     public static bool IsApplied

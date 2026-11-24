@@ -116,7 +116,10 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
    przez `AdMng.Core.Ldap.LdapFilter`, a DN przez `DistinguishedName` (zasada 3). Polecenia czytają wyłącznie z
    `IDirectorySession` okna – jeden DC, bez `-Server` i `-Credential` (zasada 4). Każde wywołanie katalogu jest
    asynchroniczne z tokenem anulowania potoku (`StopProcessing` go anuluje); wyniki są strumieniowane i stronicowane, 100
-   000 wyników nie blokuje okna (zasada 6).
+   000 wyników nie blokuje okna (zasada 6). Dopasowania wyrażenia regularnego Zatrzymaj nie przerywa, a `-match`,
+   `-replace`, `-split`, `switch -regex`, `Select-String` i `[regex]` działają w ConstrainedLanguage, więc program, zanim
+   powstanie pierwsze wyrażenie regularne procesu (inicjator modułu programu), daje każdemu wyrażeniu bez własnego limitu
+   limit czasu 2 s: wzorzec z katastrofalnym nawracaniem kończy się błędem polecenia, zamiast trzymać okno i rdzeń procesora.
 9. **Zapisy (D9): w R1 nie ma żadnych.** Nie istnieje żadne polecenie `Set-`/`New-`/`Remove-`/`Move-`/`Rename-`/`Add-`/
    `Enable-`/`Disable-`/`Unlock-`/`Reset-Adm*`, nie ma dysku `AD:` ani RSAT; test sprawdza, że lista zarejestrowanych
    poleceń AD Managera zawiera tylko polecenia odczytu z punktu 4 (i `Get-AdmVersion`). Okno ma miejsce na oczekujący plan,
