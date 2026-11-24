@@ -284,8 +284,9 @@ So when nothing sets the policy, the engine writes a script block it marked to i
 `true` writes every script block; `false` - a Group Policy set to *Disabled*, a file - writes none, not even the marked ones. The
 program's old file was such a file: in the window not even a block with `Add-Type` reached the event log as a 4104 unless a Group
 Policy turned the logging on. `HasLogged` belongs to the compiled block, and `ScriptBlock.Create` (`[scriptblock]::Create`) reuses
-a cached compiled block for a text it compiled before (`TryGetCachedScriptBlock`), so through it a text is logged once per
-process; the window runs each line through `PowerShell.AddScript`, which parses it anew (`AutomationEngine.ParseScriptBlock`, no
+a cached compiled block for a text it compiled before (`TryGetCachedScriptBlock`), so through it a text still in that cache is
+not logged again (the cache holds at most 1024 texts and is then cleared, and never takes a text with `using module`, `using
+assembly` or a dynamic keyword); the window runs each line through `PowerShell.AddScript`, which parses it anew (`AutomationEngine.ParseScriptBlock`, no
 cache), so a marked line typed again is logged again (12.13). Without the section, Group Policy decides, then a user's own
 `powershell.config.json` (which can now turn the logging on, or off), and with neither the engine's default.
 
@@ -1960,6 +1961,6 @@ and the module logging stay off in the program's file (a transcript is directory
   one shared block, logged once), and the window's real `PowerShellSession` with a listener on `/dev/log`, which receives the
   engine's events on Linux: with nothing set, `Write-Output 'Add-Type'` run twice gave two warnings 4104 and
   `Get-AdmUser jkowalski` none; with the setting on (and `"LogLevel": "Verbose"`, so that verbose events reach syslog) every line
-  gave a verbose 4104; with module logging for `*`, the 4103 events of 4.2 (the outer pipeline with `Out-Default` for every line,
+  gave a 4104 (a verbose one, and a warning for a line the engine marks, as without the setting); with module logging for `*`, the 4103 events of 4.2 (the outer pipeline with `Out-Default` for every line,
   `CommandInvocation(Get-AdmUser)` without parameters beside `Select-Object`, nothing of the window's `ForEach-Object` itself).
   The comments of `ScriptBlockLoggingTests` and of the probe say the same.
