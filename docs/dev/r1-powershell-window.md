@@ -356,17 +356,20 @@ write verb (`Set`, `New`, `Remove`, `Move`, `Rename`, `Add`, `Enable`, `Disable`
 
 - `PowerShellHistoryPolicy.ShouldRemember(line)` is a pure function over the parser's tokens and AST. A line is **not**
   remembered if it is empty, still incomplete, has the `-AsPlainText` parameter (also a prefix of three letters or more), or
-  gives a literal (a constant, a string without embedded expressions, an array of these; also `-Password:'x'` and a bare word)
+  gives a literal (a constant, a string without embedded expressions, an array of these; also `-Password:'x'` and a bare word;
+  also a value computed from literals alone – in parentheses or a subexpression `('x')`, `$('x')`, through an operator
+  `'a' + 'b'`, `-join ('a', 'b')`, a cast `[string]'x'`, or the value of a chained assignment `$password = $x = 'x'`)
   to a **secret's name**: a named parameter, a key of a hashtable (inline or splatted, `@{ Password = 'x' }`), or the target of
   an assignment (a variable without its scope or drive, `$env:ADMIN_PASSWORD`, a property `$cred.Password`, a constant index
   `$h['ApiKey']`, through a cast `[string]$token`). A secret's name contains `Password`, `Passwd`, `Passphrase`, `Pwd`,
   `Secret`, `Token`, `ApiKey` or `PrivateKey`, is `Pw`, `Pin` or `Key` as a whole, or abbreviates `Password`/`Passphrase` with
-  four letters or more (`-Pass`, `-Passw`). A literal written positionally is a secret for `ConvertTo-SecureString` (or as its
+  two letters or more (`-Pa`, `-Pas`, `-Pass` – PowerShell binds every unambiguous prefix of a parameter's name). A literal written positionally is a secret for `ConvertTo-SecureString` (or as its
   `-String`) and for a command whose noun is a secret's name (`Reset-AdmPassword user 'x'`, `Set-Secret n 'x'`) unless its verb
-  only names one (`Get`, `Find`, `Search`, `Show`). A variable, a subexpression or `Read-Host -AsSecureString` as the value is
+  only names one (`Get`, `Find`, `Search`, `Show`). A variable, a command or `Read-Host -AsSecureString` in the value is
   fine; a line with a syntax error is still checked from its tokens. The words began as PSReadLine's filter; the red team of R1
   (goal g) found that the first list kept the splatted hashtable - the usual way to pass credentials - `-Passphrase`, `-Pwd`,
-  `-Pass`, `-Key` and the positional `Reset-AdmPassword user 'x'`, and the audit (PS-13) the assignments; all are refused now
+  `-Pass`, `-Key` and the positional `Reset-AdmPassword user 'x'`, and the audit (PS-13) the assignments; the second red team
+  (12.8) the literal in parentheses or put together from literals, `-Pa`/`-Pas` and the chained assignment; all are refused now
   (`HistoryPolicyTests`), while `-PassThru`, attribute names such as `pwdLastSet` given as values, `Get-Secret MySecret` and
   `Reset-AdmPassword -Identity x` stay remembered. What is still remembered: a secret given positionally to a command whose name
   does not say so (`Connect-Thing 'x'`), one inside a longer text, an argument of a console program (`net user jkowalski x`) and
@@ -1342,3 +1345,17 @@ became of it:
   file 2.5 s later, after the run, Stop and dispose - decision 6 of 12.6 (only jobs in the session's repository are ended). No change;
   the same regression test runs it in the default mode (refused, no file after the delayed write would have happened).
 
+
+### 12.8 After the second red team of R1
+
+A second red team ran the same eight goals against the session of 12.7. Goals a-c, e and f found no way in ConstrainedLanguage
+again. What it found, and what became of it:
+
+- **(g) Plain-text secrets in the history, past the rules of 12.7.** `ShouldRemember` kept `$password = ('x')`,
+  `Set-Thing -Password ('x')` (also in double parentheses), `New-Thing -ApiKey ('x')`, `$password = 'Sum' + 'mer'`,
+  `Set-Thing -Pas 'x'` and `-Pa 'x'` (PowerShell binds both to `-Password`), and the chained `$password = $x = 'x'`. Fixed in 4.9:
+  a value computed from literals alone (parentheses, a subexpression of one statement, an operator, a cast, a chained assignment)
+  is a literal, and the abbreviations of `Password`/`Passphrase` count from two letters. `HistoryPolicyTests`: 16 of the 17 new
+  lines were remembered before (the 17th, `$x = $password = 'x'`, was already caught through the inner assignment and stays as a
+  guard); 8 ordinary lines near the new rules (a parenthesized user name, a sum of numbers, `-Path ('C:\dane')`, `-P 'x'`, a value
+  joined with a variable) stay remembered.

@@ -226,7 +226,9 @@ odrzuca wynik, a `2>&1` nadal łączy strumienie). Do CSV użyj `Export-AdmList`
 - **Wiersz z hasłem jawnym tekstem nie jest zapamiętywany:** z `-AsPlainText`, z `ConvertTo-SecureString 'tekst'` albo z
   wartością wpisaną wprost dla nazwy sekretu – parametru (`-Password 'tekst'`), klucza tablicy skrótów (`@{ Password = 'tekst' }`,
   także przekazanej przez `@h`) albo zmiennej lub właściwości (`$password = 'tekst'`, `$cred.Password = 'tekst'`). Nazwą sekretu jest nazwa, która zawiera `Password`, `Passwd`, `Passphrase`, `Pwd`, `Secret`,
-  `Token`, `ApiKey` lub `PrivateKey`, nazwa `Pw`, `Pin` albo `Key` w całości i skrót `-Pass`. Nie jest zapamiętywany także
+  `Token`, `ApiKey` lub `PrivateKey`, nazwa `Pw`, `Pin` albo `Key` w całości i skróty `-Pa`, `-Pas`, `-Pass`. Wartość w
+  nawiasach albo złożona z samych napisów (`-Password ('tekst')`, `$password = 'te' + 'kst'`, `$password = $x = 'tekst'`) liczy
+  się tak samo jak wpisana wprost. Nie jest zapamiętywany także
   wiersz z wartością wpisaną bez nazwy parametru dla polecenia, którego nazwa mówi o haśle (`Reset-AdmPassword jan 'tekst'`).
   Zmienna albo `Read-Host -AsSecureString` jako wartość jest w porządku. Filtr nie rozpozna każdego hasła: wartości bez nazwy
   parametru dla innego polecenia, hasła wewnątrz dłuższego tekstu, argumentu programu konsolowego (`net user jan tekst`) ani

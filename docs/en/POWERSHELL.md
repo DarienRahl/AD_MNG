@@ -228,7 +228,9 @@ that says so, and redirection to a file (`>`, `>>`, `2>`) is refused before the 
   literal value for a secret's name – of a parameter (`-Password 'literal'`), a key of a hashtable (`@{ Password = 'literal' }`,
   also one passed as `@h`) or a variable or property (`$password = 'literal'`, `$cred.Password = 'literal'`). A secret's name
   is one that contains `Password`, `Passwd`, `Passphrase`, `Pwd`, `Secret`, `Token`, `ApiKey` or `PrivateKey`, the whole name
-  `Pw`, `Pin` or `Key`, and the abbreviation `-Pass`. A line with a value written without a parameter name to a command whose
+  `Pw`, `Pin` or `Key`, and the abbreviations `-Pa`, `-Pas`, `-Pass`. A value in parentheses or put together from literals
+  alone (`-Password ('literal')`, `$password = 'lit' + 'eral'`, `$password = $x = 'literal'`) counts the same as one typed
+  directly. A line with a value written without a parameter name to a command whose
   name speaks of a password (`Reset-AdmPassword jan 'literal'`) is not remembered either. A variable or
   `Read-Host -AsSecureString` as the value is fine. The filter does not recognise every password: a value without a parameter
   name for another command, a password inside a longer text, an argument of a console program (`net user jan literal`) or a

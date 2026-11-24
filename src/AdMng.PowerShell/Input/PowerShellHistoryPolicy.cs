@@ -18,7 +18,10 @@ public static class PowerShellHistoryPolicy
     /// <summary>Names that are a secret's name only as the whole name: as parts of a name they are too common (<c>-Pinned</c>, <c>-KeyName</c>).</summary>
     private static readonly string[] SecretNames = ["pw", "pin", "key"];
 
-    /// <summary>Abbreviations: a name of four letters or more that begins one of these (<c>-Pass</c>, <c>-Passw</c>) is a secret's name.</summary>
+    /// <summary>
+    /// Abbreviations: a name of two letters or more that begins one of these (<c>-Pa</c>, <c>-Pas</c>, <c>-Pass</c>) is a secret's name -
+    /// PowerShell binds every unambiguous prefix of a parameter's name to it.
+    /// </summary>
     private static readonly string[] AbbreviatedWords = ["password", "passphrase"];
 
     /// <summary>The verbs of a command named after a secret that take a name, never the secret itself (<c>Get-Secret MySecret</c>).</summary>
@@ -29,11 +32,13 @@ public static class PowerShellHistoryPolicy
     /// <c>-AsPlainText</c> parameter (also its prefixes of three letters or more); a literal given to a parameter, a hashtable key
     /// (an inline or splatted hashtable) or assigned to a variable, property or index whose name is a secret's name
     /// (<c>Password</c>, <c>Passphrase</c>, <c>Pwd</c>, <c>Secret</c>, <c>Token</c>, <c>ApiKey</c>, <c>PrivateKey</c> anywhere in
-    /// the name; <c>Pw</c>, <c>Pin</c>, <c>Key</c> as the whole name; <c>-Pass</c> and the other abbreviations of
-    /// <c>Password</c>/<c>Passphrase</c>); a literal written positionally to <c>ConvertTo-SecureString</c> (or as its
-    /// <c>-String</c>) or to a command whose noun is a secret's name (<c>Reset-AdmPassword user 'x'</c>), unless its verb only
-    /// names one (<c>Get</c>, <c>Find</c>, <c>Search</c>, <c>Show</c>). A variable, a subexpression or
-    /// <c>Read-Host -AsSecureString</c> as the value is fine.
+    /// the name; <c>Pw</c>, <c>Pin</c>, <c>Key</c> as the whole name; <c>-Pa</c>, <c>-Pas</c>, <c>-Pass</c> and the other
+    /// abbreviations of <c>Password</c>/<c>Passphrase</c>); a literal written positionally to <c>ConvertTo-SecureString</c> (or as
+    /// its <c>-String</c>) or to a command whose noun is a secret's name (<c>Reset-AdmPassword user 'x'</c>), unless its verb only
+    /// names one (<c>Get</c>, <c>Find</c>, <c>Search</c>, <c>Show</c>). A literal is also a value computed from literals only: in
+    /// parentheses or a subexpression (<c>('x')</c>, <c>$('x')</c>), joined or cast (<c>'a' + 'b'</c>, <c>-join ('a', 'b')</c>,
+    /// <c>[string]'x'</c>), or the value of a chained assignment (<c>$password = $x = 'x'</c>). A variable, a command or
+    /// <c>Read-Host -AsSecureString</c> in the value is fine.
     /// </summary>
     public static bool ShouldRemember(string line)
     {
@@ -122,7 +127,7 @@ public static class PowerShellHistoryPolicy
     private static bool IsSecretName(string name) =>
         SecretWords.Any(word => name.Contains(word, StringComparison.OrdinalIgnoreCase))
         || SecretNames.Contains(name, StringComparer.OrdinalIgnoreCase)
-        || (name.Length >= 4 && AbbreviatedWords.Any(word => word.StartsWith(name, StringComparison.OrdinalIgnoreCase)));
+        || (name.Length >= 2 && AbbreviatedWords.Any(word => word.StartsWith(name, StringComparison.OrdinalIgnoreCase)));
 
     /// <summary>The name an assignment writes: a variable (without its scope or drive), a property, a constant index, through a type cast.</summary>
     private static string? NameOf(ExpressionAst target) => target switch
@@ -134,18 +139,30 @@ public static class PowerShellHistoryPolicy
         _ => null,
     };
 
+    /// <summary>A statement whose value is a literal: a pure expression, or a (chained) assignment of one.</summary>
     private static bool IsLiteral(StatementAst statement) => statement switch
     {
         PipelineAst pipeline => pipeline.GetPureExpression() is { } expression && IsLiteral(expression),
         CommandExpressionAst command => IsLiteral(command.Expression),
+        AssignmentStatementAst assignment => IsLiteral(assignment.Right),
         _ => false,
     };
 
+    /// <summary>
+    /// A value typed as text: a constant, a string without embedded expressions, an array of these, or a value computed from them alone -
+    /// in parentheses, in a subexpression of one statement, through an operator (<c>'a' + 'b'</c>, <c>-join</c>) or a cast.
+    /// </summary>
     private static bool IsLiteral(Ast node) => node switch
     {
         ConstantExpressionAst => true,
         ExpandableStringExpressionAst expandable => expandable.NestedExpressions.Count == 0,
         ArrayLiteralAst array => array.Elements.All(IsLiteral),
+        ParenExpressionAst paren => IsLiteral(paren.Pipeline),
+        SubExpressionAst { SubExpression: { Statements.Count: 1, Traps: null } block } => IsLiteral(block.Statements[0]),
+        BinaryExpressionAst binary => IsLiteral(binary.Left) && IsLiteral(binary.Right),
+        UnaryExpressionAst unary => IsLiteral(unary.Child),
+        ConvertExpressionAst convert => IsLiteral(convert.Child),
+        StatementAst statement => IsLiteral(statement),
         _ => false,
     };
 }

@@ -80,6 +80,33 @@ public sealed class HistoryPolicyTests
         Assert.False(PowerShellHistoryPolicy.ShouldRemember(line), line);
     }
 
+    /// <summary>
+    /// The lines of the second red team of R1 (goal g) that the filter kept: the literal in parentheses or computed from literals only
+    /// ('Sum' + 'mer'), the abbreviations of two and three letters that PowerShell binds to -Password, and a chained assignment.
+    /// </summary>
+    [Theory]
+    [InlineData("$password = ('Summer2026!')")]
+    [InlineData("Set-Thing -Password ('Summer2026!')")]
+    [InlineData("Set-Thing -Password (('Summer2026!'))")]
+    [InlineData("New-Thing -ApiKey ('xyzzy-123')")]
+    [InlineData("$password = 'Sum' + 'mer'")]
+    [InlineData("Set-Thing -Password ('Sum' + 'mer' + '2026!')")]
+    [InlineData("$h = @{ Password = ('Summer2026!') }")]
+    [InlineData("$password = $('Summer2026!')")]
+    [InlineData("$password = [string]'Summer2026!'")]
+    [InlineData("$password = -join ('Sum', 'mer')")]
+    [InlineData("Reset-AdmPassword -Identity user ('Summer2026!')")]
+    [InlineData("Set-Thing -Pas 'Summer2026!'")]
+    [InlineData("Set-Thing -Pa 'Summer2026!'")]
+    [InlineData("Set-Thing -pa:'Summer2026!'")]
+    [InlineData("$password = $x = 'Summer2026!'")]
+    [InlineData("$x = $password = 'Summer2026!'")]
+    [InlineData("Set-Thing -Password ($x = 'Summer2026!')")]
+    public void A_line_that_hides_a_plain_text_secret_in_an_expression_or_a_short_name_is_not_remembered(string line)
+    {
+        Assert.False(PowerShellHistoryPolicy.ShouldRemember(line), line);
+    }
+
     /// <summary>What the wider rules must not catch: attribute names with "pwd" as values, -PassThru, a hashtable or an assignment without a secret.</summary>
     [Theory]
     [InlineData("Get-AdmUser jkowalski -Properties pwdLastSet, badPwdCount")]
@@ -99,6 +126,14 @@ public sealed class HistoryPolicyTests
     [InlineData("Reset-AdmPassword -Identity jkowalski")]
     [InlineData("Set-Thing -Credential jkowalski")]
     [InlineData("$pwd")]
+    [InlineData("Get-AdmUser ('jkowalski')")]
+    [InlineData("$name = ('Łukasz' + ' Żółć')")]
+    [InlineData("$total = 1 + 2")]
+    [InlineData("Get-Thing -Path ('C:\\dane')")]
+    [InlineData("Get-Thing -P 'x'")]
+    [InlineData("$password = ($secure)")]
+    [InlineData("$password = 'prefix' + $secure")]
+    [InlineData("$password = $x = Read-Host -AsSecureString")]
     public void An_ordinary_line_near_the_secret_rules_is_remembered(string line)
     {
         Assert.True(PowerShellHistoryPolicy.ShouldRemember(line), line);
