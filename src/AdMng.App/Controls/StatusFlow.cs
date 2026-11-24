@@ -24,8 +24,11 @@ internal interface IStatusScheduler
 /// the line shows anything else, is held back for <c>Motion.WorkingDelay</c> (about 150 ms); the line keeps showing
 /// what it showed (the summary, or nothing - its band keeps its height either way). If something else arrives before
 /// the delay has run out - the operation ended at once - the line goes straight to that and the working look never
-/// flashes. A running operation that is already shown is not held back again by a new message or a new count (the
-/// stages of one operation), and a second running status that arrives during the delay only replaces the first.</para>
+/// flashes. What it ended as is a new message unless it is the summary: a result that is the same message as the one
+/// the line shows (the same error after Retry, "Saved 1 object." twice) enters and is announced again, because it is
+/// all the operator learns of an operation they did not see run. A running operation that is already shown is not held
+/// back again by a new message or a new count (the stages of one operation), and a second running status that arrives
+/// during the delay only replaces the first.</para>
 /// <para><b>The announcement of a summary</b> (owner's decision 2): the summary of a page whose text changes while the
 /// page stays as it is (a count of a search, a number of rows, a selection) is announced to a screen reader once, after
 /// <c>Motion.SummaryThrottle</c> (about 800 ms) without a further change, so typing in a search box does not read out
@@ -103,10 +106,14 @@ internal sealed class StatusFlow
                 return;
             }
 
-            // The operation ended before it was shown: straight to what it ended as.
+            // The operation ended before it was shown: straight to what it ended as - a new message even when it is the
+            // one on the line, unless it is the summary (which stays quiet, see the remarks).
             CancelDelay();
+            Present(status, endsUnseenOperation: true);
+            return;
         }
-        else if (status.IsWorking && !_shown.IsWorking && _workingDelay() is { } delay && delay > TimeSpan.Zero)
+
+        if (status.IsWorking && !_shown.IsWorking && _workingDelay() is { } delay && delay > TimeSpan.Zero)
         {
             _waiting = status;
             _delay = Scheduler.Schedule(delay, OnDelayElapsed);
@@ -148,11 +155,16 @@ internal sealed class StatusFlow
     }
 
     /// <summary>Shows a status (the delay is over or there was none) and decides what the screen reader hears.</summary>
-    private void Present(PageStatus status)
+    /// <param name="status">What the line shows now.</param>
+    /// <param name="endsUnseenOperation">
+    /// The status ends an operation whose working look was never shown: unless it is the summary it is a new message, also
+    /// when it is the same message as the one shown - nothing else would tell the operator that the operation ran.
+    /// </param>
+    private void Present(PageStatus status, bool endsUnseenOperation = false)
     {
         var previous = _shown;
         _shown = status;
-        if (!status.IsSameMessageAs(previous))
+        if (!status.IsSameMessageAs(previous) || (endsUnseenOperation && !status.IsIdle))
         {
             // A new message is announced by the caller, at once. A summary that waited for its quiet time would now say
             // what the line says since a moment, so it is dropped; what the operator hears now is the baseline.

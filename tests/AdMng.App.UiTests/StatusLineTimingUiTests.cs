@@ -522,6 +522,58 @@ public sealed class StatusLineTimingUiTests
     });
 
     [Fact]
+    public Task AnOperationThatEndsWithinTheDelay_AsTheResultTheLineShows_EntersAndIsAnnouncedAgain() => WpfTestHost.RunAsync(async () =>
+    {
+        using var language = LanguageScope.Use("en-US");
+        var clock = new ManualStatusScheduler();
+        var line = new StatusLine { Width = 640, CloseCommand = new RelayCommand(() => { }), Scheduler = clock, MayAnnounceSummary = () => false };
+        var window = ControlHost.Show(line);
+        try
+        {
+            await UiTestSupport.WaitForIdleAsync(rounds: 2);
+            var parts = new Parts(line);
+            var told = new List<(string Name, AutomationLiveSetting Live)>();
+            line.Announced += (_, _) => told.Add((AutomationProperties.GetName(line), AutomationProperties.GetLiveSetting(line)));
+            line.Status = PageStatus.Error(Failed, new PageStatusLog("Test.Failed"));
+            Assert.Single(told);
+
+            using (MotionScope.On())
+            {
+                // Retry: the page says "Working", and 20 ms later the same failure - a new status of the same message.
+                line.Status = PageStatus.Working(Reading, new PageStatusLog("Test.Reading"));
+                clock.Advance(20);
+                Assert.False(Motion.IsRunning(parts.Content));
+                line.Status = PageStatus.Error(Failed, new PageStatusLog("Test.Failed"));
+
+                // The working look never showed, but the result enters and is told again, assertively.
+                Assert.True(Motion.IsRunning(parts.Content), "a result that ended an operation at once does not enter");
+                Assert.Equal(2, told.Count);
+                Assert.Equal(("Error: " + Failed, AutomationLiveSetting.Assertive), told[^1]);
+                Assert.Equal(PageStatusKind.Error, line.Kind);
+                Assert.False(line.IsWaitingForWorking);
+            }
+
+            // "Saved" twice in a row, the second within the delay: told again, politely.
+            line.Status = PageStatus.Done(Disabled, new PageStatusLog("Test.Disabled", 12));
+            var before = told.Count;
+            line.Status = PageStatus.Working(Reading, new PageStatusLog("Test.Reading"));
+            clock.Advance(40);
+            line.Status = PageStatus.Done(Disabled, new PageStatusLog("Test.Disabled", 12));
+            Assert.Equal(before + 1, told.Count);
+            Assert.Equal(("Done: " + Disabled, AutomationLiveSetting.Polite), told[^1]);
+
+            // The same result again with nothing run in between stays quiet, as before.
+            line.Status = PageStatus.Done(Disabled, new PageStatusLog("Test.Disabled", 12));
+            Assert.Equal(before + 1, told.Count);
+            Assert.Equal(0, clock.Pending);
+        }
+        finally
+        {
+            window.Close();
+        }
+    });
+
+    [Fact]
     public Task AResultThatArrivesWhileASummaryWaits_DropsTheSummary() => WpfTestHost.RunAsync(async () =>
     {
         using var language = LanguageScope.Use("en-US");

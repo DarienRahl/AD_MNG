@@ -34,10 +34,11 @@ namespace AdMng.App.Controls;
 /// there when it is off; a new count of the same message and a changed summary never move.</para>
 /// <para>Two things of time (stage V2b-5b, owner's decisions 5 and 2; <see cref="StatusFlow"/> has the logic): a running
 /// operation is shown only after <c>Motion.WorkingDelay</c> (about 150 ms), so one that ends at once never flashes - the
-/// line keeps showing what it showed, and keeps its band; and a summary whose text changes (a count, a number of rows) is
-/// announced politely once, <c>Motion.SummaryThrottle</c> (about 800 ms) after the last change, when the line is visible
-/// and its window is active. <see cref="Status"/> is what the page says and is never late; <see cref="Kind"/>,
-/// <see cref="Message"/> and the other read-only properties are what the line shows.</para>
+/// line keeps showing what it showed, and keeps its band, and the result it ended as enters and is announced as a new
+/// message even when it is the one shown (the same error after Retry); and a summary whose text changes (a count, a
+/// number of rows) is announced politely once, <c>Motion.SummaryThrottle</c> (about 800 ms) after the last change, when
+/// the line is visible and its window is active. <see cref="Status"/> is what the page says and is never late;
+/// <see cref="Kind"/>, <see cref="Message"/> and the other read-only properties are what the line shows.</para>
 /// </remarks>
 public class StatusLine : Control
 {

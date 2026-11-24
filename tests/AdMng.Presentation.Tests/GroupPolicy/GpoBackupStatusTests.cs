@@ -565,6 +565,120 @@ public sealed class GpoBackupStatusTests
         Assert.True(closed);
     }
 
+    [Theory]
+    [InlineData("en-US", "failed", "Backups in the folder: 2")]
+    [InlineData("en-US", "sysvol", "Backups in the folder: 2")]
+    [InlineData("pl-PL", "stopped", "Kopie zapasowe w folderze: 2")]
+    public async Task ARestoreThatDidNotHappen_IsAboutTheBackupItWasFor_AnotherSelectionTakesItAndItsRetryOffTheLine(string culture, string how, string summary)
+    {
+        var h = await GroupPolicyHarness.CreateAsync(CultureInfo.GetCultureInfo(culture));
+        using var folder = new TempFolder();
+        await BackUpAsync(h, folder.Path, h.Sample.WorkstationPasswords, h.Sample.DriveMappings);
+        using var window = new GpoBackupViewModel(h.Services, GpoBackupMode.Restore, []) { Folder = folder.Path };
+        await window.InitializeAsync();
+        await WaitForDetailsAsync(window);
+        var first = Assert.IsType<GpoBackupRowViewModel>(window.SelectedBackup);
+        var second = Assert.Single(window.Backups, b => !ReferenceEquals(b, first));
+
+        // The plan of the first backup comes to nothing: the line says so about it, with Retry - which plans the selection.
+        switch (how)
+        {
+            case "failed":
+                h.Session.BeforeOperation = _ => throw new DirectoryException(DirectoryErrorKind.ServerUnavailable, "down");
+                await window.RunCommand.ExecuteAsync(null);
+                h.Session.BeforeOperation = null;
+                break;
+            case "sysvol":
+                h.Sysvol.Unavailable = SysvolUnavailableReason.AccessDenied;
+                await window.RunCommand.ExecuteAsync(null);
+                h.Sysvol.Unavailable = null;
+                break;
+            default:
+                using (var held = new HeldDirectoryCall(h.Session))
+                {
+                    var running = Task.Run(() => window.RunCommand.ExecuteAsync(null), Ct);
+                    await held.Reached.WaitAsync(Limit, Ct);
+                    window.Status.CancelCommand.Execute(null);
+                    held.Release();
+                    await running.WaitAsync(Limit, Ct);
+                }
+
+                break;
+        }
+
+        var said = window.Status.Current;
+        Assert.NotEqual(PageStatusKind.Idle, said.Kind);
+        Assert.Contains(first.Name, said.Message, StringComparison.Ordinal);
+        Assert.Same(window.RunCommand, Assert.IsType<PageStatusAction>(said.Action).Command);
+        Assert.Empty(h.Windows.Previews);
+
+        // The operator selects the other backup: what was said about the first one - and its Retry - is over.
+        window.SelectedBackup = second;
+        await WaitForDetailsAsync(window);
+        var now = window.Status.Current;
+        Assert.Equal((PageStatusKind.Idle, summary), (now.Kind, now.Message));
+        Assert.Null(now.Action);
+        Assert.True(window.RunCommand.CanExecute(null));
+
+        // Back to the first one: the result does not come back either - it was closed, not hidden.
+        window.SelectedBackup = first;
+        await WaitForDetailsAsync(window);
+        Assert.Equal((PageStatusKind.Idle, summary), (window.Status.Current.Kind, window.Status.Current.Message));
+        Assert.Empty(h.Windows.Previews);
+    }
+
+    [Fact]
+    public async Task APlanThatStillRunsWhenAnotherBackupIsSelected_KeepsTheLine_AndEndsWithoutARetryThatWouldPlanTheOtherOne()
+    {
+        var h = await GroupPolicyHarness.CreateAsync(CultureInfo.GetCultureInfo("en-US"));
+        using var folder = new TempFolder();
+        await BackUpAsync(h, folder.Path, h.Sample.WorkstationPasswords, h.Sample.DriveMappings);
+        using var window = new GpoBackupViewModel(h.Services, GpoBackupMode.Restore, []) { Folder = folder.Path };
+        await window.InitializeAsync();
+        await WaitForDetailsAsync(window);
+        var first = Assert.IsType<GpoBackupRowViewModel>(window.SelectedBackup);
+        var second = Assert.Single(window.Backups, b => !ReferenceEquals(b, first));
+
+        // The plan of the first backup waits for a domain controller that then fails.
+        var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        h.Session.BeforeOperation = _ =>
+        {
+            reached.TrySetResult();
+            release.Wait(Limit);
+            throw new DirectoryException(DirectoryErrorKind.ServerUnavailable, "down");
+        };
+        var running = Task.Run(() => window.RunCommand.ExecuteAsync(null), Ct);
+        await reached.Task.WaitAsync(Limit, Ct);
+
+        // Another selection while it runs: the plan and its Stop keep the line; the other backup is read meanwhile.
+        window.SelectedBackup = second;
+        await UntilAsync(() => !window.DetailsStatus.IsWorking && window.BackupDetails is not null);
+        Assert.True(window.Status.IsWorking);
+        Assert.Equal(PageStatusKind.Working, window.Status.Current.Kind);
+        Assert.Contains(first.Name, window.Status.Current.Message, StringComparison.Ordinal);
+
+        release.Set();
+        await running.WaitAsync(Limit, Ct);
+        h.Session.BeforeOperation = null;
+
+        // It says what came of the restore of the first backup - nothing was changed, and why - but offers no Retry:
+        // the Run button would plan the backup selected now.
+        var failed = window.Status.Current;
+        Assert.Equal(PageStatusKind.Error, failed.Kind);
+        Assert.StartsWith($"Restore “{first.Name}” from a backup – nothing was changed: ", failed.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Retry", failed.Message, StringComparison.Ordinal);
+        Assert.EndsWith("(ServerUnavailable)", failed.Message, StringComparison.Ordinal);
+        Assert.Null(failed.Action);
+        Assert.True(failed.CanClose);
+        Assert.Empty(h.Windows.Previews);
+
+        // Run plans and previews the backup selected now.
+        await window.RunCommand.ExecuteAsync(null);
+        var preview = Assert.Single(h.Windows.Previews);
+        Assert.Contains(second.Name, preview.Title, StringComparison.Ordinal);
+    }
+
     // ---- The state that lasts, the log ----------------------------------------------------------------------------
 
     [Theory]
