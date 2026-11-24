@@ -22,14 +22,31 @@ public sealed partial class PowerShellWindowViewModel
     [ObservableProperty]
     public partial bool IsSwitchingMode { get; private set; }
 
-    /// <summary>The switch can be pressed: the engine is ready, nothing runs, and a lockdown does not forbid the trusted mode. Turning it off is always possible.</summary>
-    public bool CanToggleTrustedMode => IsReady && !IsRunning && !IsStarting && (IsTrustedMode || !IsLockdownEnforced(_session!));
+    /// <summary>
+    /// The switch can be pressed: the engine is ready, nothing runs, and a lockdown does not forbid the trusted mode. Turning it off is
+    /// always possible. Exactly when <see cref="TrustedModeDisabledReason"/> is null.
+    /// </summary>
+    public bool CanToggleTrustedMode => TrustedModeDisabledReason is null;
 
-    /// <summary>Why the switch is disabled (a lockdown, a command running, the engine starting), or null while it can be pressed.</summary>
+    /// <summary>
+    /// Why the switch is disabled - in every state it is disabled in (audit W-10): the session ended or there is none, the build has no
+    /// engine, PowerShell could not be started, the trusted mode is being turned off, the engine is starting, a command runs, a lockdown
+    /// forbids the trusted mode - or null while it can be pressed. Made when it is read, in the language of now.
+    /// </summary>
     public string? TrustedModeDisabledReason
     {
         get
         {
+            if (Session is null)
+            {
+                return NoSessionMessage;
+            }
+
+            if (_noEngine)
+            {
+                return Localizer[L.PowerShellStatus.NotAvailable];
+            }
+
             if (_startFailure is not null)
             {
                 return Localizer[L.PowerShell.TrustedBlockedFailed];
@@ -40,7 +57,7 @@ public sealed partial class PowerShellWindowViewModel
                 return Localizer[L.PowerShell.TrustedBlockedSwitching];
             }
 
-            if (_session is not { } session || IsStarting)
+            if (_session is not { } session || IsStarting || IsSessionEnded)
             {
                 return Localizer[L.PowerShell.TrustedBlockedStarting];
             }
@@ -105,7 +122,7 @@ public sealed partial class PowerShellWindowViewModel
         }
         catch (InvalidOperationException ex) when (!IsDisposed)
         {
-            ModeNotChanged(ex);
+            ModeNotChanged(session, ex);
             return;
         }
         catch (Exception) when (IsDisposed || _lifetime.IsCancellationRequested)
@@ -170,7 +187,7 @@ public sealed partial class PowerShellWindowViewModel
 
         if (refused is not null && !IsDisposed)
         {
-            ModeNotChanged(refused);
+            ModeNotChanged(session, refused);
         }
         else if (!IsDisposed)
         {
@@ -180,11 +197,18 @@ public sealed partial class PowerShellWindowViewModel
 
     /// <summary>
     /// The engine refused the switch - a command started while the question was open, or a lockdown came into force: the mode stays as
-    /// it was. The scrollback always says so; the line only when no command runs - a result would end the operation that owns it.
+    /// it was. The scrollback always says so; the line only when no command runs - a result would end the operation that owns it. The
+    /// reason is the window's own words for what it knows - a command runs, a lockdown - and the program's error translator for anything
+    /// else; never the engine's English message alone.
     /// </summary>
-    private void ModeNotChanged(Exception refusal)
+    private void ModeNotChanged(IPowerShellSession session, Exception refusal)
     {
-        var text = PageStatusText.Failure(Localizer[L.PowerShellStatus.ModeNotChanged], refusal.Message);
+        var reason = IsRunning || session.IsRunning
+            ? Localizer[L.PowerShell.TrustedBlockedRunning]
+            : IsLockdownEnforced(session)
+                ? Localizer[L.PowerShell.TrustedBlockedLockdown]
+                : Errors.Translate(refusal);
+        var text = PageStatusText.Failure(Localizer[L.PowerShellStatus.ModeNotChanged], reason);
         Output.AddLine(PowerShellLineKind.Information, text);
         if (!IsRunning)
         {

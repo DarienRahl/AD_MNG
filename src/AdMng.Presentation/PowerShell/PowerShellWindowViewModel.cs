@@ -45,11 +45,14 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
     private PowerShellPolicyNote? _policyNote;
     private bool _policiesUnreadable;
     private string? _policiesError;
-    private string? _startError;
+
+    /// <summary>The build has no engine (no session factory): the window says so and what helps, not "open it again".</summary>
+    private bool _noEngine;
 
     /// <summary>
     /// Why the window has no session although it was started: the factory failed, or the session lost its runspace (the new one after
-    /// the trusted mode or after a left command could not be made). The text is made from it when it is read, in the language of then.
+    /// the trusted mode or after a left command could not be made). The cause is kept, not its text: the texts of the lasting state and
+    /// of the switch are made from it when they are read, in the language of then (audit W-10).
     /// </summary>
     private Exception? _startFailure;
     private bool _started;
@@ -165,7 +168,7 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             // StartAsync reports what it knows; this is the net under it ("never throws").
-            _startError ??= ex.Message;
+            _startFailure ??= ex;
             IsStarting = false;
             UpdateLasting();
             NotifyAvailability();
@@ -202,7 +205,7 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
         var policies = ReadPoliciesAsync();
         if (_powerShell.Sessions is not { } factory)
         {
-            _startError = Localizer[L.PowerShellStatus.NotAvailable];
+            _noEngine = true;
             await policies.ConfigureAwait(true);
             return;
         }
@@ -219,7 +222,7 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            _startError = ex.Message;
+            _startFailure = ex;
         }
 
         await policies.ConfigureAwait(true);
@@ -293,9 +296,9 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
             : null);
 
     /// <summary>
-    /// The one state that lasts, the most important of the window's conditions: the end of the session, an engine that could not
-    /// start, then the notes - what the policies record, that the policies could not be read, the trusted mode - one after the
-    /// other when more than one is true.
+    /// The one state that lasts, the most important of the window's conditions: the end of the session, a build without the engine, an
+    /// engine that could not start, then the notes - what the policies record, that the policies could not be read, the trusted mode -
+    /// one after the other when more than one is true. Every text is made here from the state, so it follows the language.
     /// </summary>
     private void UpdateLasting() => Status.SetLasting(LastingState());
 
@@ -311,11 +314,11 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
             return PageStatus.Error(NoSessionMessage, new PageStatusLog(L.Errors.NotConnected), canClose: false);
         }
 
-        if (_startError is { } startError)
+        if (_noEngine)
         {
             return PageStatus.Error(
-                PageStatusText.Failure(Localizer[L.PowerShellStatus.StartFailed], startError, Localizer[L.PowerShellStatus.StartFailedNext]),
-                new PageStatusLog(L.PowerShellStatus.StartFailed),
+                PageStatusText.Failure(Localizer[L.PowerShellStatus.NotAvailable], null, Localizer[L.PowerShellStatus.NotAvailableNext]),
+                new PageStatusLog(L.PowerShellStatus.NotAvailable),
                 canClose: false);
         }
 

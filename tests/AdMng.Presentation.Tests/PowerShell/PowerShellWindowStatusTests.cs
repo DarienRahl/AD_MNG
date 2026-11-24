@@ -115,21 +115,92 @@ public sealed class PowerShellWindowStatusTests
 
         Assert.False(window.IsReady);
         Assert.Equal(PageStatusKind.Error, window.Status.Current.Kind);
-        Assert.Equal("PowerShell could not be started: The engine's files are missing. Close the window and open it again.", window.Status.Current.Message);
+        Assert.Equal("PowerShell could not be started: Unexpected error: The engine's files are missing. Close the window and open it again.", window.Status.Current.Message);
         Assert.False(window.Status.Current.CanClose);
         PowerShellHarness.Type(window, "Get-Date");
         Assert.False(window.RunCommand.CanExecute(null));
         Assert.DoesNotContain("missing", window.Status.Current.Log.ToString(), StringComparison.Ordinal);
     }
 
+    /// <summary>Audit W-10: the reason of a start failure was the text of the start, in the language of the start.</summary>
     [Fact]
-    public async Task ABuildWithoutTheEngine_SaysSo()
+    public async Task AnEngineThatCannotStart_SaysSoInTheLanguageOfNow()
+    {
+        var harness = await PowerShellHarness.CreateAsync();
+        harness.Factory.Failure = new UnauthorizedAccessException("Access to the engine's folder is denied.");
+        using var window = await harness.OpenAsync();
+        Assert.Equal("PowerShell could not be started: The file could not be accessed: Access to the engine's folder is denied. Close the window and open it again.", window.Status.Current.Message);
+
+        harness.Directory.Localizer.SetCulture(Polish);
+
+        Assert.Equal("Nie można uruchomić PowerShell: Nie można uzyskać dostępu do pliku: Access to the engine's folder is denied. Zamknij okno i otwórz je ponownie.", window.Status.Current.Message);
+        Assert.Equal("W tym oknie nie można było uruchomić PowerShell.", window.TrustedModeDisabledReason);
+    }
+
+    /// <summary>Audit W-10: a build without the engine was told to close the window and open it again, which cannot help.</summary>
+    [Fact]
+    public async Task ABuildWithoutTheEngine_SaysSo_AndWhatHelps_InTheLanguageOfNow()
     {
         var harness = await PowerShellHarness.CreateAsync();
         using var window = await harness.OpenAsync(new PowerShellServices(null, null, null));
 
         Assert.False(window.IsReady);
-        Assert.Equal("PowerShell could not be started: This installation has no PowerShell engine. Close the window and open it again.", window.Status.Current.Message);
+        Assert.Equal(PageStatusKind.Error, window.Status.Current.Kind);
+        Assert.False(window.Status.Current.CanClose);
+        Assert.Equal("This installation has no PowerShell engine. Use the standard package of AD Manager, which includes the engine.", window.Status.Current.Message);
+        Assert.Equal("This installation has no PowerShell engine.", window.TrustedModeDisabledReason);
+        Assert.Contains("PowerShell.Status.NotAvailable", window.Status.Current.Log.ToString(), StringComparison.Ordinal);
+
+        harness.Directory.Localizer.SetCulture(Polish);
+
+        Assert.Equal("Ta instalacja nie zawiera silnika PowerShell. Użyj standardowego pakietu AD Managera, który zawiera silnik.", window.Status.Current.Message);
+        Assert.Equal("Ta instalacja nie zawiera silnika PowerShell.", window.TrustedModeDisabledReason);
+    }
+
+    /// <summary>
+    /// Audit W-10: the switch's tool tip says why it is disabled in every state it is disabled in - before, the session that ended had no
+    /// reason and an engine that failed said "not ready yet" for ever. The reason is null exactly when the switch can be pressed.
+    /// </summary>
+    [Theory]
+    [InlineData("failed", "PowerShell could not be started in this window.")]
+    [InlineData("no engine", "This installation has no PowerShell engine.")]
+    [InlineData("ended", "The session this window was opened in has ended (disconnected or connected again). Close this window and open it again.")]
+    [InlineData("disconnected", "Not connected to a domain.")]
+    [InlineData("not opened", "PowerShell is not ready yet.")]
+    [InlineData("ready", null)]
+    public async Task TheSwitch_SaysWhyItIsDisabled_InEveryStateItIsDisabledIn(string state, string? reason)
+    {
+        var harness = await PowerShellHarness.CreateAsync();
+        PowerShellWindowViewModel window;
+        switch (state)
+        {
+            case "failed":
+                harness.Factory.Failure = new InvalidOperationException("The engine's files are missing.");
+                window = await harness.OpenAsync();
+                break;
+            case "no engine":
+                window = await harness.OpenAsync(new PowerShellServices(null, null, null));
+                break;
+            case "ended":
+                window = await harness.OpenAsync();
+                await harness.Directory.Sessions.DisconnectAsync();
+                break;
+            case "disconnected":
+                await harness.Directory.Sessions.DisconnectAsync();
+                window = await harness.OpenAsync();
+                break;
+            case "not opened":
+                window = harness.Create();
+                break;
+            default:
+                window = await harness.OpenAsync();
+                break;
+        }
+
+        using var _ = window;
+        Assert.Equal(reason, window.TrustedModeDisabledReason);
+        Assert.Equal(reason is null, window.CanToggleTrustedMode);
+        Assert.Equal(reason is null, window.ToggleTrustedModeCommand.CanExecute(null));
     }
 
     [Fact]
@@ -454,11 +525,12 @@ public sealed class PowerShellWindowStatusTests
 
         await window.ToggleTrustedModeCommand.ExecuteAsync(null);
 
-        // The engine refused: the mode stays, the command goes on, and the line is still its - the refusal is in the scrollback.
+        // The engine refused: the mode stays, the command goes on, and the line is still its - the refusal is in the scrollback, in the
+        // window's words (the engine's English message is not shown).
         Assert.False(window.IsTrustedMode);
         Assert.Equal(PageStatusKind.Working, window.Status.Current.Kind);
         Assert.True(window.IsRunning);
-        Assert.Contains(window.Output.Lines, line => line.Text == "The language mode was not changed: The language mode cannot be changed while a command is running.");
+        Assert.Contains(window.Output.Lines, line => line.Text == "The language mode was not changed: Not while a command is running.");
         fake!.Release();
         await UntilAsync(window, () => !window.IsRunning).WaitAsync(Limit, Ct);
         Assert.Equal(PageStatusKind.Done, window.Status.Current.Kind);
@@ -497,8 +569,11 @@ public sealed class PowerShellWindowStatusTests
 
         Assert.False(window.IsTrustedMode);
         Assert.Equal(PageStatusKind.Attention, window.Status.Current.Kind);
-        Assert.Equal("The language mode was not changed: A system lockdown enforces ConstrainedLanguage.", window.Status.Current.Message);
+        Assert.Equal("The language mode was not changed: A system policy (WDAC or AppLocker) enforces ConstrainedLanguage mode.", window.Status.Current.Message);
         Assert.Equal(PowerShellLanguageMode.Constrained, window.LanguageMode);
+
+        harness.Directory.Localizer.SetCulture(Polish);
+        Assert.Equal("Zasady systemowe (WDAC lub AppLocker) wymuszają tryb ConstrainedLanguage.", window.TrustedModeDisabledReason);
     }
 
     // ---- The end ---------------------------------------------------------------------------------------------------

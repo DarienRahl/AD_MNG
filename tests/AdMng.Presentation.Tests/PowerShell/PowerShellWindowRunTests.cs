@@ -451,7 +451,8 @@ public sealed class PowerShellWindowRunTests
         await PowerShellHarness.RunAsync(window, "x");
 
         Assert.Equal(PageStatusKind.Error, window.Status.Current.Kind);
-        Assert.StartsWith("The command could not be started: A run is already active.", window.Status.Current.Message, StringComparison.Ordinal);
+        // The reason goes through the program's error translator (audit W-10), not the exception's text alone.
+        Assert.StartsWith("The command could not be started: Unexpected error: A run is already active.", window.Status.Current.Message, StringComparison.Ordinal);
         Assert.False(window.IsRunning);
 
         harness.Session.Queue(Text("ok\n"));

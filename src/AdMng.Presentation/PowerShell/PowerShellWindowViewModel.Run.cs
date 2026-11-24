@@ -106,7 +106,7 @@ public sealed partial class PowerShellWindowViewModel
             {
                 Output.EndRun();
                 scope.CompleteError(
-                    PageStatusText.Failure(Localizer[L.PowerShellStatus.CouldNotRun], ex.Message, Localizer[L.PowerShellStatus.FailedNext]),
+                    PageStatusText.Failure(Localizer[L.PowerShellStatus.CouldNotRun], Errors.Translate(ex), Localizer[L.PowerShellStatus.FailedNext]),
                     new PageStatusLog(L.PowerShellStatus.CouldNotRun));
             }
         }
