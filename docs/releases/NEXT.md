@@ -56,17 +56,21 @@ się nie zmienia, a zapisy do katalogu nadal idą wyłącznie przez plan zmian z
   pyta, co zrobić z wykonaniem, i daje trzy odpowiedzi, tak samo z paska tytułu, przyciskiem *Zamknij* (*Anuluj*) i klawiszem
   Esc: *Zatrzymaj i zamknij* – nic nowego nie jest zaczynane, obiekt w toku zostaje dokończony, a okno zamyka się po końcu
   wykonania; *Zamknij i kontynuuj w tle* – okno zamyka się od razu, a wykonanie trwa do końca na liście operacji w tle (w edytorze
-  zbiorczym i w Koszu AD tak było przed tą wersją); jego wynik pokazuje powiadomienie okna głównego (niepowodzenia – okno
-  z przyczynami), a każda zmiana jest w dzienniku sesji; *Nie zamykaj* (także Enter i Esc). Kontynuacji w tle nie ma, gdy
-  wykonanie generuje hasła (istnieją tylko w oknie), w podglądzie planu zmian GPO (okno, z którego go otwarto, czeka na wynik)
-  i w kreatorze, dopóki nie powstanie pierwsze konto – pytanie mówi wtedy, dlaczego. Inne zapisy – wysyłka wiadomości,
-  aktualizacja magazynu centralnego, kopia zapasowa GPO, polecenie dla komputera – pytają jak dotąd: *Zatrzymaj i zamknij* albo
-  *Nie zamykaj*; zapis właściwości obiektu, utworzenie obiektu i zapis konfiguracji Watchdoga, których nie da się zatrzymać, nie
-  są pytaniem: okno mówi, że jeszcze pracuje, i zostaje otwarte do ich końca. Okno, które tylko czyta, zamyka się bez pytania,
-  a odczyt jest przerywany, jak dotąd. Okno główne zadaje jedno pytanie o wszystko, co trwa w jego kartach, w jego oknach i w tle,
-  bez kontynuacji w tle (jego zamknięcie kończy połączenie), a *Zatrzymaj i zamknij* czeka na koniec obiektów w toku. Pytanie
-  obejmuje także zapis, który stracił wiersz stanu na rzecz odczytu, i zapis zaczęty, gdy pytanie było już otwarte; wykonanie,
-  które skończyło się, gdy pytanie było otwarte, zostawia okno otwarte z wynikiem. Drugie zamknięcie, gdy okno czeka na
+  zbiorczym i w Koszu AD tak było przed tą wersją); *Nie zamykaj* (także Enter i Esc). Jak skończyło się wykonanie, którego wyniku
+  okno już nie pokaże – bo zostało w tle albo okno zamknęło się zaraz po jego końcu – mówi okno główne: powiadomieniem, a gdy coś
+  się nie udało, oknem z przyczynami, które otwiera się dopiero po zamknięciu tamtego okna; każda zmiana jest w dzienniku sesji.
+  Edytor zbiorczy mówi to sam, swoim powiadomieniem z liczbami. Kontynuacji w tle nie ma, gdy wykonanie generuje hasła (istnieją
+  tylko w oknie), w podglądzie planu zmian GPO (okno, z którego go otwarto, czeka na wynik) i w kreatorze, dopóki nie powstanie
+  pierwsze konto – pytanie mówi wtedy, dlaczego. Inne zapisy – wysyłka wiadomości, aktualizacja magazynu centralnego, kopia
+  zapasowa GPO, polecenie dla komputera – pytają z dwiema odpowiedziami: *Zatrzymaj i zamknij* albo *Nie zamykaj*; zapis
+  właściwości obiektu, utworzenie obiektu i zapis konfiguracji Watchdoga, których nie da się zatrzymać, nie są pytaniem: okno
+  mówi, że jeszcze pracuje, i zostaje otwarte do ich końca. Okno, które tylko czyta, zamyka się bez pytania, a odczyt jest
+  przerywany, jak dotąd. Okno główne zadaje jedno pytanie o wszystko, co trwa w jego kartach, w jego oknach i w tle, bez
+  kontynuacji w tle (jego zamknięcie kończy połączenie), a *Zatrzymaj i zamknij* czeka na koniec obiektów w toku. Pytanie
+  obejmuje także zapis, który stracił wiersz stanu na rzecz odczytu, i zapis zaczęty, gdy pytanie było już otwarte. Okno zamyka
+  się zgodnie z odpowiedzią także wtedy, gdy wykonanie skończyło się, kiedy pytanie było otwarte, albo gdy okno po wykonaniu
+  jeszcze odczytuje listę (Kosz AD) – wtedy po końcu tego odczytu; wykonanie zatrzymane wcześniej (*Zatrzymaj* w wierszu stanu
+  albo na liście operacji w tle) nie potrzebuje pytania: okno zamyka się po jego końcu. Drugie zamknięcie, gdy okno czeka na
   zatrzymanie, nie pyta ponownie. Wcześniej pytało tylko okno *Korespondencja* i tylko przy wysyłce.
 
 ## Nowe: okno PowerShell (R1)
@@ -225,15 +229,18 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
 - Zatrzymanie kończy obiekt, który trwa, ale nie całą akcję: plan złożony z kilku obiektów wykonywanych po kolei (np. nowy GPO –
   kontener z plikami, kontenery Machine i User, dowiązanie) zatrzymany między dwoma z nich zostawia GPO, które trzeba cofnąć
   planem cofnięcia (tak było dotąd); dotyczy to też podglądu planu zmian GPO zamkniętego przyciskiem *Zatrzymaj i zamknij* – jego
-  *Cofnij* znika z oknem. Wiersz listy operacji w tle mówi o zatrzymanym wykonaniu tylko „Anulowano” – zdanie z liczbą obiektów
-  jest w wierszu stanu okna, a gdy okno zamknięto, w powiadomieniu okna głównego.
+  *Cofnij* znika z oknem (ile zrobiono, mówi powiadomienie okna głównego). Wiersz listy operacji w tle mówi o zatrzymanym
+  wykonaniu tylko „Anulowano” – zdanie z liczbą obiektów jest w wierszu stanu okna, a gdy okno zamknięto, w powiadomieniu okna
+  głównego (w edytorze zbiorczym: liczby udanych, nieudanych i pominiętych obiektów).
 - Wykonanie pozostawione w tle traci okno: jego wyniki, *Ponów nieudane* i *Cofnij* znikają z oknem (zmiany są w dzienniku sesji).
   W kreatorze powiadomienie mówi tylko o kontach utworzonych po pierwszym (pierwsze jest osobnym wierszem listy operacji w tle).
   Zapisu właściwości obiektu i utworzenia obiektu nie da się zostawić w tle: to jeden obiekt, którego zapisu nie można zatrzymać,
   a to, co następuje po nim (ponowny odczyt, zachowane wartości przy odmowie kontrolera, zaznaczenie nowego obiektu), istnieje
   tylko w oknie. *Zatrzymaj i zamknij* w oknie głównym czeka bez limitu czasu; wylogowanie systemu nie zadaje pytań, a program
   zamyka sesje w ciągu 10 s. Pytanie z trzema odpowiedziami i powiadomienie połączenia sprawdzono testami automatycznymi (model na
-  Linuksie, okna na Windows); nikt nie oglądał ich jeszcze na ekranie.
+  Linuksie, okna na Windows); nikt nie oglądał ich jeszcze na ekranie. To, że okno z niepowodzeniami otwiera się dopiero po
+  zamknięciu okna, którego dotyczy, sprawdzają testy modelu i jeden test interfejsu na Windows (prawdziwe okno Kosza AD
+  i prawdziwe okno dialogowe); na ekranie nikt tego nie oglądał.
 - Odczytywanie zmienionego podsumowania i opóźnienie stanu *Trwa* sprawdzono testami automatycznymi i na podstawie kodu;
   nie sprawdzono ich z prawdziwym czytnikiem ekranu (Narrator, NVDA) ani na ekranie.
 - Plakietki stanu, puste listy i szare wiersze zastępcze sprawdzono testami automatycznymi (właściwości, zasoby, stan
@@ -268,7 +275,8 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
 
 <!-- TODO: one paragraph in English: "AD Manager {{VERSION}} (preview) adds ...", links to docs/en with the tag v{{VERSION}} -->
 Closing a window during the execution of changes offers three answers - stop and close (the object in progress is finished,
-the window closes after the end), close and continue in the background (as before 0.16.0 in the batch editor and the Recycle
-Bin; the outcome comes as a notification of the main window - failures as a dialog with their reasons - and every change is
-in the session log), or don't close; no background when passwords are generated, in the GPO plan preview, or before the
-first account of the wizard exists; the main window asks one question and never continues in the background.
+the window closes after the end), close and continue in the background (as in {{PREVIOUS}} in the batch editor and the Recycle
+Bin), or don't close. When the window closes before it showed how the execution ended, the main window says it - a
+notification, failures in a dialog with their reasons that opens once that window has closed - and every change is in the
+session log. No background when passwords are generated, in the GPO plan preview, or before the first account of the wizard
+exists; the main window asks one question and never continues in the background.

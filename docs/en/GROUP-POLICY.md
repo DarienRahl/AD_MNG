@@ -154,9 +154,10 @@ the reverse plan and executes it the same way.
 Closing the preview during the execution – with the title bar, the *Close* button or Esc – asks: *Stop and close* or
 *Don't close*. The execution cannot continue in the background, because the window the preview was opened from (e.g. a
 settings editor) waits for its result: right after the close it reads the GPO again or marks its changes as saved. *Stop
-and close* starts no further object of the plan and finishes the one in progress; a plan of several objects (e.g. a new GPO
-with its containers and link) stopped between them leaves a part to undo, and the preview's *Undo* goes with the window –
-the undo then has to be prepared again (e.g. delete the incomplete GPO).
+and close* starts no further object of the plan and finishes the one in progress; how far it got is said by a notification
+of the main window once the preview has closed. A plan of several objects (e.g. a new GPO with its containers and link)
+stopped between them leaves a part to undo, and the preview's *Undo* goes with the window – the undo then has to be prepared
+again (e.g. delete the incomplete GPO).
 
 ## 5. Backups, restore and import
 

@@ -5343,15 +5343,22 @@ unchanged: the execution was always an activity of the connection that the windo
   changes atomically (`Interlocked`), so leaving and the coordinator's return are decided once: `TryReturnToWindow` is false only for a
   left activity. A part that starts after the run left (the next account of the wizard after a forced close) is marked left and not
   followed; the wizard checks its disposal before each first account.
-- *The report.* `ChangeCoordinator.ExecuteCoreAsync` reports a run that left its window, or whose window closes right after it
-  (`ReportByConnection` on Stop and close - not for a window that notifies itself: the batch editor; the Recycle Bin and Reset Password then
-  leave their own toast out), with the sentence of the line (`ExecutionOutcome`, extracted from `ExecutionStatus.Complete`, the domain from
-  the session): a notification when nothing failed (done, or stopped), else an error dialog with the lead, up to ten objects with their
-  reasons, "…and N more" and `Changes.Status.SessionLogNext`; a failure as a whole is a dialog with the reason. The report is posted to a
-  later turn of the UI thread (`IUiDispatcher.InvokeAsync`) and the dialog is not awaited: the real `DialogService` shows a dialog inline
-  on the UI thread, which would hold the execution - and a window waiting for it - until the operator answered (`TheReportNeverHoldsTheExecution`
-  uses a dialog double that blocks like the real one and a dispatcher that runs work in a later turn). An object changed only in part
-  counts as changed (`Changes.Status.CountsPartly`): "nothing was changed" is said only when nothing was - the GPO copy test of
+- *The report.* The connection says how a run ended with the sentence of the line (`ExecutionOutcome`, extracted from
+  `ExecutionStatus.Complete`, the domain from the session): a notification when nothing failed (done, or stopped), else an error dialog
+  with the lead, up to ten objects with their reasons, "…and N more" and `Changes.Status.SessionLogNext`; a failure as a whole is a
+  dialog with the reason. `ChangeCoordinator.ExecuteCoreAsync` says it at once for a run that left its window. For a run whose result
+  goes back to the window that follows it, it makes the same report and keeps it on the activity (`ActivityViewModel.KeepReport`: a
+  closure over the texts, never the result with its plan): the window hands it on with `IWindowRun.WindowClosed`, which
+  `WindowViewModelBase.Dispose` calls - after the host closed the window - for the runs its close looked at (`RunningWork.ConfirmCloseAsync`
+  `reportOnClose`), and drops it when the window stays or its line said the result before any close (`ExecutionStatus.Dispose`,
+  `WindowStays`). So the failure dialog is asked for when the window that closes is gone: the real `DialogService` owns a dialog by the
+  active window of the connection, and a dialog owned by the window that closes would close with it. A window that says the outcome in a
+  notification of its own is not reported again (`ExecutionStatus.WindowNotifies`: the batch editor always, the Recycle Bin and Reset
+  Password when they showed their success toast). The report is posted to a later turn of the UI thread (`IUiDispatcher.InvokeAsync`,
+  `.Forget()`) and the dialog is not awaited: the real `DialogService` shows a dialog inline on the UI thread, which would hold the
+  execution - and a window waiting for it - until the operator answered (`TheReportNeverHoldsTheExecution` uses a dialog double that
+  blocks like the real one and a dispatcher that runs work in a later turn). An object changed only in part counts as changed
+  (`Changes.Status.CountsPartly`): "nothing was changed" is said only when nothing was - the GPO copy test of
   `ChangePlanPreviewStatusTests` had the wrong sentence for a GPO whose attributes were written and whose folder was not.
 - *The question.* `IDialogService.AskCloseAsync(title, message, canContinue)` with `CloseAnswer` (the labelled dialog:
   `MessageDialogViewModel.CloseQuestion`, *Stop and close* destructive, Enter and Esc *Don't close*; a closed connection answers *Don't
@@ -5360,37 +5367,54 @@ unchanged: the execution was always an activity of the connection that the windo
   `.Caller` - the GPO plan preview, whose callers act on `ChangedDirectory` when it closes -, `.FirstAccount` - the wizard's canary);
   otherwise two and the reasons under the sentence. The window's own questions (`CanCloseCoreAsync`) come after the answer and before
   anything is stopped or left when the background was offered, after the end otherwise (the passwords of a stopped run are then visible).
-  A run whose result came back while the question was open, or whose window is finishing (the Recycle Bin's re-read), keeps the window
-  for its result (no question for the finishing one); an answer that can no longer be honoured is asked again. An execution that lost
-  the line to another operation is stopped through its run. A second close joins the pending one (`WindowViewModelBase`); a forced close
-  (`Dispose`) lets every run leave so that the connection reports it.
+  The window closes as answered - never kept against the answer, never refused without a word: a run whose result came back while the
+  question was open, or whose window is finishing (the Recycle Bin's re-read: no question, the close waits for the window's code), has
+  nothing left to stop or to leave, and the window closes once its code ended; a run that is already stopping (*Stop* in the line or in
+  the list of background operations) needs no question, and the window closes after its end. In each of these cases, as after *Stop and
+  close*, the window's line goes with it: the run is handed on (`IWindowRun.ReportByConnection`, also for a run that must stay - the
+  GPO plan preview's stopped plan) and the connection says how it ended once the window closed. Only the window's own questions can
+  still keep it (then nothing is handed on: `WindowStays`). An answer that can no longer be honoured (a run that must stay now) is asked
+  again. An execution that lost the line to another operation is stopped through its run. A second close joins the pending one
+  (`WindowViewModelBase`); a forced close (`Dispose`) lets every run leave so that the connection reports it, and hands on one whose
+  result came back already (the window's code is finishing).
 - *The connection window.* `MainWindow.ConfirmClose` asks `RunningWork` once with `IConnectionWork` (the activity centre: running
   activities no window follows) - two answers and `CloseWork.NoBackground.Connection`, lines `CloseWork.BackgroundLine`; Stop stops them
-  without a report (`StopBecauseTheConnectionCloses`, also honoured by `ApplyAsync`) and waits for their end, unbounded and asynchronous.
-  `Shell.CloseWindowWhileRunning` is gone. A write that cannot be stopped is the `Wait` notice before anything is listed.
+  without a report (`StopBecauseTheConnectionCloses`, also honoured by `ApplyAsync`, its result and its failure as a whole) and waits for
+  their end, unbounded and asynchronous. Its question gives only its own reason (`NoBackground.Connection`): the reasons of the windows
+  it owns speak of "this window". A window it owns that is finishing is waited for, and then the connection window closes; nothing is
+  handed to the connection, whose close ends it. `Shell.CloseWindowWhileRunning` is gone. A write that cannot be stopped is the `Wait`
+  notice before anything is listed.
 
 | Window | Answers | Why |
 |---|---|---|
 | Batch editor (edit mode) | three; two with generated passwords (*Passwords*) | Results, Retry failed and Undo go with the window; generated passwords exist only in it |
 | Bulk creation wizard | two during the first account (*FirstAccount*) and with generated passwords (*Passwords*); three for the rest | the canary loop is window code; the connection then reports the rest only |
 | Reset Password | three with a typed password; two with generated ones (*Passwords*) | the check before the run is a read: closing ends it and nothing is reset; Cancel stays enabled |
-| Recycle Bin restore | three | the window's own after-close report is gone; the re-read is skipped when the window closes after the run |
-| Change plan preview (GPO) | two (*Caller*) | Close and Esc ask instead of being disabled |
+| Recycle Bin restore | three | the window's own after-close report is gone; the re-read is skipped when the window closes after the run; its success toast is its report |
+| Change plan preview (GPO) | two (*Caller*) | Close and Esc ask instead of being disabled; how far a stopped plan got is said by the connection after the window closed |
 | Property sheet, New Object | none: the `Wait` notice | one object, a write that cannot be stopped, follow-ups that exist only in the window (owner question below) |
 | Main window | two (*Connection*) | closing ends the scope; one question for tabs, owned windows and background work |
 | `ApplyAsync`, computer actions | no question | already the connection's; listed by the main window |
 | Tabs, Messages and Other writes | two (unchanged meaning) | no change plan, no run |
 
 - *Tests.* Presentation (Linux): `RunningWorkTests` (the three answers in both languages, Continue leaves and stops nothing, Stop of a
-  run that may leave asks the window first and is reported by the connection, the reasons, the race, the window's own questions, mixed
-  writes, the notice, an execution that lost the line, the connection's background work), `ExecutionStatusTests` (leaving, a refused
-  leave, the token of a left operation is no Stop, a part after leaving, `StaysWithWindow`, `ReportByConnection`, an object changed in
-  part), `ActivityCenterViewModelTests` (leave and return decided once on two threads, `HasWindow`, the connection's background work,
-  stopping because the connection closes), `ChangePipelineTests` (the notification, the stopped warning, the failure dialog with ten
-  objects, a failure as a whole, a run that stayed, `ReportByConnection`, the report that never holds the execution, `ApplyAsync`
-  stopped by the connection window), and through the real close path (`TestWindowHost`): `BatchEditorStatusTests`,
+  run that may leave asks the window first and is reported by the connection, the reasons, a result that came back under the question,
+  a window that is finishing, a run stopped in its line before the close, a run that must stay and is stopped, a window that stays and
+  hands nothing on, the window's own questions, mixed writes, the notice, an execution that lost the line, the connection's background
+  work, the connection's own reason only, the connection window waiting for a finishing window), `ExecutionStatusTests` (leaving, a
+  refused leave, the token of a left operation is no Stop, a part after leaving that a Stop does not reach, `StaysWithWindow`,
+  `ReportByConnection`, an object changed in part), `ActivityCenterViewModelTests` (leave and return decided once on two threads,
+  `HasWindow`, the connection's background work, stopping because the connection closes), `ChangePipelineTests` (the notification, the
+  stopped warning, the failure dialog with ten objects, a failure as a whole, a run that stayed, a run reported only once its window
+  closed, a window that stayed after all, a window that notified itself, a window closed after its line said the result, the order on
+  one real UI thread - the failure dialog after the window closed -, the report that never holds the execution, `ApplyAsync` stopped by
+  the connection window with a result and with a failure as a whole), and through the real close path (`TestWindowHost`):
+  `BatchEditorStatusTests`,
   `BulkCreateStatusTests`, `ResetPasswordStatusTests`, `RecycleBinStatusTests`, `ChangePlanPreviewStatusTests`,
-  `PropertySheetStatusTests`, `WindowCloseTests`; the only direct `Dispose` is `AForcedCloseByTheOwner_HandsTheRunToTheConnection`. Windows
+  `PropertySheetStatusTests`, `WindowCloseTests` - the Recycle Bin, Reset Password and plan preview tests record whether the window was
+  closed when the connection's toast or dialog came. The direct `Dispose` calls are named forced closes by the owner:
+  `AForcedCloseByTheOwner_HandsTheRunToTheConnection`, `AForcedCloseDuringTheReadAfterAFailedRestore_TheConnectionSaysWhatFailed`,
+  `AForcedCloseWhileAFirstAccountThatAlreadyExistsIsCreated_StartsNoOtherFirstAccount`. Windows
   CI: `DialogWindowTests.TheCloseQuestion_HasThreeButtons_OrTwo_EnterAndEscKeepTheWindow`, `CloseWhileWorkingUiTests` (labelled answers,
   Continue closes the real window and the connection toasts, the main window's one question), `MainWindowTests` and the smoke test (both
   dialogs in both language passes).
@@ -5399,13 +5423,25 @@ unchanged: the execution was always an activity of the connection that the windo
   the re-read, `ObjectChanged`, `CreatedDn` for the caller), and the save can last up to the request time-out (60 s) when the DC does not
   answer - during that time neither the sheet nor the main window can be closed. (2) The plan preview offers no background (its callers
   act on `ChangedDirectory` at once), and *Stop and close* between two objects of a GPO plan leaves a part to undo while the preview's
-  Undo goes with the window. (3) Generated passwords keep the run in its window (batch editor, wizard, Reset Password). (4) The wizard
-  offers the background only after the first account. (5) A run that ended while the question was open keeps the window for its result
-  whatever the answer. (6) A run that is already stopping is not asked about again: the window waits silently for its end (no
-  background answer is offered for it).
+  Undo goes with the window (how far it got is said by the connection after the window closed). (3) Generated passwords keep the run in
+  its window (batch editor, wizard, Reset Password). (4) The wizard offers the background only after the first account. (5) A run that is
+  already stopping is not asked about again: the window waits for its end without a question - no background answer is offered for it -
+  and the connection says how it ended.
 - *Not seen on a screen.* The three-button dialog, its wrapping with the reasons, the toast and dialog of a run reported without its
   window (which may appear over another window of the connection - multi-window 3.6), and the main window's wait after *Stop and close*
-  were not seen on a screen; the Windows tests assert the buttons, the answers and the model, not pixels.
+  were not seen on a screen; the Windows tests assert the buttons, the answers and the model, not pixels. That the failure dialog comes
+  after the closing window is gone is asserted on the model (the real single UI thread of `TestUiThread`, the host's order of close and
+  dispose in `TestWindowHost`) and by one Windows UI test with the real `DialogService` and the real Recycle Bin window
+  (`CloseWhileWorkingUiTests.ARestoreStoppedInItsLine_ThenTheWindowClosed_TheRealFailureDialogComesAfterTheWindowClosed_AndIsNotOwnedByIt`),
+  which runs on Windows CI only and had not run when this was written.
+- *Second round (verifiers of the first build).* Four ways to lose the outcome or the operator's answer were found by probes and are
+  fixed: a Recycle Bin restore whose result came back under the question was closed with *Stop and close* and reported nowhere (the
+  answer is honoured now and the run is handed on); *Stop* pressed before the close left a silent wait and no report (handed on); the
+  failure dialog was asked for while the closing window was still open and would have been owned by it (sent from `Dispose`); a stopped
+  GPO plan preview closed without anyone saying how far it got (a run that must stay is handed on too). The connection window no longer
+  refuses its close without a word while an owned window finishes, and its question no longer repeats the owned windows' reasons.
+  Mutants that survived the first build (the canary loop's disposal check, `ApplyAsync`'s failure as a whole after the connection
+  window's stop, a part followed after the run left) are now caught.
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 

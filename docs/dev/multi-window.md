@@ -462,7 +462,11 @@ Background work is per window by construction:
 The execution of a child window's plan has always been an activity of the connection, which the window only follows.
 When the child window closes with *Close and continue in the background* (D-A), the run leaves the window and the
 connection's coordinator says how it ended - a notification, or a dialog with the failed objects - through the scope's
-`NotificationService` and `DialogService`, in a later turn of the UI thread. A run never outlives its connection: the
+`NotificationService` and `DialogService`, in a later turn of the UI thread. A child window that closes right after its
+run ended (*Stop and close*, a *Stop* that came first, a result that came back under the question) hands on the report the
+coordinator kept with the activity once the window has closed (`WindowViewModelBase.Dispose`): `DialogService` owns a dialog by
+the active window of the connection, so a failure dialog asked for while the closing window was still there would be owned by
+it - and close with it. The connection window hands nothing on: its close ends the connection. A run never outlives its connection: the
 connection window asks about it and waits for it (3.4), *Disconnect* and *Change domain controller* stop it as any
 activity, and `CloseEntryAsync` keeps its bounded cancel only for what is left after the question.
 

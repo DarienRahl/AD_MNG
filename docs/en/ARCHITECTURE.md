@@ -163,6 +163,9 @@ that were finished; `BatchResult.WasCutShort` says whether the stop left anythin
 last objects run does not, and that result is an ordinary one). A window closed during the execution with *Close and
 continue in the background* hands the report to the connection's coordinator: the execution goes on to its end, its outcome
 comes as a notification of the main window (failures as a dialog with their reasons), and every change is in the session log.
+So does a window that closes right after the execution ended (*Stop and close*, a result that came back while the question
+was open): the coordinator keeps the report with the activity and the window hands it on once it has closed, so the failure
+dialog is never owned by the window that closes.
 Values in a plan are text; binary attributes are not edited in bulk – the exception is `logonHours` (the "Logon
 hours" window), which in the plan, the log and the rollback is a hexadecimal string, and reaches the DC as 21 bytes
 (`PipelineValues`).

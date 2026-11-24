@@ -161,7 +161,9 @@ zatrzymanie zastało w toku i które dokończono; `BatchResult.WasCutShort` mów
 niewykonanego (zatrzymanie, które przyszło w trakcie ostatnich obiektów, nie zostawia nic i taki wynik jest zwykłym
 wynikiem). Okno zamknięte w trakcie wykonania odpowiedzią *Zamknij i kontynuuj w tle* przekazuje raport koordynatorowi
 połączenia: wykonanie trwa do końca, a jego wynik pokazuje powiadomienie okna głównego (niepowodzenia – okno z przyczynami),
-każda zmiana jest w dzienniku sesji.
+każda zmiana jest w dzienniku sesji. Tak samo okno, które zamyka się zaraz po końcu wykonania (*Zatrzymaj i zamknij*, wynik,
+który wrócił, gdy pytanie było otwarte): koordynator zostawia raport przy czynności, a okno przekazuje go po swoim zamknięciu,
+więc okno z niepowodzeniami nie należy do okna, które się zamyka.
 Wartości w planie są tekstem; atrybutów binarnych nie edytuje się zbiorczo – wyjątkiem jest `logonHours` (okno „Godziny
 logowania”), który w planie, dzienniku i cofnięciu jest zapisem szesnastkowym, a do DC trafia jako 21 bajtów
 (`PipelineValues`).
