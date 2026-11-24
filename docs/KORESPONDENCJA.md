@@ -71,8 +71,8 @@ Brak Outlooka nie jest błędem okna – widać go w stopce, a na zakładkach *W
 przyciskiem *Połącz z Outlookiem*, gdy połączenie się nie udało); *Połącz z Outlookiem* na zakładce *Wiadomość* próbuje
 ponownie. Zamknięcie okna w trakcie wysyłki zadaje to samo pytanie, co każde okno AD Managera, w którym coś się zapisuje
 (*Zatrzymać trwającą operację i zamknąć okno?*, z tym, co trwa, i z tym, że wiadomości przyjętych już przez serwer lub przez Outlooka
-nie da się wycofać). *Tak* zatrzymuje wysyłkę po wiadomości, przy której jest, i zamyka okno dopiero po jej końcu; *Nie* zostawia okno
-i wysyłkę. Pytanie dotyczy także wysyłki na zakładce, której akurat nie widać. Przy zamknięciu zapisywany jest ostatni szkic i opcje.
+nie da się wycofać). *Zatrzymaj i zamknij* zatrzymuje wysyłkę po wiadomości, przy której jest, i zamyka okno dopiero po jej końcu;
+*Nie zamykaj* zostawia okno i wysyłkę. Wysyłki nie da się kontynuować w tle. Pytanie dotyczy także wysyłki na zakładce, której akurat nie widać. Przy zamknięciu zapisywany jest ostatni szkic i opcje.
 
 Outlook, którego AD Manager musiał uruchomić, działa bez okna aż do zamknięcia AD Managera, także po zamknięciu okna
 *Korespondencja* – inaczej zamknąłby się zaraz po wysyłce, a ostatnie wiadomości zostałyby w *Skrzynce nadawczej*.

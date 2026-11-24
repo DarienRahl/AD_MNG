@@ -635,7 +635,8 @@ A value is copied with one click or a shortcut – without selecting text in the
 3. **Diff preview** – "before → after" for every object and attribute, filters (changes / warnings / errors / no change),
    excluding individual objects, preview export to CSV, **equivalent PowerShell script**.
 4. **Execution** – in the background, with progress and cancellation; limited parallelism; retries of transient errors;
-   **optimistic concurrency** (a change made by someone else after the preview will not be overwritten).
+   **optimistic concurrency** (a change made by someone else after the preview will not be overwritten); closing a window
+   during the execution asks whether to stop and close, close and continue in the background, or not close.
 5. **Report** – status of each object, AD error codes in Polish, "Retry failed", CSV export.
 6. **Rollback** – inverse plan from the remembered (in-memory) old values, through the same preview.
 

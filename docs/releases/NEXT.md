@@ -52,17 +52,22 @@ się nie zmienia, a zapisy do katalogu nadal idą wyłącznie przez plan zmian z
   (pasek w ruchu), albo – gdy operacja, której postęp było widać, skończyła się stanem, który trwa (np. nie udało się odczytać
   listy) – żółty lub czerwony pasek, dopóki strona nie powie czegoś innego. Pasek pojawia się po tym samym czasie co stan
   *Trwa* (około 0,15 s), działa także przy wyłączonych animacjach, a okno główne pokazuje postęp karty, która jest na wierzchu.
-  Zamknięcie okna w trakcie operacji, która coś zapisuje – wykonania zmian, wysyłki wiadomości, przywracania, aktualizacji
-  magazynu centralnego, zapisu konfiguracji Watchdoga, polecenia dla komputera – zadaje jedno pytanie, tak samo z paska
-  tytułu, przyciskiem *Zamknij* i klawiszem Esc: *Zatrzymać trwającą operację i zamknąć okno?*, z tym, co trwa, i z tym, co się stanie (przy wykonaniu zmian: nic nowego nie jest zaczynane, a obiekt
-  w toku zostaje dokończony). *Tak* zatrzymuje operację i zamyka okno dopiero po jej końcu; *Nie* zostawia okno. Operacja, której
-  nie da się zatrzymać (np. zapis właściwości obiektu, utworzenie obiektu, zapis konfiguracji Watchdoga), nie jest pytaniem: okno
-  mówi, że jeszcze pracuje, i zostaje otwarte do jej końca. Okno, które tylko czyta, zamyka się bez pytania, a odczyt jest przerywany,
-  jak dotąd. To samo pytanie zadaje okno główne o zapisy w swoich kartach i w oknach, które do niego należą, i karta Watchdoga przy
-  zamknięciu. Pytanie obejmuje także zapis, który stracił wiersz stanu na rzecz odczytu (np. potwierdzanie zdarzeń, gdy
-  w tym czasie odświeżono listę), i zapis zaczęty, gdy pytanie było już otwarte. Wcześniej pytało tylko okno
-  *Korespondencja* i tylko przy wysyłce, a edytor zbiorczy zamknięty w trakcie wykonania
-  zostawiał je w tle.
+  Zamknięcie okna w trakcie wykonania zmian (edytor zbiorczy i kreator zakładania kont, reset hasła, przywracanie z Kosza AD)
+  pyta, co zrobić z wykonaniem, i daje trzy odpowiedzi, tak samo z paska tytułu, przyciskiem *Zamknij* (*Anuluj*) i klawiszem
+  Esc: *Zatrzymaj i zamknij* – nic nowego nie jest zaczynane, obiekt w toku zostaje dokończony, a okno zamyka się po końcu
+  wykonania; *Zamknij i kontynuuj w tle* – okno zamyka się od razu, a wykonanie trwa do końca na liście operacji w tle (w edytorze
+  zbiorczym i w Koszu AD tak było przed tą wersją); jego wynik pokazuje powiadomienie okna głównego (niepowodzenia – okno
+  z przyczynami), a każda zmiana jest w dzienniku sesji; *Nie zamykaj* (także Enter i Esc). Kontynuacji w tle nie ma, gdy
+  wykonanie generuje hasła (istnieją tylko w oknie), w podglądzie planu zmian GPO (okno, z którego go otwarto, czeka na wynik)
+  i w kreatorze, dopóki nie powstanie pierwsze konto – pytanie mówi wtedy, dlaczego. Inne zapisy – wysyłka wiadomości,
+  aktualizacja magazynu centralnego, kopia zapasowa GPO, polecenie dla komputera – pytają jak dotąd: *Zatrzymaj i zamknij* albo
+  *Nie zamykaj*; zapis właściwości obiektu, utworzenie obiektu i zapis konfiguracji Watchdoga, których nie da się zatrzymać, nie
+  są pytaniem: okno mówi, że jeszcze pracuje, i zostaje otwarte do ich końca. Okno, które tylko czyta, zamyka się bez pytania,
+  a odczyt jest przerywany, jak dotąd. Okno główne zadaje jedno pytanie o wszystko, co trwa w jego kartach, w jego oknach i w tle,
+  bez kontynuacji w tle (jego zamknięcie kończy połączenie), a *Zatrzymaj i zamknij* czeka na koniec obiektów w toku. Pytanie
+  obejmuje także zapis, który stracił wiersz stanu na rzecz odczytu, i zapis zaczęty, gdy pytanie było już otwarte; wykonanie,
+  które skończyło się, gdy pytanie było otwarte, zostawia okno otwarte z wynikiem. Drugie zamknięcie, gdy okno czeka na
+  zatrzymanie, nie pyta ponownie. Wcześniej pytało tylko okno *Korespondencja* i tylko przy wysyłce.
 
 ## Nowe: okno PowerShell (R1)
 
@@ -219,8 +224,16 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   obiektu w połowie (zob. „Inne zmiany”).
 - Zatrzymanie kończy obiekt, który trwa, ale nie całą akcję: plan złożony z kilku obiektów wykonywanych po kolei (np. nowy GPO –
   kontener z plikami, kontenery Machine i User, dowiązanie) zatrzymany między dwoma z nich zostawia GPO, które trzeba cofnąć
-  planem cofnięcia (tak było dotąd). Wiersz listy operacji w tle mówi o zatrzymanym wykonaniu tylko „Anulowano” – zdanie
-  z liczbą obiektów jest w wierszu stanu okna.
+  planem cofnięcia (tak było dotąd); dotyczy to też podglądu planu zmian GPO zamkniętego przyciskiem *Zatrzymaj i zamknij* – jego
+  *Cofnij* znika z oknem. Wiersz listy operacji w tle mówi o zatrzymanym wykonaniu tylko „Anulowano” – zdanie z liczbą obiektów
+  jest w wierszu stanu okna, a gdy okno zamknięto, w powiadomieniu okna głównego.
+- Wykonanie pozostawione w tle traci okno: jego wyniki, *Ponów nieudane* i *Cofnij* znikają z oknem (zmiany są w dzienniku sesji).
+  W kreatorze powiadomienie mówi tylko o kontach utworzonych po pierwszym (pierwsze jest osobnym wierszem listy operacji w tle).
+  Zapisu właściwości obiektu i utworzenia obiektu nie da się zostawić w tle: to jeden obiekt, którego zapisu nie można zatrzymać,
+  a to, co następuje po nim (ponowny odczyt, zachowane wartości przy odmowie kontrolera, zaznaczenie nowego obiektu), istnieje
+  tylko w oknie. *Zatrzymaj i zamknij* w oknie głównym czeka bez limitu czasu; wylogowanie systemu nie zadaje pytań, a program
+  zamyka sesje w ciągu 10 s. Pytanie z trzema odpowiedziami i powiadomienie połączenia sprawdzono testami automatycznymi (model na
+  Linuksie, okna na Windows); nikt nie oglądał ich jeszcze na ekranie.
 - Odczytywanie zmienionego podsumowania i opóźnienie stanu *Trwa* sprawdzono testami automatycznymi i na podstawie kodu;
   nie sprawdzono ich z prawdziwym czytnikiem ekranu (Narrator, NVDA) ani na ekranie.
 - Plakietki stanu, puste listy i szare wiersze zastępcze sprawdzono testami automatycznymi (właściwości, zasoby, stan
@@ -254,3 +267,8 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
 ## English summary
 
 <!-- TODO: one paragraph in English: "AD Manager {{VERSION}} (preview) adds ...", links to docs/en with the tag v{{VERSION}} -->
+Closing a window during the execution of changes offers three answers - stop and close (the object in progress is finished,
+the window closes after the end), close and continue in the background (as before 0.16.0 in the batch editor and the Recycle
+Bin; the outcome comes as a notification of the main window - failures as a dialog with their reasons - and every change is
+in the session log), or don't close; no background when passwords are generated, in the GPO plan preview, or before the
+first account of the wizard exists; the main window asks one question and never continues in the background.

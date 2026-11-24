@@ -152,6 +152,13 @@ Zapis GPO jest transakcją na jednym kontrolerze domeny – tym, z którym pracu
 Wersje rosną zawsze (także przy cofaniu), więc klienci zawsze pobierają nowy stan. *Cofnij* w oknie podglądu pokazuje
 plan odwrotny i wykonuje go tak samo.
 
+Zamknięcie podglądu w trakcie wykonania – paskiem tytułu, przyciskiem *Zamknij* albo klawiszem Esc – pyta: *Zatrzymaj
+i zamknij* albo *Nie zamykaj*. Wykonania nie da się kontynuować w tle, bo okno, z którego otwarto podgląd (np. edytor
+ustawień), czeka na jego wynik: zaraz po zamknięciu wczytuje GPO ponownie albo oznacza zmiany jako zapisane. *Zatrzymaj
+i zamknij* nie zaczyna kolejnego obiektu planu, a ten, który trwa, kończy; plan z kilku obiektów (np. nowy GPO z kontenerami
+i dowiązaniem) zatrzymany między nimi zostawia część do cofnięcia, a *Cofnij* podglądu znika razem z oknem – cofnięcie trzeba
+wtedy przygotować od nowa (np. usunąć niepełny GPO).
+
 ## 5. Kopie zapasowe, przywracanie i import
 
 **Format zgodny z GPMC**: `manifest.xml` (scalany z istniejącym), w folderze `{BackupId}` pliki `Backup.xml`,

@@ -106,8 +106,10 @@ głównym ([dev/multi-window.md](dev/multi-window.md)):
 - **Zapis tylko w sesji planu.** `ChangeCoordinator.ApplyAsync` wykonuje plan w sesji, w której go zaplanował; jeśli
   sesja się zmieniła (Rozłącz, ponowne połączenie), nic nie jest zapisywane. Potwierdzenia nazywają domenę sesji, która
   wykona operację.
-- **Zamknięcie okna:** koniec `Lifetime`, zamknięte dialogi i powiadomienia okna (pozostała praca w tle niczego nie
-  pokaże), anulowanie jego operacji i zamknięcie sesji poza wątkiem UI (z limitem czasu), potem zwolnienie zakresu;
+- **Zamknięcie okna:** okno połączenia zadaje najpierw jedno pytanie o wszystko, co zapisuje w jego kartach, w jego oknach
+  i w tle połączenia (bez kontynuacji w tle – zamknięcie kończy połączenie), a *Zatrzymaj i zamknij* czeka na koniec obiektów
+  w toku; potem koniec `Lifetime`, zamknięte dialogi i powiadomienia okna (pozostała praca w tle niczego nie pokaże),
+  anulowanie tego, co jeszcze zostało, i zamknięcie sesji poza wątkiem UI (z limitem czasu), potem zwolnienie zakresu;
   ostatnie okno kończy program, `App.OnExit` zamyka sesje okien, które jeszcze zostały.
 - **Ustawienia** są wspólne; `JsonSettingsStore` zmienia kopię (copy-on-write) pod blokadą i zapisuje migawki z numerem
   generacji, więc okna nie nadpisują sobie zmian, a czytający nigdy nie widzi zmienianej listy.
@@ -157,7 +159,9 @@ ponownie – każda kolejna próba mogłaby kosztować cały limit czasu żądan
 tym błędem, gdy skończy się żądanie będące w drodze. `BatchResult.FinishedAfterStopCount` liczy obiekty, które
 zatrzymanie zastało w toku i które dokończono; `BatchResult.WasCutShort` mówi, czy zatrzymanie zostawiło coś
 niewykonanego (zatrzymanie, które przyszło w trakcie ostatnich obiektów, nie zostawia nic i taki wynik jest zwykłym
-wynikiem).
+wynikiem). Okno zamknięte w trakcie wykonania odpowiedzią *Zamknij i kontynuuj w tle* przekazuje raport koordynatorowi
+połączenia: wykonanie trwa do końca, a jego wynik pokazuje powiadomienie okna głównego (niepowodzenia – okno z przyczynami),
+każda zmiana jest w dzienniku sesji.
 Wartości w planie są tekstem; atrybutów binarnych nie edytuje się zbiorczo – wyjątkiem jest `logonHours` (okno „Godziny
 logowania”), który w planie, dzienniku i cofnięciu jest zapisem szesnastkowym, a do DC trafia jako 21 bajtów
 (`PipelineValues`).

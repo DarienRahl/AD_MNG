@@ -514,14 +514,21 @@ aktywności); jego postęp – z poleceniem *Zatrzymaj* – widać w wierszu sta
 ten czas w *Anuluj*. *Zatrzymaj* nie zaczyna już następnego konta, ale konto, które właśnie powstaje, jest dokończone:
 ma hasło, jest włączone, wymaga zmiany hasła przy pierwszym logowaniu i należy do swoich grup. Wiersz stanu mówi, ile
 obiektów jest gotowych (*wykonano 1 z 5 obiektów, niepowodzenia: 0, obiekt, który był w toku, został dokończony*); wiersze,
-których nie zaczęto, można wykonać później (*Ponów nieudane*).
+których nie zaczęto, można wykonać później (*Ponów nieudane*). Zamknięcie okna w trakcie wykonania pyta, co z nim zrobić:
+*Zatrzymaj i zamknij* (jak *Zatrzymaj*, a okno zamyka się po końcu wykonania), *Zamknij i kontynuuj w tle* (okno zamyka się
+od razu, wykonanie trwa do końca na liście operacji w tle, jego wynik pokazuje powiadomienie okna głównego, a każda zmiana
+jest w dzienniku sesji) albo *Nie zamykaj*. W tle nie da się kontynuować, gdy kreator generuje hasła początkowe – istnieją
+tylko w tym oknie – ani przed utworzeniem pierwszego konta (zob. niżej). Wykonanie pozostawione w tle nie wraca do okna:
+wyniki, hasła, *Ponów nieudane* i *Cofnij* znikają razem z nim.
 
 **Najpierw jedno konto.** Kreator tworzy najpierw jeden obiekt; dopiero gdy wszystkie jego kroki się udadzą, wykonuje
 resztę (w centrum aktywności i dzienniku sesji są wtedy dwa wpisy). Błąd systematyczny – brak szyfrowania, brak prawa
 do resetu hasła albo zapisu `userAccountControl`, hasło odrzucone przez zasady – zatrzymuje wykonanie po jednym koncie:
 *Wstrzymano po pierwszym koncie – pozostałe wiersze nie zostały wykonane. Usuń przyczynę podaną poniżej i użyj Ponów
 nieudane.* Jeśli pierwszy obiekt nie powstał, bo jego wartość jest zajęta (problem tylko tego wiersza), próbę przejmuje
-następny – najwyżej trzy.
+następny – najwyżej trzy. Dopóki pierwsze konto powstaje, to okno decyduje o reszcie, więc zamknięcie okna proponuje tylko
+*Zatrzymaj i zamknij* albo *Nie zamykaj* i mówi dlaczego; gdy trwa tworzenie pozostałych kont (a hasła nie są generowane),
+można też wybrać *Zamknij i kontynuuj w tle* – powiadomienie mówi wtedy o kontach utworzonych po pierwszym.
 
 ## 8. Wyniki i hasła
 
