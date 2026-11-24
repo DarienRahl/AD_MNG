@@ -549,7 +549,11 @@ This is the plan; what was built is section 12.3 and it wins (the policy types a
   the completion state (matches, selection, the span to replace) and the "Enter runs or inserts a line" decision
   (`IsComplete`).
 - `PowerShellOutputDocument`: the scrollback as blocks (the echoed command, text runs with a stream and a colour, a prompt,
-  a run summary) with a bounded size (the oldest blocks are dropped; there is no file), and the DN recognition: a
+  a run summary) with a bounded size (the oldest blocks are dropped; there is no file; a line holds at most `MaxLineLength` =
+  8,000 characters and a longer text goes on in a new line - audit W-04: an open line grew without a limit and every piece of it
+  copied all its runs, joined its whole text and raised two changes, so 40,000 pieces of `Write-Host -NoNewline '.'` took 14 s
+  and the view rebuilt every inline per piece; a growing line now keeps a list and a `StringBuilder`, a piece of the same colours
+  joins the last run, and the line tells its change once per batch - 100,000 pieces take well under 3 s), and the DN recognition: a
   `DistinguishedName` is recognised in a text run with `DistinguishedName.TryParse` over candidates found by a regular
   expression anchored on `CN=`/`OU=`/`DC=`, and becomes a link (`OpenObjectCommand`).
 - **A place for the pending plan** (R2): a `PendingPlanState` property of the view model with its own area in the window

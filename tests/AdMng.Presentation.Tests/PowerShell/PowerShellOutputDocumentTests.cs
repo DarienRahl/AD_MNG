@@ -200,6 +200,93 @@ public sealed class PowerShellOutputDocumentTests
         Assert.True(watch.Elapsed < TimeSpan.FromSeconds(20), $"took {watch.Elapsed}");
     }
 
+    /// <summary>
+    /// Audit W-04: the progress idiom <c>Write-Host -NoNewline '.'</c> sends every dot as its own item. Each piece copied all runs of the
+    /// open line, joined its whole text again and raised two changes (and the view rebuilt every inline): 40,000 pieces took 14 s, and a
+    /// line had no maximum length. Now a piece of the same colour joins the last run, a batch is one change of the line, and a line ends
+    /// at <see cref="PowerShellOutputDocument.MaxLineLength"/> characters.
+    /// </summary>
+    [Fact]
+    public void AHundredThousandPiecesWithoutALineEnd_AreFast_OneColourIsOneRun_AndALineStopsAtItsMaximumLength()
+    {
+        var document = new PowerShellOutputDocument();
+        var watch = Stopwatch.StartNew();
+
+        for (var batch = 0; batch < 200; batch++)
+        {
+            document.Add([.. Enumerable.Range(0, 500).Select(_ => Text("."))]);
+        }
+
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(3), $"took {watch.Elapsed}");
+        Assert.Equal(100_000, document.Lines.Sum(line => line.Text.Length));
+        Assert.Equal((100_000 + PowerShellOutputDocument.MaxLineLength - 1) / PowerShellOutputDocument.MaxLineLength, document.Lines.Count);
+        Assert.All(document.Lines, line => Assert.InRange(line.Text.Length, 1, PowerShellOutputDocument.MaxLineLength));
+        Assert.All(document.Lines, line => Assert.Single(line.Runs));
+        Assert.True(document.Lines[^1].IsOpen);
+        Assert.All(document.Lines.SkipLast(1), line => Assert.False(line.IsOpen));
+    }
+
+    [Fact]
+    public void AGrowingLine_ChangesOncePerBatch_NotOncePerPiece()
+    {
+        var document = new PowerShellOutputDocument();
+        document.Add([Text("start ")]);
+        var line = document.Lines[0];
+        var changes = new List<string?>();
+        line.PropertyChanged += (_, e) => changes.Add(e.PropertyName);
+
+        document.Add([.. Enumerable.Range(0, 500).Select(i => Text(".", foreground: i % 2 == 0 ? ConsoleColor.Green : null))]);
+
+        Assert.Equal(1, changes.Count(name => name == nameof(PowerShellOutputLine.Runs)));
+        Assert.Equal(1, changes.Count(name => name == nameof(PowerShellOutputLine.Text)));
+        Assert.Equal("start " + new string('.', 500), line.Text);
+        Assert.Equal(501, line.Runs.Count);
+    }
+
+    [Fact]
+    public void PiecesOfOneColour_JoinTheLastRun_ButALinkStaysARunOfItsOwn()
+    {
+        var document = new PowerShellOutputDocument();
+
+        document.Add([Text("a"), Text("b"), Text("CN=Jan,DC=contoso,DC=test"), Text(" c"), Text("d", foreground: ConsoleColor.Red), Text("e", foreground: ConsoleColor.Red)]);
+
+        var runs = document.Lines[0].Runs;
+        Assert.Equal(["ab", "CN=Jan,DC=contoso,DC=test", " c", "de"], runs.Select(run => run.Text));
+        Assert.Equal([false, true, false, false], runs.Select(run => run.IsLink));
+        Assert.Equal([null, null, null, ConsoleColor.Red], runs.Select(run => run.Foreground));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void OneTextLongerThanTheMaximumLength_IsCutIntoLinesOfThatLength(bool endsLine)
+    {
+        var document = new PowerShellOutputDocument();
+        var length = (PowerShellOutputDocument.MaxLineLength * 2) + 100;
+
+        document.Add([Text(new string('x', length) + (endsLine ? "\n" : string.Empty)), Text("next\n")]);
+
+        Assert.Equal(
+            endsLine
+                ? [PowerShellOutputDocument.MaxLineLength, PowerShellOutputDocument.MaxLineLength, 100, 4]
+                : [PowerShellOutputDocument.MaxLineLength, PowerShellOutputDocument.MaxLineLength, 104],
+            document.Lines.Select(line => line.Text.Length));
+        Assert.All(document.Lines, line => Assert.False(line.IsOpen));
+        Assert.Equal(document.Lines.Count, document.OutputLinesWritten);
+    }
+
+    [Fact]
+    public void ACut_NeverSplitsACharacterOfTwoHalves()
+    {
+        var document = new PowerShellOutputDocument();
+        var text = new string('x', PowerShellOutputDocument.MaxLineLength - 1) + "😀" + "y";
+
+        document.Add([Text(text + "\n")]);
+
+        Assert.Equal(text, string.Concat(document.Lines.Select(line => line.Text)));
+        Assert.All(document.Lines, line => Assert.False(char.IsHighSurrogate(line.Text[^1])));
+    }
+
     [Fact]
     public void LineByLine_TheDocumentDoesNotCopyItsListForEveryLine()
     {

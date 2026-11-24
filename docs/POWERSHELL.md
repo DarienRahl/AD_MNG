@@ -181,7 +181,8 @@ otwiera pierwszą nazwę tego wiersza. Ucięta nazwa nie jest odnośnikiem.
 
 **Wiele wyników.** Wyniki przychodzą w miarę czytania: 100 000 obiektów nie blokuje okna, a **Zatrzymaj** (albo **Ctrl+C**)
 kończy odczyt na kontrolerze domeny. `Select-Object -First 50` kończy odczyt po 50 obiektach. Obszar wyników zachowuje ostatnie
-20 000 wierszy.
+20 000 wierszy, a wiersz ma najwyżej 8000 znaków – dłuższy tekst ciągnie się w następnym wierszu (także postęp pisany kropka po
+kropce przez `Write-Host -NoNewline`, który nie spowalnia okna).
 
 **`Out-AdmGrid`** otwiera obiekty potoku w **osobnym oknie** (każde wywołanie to nowe okno, jak `Out-GridView`; należy do okna
 połączenia i zamyka się razem z nim):
