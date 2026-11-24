@@ -22,10 +22,14 @@ namespace AdMng.PowerShell.Probe;
 internal static class ScriptBlockLoggingProbe
 {
     /// <summary>
-    /// The operator's lines, by name, in the order of the report. The first six are marked suspicious by
+    /// The operator's lines, by name, in the order of the report. The first seven are marked suspicious by
     /// <c>ScriptBlock.CheckSuspiciousContent</c>: a word of the engine's list ("Properties", <c>SuspiciousContentChecker.Match</c>),
     /// or a mark of the parser's <c>SemanticChecks</c> (<c>CheckMemberAccess</c>: a member name that is not a constant, a static
-    /// member of something that is not a type literal; <c>VisitTypeExpression</c>: the type <c>[type]</c>). The last two are not.
+    /// member of something that is not a type literal; <c>VisitTypeExpression</c>: the type <c>[type]</c>), or the last letters of
+    /// the text, read without what lies between them, spell a word of the list (<c>Match</c> hashes only letters and '-' and tests
+    /// every length at the end: "gracemit" ends in "Emit"). The last four are not - among them a word of the list with a digit
+    /// ("FromBase64String": a digit is never hashed, so such a word never matches) and an account name whose letters end in no
+    /// word of the list (the pilot's PW12). <c>Get-AdmUser</c> is a function of the probe that does nothing.
     /// </summary>
     public static IReadOnlyList<(string Name, string Line)> Lines { get; } =
     [
@@ -35,8 +39,11 @@ internal static class ScriptBlockLoggingProbe
         ("member-by-expandable-string", "$u = @{ mail = 'a' }; $n = 'mail'; $u.\"$n\""),
         ("static-member-through-variable", "$t = [datetime]; $t::Now"),
         ("type-type", "[type]"),
+        ("last-letters", "Get-AdmUser 'grace mit'"),
         ("ordinary", "$attributes = 'mail', 'department'"),
         ("members-by-constant-name", "$u = @{ mail = 'a' }; $u.mail; $u.'mail'; [datetime]::Now"),
+        ("word-with-digit", "$x = [Convert]::FromBase64String('eA==')"),
+        ("account-name", "Get-AdmUser jkowalski"),
     ];
 
     private const BindingFlags Internal = BindingFlags.NonPublic | BindingFlags.Instance;
@@ -63,7 +70,7 @@ internal static class ScriptBlockLoggingProbe
 
         // Each line is compiled as a script block of its own and run once (logging happens when a block starts), then the blocks
         // are the output.
-        var script = new StringBuilder();
+        var script = new StringBuilder("function Get-AdmUser { param($Identity) } ");
         for (var index = 0; index < Lines.Count; index++)
         {
             script.Append(CultureInfo.InvariantCulture, $"$b{index} = [scriptblock]::Create('{Lines[index].Line.Replace("'", "''", StringComparison.Ordinal)}'); $null = & $b{index}; ");
