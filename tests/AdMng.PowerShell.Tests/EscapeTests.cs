@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Management.Automation;
+using System.Text.RegularExpressions;
 using AdMng.Core.PowerShell;
 using AdMng.PowerShell.Guards;
 using AdMng.Testing;
@@ -175,17 +176,20 @@ public sealed class EscapeTests : IDisposable
         var result = await ChildProcess.RunAsync("parallel-job-children", folder.Home, folder.ReportPath);
 
         Assert.True(result.ExitCode == 0, "The process ended:\n" + result.Output + "\n" + result.Report);
-        Assert.Contains("later-child while-opening=Running\n", result.Report, StringComparison.Ordinal);
-        Assert.Contains("child-ends-at-stop at-stop=pool closed\n", result.Report, StringComparison.Ordinal);
+
+        // Each failure shows the whole report: what the probe saw in one case explains the other.
+        void Has(string pattern) => Assert.True(Regex.IsMatch(result.Report, pattern), "Not in the report: " + pattern + "\n" + result.Report);
+        Has("(?m)^later-child while-opening=Running$");
+        Has("(?m)^child-ends-at-stop at-stop=pool closed$");
         foreach (var name in new[] { "later-child", "child-ends-at-stop" })
         {
-            Assert.Contains(name + " ended=True\n" + name + " written=False\n", result.Report, StringComparison.Ordinal);
+            Has("(?m)^" + name + " ended=True\n" + name + " written=False$");
         }
 
         // The two children that ran are stopped (Failed when the stop met the load of Start-Sleep's module); the third never started.
-        Assert.Matches(@"(?m)^later-child children=(Stopped|Failed),(Stopped|Failed),NotStarted$", result.Report);
-        Assert.Contains("child-ends-at-stop children=Completed,NotStarted,NotStarted\n", result.Report, StringComparison.Ordinal);
-        Assert.EndsWith("survived\ndone\n", result.Report, StringComparison.Ordinal);
+        Has("(?m)^later-child children=(Stopped|Failed),(Stopped|Failed),NotStarted$");
+        Has("(?m)^child-ends-at-stop children=Completed,NotStarted,NotStarted$");
+        Has("survived\ndone\n\\z");
     }
 
     /// <summary>

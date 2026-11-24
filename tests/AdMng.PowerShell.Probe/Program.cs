@@ -345,7 +345,7 @@ internal static class Program
             {
                 // The window stops the job on a pool thread once the run has ended; the first child ends during that stop.
                 await WaitForJobAsync(job, Finished, TimeSpan.FromSeconds(30), time);
-                await File.AppendAllTextAsync(report, name + " at-stop=" + ParallelJobChild.AtStop + "\n");
+                await File.AppendAllTextAsync(report, name + " at-stop=" + ParallelJobChild.AtStop(TimeSpan.FromSeconds(30)) + "\n");
             }
             else
             {
