@@ -89,6 +89,27 @@ public sealed class ErrorsDisplayAndCompletionTests
         Assert.Equal(["1", "AdmObjectNotFound"], result.Objects.Select(o => o.ToString()).ToArray());
     }
 
+    /// <summary>
+    /// Audit ps-commands-7: the message says it is shown once, but it was shown once per identity - 5,000 members piped into Get-AdmUser
+    /// made 5,000 such errors. It is shown once per command, whether the identities come as a list or through the pipeline.
+    /// </summary>
+    [Theory]
+    [InlineData("Get-AdmUser -Identity '{0}','{1}'")]
+    [InlineData("'{0}','{1}' | Get-AdmUser")]
+    [InlineData("'{0}','{1}' | Get-AdmObject")]
+    public async Task A_hidden_mandatory_attribute_is_reported_once_per_command_not_once_per_identity(string script)
+    {
+        await using var harness = await ReadHarness.CreateAsync();
+        harness.Directory.HideAttributes(harness.Company.JanKowalski, "sAMAccountName");
+        harness.Directory.HideAttributes(harness.Company.LukaszWisniewski, "sAMAccountName");
+        var command = string.Format(System.Globalization.CultureInfo.InvariantCulture, script, harness.Company.JanKowalski, harness.Company.LukaszWisniewski);
+
+        var result = await harness.RunAsync(command + " -ErrorVariable e -ErrorAction SilentlyContinue; $e.Count");
+
+        Assert.Equal(2, result.Objects.Count(o => o.Properties["DistinguishedName"] is not null));
+        Assert.Equal("1", result.Objects[^1].ToString());
+    }
+
     [Fact]
     public async Task A_mandatory_attribute_the_account_may_not_read_is_reported_once_with_its_name_and_the_objects_still_arrive()
     {

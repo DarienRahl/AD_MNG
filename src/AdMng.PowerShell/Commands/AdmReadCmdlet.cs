@@ -15,6 +15,11 @@ namespace AdMng.PowerShell.Commands;
 /// </summary>
 public abstract class AdmReadCmdlet : AdmCmdlet
 {
+    // One per command invocation, not per read (audit ps-commands-7): the "shown once" message of a hidden attribute was shown once per
+    // identity, and the projector's cache of mandatory attributes was made again for every one.
+    private readonly HashSet<string> _reportedHidden = new(StringComparer.OrdinalIgnoreCase);
+    private AdmObjectProjector? _projector;
+
     /// <summary>Attributes to return besides the defaults of the command; <c>*</c> returns everything the account may read.</summary>
     [Parameter]
     [ArgumentCompleter(typeof(AdmAttributeCompleter))]
@@ -51,8 +56,8 @@ public abstract class AdmReadCmdlet : AdmCmdlet
     /// </summary>
     private protected AdmReadResult Stream(IAdmWindowContext context, IAsyncEnumerable<DirectoryObject> source, AdmProjection projection, string? target, bool missingBaseIsAnError = true)
     {
-        var projector = new AdmObjectProjector(context.Reader, context.KnownContainers);
-        var reported = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var projector = _projector ??= new AdmObjectProjector(context.Reader, context.KnownContainers);
+        var reported = _reportedHidden;
         var written = 0;
         try
         {
