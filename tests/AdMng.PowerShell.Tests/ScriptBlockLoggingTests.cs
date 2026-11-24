@@ -3,21 +3,20 @@ namespace AdMng.PowerShell.Tests;
 /// <summary>
 /// What the engine writes of the window's commands to its event log (decision D-B, audit PS-04), with the real engine in child
 /// processes (the setting is read once per process), each with its own all-users and user's <c>powershell.config.json</c>.
-/// <c>System.Management.Automation</c> 7.6.10: <c>PerformSecurityChecks</c> (<c>CompiledScriptBlock.cs</c>) marks a script block
-/// when it is compiled if <c>ScriptBlock.CheckSuspiciousContent</c> finds anything, and that check has two parts - its text holds a
-/// word of the engine's list (<c>SuspiciousContentChecker.Match</c>: "Properties", "Add-Type", "EncodedCommand", "GetMethod"…,
-/// also inside a longer word - <c>Get-AdmUser jmarshall</c> holds "Marshal"; <c>Match</c> hashes only letters and '-', and any
-/// other character ends the run it tests while it reads, so the five words of the list with a digit, "FromBase64String" among
-/// them, never match; it tests every length once more at the end, so the last letters of the text, read without what lies between
-/// them, count too - <c>Get-AdmUser 'grace mit'</c> ends in "Emit"), or the parser marked it
-/// (<c>Ast.HasSuspiciousContent</c>, set on every parse by <c>SemanticChecks</c>: a member whose name is not a constant -
-/// <c>$u.$a</c>, <c>$u.('mail')</c>, <c>$u."$n"</c> -, a static member of something that is not a type literal - <c>$t::Now</c> -,
-/// and the type <c>[type]</c> itself). <c>LogScriptBlockStart</c> then logs a marked block with <c>force</c>, and
-/// <c>LogScriptBlockCreation</c> writes it unless the setting says <c>EnableScriptBlockLogging == false</c> - as a warning, event
-/// 4104 (<c>WriteScriptBlockToLog</c>); any other block is written only when the setting says <c>true</c>. So with nothing set the engine logs the marked lines on its own (an operator's
-/// <c>foreach ($a in 'mail', 'department') { $u.$a }</c> among them), a file that sets the switch to false - the program's own
-/// file did until D-B - silences even those, a user's own file that sets it to true makes every line logged, and the program's
-/// file, which has no section, leaves all of it to Group Policy and the user's file, as in a plain pwsh.
+/// <c>System.Management.Automation</c> 7.6.10 (<c>docs/dev/r1-powershell-window.md</c>, 4.2): <c>PerformSecurityChecks</c>
+/// (<c>CompiledScriptBlock.cs</c>) marks a script block when it is compiled if <c>ScriptBlock.CheckSuspiciousContent</c> finds
+/// anything - <c>SuspiciousContentChecker.Match</c> met the hash of a word of the engine's list ("Properties"; "Marshal" inside
+/// <c>Get-AdmUser jmarshall</c>; "Emit" in the last letters of <c>Get-AdmUser 'grace mit'</c>, read across the space and the
+/// quotes), or the parser marked the AST (<c>Ast.HasSuspiciousContent</c>, set on every parse by <c>SemanticChecks</c>: a member
+/// whose name is not a constant - <c>$u.$a</c>, <c>$u.('mail')</c>, <c>$u."$n"</c> -, a static member of something that is not a
+/// type literal - <c>$t::Now</c> -, and the type <c>[type]</c> itself). <c>LogScriptBlockStart</c> then logs a marked block with
+/// <c>force</c>, and <c>LogScriptBlockCreation</c> writes it unless the setting says <c>EnableScriptBlockLogging == false</c> - as a
+/// warning, event 4104 (<c>WriteScriptBlockToLog</c>); any other block is written only when the setting says <c>true</c>. So with
+/// nothing set the engine logs the marked lines on its own (an operator's <c>foreach ($a in 'mail', 'department') { $u.$a }</c>
+/// among them) and, of these twelve lines, not the other four; a file that sets the switch to false - the program's own file did
+/// until D-B - silences even the marked ones, a user's own file that sets it to true makes every line logged, and the program's
+/// file, which has no section, leaves all of it to Group Policy and the user's file. That the engine does not mark the four says
+/// nothing of other lines: which lines it marks is its own choice.
 /// </summary>
 public sealed class ScriptBlockLoggingTests
 {
@@ -27,8 +26,8 @@ public sealed class ScriptBlockLoggingTests
          "word-inside-name"];
 
     /// <summary>
-    /// The probe's ordinary lines: no word of the list, members by constant names, a static member of a type literal, a word of the
-    /// list with a digit, an account name for which the line's letters hold no word of the list anywhere.
+    /// The probe's lines the engine does not mark: no word of the list, members by constant names and a static member of a type
+    /// literal, a word of the list with a digit (never found as it is written: <c>Match</c> skips digits), an ordinary account name.
     /// </summary>
     private static readonly string[] Ordinary = ["ordinary", "members-by-constant-name", "word-with-digit", "account-name"];
 
@@ -75,8 +74,8 @@ public sealed class ScriptBlockLoggingTests
             Assert.SkipUnless(results[0].Report.StartsWith("setting=null\n", StringComparison.Ordinal), "This machine sets script block logging itself:\n" + results[0].Report);
         }
 
-        // Nothing sets it: the engine logs the marked script blocks on its own - a word of its list and the parser's marks alike -
-        // and no ordinary one.
+        // Nothing sets it: the engine logs the script blocks it marks on its own - by its word list and by the parser's marks alike -
+        // and not the four it does not mark.
         Assert.Equal(Report("null", suspicious: "logged", ordinary: "skipped"), results[0].Report);
 
         // The program's file sets nothing of it: the same as no file.

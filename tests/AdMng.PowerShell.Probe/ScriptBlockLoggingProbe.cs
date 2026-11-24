@@ -22,16 +22,14 @@ namespace AdMng.PowerShell.Probe;
 internal static class ScriptBlockLoggingProbe
 {
     /// <summary>
-    /// The operator's lines, by name, in the order of the report. The first eight are marked suspicious by
-    /// <c>ScriptBlock.CheckSuspiciousContent</c>: a word of the engine's list inside one run of letters and '-'
-    /// (<c>SuspiciousContentChecker.Match</c> while it reads: "Properties", and "Marshal" inside the account name "jmarshall"), or a
-    /// mark of the parser's <c>SemanticChecks</c> (<c>CheckMemberAccess</c>: a member name that is not a constant, a static member
-    /// of something that is not a type literal; <c>VisitTypeExpression</c>: the type <c>[type]</c>), or the last letters of the
-    /// text, read without what lies between them, spell a word of the list (<c>Match</c> hashes only letters and '-' and tests
-    /// every length once more at the end: "gracemit" ends in "Emit"). The last four are not - among them a word of the list with a
-    /// digit ("FromBase64String": a digit is never hashed, so such a word never matches) and a line whose letters hold no word of
-    /// the list anywhere (the pilot's PW12, "get-admuserjkowalski"). <c>Get-AdmUser</c> is a function of the probe that does
-    /// nothing.
+    /// The operator's lines, by name, in the order of the report. The engine marks the first eight as suspicious
+    /// (<c>ScriptBlock.CheckSuspiciousContent</c>, <c>docs/dev/r1-powershell-window.md</c> 4.2): <c>SuspiciousContentChecker.Match</c>
+    /// meets the hash of a word of its list ("Properties"; "Marshal" inside the account name "jmarshall"; "Emit" in the last letters
+    /// of "Get-AdmUser 'grace mit'", read across the space and the quotes - <c>Match</c> hashes only the ASCII letters and '-'), or
+    /// the parser's <c>SemanticChecks</c> marks the AST (<c>CheckMemberAccess</c>: a member name that is not a constant, a static
+    /// member of something that is not a type literal; <c>VisitTypeExpression</c>: the type <c>[type]</c>). It does not mark the last
+    /// four - among them a word of the list with a digit ("FromBase64String": <c>Match</c> skips digits, so such a word is never
+    /// found as it is written) and an ordinary account name. <c>Get-AdmUser</c> is a function of the probe that does nothing.
     /// </summary>
     public static IReadOnlyList<(string Name, string Line)> Lines { get; } =
     [

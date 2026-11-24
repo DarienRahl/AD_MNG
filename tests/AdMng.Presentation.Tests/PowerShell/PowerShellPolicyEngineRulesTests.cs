@@ -63,7 +63,7 @@ public sealed class PowerShellPolicyEngineRulesTests
     }
 
     [Fact]
-    public void AUsersFile_TurnsOnScriptBlockLoggingAsInAPlainPwsh_ButNotTheTranscriptionOrTheModuleLogging()
+    public void AUsersFile_TurnsOnScriptBlockLogging_ButNotTheTranscriptionOrTheModuleLogging()
     {
         var policies = Read(new FakePowerShellPolicySource().SetFile(Computer, ShippedFile).SetFile(User, UserFileThatRecords));
 

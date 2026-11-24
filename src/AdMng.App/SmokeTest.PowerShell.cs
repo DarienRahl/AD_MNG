@@ -119,7 +119,7 @@ internal static partial class SmokeTest
     /// The policy note's reads on this machine (audit W-12: the published program never ran them): they must not throw, and in the
     /// single file the program's <c>powershell.config.json</c> decides the transcription and the module logging that no Group Policy
     /// sets, also over a user's file that turns them on (simulated in memory, nothing is written), and never script block logging
-    /// (decision D-B: Group Policy, then the user's file, decide it as in a plain pwsh). Returns whether anything records (no path, no value).
+    /// (decision D-B: Group Policy, then the user's file, decide it). Returns whether anything records (no path, no value).
     /// </summary>
     private static bool CheckPolicies()
     {
