@@ -4991,7 +4991,11 @@ releases.
   - *The rule.* A status of the kind Working that arrives while the line shows anything else - the summary, nothing, or a result - is
     held for the delay. The line keeps showing what it showed; if the operation ends first (a result, the summary, nothing), the line goes
     straight to that and the working look is never shown: not the kind, not `IsWorking`, not the ring, no announcement (asserted by
-    recording every change of `Kind`, `IsWorking` and the ring). A second Working status during the delay (a new count, a new text) only
+    recording every change of `Kind`, `IsWorking` and the ring). What it ended as is a new message - the entrance and the announcement -
+    unless it is the summary, also when it is the same message as the one shown: a Retry that fails the same way within the delay, "Saved
+    1 object." twice, a state that lasts and is back (audit ACV-1: as first built, such a result was "the same message", so the operator
+    neither saw nor heard that the operation ran - before the delay, the Working look in between made it new). The summary stays quiet,
+    as a summary that changed is told after its quiet time. A second Working status during the delay (a new count, a new text) only
     replaces the first; the delay runs on from the first moment, it is not restarted. A Working status that is already shown is not
     delayed again by a new message, another stage or "Stopping…" (they are shown at once); the next operation, after anything that is
     not Working, is delayed again.
@@ -5027,11 +5031,14 @@ releases.
     `await` in between: this was the only one).
   - *New tests.* `StatusFlowTests` (17, pure logic, they run on Linux too - proved through a scratch project that compiled the same files):
     the delay at the millisecond (149 ms not yet, 150 ms shown), an operation that ends within it as a result or as the summary, two
-    Working statuses, the stages of a shown operation, the operation after a result, no token, `Cancel`. `StatusLineTimingUiTests`:
-    the same through the real control and its parts, the empty band and the content under it at each step, the entrance of the working
-    look (motion on) played when it is shown and not before, and one test over the **real clock** with a held operation: the model is
-    Working and the line is not at the same turn of the dispatcher, the line is Working a moment later and stays so, and an operation that
-    ends in the same turn never shows it.
+    Working statuses, the stages of a shown operation, the operation after a result, no token, `Cancel`; with the fix of ACV-1 five
+    more (22): an error, a done and an attention that end an operation within the delay as the message shown, a state that lasts and is
+    back as the same object, and the same message without an operation in between or as the summary, which stay quiet.
+    `StatusLineTimingUiTests`: the same through the real control and its parts, the empty band and the content under it at each step, the
+    entrance of the working look (motion on) played when it is shown and not before, the same error after a Retry within the delay entering
+    (motion on) and told again, assertively, and "done" twice told again, politely (ACV-1; run by the Windows job), and one test over the
+    **real clock** with a held operation: the model is Working and the line is not at the same turn of the dispatcher, the line is Working
+    a moment later and stays so, and an operation that ends in the same turn never shows it.
 - **The announcement of a summary (decision 2, unit 2).** A summary whose text changes while the page stays as it is - the count of a
   search, a number of rows, a selection - is announced to a screen reader politely, once, after a quiet time.
   - *The rule* (`StatusFlow`, token `Motion.SummaryThrottle`, 800 ms, also in `Motion.xaml`). When the line shows a summary and the page says

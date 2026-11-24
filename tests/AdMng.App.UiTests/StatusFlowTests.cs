@@ -21,6 +21,14 @@ public sealed class StatusFlowTests
 
     private static PageStatus Done(string text = "Done.") => PageStatus.Done(text, Finished);
 
+    /// <summary>A new result of the kind, always the same message ("Saved 1 object.", "Could not read “Kraków”: …").</summary>
+    private static PageStatus Result(PageStatusKind kind) => kind switch
+    {
+        PageStatusKind.Done => PageStatus.Done("Saved 1 object.", new PageStatusLog("Test.Saved", 1)),
+        PageStatusKind.Attention => PageStatus.Attention("Skipped 3 of 15 accounts: no right to write.", new PageStatusLog("Test.Skipped", 3, 15)),
+        _ => PageStatus.Error("Could not read “Kraków”: the domain controller is not available. (LDAP 81)", new PageStatusLog("Test.ReadFailed")),
+    };
+
     // ---- The delay before "Working" -------------------------------------------------------------------------------
 
     [Fact]
@@ -75,6 +83,72 @@ public sealed class StatusFlowTests
         h.Clock.Advance(5000);
         Assert.Single(h.Shows);
         Assert.DoesNotContain(h.Shows, s => s.Status.IsWorking);
+    }
+
+    [Theory]
+    [InlineData(PageStatusKind.Error, 20)]
+    [InlineData(PageStatusKind.Done, 40)]
+    [InlineData(PageStatusKind.Attention, 149)]
+    public void AnOperationThatEndsWithinTheDelay_AsTheResultTheLineShows_SaysItAgainAsANewMessage(PageStatusKind kind, int after)
+    {
+        // Retry of a read that fails the same way, a second save of one object: the operator must see and hear that it
+        // ran, though the working look never showed and the result is the same message as the one on the line.
+        var h = new Harness();
+        h.Flow.Set(Result(kind));
+        h.Shows.Clear();
+
+        h.Flow.Set(Working());
+        h.Clock.Advance(after);
+        h.Flow.Set(Result(kind));
+
+        var shown = Assert.Single(h.Shows);
+        Assert.Equal(kind, shown.Status.Kind);
+        Assert.True(shown.IsNew);
+        Assert.True(shown.NameNow);
+        Assert.False(h.Flow.IsWaiting);
+        Assert.Equal(0, h.Clock.Pending);
+        h.Clock.Advance(5000);
+        Assert.Single(h.Shows);
+        Assert.DoesNotContain(h.Shows, s => s.Status.IsWorking);
+    }
+
+    [Fact]
+    public void AStateThatLasts_AndIsBackWhenAnOperationEndedWithinTheDelay_IsSaidAgainAsANewMessage()
+    {
+        // The page's state that lasts is the very same object when the operation ended without a message of its own.
+        var h = new Harness();
+        var state = PageStatus.Error("Could not read the folder.", Finished, canClose: false);
+        h.Flow.Set(state);
+        h.Shows.Clear();
+
+        h.Flow.Set(Working());
+        h.Clock.Advance(30);
+        h.Flow.Set(state);
+
+        var shown = Assert.Single(h.Shows);
+        Assert.Same(state, shown.Status);
+        Assert.True(shown.IsNew);
+    }
+
+    [Fact]
+    public void TheSameMessage_WithoutAnOperationInBetween_OrAsTheSummary_StaysQuiet()
+    {
+        // A page that computes its result anew: the same message, nothing ran - no entrance, no announcement.
+        var h = new Harness();
+        h.Flow.Set(Result(PageStatusKind.Error));
+        h.Shows.Clear();
+        h.Flow.Set(Result(PageStatusKind.Error));
+        Assert.False(Assert.Single(h.Shows).IsNew);
+
+        // A read that ends within the delay as the summary it had: the summary is not a result, it stays quiet.
+        h.Flow.Set(PageStatus.Idle("12 objects"));
+        h.Shows.Clear();
+        h.Flow.Set(Working());
+        h.Clock.Advance(40);
+        h.Flow.Set(PageStatus.Idle("12 objects"));
+        Assert.False(Assert.Single(h.Shows).IsNew);
+        h.Clock.Advance(5000);
+        Assert.Equal(0, h.Announcements);
     }
 
     [Fact]

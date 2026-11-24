@@ -23,12 +23,13 @@ się nie zmienia, a zapisy do katalogu nadal idą wyłącznie przez plan zmian z
   postępu pojawia się dopiero po około 0,15 s od początku operacji: operacja, która kończy się od razu (np. odczyt jednej
   zakładki właściwości albo przygotowanie zmian przed podglądem), nie miga już wierszem stanu. Do tego czasu wiersz
   pokazuje to, co pokazywał – a pusty zostaje pustym paskiem, więc zawartość pod nim się nie przesuwa; przycisk, którym
-  uruchomiono operację, zmienia się na *Anuluj* od razu. Zmieniająca się liczba w podsumowaniu strony – np. liczba
-  ustawień znalezionych w wyszukiwarce ustawień zasad grupy – jest odczytywana przez czytnik ekranu uprzejmie (bez
-  przerywania mowy) i tylko raz, około 0,8 s po ostatniej zmianie, a nie po każdym wpisanym znaku; nie jest odczytywana,
-  gdy okno nie jest aktywne ani gdy strona nie jest na wierzchu, i nie jest odczytywane pierwsze podsumowanie otwartej
-  strony. Uwaga o replikacji w wynikach kreatora zakładania kont jest informacją, więc ma ikonę informacji zamiast
-  ostrzeżenia (kolor uwagi bez zmian).
+  uruchomiono operację, zmienia się na *Anuluj* od razu. Wynik takiej szybkiej operacji pojawia się i jest odczytywany jak
+  każdy nowy wynik, także wtedy, gdy brzmi tak samo jak poprzedni (np. *Ponów*, które znów się nie udało), więc zawsze
+  widać i słychać, że operacja się odbyła. Zmieniająca się liczba w podsumowaniu strony – np. liczba ustawień znalezionych
+  w wyszukiwarce ustawień zasad grupy – jest odczytywana przez czytnik ekranu uprzejmie (bez przerywania mowy) i tylko raz,
+  około 0,8 s po ostatniej zmianie, a nie po każdym wpisanym znaku; nie jest odczytywana, gdy okno nie jest aktywne ani gdy
+  strona nie jest na wierzchu, i nie jest odczytywane pierwsze podsumowanie otwartej strony. Uwaga o replikacji w wynikach
+  kreatora zakładania kont jest informacją, więc ma ikonę informacji zamiast ostrzeżenia (kolor uwagi bez zmian).
 - **Puste listy mówią, dlaczego są puste, i podpowiadają następny krok; pierwszy odczyt pokazuje szare wiersze zastępcze;
   wyniki sprawdzeń są plakietkami.** Lista obiektów (okno główne i okno *Znajdź*), lista obiektów zasad grupy i lista
   szablonów certyfikatów, które zostały odczytane i nie mają wierszy, pokazują duży obrazek, jedno zdanie i jedno
