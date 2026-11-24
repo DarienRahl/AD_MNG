@@ -339,10 +339,11 @@ public sealed class MainWindowTests
     });
 
     [Fact]
-    public Task MainWindow_ClosingWhileAnOperationRuns_AsksAfterTheClosingEvent_ThenCloses() => WpfTestHost.RunAsync(async () =>
+    public Task MainWindow_ClosingWhileAnOperationRuns_AsksAfterTheClosingEvent_StopsIt_ThenCloses() => WpfTestHost.RunAsync(async () =>
     {
         // Close() inside the Closing event throws in WPF: the question and the second Close() must come after it.
-        var dialogs = new ScriptedDialogService { ConfirmAnswer = true };
+        var dialogs = new ScriptedDialogService();
+        dialogs.CloseAnswers.Enqueue(CloseAnswer.StopAndClose);
         await using var context = await UiTestContext.CreateAsync(
             configure: services => services.Replace(ServiceDescriptor.Singleton<IDialogService>(dialogs)));
         var window = context.Services.GetRequiredService<MainWindow>();
@@ -360,19 +361,20 @@ public sealed class MainWindowTests
         Assert.True(window.IsVisible);
         await UiTestSupport.WaitForIdleAsync();
 
-        Assert.Single(dialogs.Confirmations);
-        Assert.False(window.IsVisible);
-        activity.CancelCommand.Execute(null);
+        // One question, about the operation of the connection; Stop and close stops it and the window closes once it ended.
+        Assert.False(Assert.Single(dialogs.CloseQuestions).CanContinue);
+        Assert.True(activity.IsCancelling);
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => execution);
         await activity.Completion;
-        await UiTestSupport.WaitForIdleAsync();
+        await UiWait.UntilAsync(() => !window.IsVisible, "the window closed after the operation ended");
+        Assert.Empty(dialogs.Confirmations);
         context.AssertHealthy();
     });
 
     [Fact]
     public Task MainWindow_ClosingWhileAnOperationRuns_StaysOpenWhenDeclined() => WpfTestHost.RunAsync(async () =>
     {
-        var dialogs = new ScriptedDialogService { ConfirmAnswer = false };
+        var dialogs = new ScriptedDialogService();
         await using var context = await UiTestContext.CreateAsync(
             configure: services => services.Replace(ServiceDescriptor.Singleton<IDialogService>(dialogs)));
         var window = context.Services.GetRequiredService<MainWindow>();
@@ -385,13 +387,15 @@ public sealed class MainWindowTests
         });
         await UiTestSupport.WaitForIdleAsync();
 
+        // Don't close (also when nothing is queued), twice: the window stays and the operation runs on.
         window.Close();
         await UiTestSupport.WaitForIdleAsync();
         window.Close();
         await UiTestSupport.WaitForIdleAsync();
 
-        Assert.Equal(2, dialogs.Confirmations.Count);
+        Assert.Equal(2, dialogs.CloseQuestions.Count);
         Assert.True(window.IsVisible);
+        Assert.False(activity.IsCancelling);
         activity.CancelCommand.Execute(null);
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => execution);
         await activity.Completion;

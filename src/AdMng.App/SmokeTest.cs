@@ -195,6 +195,7 @@ internal static partial class SmokeTest
         var dialog = windows.CreateWindow(MessageDialogViewModel.TypedConfirmation(
             localizer[L.Commands.Delete], localizer.Format(L.Delete.ConfirmMany, 3, "contoso.test"), "3", localizer));
         UiTestSupport.ShowOffScreen(dialog);
+        RenderCloseQuestions(windows, localizer);
 
         var editor = windows.CreateWindow(services.GetRequiredService<SavedViewEditorViewModel>());
         UiTestSupport.ShowOffScreen(editor);
@@ -223,6 +224,33 @@ internal static partial class SmokeTest
         await UiTestSupport.WaitForIdleAsync(rounds: 2).ConfigureAwait(true);
         UiTestSupport.CloseAllWindows();
         await UiTestSupport.WaitForIdleAsync(rounds: 2).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// The close question of a window that executes changes (the owner's decision D-A): with three answers, and with two and
+    /// the reason why the execution cannot go on without the window. Enter and Esc keep the window; Stop is destructive.
+    /// </summary>
+    private static void RenderCloseQuestions(IWindowService windows, ILocalizer localizer)
+    {
+        var running = localizer.Format(
+            L.ChangeStatus.Executing, localizer[L.Commands.ResetPassword].TrimEnd('.', '…'), "contoso.test", Presentation.Feedback.PageStatusText.Progress(localizer, 12, 300));
+        var questions = new (string Message, bool CanContinue)[]
+        {
+            (localizer.Format(L.CloseWork.Changes, running), true),
+            ($"{localizer.Format(L.CloseWork.StopChanges, running)}\n\n{localizer[L.CloseWork.NoBackgroundPasswords]}", false),
+        };
+        foreach (var (message, canContinue) in questions)
+        {
+            var question = (MessageDialogWindow)windows.CreateWindow(MessageDialogViewModel.CloseQuestion(localizer[L.Commands.ResetPassword], message, canContinue, localizer));
+            UiTestSupport.ShowOffScreen(question);
+            if ((question.ContinueButton.Visibility == System.Windows.Visibility.Visible) != canContinue
+                || !question.CancelButton.IsDefault || !question.CancelButton.IsCancel
+                || !Equals(question.CancelButton.Content, localizer[L.CloseWork.KeepOpen])
+                || !Equals(question.ConfirmButton.Content, localizer[L.CloseWork.StopAndClose]))
+            {
+                throw new InvalidOperationException($"The close question with {(canContinue ? 3 : 2)} answers has the wrong buttons.");
+            }
+        }
     }
 
     /// <summary>The main window of another connection scope and the connect window of a new connection.</summary>
