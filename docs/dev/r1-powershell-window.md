@@ -849,6 +849,12 @@ has the picture.
 **Checks at the end of R1.** `dotnet build AdMng.slnx -c Release`: 0 warnings, 0 errors. `dotnet test` of `AdMng.PowerShell.Tests`, `AdMng.Presentation.Tests` and `AdMng.Core.Tests`: all pass (numbers above).
 `tools/release/release.sh check`, `python3 tools/icon/build-icon-set.py --check` and `python3 tools/docs/check_docs.py`: OK. The last Windows CI run before part 5 (run 43927187726, head `75b100af`) was green on every job, including
 the published-app smoke test that starts the engine and the two CI steps that check the published layout (no `sni*.dll`, the config and help files present) and the Watchdog package (no engine).
+*After the audit (W-12, DLR-3):* the smoke test asserted neither `$PSHOME` nor which config file is in effect, never ran the policy reads, and `release.yml` had none of the two layout checks while
+its zip takes only the top-level files of the publish folder (no `runtimes\` sub folders) - a layout no test ran. Now the smoke test asserts that `$PSHOME` is the folder the program reads the
+engine's configuration from (`PowerShellEnvironment.EngineHome`) and, in the single file, the folder of `AdMng.exe` with its `powershell.config.json`; it reads the policies once with
+`WindowsPowerShellPolicySource` (must not throw) and, over a user's file simulated in memory that turns the three logs on, the program's file must decide each of them unless a Group Policy
+does. `release.yml` runs the layout check after the publish, smoke-tests the **unpacked zip** (with the layout check of the files that ship) and checks the `admng-watchdog` .deb for the engine;
+the CI's Linux package job runs that .deb check too. `IPowerShellWindowActions` is in the per-connection list of `HostTests`. The release workflow was not run (release 0.16.0 is on hold).
 
 **What could not be verified, and why it should still be right.**
 

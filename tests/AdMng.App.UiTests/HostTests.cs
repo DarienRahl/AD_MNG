@@ -114,6 +114,7 @@ public sealed class HostTests
         typeof(Presentation.GroupPolicy.IGroupPolicyDialogs),
         typeof(Presentation.Correspondence.ICorrespondenceDialogs),
         typeof(Presentation.Correspondence.ICorrespondenceLauncher),
+        typeof(Presentation.PowerShell.IPowerShellWindowActions),
     ];
 
     [Fact]

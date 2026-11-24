@@ -421,6 +421,15 @@ jobs:
           merge-multiple: true
       - name: Build admng-watchdog .deb
         run: tools/packaging/build-deb.sh --output artifacts/deb
+      - name: The Watchdog package has no PowerShell engine (.deb)
+        # Track R (ADR-0010), as the step on the Windows publish of the service above: the service ships as this .deb, and the release
+        # workflow runs the same check before it publishes one.
+        run: |
+          deb=$(ls artifacts/deb/admng-watchdog_*_amd64.deb)
+          if dpkg-deb -c "$deb" | grep -F 'System.Management.Automation'; then
+            echo "::error::$deb contains the PowerShell engine (ADR-0010)."
+            exit 1
+          fi
       - name: Install test on Debian 12 and 13
         # Users, modes, credential, certificate, idempotent postinst, systemd-analyze verify + security (exposure <= 2.0),
         # nft -c of the example ruleset, --check-config (placeholders fail, real SIDs pass), --smoke-test as

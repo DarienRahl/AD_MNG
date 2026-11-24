@@ -188,10 +188,12 @@ Wynik części 4 R1, sprawdzony w CI na Windows (krok „Smoke test published ap
 - **Obok `AdMng.exe` trafiają tylko pliki, których .NET nie umieszcza w pliku:** natywne biblioteki silnika (`pwrshplugin.dll`,
   `PowerShell.Core.Instrumentation.dll`, `getfilesiginforedist.dll`, `microsoft.management.infrastructure.native.unmanaged.dll`),
   `build.manifest(.sig)`, manifesty modułów (`runtimes/*/lib/net10.0/Modules`; nic ich nie ładuje – domyślny stan sesji wiąże polecenia
-  bezpośrednio), pomoc poleceń (`AdMng.PowerShell.dll-Help.xml`, wskazywana przez `AppContext.BaseDirectory`, bo w jednym pliku
+  bezpośrednio; archiwum wydania bierze tylko pliki z głównego folderu publikacji, więc nie ma ich wcale, a przepływ wydania
+  uruchamia test dymny na rozpakowanym archiwum), pomoc poleceń (`AdMng.PowerShell.dll-Help.xml`, wskazywana przez `AppContext.BaseDirectory`, bo w jednym pliku
   `Assembly.Location` jest pusty) i **`powershell.config.json`**: wyłącza transkrypcję, rejestrowanie bloków skryptów i modułów oraz
   warstwę zgodności z Windows PowerShell 5.1. Silnik czyta go z `$PSHOME`, a ustawienie w nim wygrywa z tym samym ustawieniem w pliku
-  użytkownika (sprawdzone na Linuksie w części 1); zasady komputera (GPO) mają pierwszeństwo przed oboma, a okno mówi o nich przed
+  użytkownika (sprawdzone na Linuksie w części 1 i testem dymnym opublikowanego pliku, który sprawdza też, że `$PSHOME` to folder
+  `AdMng.exe`); zasady komputera (GPO) mają pierwszeństwo przed oboma, a okno mówi o nich przed
   pierwszym poleceniem.
 - **Rozmiar** (MB = 10^6 bajtów; to samo polecenie publikacji co w CI, `-r win-x64 --self-contained -p:PublishSingleFile=true`,
   uruchomione na Linuksie dla commitu 0.16.0 i dla czoła R1; CI wypisuje te same 173,5 jako „MB”, a to MiB). `AdMng.exe` (jeden

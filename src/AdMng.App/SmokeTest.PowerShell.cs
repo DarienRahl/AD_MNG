@@ -1,6 +1,8 @@
 using System.Globalization;
+using System.IO;
 using System.Text;
 using AdMng.App.Infrastructure;
+using AdMng.App.PowerShell;
 using AdMng.App.Services;
 using AdMng.Core.PowerShell;
 using AdMng.PowerShell;
@@ -22,8 +24,9 @@ internal static partial class SmokeTest
     /// ForEach-Object (without -Parallel) works, a regular expression that backtracks ends with an error (the time limit that
     /// <c>ProcessStart</c> sets before the first regular expression of the process) and a timer the trusted mode leaves behind does not
     /// end the program when it fires after its window closed. No directory is involved: the commands that need one are covered by the UI tests.
-    /// What it found goes to the report (the version, <c>$PSHOME</c>, the time of the first runspace), so that the log of a CI run says
-    /// how the single-file layout behaves.
+    /// <c>$PSHOME</c> is the folder the program reads the engine's configuration from - in the single file the program's folder with its
+    /// <c>powershell.config.json</c> - and the policy note's reads run once on the machine. What it found goes to the report (the version,
+    /// <c>$PSHOME</c>, the time of the first runspace), so that the log of a CI run says how the single-file layout behaves.
     /// </summary>
     private static async Task CheckPowerShellEngineAsync()
     {
@@ -75,10 +78,83 @@ internal static partial class SmokeTest
         await LeaveATimerBehindAsync().ConfigureAwait(true);
 
         var home = await RunPowerShellAsync(session, "$PSHOME").ConfigureAwait(true);
+        CheckEngineHome(home);
+        var recording = CheckPolicies();
         var second = await TimeASecondRunspaceAsync().ConfigureAwait(true);
         Console.Error.WriteLine(string.Create(
             CultureInfo.InvariantCulture,
-            $"smoke test: the PowerShell engine {PowerShellEnvironment.EngineHome} ($PSHOME '{home}'), the first runspace {first.TotalMilliseconds:0} ms, the second {second.TotalMilliseconds:0} ms"));
+            $"smoke test: the PowerShell engine {PowerShellEnvironment.EngineHome} ($PSHOME '{home}', single file: {IsSingleFile}), policies read (recording: {recording}), the first runspace {first.TotalMilliseconds:0} ms, the second {second.TotalMilliseconds:0} ms"));
+    }
+
+    /// <summary>The engine's assembly is bundled in the program (the published single file): it has no location of its own.</summary>
+#pragma warning disable IL3000 // Location is empty for an assembly bundled in a single-file app: that is what is asked.
+    private static bool IsSingleFile => string.IsNullOrEmpty(typeof(System.Management.Automation.PSObject).Assembly.Location);
+#pragma warning restore IL3000
+
+    /// <summary>
+    /// <c>$PSHOME</c> is where the program reads the engine's all-users <c>powershell.config.json</c> (<see cref="PowerShellEnvironment.EngineHome"/>),
+    /// and in the published single file it is the folder of <c>AdMng.exe</c>, where the publish puts the program's file (audit W-12: the
+    /// smoke test printed both and asserted neither). A build that is not a single file keeps the engine in <c>runtimes\</c>; only the
+    /// first rule holds there.
+    /// </summary>
+    private static void CheckEngineHome(string home)
+    {
+        static string Folder(string path) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+
+        Expect(
+            string.Equals(Folder(home), Folder(PowerShellEnvironment.EngineHome), StringComparison.OrdinalIgnoreCase),
+            $"$PSHOME is '{home}', the program reads the engine's configuration from '{PowerShellEnvironment.EngineHome}'.");
+        if (IsSingleFile)
+        {
+            Expect(
+                string.Equals(Folder(home), Folder(AppContext.BaseDirectory), StringComparison.OrdinalIgnoreCase),
+                $"$PSHOME is '{home}', not the folder of the program '{AppContext.BaseDirectory}'.");
+            Expect(
+                File.Exists(Path.Combine(home, WindowsPowerShellPolicySource.ConfigFileName)),
+                $"The program's {WindowsPowerShellPolicySource.ConfigFileName} is not in $PSHOME '{home}'.");
+        }
+    }
+
+    /// <summary>
+    /// The policy note's reads on this machine (audit W-12: the published program never ran them): they must not throw, and in the
+    /// single file the program's <c>powershell.config.json</c> decides every recording policy that no Group Policy sets, also over a
+    /// user's file that turns them on (simulated in memory, nothing is written). Returns whether anything records (no path, no value).
+    /// </summary>
+    private static bool CheckPolicies()
+    {
+        var source = new WindowsPowerShellPolicySource();
+        var policies = new Presentation.PowerShell.PowerShellPolicyReader(source).Read();
+        if (IsSingleFile)
+        {
+            var simulated = new Presentation.PowerShell.PowerShellPolicyReader(new UserFileSource(source,
+                """{ "PowerShellPolicies": { "Transcription": { "EnableTranscripting": true }, "ScriptBlockLogging": { "EnableScriptBlockLogging": true }, "ModuleLogging": { "EnableModuleLogging": true } } }""")).Read();
+            foreach (var (name, origin) in new[]
+            {
+                ("transcription", simulated.Transcription.Origin),
+                ("script block logging", simulated.ScriptBlockLogging.Origin),
+                ("module logging", simulated.ModuleLogging.Origin),
+            })
+            {
+                Expect(
+                    origin is { Store: not Presentation.PowerShell.PowerShellPolicyStore.ConfigFile } or { Scope: Presentation.PowerShell.PowerShellPolicyScope.Computer },
+                    $"The {name} of a user's powershell.config.json wins over the program's file (origin {origin}).");
+            }
+        }
+
+        return policies.IsRecording;
+    }
+
+    /// <summary>The machine's policies with a user's <c>powershell.config.json</c> given in memory.</summary>
+    private sealed class UserFileSource(Presentation.PowerShell.IPowerShellPolicySource machine, string userFile) : Presentation.PowerShell.IPowerShellPolicySource
+    {
+        public object? GetValue(Presentation.PowerShell.PowerShellPolicyScope scope, string subKey, string valueName) => machine.GetValue(scope, subKey, valueName);
+
+        public IReadOnlyList<string>? GetValueNames(Presentation.PowerShell.PowerShellPolicyScope scope, string subKey) => machine.GetValueNames(scope, subKey);
+
+        public string? ReadConfigFile(Presentation.PowerShell.PowerShellPolicyScope scope) =>
+            scope == Presentation.PowerShell.PowerShellPolicyScope.User ? userFile : machine.ReadConfigFile(scope);
+
+        public PowerShellLockdownState GetLockdownState() => machine.GetLockdownState();
     }
 
     private static async Task LeaveATimerBehindAsync()

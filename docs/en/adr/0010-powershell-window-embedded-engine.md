@@ -190,11 +190,14 @@ The result of part 4 of R1, checked in Windows CI (the step "Smoke test publishe
 - **Only the files .NET does not put into the single file land beside `AdMng.exe`:** the engine's native libraries
   (`pwrshplugin.dll`, `PowerShell.Core.Instrumentation.dll`, `getfilesiginforedist.dll`,
   `microsoft.management.infrastructure.native.unmanaged.dll`), `build.manifest(.sig)`, the module manifests
-  (`runtimes/*/lib/net10.0/Modules`; nothing loads them – the default session state binds the commands directly), the help of
+  (`runtimes/*/lib/net10.0/Modules`; nothing loads them – the default session state binds the commands directly; the release
+  zip takes the top-level files of the publish folder only, so it has none of them, and the release workflow runs the smoke test on
+  the unpacked zip), the help of
   the commands (`AdMng.PowerShell.dll-Help.xml`, found through `AppContext.BaseDirectory` because `Assembly.Location` is empty in a
   single file) and **`powershell.config.json`**, which turns off transcription, script block logging, module logging and the
   Windows PowerShell 5.1 compatibility layer. The engine reads it from `$PSHOME`, and a setting there wins over the same
-  setting in a user's file (checked on Linux in part 1); the computer's policies (GPO) take precedence over both, and the window
+  setting in a user's file (checked on Linux in part 1, and by the smoke test of the published single file, which also asserts that
+  `$PSHOME` is the folder of `AdMng.exe`); the computer's policies (GPO) take precedence over both, and the window
   says what they record before the first command.
 - **Size** (MB = 10^6 bytes; the same publish command as CI, `-r win-x64 --self-contained -p:PublishSingleFile=true`, run on Linux for
   the commit of 0.16.0 and for the head of R1; CI prints the same 173.5 as "MB", which is MiB). `AdMng.exe` (one file, uncompressed):
