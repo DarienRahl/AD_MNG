@@ -132,9 +132,16 @@ scope. `PowerShellSession.CreateAsync(options)` builds it on a pool thread: the 
   `PowerShellSessionUnavailableException` (Core; the cause is its inner exception), the same as after a left run whose new runspace
   failed. Turning the trusted mode on keeps the runspace and its variables (the engine itself drops the functions defined in
   ConstrainedLanguage when the mode becomes FullLanguage).
-- **Jobs.** No job outlives its command: every job left in the session's job repository is stopped (on a pool thread,
-  not waited for) and removed when the command ends, on `StopAsync` and on dispose. No command of the window creates a job; .NET
-  code of the trusted mode can (`ForEach-Object -Parallel -AsJob` through the engine's cmdlet object). A thread or a runspace that
+- **Jobs.** No job outlives its command: every job left in the session's job repository is removed and ended (on a pool thread,
+  not waited for) when the command ends, on `StopAsync` and on dispose; the end that removes a job ends it, so no job is stopped
+  twice. No command of the window creates a job; .NET code of the trusted mode can (`ForEach-Object -Parallel -AsJob` through the
+  engine's cmdlet object). Such a parallel job (`PSTaskJob`) is stopped only while its pool opens no runspace: once none of its
+  children is NotStarted, once its pool ended by itself, or - when the throttle limit holds children back - once the running children
+  stayed unchanged for 10 s (`ParallelJobQuietPeriod`), when the pool's thread waits for a free place. PowerShell 7.6 opens the
+  runspace of each child on a pool thread of its own, and stopping or disposing the job closes the runspaces of its pool - also one
+  still opening, which then fails on that thread and ends the process (12.11). No child is stopped by itself; the job's stop takes the
+  pool's lock, under which each child starts. So a job ends with its command once its children have their runspaces, and a throttled
+  one once its pool has stayed full for 10 s or its last child has started. A thread or a runspace that
   such code makes for itself is not a job, and nothing in the window ends it (12.6 decision 6). A script block such code leaves
   as the callback of a timer or thread and that fires after its window closed finds no runspace and throws; the process's handler
   of unhandled exceptions (4.2) counts exactly that error as handled, so it ends the callback, not the program (12.8). The transcript of
@@ -621,8 +628,11 @@ This is the plan of the parts; the files that exist are in the records of 12.1-1
   without a path, the commands that run code elsewhere or load it, `$Host.PrivateData` and the audit's reflection chain, that
   `ForEach-Object -MemberName` and `New-Object` keep the language mode, that the red team's trusted-mode chains (12.7) are
   refused in the default mode, and that a script block the trusted mode left behind does not end the process when it fires after
-  its window closed (child processes: the probe's `leftover-callback`, and its control without the program's set-up, which crashes)
-  while only that error is contained; the third red team's line nested too deeply for the parser is refused in both modes and the
+  its window closed (child processes: the probe's `leftover-callback`, and its control without the program's set-up, which crashes
+  and gets none of the runtime's crash dump settings - the probe's `environment` shows what a child got) while only that error is
+  contained; a parallel job ended while the engine still opens its child's runspace (child process: the probe's `parallel-job-open`,
+  which holds the runspace at that point, 12.11), a job of several children once all have started, and a throttled job once its pool
+  waits for a free place (a fake clock); the third red team's line nested too deeply for the parser is refused in both modes and the
   window runs the next command, and chains of operators too deep to walk - also the deepest that fit below the length limit - are
   refused without ending the process (child processes: the probe's `deep-input:<case>`, from a thread with 1 MB of stack, 12.9).
 - **`RegexLimitTests`** – the process limits every regular expression without a limit of its own (4.2); a match that backtracks for
@@ -801,7 +811,7 @@ has the picture.
 |---|---|
 | Commands in the catalog | 10: 6 `Get-` (`Get-AdmVersion` among them), `Search-`, `Out-`, `Open-`, `Export-`; no write verb |
 | Strings | 92 keys in each of `Strings.resx` and `Strings.pl.resx`: 75 `PowerShell.*`, 16 `PowerShellGrid.*`, 1 `Commands.PowerShell`; 91 constants in `L.PowerShell.cs` |
-| Engine tests (`AdMng.PowerShell.Tests`, Linux and Windows) | 239 at the end of R1: 237 passed, 2 skipped by design on each platform (Linux: the Windows-only execution-policy test and the opt-in 40 s cache proof; Windows: the Unix-only positive control and the same opt-in proof). 373 after the repair of 12.6: on Linux 370 passed and 3 skipped (the two above and the Windows-only authorization-manager test). 426 after 12.7 (+11 `RegexLimitTests`, +41 `HistoryPolicyTests` cases, +1 `EscapeTests`): on Linux 423 passed, the same 3 skipped. 461 after 12.8 (+25 `HistoryPolicyTests` cases, +4 `RegexLimitTests`, +4 `PowerShellSessionTests`, +2 `EscapeTests`): on Linux 458 passed, the same 3 skipped. 497 after 12.9 (+21 `HistoryPolicyTests` cases, +11 `InputGuardTests`, +3 `EscapeTests`, +1 `SyntaxTests`): on Linux 494 passed, the same 3 skipped |
+| Engine tests (`AdMng.PowerShell.Tests`, Linux and Windows) | 239 at the end of R1: 237 passed, 2 skipped by design on each platform (Linux: the Windows-only execution-policy test and the opt-in 40 s cache proof; Windows: the Unix-only positive control and the same opt-in proof). 373 after the repair of 12.6: on Linux 370 passed and 3 skipped (the two above and the Windows-only authorization-manager test). 426 after 12.7 (+11 `RegexLimitTests`, +41 `HistoryPolicyTests` cases, +1 `EscapeTests`): on Linux 423 passed, the same 3 skipped. 461 after 12.8 (+25 `HistoryPolicyTests` cases, +4 `RegexLimitTests`, +4 `PowerShellSessionTests`, +2 `EscapeTests`): on Linux 458 passed, the same 3 skipped. 497 after 12.9 (+21 `HistoryPolicyTests` cases, +11 `InputGuardTests`, +3 `EscapeTests`, +1 `SyntaxTests`): on Linux 494 passed, the same 3 skipped. 523 after 12.10 (+16 `TrustedModeOffTests`, +10 `SessionEndingTests`) and 527 after 12.11 (+4 `EscapeTests`): on Linux 524 passed, the same 3 skipped |
 | Presentation tests (Linux) | 253 in `AdMng.Presentation.Tests.PowerShell` (one of them is part 5's test that the window's first lines name the guide), +1 in `ShellViewModelTests`; the project has 3,920. 256 after 12.8 (+3 `PowerShellWindowRunTests`: a run the engine left); the project has 3,952 |
 | Core tests (Linux) | 8 of `PowerShellGridTableTests`, 10 cases of `LdapFilter.Pattern` / `EqualBinary`; the project has 5,544 |
 | Lab tests against Samba | 5 (`PowerShellReadLabTests`), skipped without `ADMNG_TEST_LDAP_*`, run by the CI lab job |
@@ -1554,3 +1564,67 @@ Audit findings PS-02 (high), W-10 and the session's part of PS-12, each reproduc
   reason of the switch in six states, the start failure and the build without the engine before and after a switch to Polish, the
   clear and the exit line in the window's tests. Not seen on Windows: the switching state and the clear in the real window (the UI
   tests run there; the smoke test counts the window's own `Clear-Host`).
+
+### 12.11 A parallel job ended while its runspace opened (CI run 45315307313)
+
+- **What happened.** In the lab job of CI run 45315307313 (commit `c0e4fab0`) the step "PowerShell engine tests (Linux)" passed
+  every test (458 passed, 3 skipped) and still failed: xUnit reported a "catastrophic failure", a `NullReferenceException` without a
+  test name. Under CPU load it came back in 2 of 49 runs of the suite and in about 9 % of the runs of the two job tests of
+  `EscapeTests`, always with one stack, which the detailed console logger shows: `InitialSessionState.BindRunspace` ←
+  `LocalRunspace.DoOpenHelper` ← `RunspaceBase.Open` ← `PSTaskPool.GetRunspace` ← `PSTaskPool.Add` ← the work item of
+  `PSTaskJob.Start` on a pool thread. Not the commits of 12.8: the same race and stack were measured at `3418c59d` before them; the
+  code came with the job ending of 12.6 (`c4ed6e3c`), and the long regular-expression tests of 12.8, which keep cores busy beside
+  `EscapeTests`, made it likelier.
+- **The mechanism.** `PSTaskJob.Start` hands the children of a `ForEach-Object -Parallel -AsJob` job to its pool in a thread-pool
+  work item that catches nothing; for each child `GetRunspace` adds a new runspace to the pool's list and opens it, and
+  `LocalRunspace.DoOpenHelper` marks the runspace Opened - which lets a waiting `Close` go on - before it binds the initial state
+  (`BindRunspace`). The session ended the job at once when its command ended and on dispose: `StopJob` → `PSTaskPool.StopAll` →
+  `DisposeRunspaces` closed that runspace, the close took its engine away, and `BindRunspace` dereferenced it. Unhandled on a pool
+  thread this ends the process (exit 134 on Linux) - in the program every connection window; in the test process xUnit's handler
+  reported it, held the thread until the run ended and exited, and `dotnet test` failed although no test had. The handler of 4.2
+  counts only a left script block as handled, and rightly not this.
+- **The fix (4.1).** A parallel job is stopped only while its pool opens no runspace: once none of its children is NotStarted - each
+  has its runspace and runs - or once its pool ended by itself (Completed, Failed), or, when the throttle limit holds children back,
+  once the running children stayed unchanged for 10 s (`ParallelJobQuietPeriod`, the session's clock): then the pool's thread waits
+  for a free place, and an open of a runspace takes far less (measured under a load average of about 24 on 4 cores: each child of a
+  job ran at most 0.52 s after the one before it, 70 ms in the median, its runspace opened in between). While no child runs and
+  one waits, the pool is about to start one, and the session waits on. The handler of the jobs' state changes only wakes the
+  session's loop; it never acts on the pool's thread. No child is stopped by itself: the job's `StopJob` takes the pool's lock, under
+  which the pool starts each child, so it never meets a child half started. A first version stopped each child as soon as it ran
+  (`BeginStop`), to free its place under the throttle limit; under load it left a throttled job stuck once in 40 rounds (a child
+  stopped while the pool's thread still started it ended Stopped without a reason, and the next child never started). The end of
+  the session that removes a job from the repository is the one that ends it, so the end of a command and a dispose at the same time
+  no longer stop one job twice.
+- **Tests.** `EscapeTests.A_job_whose_runspace_is_still_opening_is_ended_without_ending_the_process` makes the race certain: in a
+  child process set up as the program (the probe's `parallel-job-open`), a listener on the engine's `RunspaceInit` trace source
+  (`ParallelRunspaceGate`) holds the pool's thread at "runspace opened successfully" - Opened, its state not bound yet - while the
+  window ends the job, when its command ends and when the window closes while its command waits; the probe notes the job's state,
+  lets the runspace open and notes the end. Before the fix it failed every time: the job was Stopping or Stopped while its runspace
+  opened, and the child crashed with exit 134 and the stack of the CI run. Now the job stays Running until its child runs, then
+  ends without writing, and the process survives. `A_job_of_several_children_ends_with_its_command_once_all_have_started`: three
+  children, each in a runspace of its own, all stopped, nothing written. `A_throttled_job_ends_once_its_pool_waits_for_a_free_place`:
+  three children with a throttle limit of 1 and a fake clock - the first child is stopped, the other two never start. The job
+  scripts of these tests, of the probe and of the audit's two job tests stop on their first error (below).
+- **Stress.** Under CPU load (two busy loops beside the runs and another build and test run on the 4 cores; load average 10-45):
+  before the fix the audit's two job tests ended in xUnit's catastrophic failure in 3 of 80 runs (at `7dd82299`), the suite in 2 of
+  49 (at `c0e4fab0`, while reproducing it). After it the suite ran 24 times through `dotnet test`, as the CI step runs it (load
+  16-30): no catastrophic failure, every run ended with exit code 0; the job tests of this block, the audit's two and the two crash
+  tests ran 80 times (load 15-33): no failure, no dump. The first version above ran the suite 30 times without a catastrophic
+  failure, but its own throttled test failed in 2 of them.
+- **The deliberate crash left a dump in every lab run.** The control child of 12.8 (`leftover-callback-control`) crashes on purpose
+  and inherited the CI's `DOTNET_DbgEnableMiniDump`, `DOTNET_DbgMiniDumpType`, `DOTNET_DbgMiniDumpName` and
+  `DOTNET_EnableCrashReport`, so every lab run left a 25 MB dump and a crash report of `AdMng.PowerShell.Probe.dll` for the step
+  "Crash reports", beside - and hiding - a crash that is not meant. `ChildProcess.RunAsync(…, crashDumps: false)` starts that child
+  without them (with the `COMPlus_` names and `EnableCrashReportOnly` too); every other child keeps them, so a crash that is not meant
+  still leaves its report. `A_child_that_is_meant_to_crash_gets_no_crash_dump_or_crash_report_settings` checks what a child got (the
+  probe's `environment`) against a simulated CI environment, and that a child not meant to crash keeps it.
+- **Left.** A throttled job runs on after its command until its pool has stayed full for 10 s or its last child has started, so
+  children that end within 10 s let the next ones start; a job whose children all start at once ends as soon as they have. A child
+  stuck in .NET code that ignores Stop holds the thread that stops the job, and its pipeline's foreground thread keeps the process
+  alive until it returns, as before. A child that the stop meets while the engine still loads the module of its first command (here
+  `Start-Sleep`) gets a CommandNotFoundException - a statement-terminating error - and the engine runs its next statement before
+  the stop ends the script: the engine's Stop for any script, likelier now that a job is stopped after its children started (11 of
+  60 rounds of three children stopped at once wrote their file; with `$ErrorActionPreference = 'Stop'` in the job script, as the
+  tests have it now, none of 100). The race is the engine's (`PSTaskPool` does not
+  order `StopAll` and `Dispose` against `GetRunspace`, and the work item catches nothing) and can be reported upstream; trusted-mode
+  code that stops such a job itself (`$job.StopJob()`) at that moment still ends the process - FullLanguage, decision 6 of 12.6.

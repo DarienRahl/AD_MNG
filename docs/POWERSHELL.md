@@ -302,8 +302,10 @@ Polecenia, które o coś pytają – `Read-Host`, parametr obowiązkowy, `-Confi
   potrafi więcej): kod .NET sięga do wszystkiego w procesie AD Managera, także do sesji katalogu okna i jej poświadczeń.
   Włączenie zachowuje sesję i jej zmienne (funkcje zdefiniowane wcześniej w ConstrainedLanguage silnik PowerShella sam usuwa);
 - nie dodaje poleceń: lista wyżej jest ta sama. Zadanie, które kod .NET umieści w sesji (własne `ForEach-Object -Parallel
-  -AsJob` silnika, osiągnięte przez .NET), jest zatrzymywane razem z poleceniem jak każde inne; wątek albo runspace,
-  który kod .NET utworzy sam, jest poza zasięgiem okna, jak reszta procesu – działa dalej po *Zatrzymaj* i po zamknięciu okna;
+  -AsJob` silnika, osiągnięte przez .NET), jest zatrzymywane razem z poleceniem jak każde inne, gdy tylko silnik uruchomi jego
+  zadania podrzędne (gdy limit równoległości każe części z nich czekać: gdy uruchomione nie zmieniają się przez 10 sekund);
+  wątek albo runspace, który kod .NET utworzy sam, jest poza zasięgiem okna, jak reszta procesu – działa dalej po *Zatrzymaj*
+  i po zamknięciu okna;
   blok skryptu, który taki licznik czasu albo wątek wywoła po zamknięciu okna, już się nie wykona (nie ma runspace'u), a jego
   błąd nie zamyka programu;
 - dopóki jest włączony, tytuł okna ma dopisek *– tryb zaufany* i trwa uwaga, która mówi to samo;
