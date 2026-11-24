@@ -341,10 +341,12 @@ od razu jako `SecureString`; pole jest puste po odpowiedzi.
   potrafi więcej): kod .NET sięga do wszystkiego w procesie AD Managera, także do sesji katalogu okna i jej poświadczeń.
   Włączenie zachowuje sesję i jej zmienne (funkcje zdefiniowane wcześniej w ConstrainedLanguage silnik PowerShella sam usuwa);
 - nie dodaje poleceń: lista wyżej jest ta sama. Zadanie, które kod .NET umieści w sesji (własne `ForEach-Object -Parallel
-  -AsJob` silnika, osiągnięte przez .NET), jest zatrzymywane razem z poleceniem jak każde inne; wątek albo runspace,
+  -AsJob` silnika, osiągnięte przez .NET), jest zatrzymywane razem z poleceniem jak każde inne (gdy silnik otwiera akurat runspace
+  dla jednego z jego zadań podrzędnych – gdy go otworzy), a jego zadania podrzędne, które czekały jeszcze na swoją kolej, już się
+  nie uruchamiają (poza tym, na które kolej przyjdzie akurat w tej chwili – jest zatrzymywane razem z resztą); wątek albo runspace,
   który kod .NET utworzy sam, jest poza zasięgiem okna, jak reszta procesu – działa dalej po *Zatrzymaj* i po zamknięciu okna;
-  blok skryptu, który taki licznik czasu albo wątek wywoła po zamknięciu okna, już się nie wykona (nie ma runspace'u), a jego
-  błąd nie zamyka programu;
+  blok skryptu, który taki licznik czasu albo wątek wywoła po zamknięciu okna, już się nie wykona (nie ma runspace'u), a jego błąd
+  nie zamyka programu;
 - dopóki jest włączony, tytuł okna ma dopisek *– tryb zaufany* i trwa uwaga, która mówi to samo;
 - jego **wyłączenie** nie pyta, ale uruchamia w oknie **nową sesję PowerShell** w ConstrainedLanguage. Przez ułamek sekundy, gdy
   powstaje, wiersz stanu mówi *Wyłączanie trybu zaufanego: uruchamianie nowej sesji PowerShell…*, a polecenia, Tab i przełącznik

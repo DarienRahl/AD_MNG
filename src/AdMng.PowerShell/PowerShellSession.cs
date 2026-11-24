@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Management.Automation;
+using System.Management.Automation.PSTasks;
 using System.Management.Automation.Runspaces;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
@@ -605,8 +606,9 @@ public sealed class PowerShellSession : IPowerShellSession
 
     /// <summary>
     /// Stops and forgets every job in a job repository of the session (no command of the window creates one; .NET code of the trusted
-    /// mode can, e.g. ForEach-Object -Parallel -AsJob through the engine's cmdlet object). <c>Jobs</c> is a copy. A job is stopped on a
-    /// pool thread: a job stuck in .NET code cannot be interrupted, and the window does not wait for it.
+    /// mode can, e.g. ForEach-Object -Parallel -AsJob through the engine's cmdlet object). <c>Jobs</c> is a copy; the end of the session
+    /// that removes a job from the repository ends it (<see cref="EndJobAsync"/>), on a pool thread: a job stuck in .NET code cannot be
+    /// interrupted, and the window does not wait for it.
     /// </summary>
     private static void EndJobs(JobRepository? jobs)
     {
@@ -623,21 +625,42 @@ public sealed class PowerShellSession : IPowerShellSession
             }
             catch (ArgumentException)
             {
-                // Already removed.
+                // Already removed: the end of the session that removed it ends it.
+                continue;
             }
 
-            _ = Task.Run(() =>
+            _ = Task.Run(() => EndJobAsync(job));
+        }
+    }
+
+    /// <summary>
+    /// Stops and disposes a job; a job that has finished is only disposed. A ForEach-Object -Parallel job (<see cref="PSTaskJob"/>) is
+    /// stopped only once the engine's work item that hands its children to its pool is done with the pool, after the session took away
+    /// the pool's free place so that the children waiting for one do not start (<see cref="ParallelJobs.PrepareEndAsync"/>): stopping or disposing the job closes the
+    /// runspaces of the pool - also one that work item is still opening, which then fails on that thread and ends the process (CI run
+    /// 45315307313; <c>EscapeTests</c>, the probe's <c>parallel-job-open</c> and <c>parallel-job-children</c>). A parallel job that
+    /// something else stopped first is left as it is. No child is stopped by itself: a child's stop while the pool's thread still starts
+    /// it left the pool stuck in the engine.
+    /// </summary>
+    private static async Task EndJobAsync(Job job)
+    {
+        try
+        {
+            if (job is PSTaskJob parallel && !await ParallelJobs.PrepareEndAsync(parallel).ConfigureAwait(false))
             {
-                try
-                {
-                    job.StopJob();
-                    job.Dispose();
-                }
-                catch (Exception)
-                {
-                    // A job that fails to stop has nothing left for the window to do; the window is not told.
-                }
-            });
+                return;
+            }
+
+            if (job.JobStateInfo.State is not (JobState.Completed or JobState.Failed or JobState.Stopped))
+            {
+                job.StopJob();
+            }
+
+            job.Dispose();
+        }
+        catch (Exception)
+        {
+            // A job that fails to stop has nothing left for the window to do; the window is not told.
         }
     }
 
