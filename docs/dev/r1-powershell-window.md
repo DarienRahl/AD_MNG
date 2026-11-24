@@ -282,12 +282,12 @@ engine's code (`System.Management.Automation` 7.6.10, `engine/runtime/CompiledSc
 
 So when nothing sets the policy, the engine writes a script block it marked to its log on its own, as a warning, and no other;
 `true` writes every script block; `false` - a Group Policy set to *Disabled*, a file - writes none, not even the marked ones. The
-program's old file was such a file: in the window not even `Add-Type` reached the event log unless a Group Policy turned the
-logging on. `HasLogged` belongs to the compiled block, and `ScriptBlock.Create` (`[scriptblock]::Create`) reuses a cached compiled
-block for a text it compiled before (`TryGetCachedScriptBlock`), so through it a text is logged once per process; the window runs
-each line through `PowerShell.AddScript`, which parses it anew (`AutomationEngine.ParseScriptBlock`, no cache), so a marked line
-typed again is logged again (12.13). Without the section, Group Policy decides, then a user's own `powershell.config.json` (which
-can now turn the logging on, or off), and with neither the engine's default.
+program's old file was such a file: in the window not even a block with `Add-Type` reached the event log as a 4104 unless a Group
+Policy turned the logging on. `HasLogged` belongs to the compiled block, and `ScriptBlock.Create` (`[scriptblock]::Create`) reuses
+a cached compiled block for a text it compiled before (`TryGetCachedScriptBlock`), so through it a text is logged once per
+process; the window runs each line through `PowerShell.AddScript`, which parses it anew (`AutomationEngine.ParseScriptBlock`, no
+cache), so a marked line typed again is logged again (12.13). Without the section, Group Policy decides, then a user's own
+`powershell.config.json` (which can now turn the logging on, or off), and with neither the engine's default.
 
 What the logs get from the window differs from what they get from a `pwsh.exe` in the points the guide lists (chapter 8); the
 reasons in the code:
@@ -855,10 +855,10 @@ The criteria of the README that concern reads, plus the ones this design adds:
 2. A value with a parenthesis, an asterisk, a backslash or Polish characters (`Łukasz (Kraków)*`) in the `Search-AdmObject`
    parameters gives a correctly escaped filter (RFC 4515) – without extra results.
 3. After the window is closed there is no command history, transcript or result on the workstation's disk (when no GPO
-   turns on transcription or script block logging and the user's own `powershell.config.json` does not turn on script block
-   logging; the engine's own warnings 4104 for script blocks it finds suspicious are in the event log, 4.2) – the
-   **"no files" test** passes; with transcription turned on by a GPO,
-   the window warns before the first command; the password does not appear in the history.
+   turns on transcription, script block logging or module logging and the user's own `powershell.config.json` does not turn on
+   script block logging; the engine's own warnings 4104 for script blocks it finds suspicious are in the event log where the
+   PowerShell 7 event provider is registered, 4.2) – the **"no files" test** passes; with transcription turned on by a GPO, the
+   window warns before the first command; the password does not appear in the history.
 4. When a WDAC policy applies, the window works in ConstrainedLanguage mode and AD Manager's commands work; without it
    ConstrainedLanguage is the default and the trusted mode needs a confirmation and is shown.
 5. No write command exists, no `AD:` drive and no RSAT: the **command list test** passes.
@@ -1914,7 +1914,7 @@ runs on Linux; the WPF part only compiles here):
 ### 12.13 After the audit of R1 - script block logging left to Windows and Group Policy (D-B)
 
 Audit finding PS-04 (medium): the program's `powershell.config.json` set `EnableScriptBlockLogging: false`, so a security team
-saw nothing in the event log of what was typed in the window unless a Group Policy turned script block logging on - and, as the
+saw no script block (4104) of what was typed in the window unless a Group Policy turned script block logging on - and, as the
 engine's code shows (4.2), not even the script blocks the engine logs on its own when nothing sets the policy. The owner's
 decision D-B: AD Manager does not touch script block logging; Group Policy decides, then the user's own file. The transcription
 and the module logging stay off in the program's file (a transcript is directory data on disk, rule 1).

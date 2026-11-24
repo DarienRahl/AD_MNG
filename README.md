@@ -2802,14 +2802,15 @@ stages</summary>
   anyway. The only boundary is the account's rights in AD – the window gives no more than the account has; changes made
   around the plan have no audit and no rollback in the program, but the Watchdog sees them like any other change in AD.
 - **Outside the program's control:** a computer or user GPO can turn on PowerShell transcription, script block logging
-  (event 4104 in the *PowerShellCore/Operational* log) and module logging. Transcription covers every program with the PowerShell
-  engine, so the commands and results – that is, directory data – end up in the file specified in the GPO. AD Manager does
-  not set script block logging (decision after the audit, PS-04): a GPO decides it, then the user's own
-  `powershell.config.json`, and with it on the text of every command is logged, as in `pwsh.exe`. Without either, PowerShell
-  itself still logs, as a warning 4104, the commands its built-in check finds suspicious (a list of words and certain
-  constructs); which ones is the engine's decision and can include ordinary lines (an account name can contain a word of the
-  list), so every line typed in the window counts as possibly logged and a secret is never typed in plain text. The events
-  reach the log only where the PowerShell 7 event provider is registered (by default by the MSI installer of PowerShell 7, or
+  (event 4104 in the *PowerShellCore/Operational* log) and module logging (event 4103, the same log). Transcription
+  covers every program with the PowerShell engine, so the commands and results – that is, directory data – end up in the
+  file specified in the GPO; module logging can write results to the event log too. AD Manager does not set script block
+  logging (decision after the audit, PS-04): a GPO decides it, then the user's own `powershell.config.json`, and with it
+  on the text of every command is logged, as in `pwsh.exe`. Without either, PowerShell itself still logs, as a warning
+  4104, the commands its built-in check finds suspicious (a list of words and certain constructs); which ones is the
+  engine's decision and can include ordinary lines (an account name can contain a word of the list), so every line typed
+  in the window counts as possibly logged and a secret is never typed in plain text. The events reach the log only where
+  the PowerShell 7 event provider is registered (by default by the MSI installer of PowerShell 7, or
   by `RegisterManifest.ps1` run as an administrator; the zip and MSIX packages do not register it). The known differences from
   a plain `pwsh.exe` are listed in [POWERSHELL.md, chapter 8](docs/en/POWERSHELL.md#8-what-group-policy-logging-does-to-the-window). PowerShell 7
   reads its own policies (*PowerShell Core*, `HKLM`/`HKCU\Software\Policies\Microsoft\PowerShellCore`), and the Windows
@@ -2979,10 +2980,10 @@ the implementation note is [docs/dev/r1-powershell-window.md](docs/dev/r1-powers
 - With the RSAT `ActiveDirectory` module, `Get-ADUser` without `-Server` connects to the window's DC, and `Set-ADUser`
   adds an operation to the plan instead of writing the change.
 - After the window is closed there is no command history, transcript or result on the workstation's disk (when no GPO
-  turns on transcription or script block logging and the user's own `powershell.config.json` does not turn on script block
-  logging; the warnings 4104 PowerShell writes on its own for the commands it finds suspicious are in the event log); with
-  transcription turned on by a GPO, the window warns before the first command; the password does
-  not appear in the history or in the audit.
+  turns on transcription, script block logging or module logging and the user's own `powershell.config.json` does not turn
+  on script block logging; the warnings 4104 PowerShell writes on its own for the commands it finds suspicious are in the
+  event log where the PowerShell 7 event provider is registered); with transcription turned on by a GPO, the window warns
+  before the first command; the password does not appear in the history or in the audit.
 - When a WDAC policy applies, the window works in ConstrainedLanguage mode, and AD Manager's commands work.
 
 </details>

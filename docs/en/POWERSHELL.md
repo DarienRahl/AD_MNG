@@ -380,9 +380,10 @@ audit or rollback in the program (the AdMng Watchdog sees it like any other chan
 
 Group Policy, a computer or user policy, can turn on PowerShell **transcription**, **script block logging** and **module
 logging**. They apply to every program that hosts the PowerShell engine, **AD Manager included**: transcription writes the
-commands you run here **and their results** – that is, directory data – to the directory the policy names, and script block
-logging writes the text of the commands to the Windows event log (*PowerShellCore/Operational*). AD Manager does not change
-these policies and does not get around them.
+commands you run here **and their results** – that is, directory data – to the directory the policy names, script block logging
+writes the text of the commands to the Windows event log (*PowerShellCore/Operational*), and module logging writes details of
+commands to the same log (event 4103), which can include **the results**. AD Manager does not change these policies and does not
+get around them.
 
 **Script block logging is not the program's to set.** AD Manager neither turns it on nor off: Group Policy decides, and where
 no Group Policy sets it, your own `powershell.config.json` (the window's note then says so). With it on, the text of every command
@@ -434,14 +435,14 @@ PowerShell itself reads each of these policies once per run of AD Manager, the f
 while the program runs applies to the engine after AD Manager is restarted, while the note of a window opened meanwhile already
 says the new state.
 
-**What to do about it:** if transcription or script block logging is on, do not look at sensitive attributes in the window
-(LAPS passwords, BitLocker recovery passwords). Do not type a password into a command at all – even without a policy PowerShell
-may log the command (above). Ask the security team where the transcripts go and who can read them – they hold the same data the
-window shows. A `powershell.config.json` that AD Manager ships beside `AdMng.exe` turns off the transcription and the module
-logging that **your own** `powershell.config.json` turned on; it cannot turn off a computer policy, and the note then says that
-the policy is on. Security systems (EDR) may report *a PowerShell engine
-in a process other than `powershell.exe`* – the process is `AdMng.exe` – and the two `__PSScriptPolicyTest_` files it writes
-into `%TEMP%` and deletes at once (chapter 6), as every PowerShell does; tell the security team (SOC) in advance.
+**What to do about it:** if transcription, script block logging or module logging is on, do not look at sensitive attributes in
+the window (LAPS passwords, BitLocker recovery passwords). Do not type a password into a command at all – even without a policy
+PowerShell may log the command (above). Ask the security team where the transcripts go and who can read them – they hold the same
+data the window shows. A `powershell.config.json` that AD Manager ships beside `AdMng.exe` turns off the transcription and the
+module logging that **your own** `powershell.config.json` turned on; it cannot turn off a computer policy, and the note then says
+that the policy is on. Security systems (EDR) may report *a PowerShell engine in a process other than `powershell.exe`* – the
+process is `AdMng.exe` – and the two `__PSScriptPolicyTest_` files it writes into `%TEMP%` and deletes at once (chapter 6), as
+every PowerShell does; tell the security team (SOC) in advance.
 
 ## 9. What the window does not do yet
 

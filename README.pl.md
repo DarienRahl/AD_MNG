@@ -2732,8 +2732,9 @@ etapy</summary>
   `pwsh.exe`. Jedyną granicą są prawa konta w AD – okno nie daje więcej, niż daje konto; zmiany wykonane z pominięciem
   planu nie mają audytu ani cofnięcia w programie, ale Watchdog widzi je jak każdą zmianę w AD.
 - **Poza kontrolą programu:** GPO komputera albo użytkownika może włączyć transkrypcję PowerShell, rejestrowanie bloków
-  skryptów (zdarzenie 4104 w dzienniku *PowerShellCore/Operational*) i rejestrowanie modułów. Transkrypcja obejmuje każdy
-  program z silnikiem PowerShell, więc polecenia i wyniki – czyli dane katalogu – trafią do pliku wskazanego w GPO. AD Manager
+  skryptów (zdarzenie 4104 w dzienniku *PowerShellCore/Operational*) i rejestrowanie modułów (zdarzenie 4103, ten sam
+  dziennik). Transkrypcja obejmuje każdy program z silnikiem PowerShell, więc polecenia i wyniki – czyli dane katalogu –
+  trafią do pliku wskazanego w GPO; rejestrowanie modułów też może zapisać wyniki w dzienniku zdarzeń. AD Manager
   nie ustawia rejestrowania bloków skryptów (decyzja po audycie, PS-04): decyduje o nim GPO, potem własny
   `powershell.config.json` użytkownika, a gdy jest włączone, treść każdego polecenia trafia do dziennika, jak w `pwsh.exe`. Gdy
   nie ustawia go żadne z nich, sam PowerShell i tak zapisuje jako ostrzeżenie 4104 polecenia, które jego wbudowane
@@ -2904,11 +2905,11 @@ Właściciel rozstrzygnął te sprawy dla R1 (uzasadnienie i alternatywy:
   nieprzetłumaczalne wywołanie i zapis na dysku `AD:` są odrzucane z wyjaśnieniem.
 - Z modułem RSAT `ActiveDirectory` polecenie `Get-ADUser` bez `-Server` łączy się z DC okna, a `Set-ADUser` dodaje
   operację do planu, zamiast zapisać zmianę.
-- Po zamknięciu okna na dysku stacji nie ma historii poleceń, transkrypcji ani wyników (gdy GPO nie włącza transkrypcji
-  ani rejestrowania bloków skryptów, a własny `powershell.config.json` użytkownika nie włącza rejestrowania bloków
-  skryptów; ostrzeżenia 4104, które PowerShell sam zapisuje dla poleceń uznanych za podejrzane, są w dzienniku zdarzeń); przy
-  transkrypcji włączonej przez GPO okno ostrzega przed pierwszym poleceniem; hasło nie
-  pojawia się w historii ani w audycie.
+- Po zamknięciu okna na dysku stacji nie ma historii poleceń, transkrypcji ani wyników (gdy GPO nie włącza transkrypcji,
+  rejestrowania bloków skryptów ani rejestrowania modułów, a własny `powershell.config.json` użytkownika nie włącza
+  rejestrowania bloków skryptów; ostrzeżenia 4104, które PowerShell sam zapisuje dla poleceń uznanych za podejrzane, są w
+  dzienniku zdarzeń tam, gdzie zarejestrowano dostawcę zdarzeń PowerShell 7); przy transkrypcji włączonej przez GPO okno
+  ostrzega przed pierwszym poleceniem; hasło nie pojawia się w historii ani w audycie.
 - Gdy obowiązuje zasada WDAC, okno pracuje w trybie ConstrainedLanguage, a polecenia AD Managera działają.
 
 </details>

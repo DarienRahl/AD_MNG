@@ -377,9 +377,10 @@ w AD: okno nigdy nie daje więcej, niż konto ma, a zmiana wykonana z pominięci
 
 Zasady grupy – komputera albo użytkownika – mogą włączyć w PowerShell **transkrypcję**, **rejestrowanie bloków skryptów** i
 **rejestrowanie modułów**. Dotyczą każdego programu, który hostuje silnik PowerShell, **także AD Managera**: transkrypcja
-zapisuje polecenia wykonywane tutaj **i ich wyniki** – czyli dane z katalogu – w katalogu wskazanym przez zasadę, a rejestrowanie
-bloków skryptów zapisuje treść poleceń w dzienniku zdarzeń systemu Windows (*PowerShellCore/Operational*). AD Manager nie zmienia
-tych zasad i ich nie omija.
+zapisuje polecenia wykonywane tutaj **i ich wyniki** – czyli dane z katalogu – w katalogu wskazanym przez zasadę, rejestrowanie
+bloków skryptów zapisuje treść poleceń w dzienniku zdarzeń systemu Windows (*PowerShellCore/Operational*), a rejestrowanie modułów
+zapisuje w tym samym dzienniku szczegóły poleceń (zdarzenie 4103), wśród których mogą być **wyniki**. AD Manager nie zmienia tych
+zasad i ich nie omija.
 
 **Rejestrowania bloków skryptów nie ustawia program.** AD Manager ani go nie włącza, ani nie wyłącza: decydują zasady grupy, a
 gdy żadna zasada grupy go nie ustawia – Twój własny `powershell.config.json` (uwaga okna mówi wtedy o tym). Gdy jest włączone,
@@ -431,14 +432,14 @@ Sam PowerShell odczytuje każdą z tych zasad raz na jedno uruchomienie AD Manag
 zmieniona w czasie pracy programu obowiązuje silnik dopiero po ponownym uruchomieniu AD Managera, a uwaga okna otwartego w tym
 czasie mówi już o nowym stanie.
 
-**Co z tym zrobić:** jeśli włączono transkrypcję albo rejestrowanie bloków skryptów, nie oglądaj w oknie wrażliwych atrybutów
-(haseł LAPS, haseł odzyskiwania BitLockera). Nie wpisuj hasła do polecenia w ogóle – nawet bez zasady PowerShell może zapisać
-polecenie w dzienniku (powyżej). Zapytaj zespół bezpieczeństwa, dokąd trafiają transkrypcje i kto może je czytać – zawierają te
-same dane, które pokazuje okno. Plik `powershell.config.json`, który AD Manager dostarcza obok `AdMng.exe`, wyłącza transkrypcję
-i rejestrowanie modułów włączone w **Twoim** `powershell.config.json`; nie wyłączy zasad komputera, a uwaga mówi wtedy, że zasada
-jest włączona. Systemy bezpieczeństwa (EDR) mogą zgłaszać *silnik PowerShell w
-procesie innym niż `powershell.exe`* – tym procesem jest `AdMng.exe` – oraz dwa pliki `__PSScriptPolicyTest_`, które zapisuje on
-w `%TEMP%` i od razu usuwa (rozdział 6), jak każdy PowerShell; uprzedź zespół bezpieczeństwa (SOC).
+**Co z tym zrobić:** jeśli włączono transkrypcję, rejestrowanie bloków skryptów albo rejestrowanie modułów, nie oglądaj w oknie
+wrażliwych atrybutów (haseł LAPS, haseł odzyskiwania BitLockera). Nie wpisuj hasła do polecenia w ogóle – nawet bez zasady
+PowerShell może zapisać polecenie w dzienniku (powyżej). Zapytaj zespół bezpieczeństwa, dokąd trafiają transkrypcje i kto może je
+czytać – zawierają te same dane, które pokazuje okno. Plik `powershell.config.json`, który AD Manager dostarcza obok `AdMng.exe`,
+wyłącza transkrypcję i rejestrowanie modułów włączone w **Twoim** `powershell.config.json`; nie wyłączy zasad komputera, a uwaga
+mówi wtedy, że zasada jest włączona. Systemy bezpieczeństwa (EDR) mogą zgłaszać *silnik PowerShell w procesie innym niż
+`powershell.exe`* – tym procesem jest `AdMng.exe` – oraz dwa pliki `__PSScriptPolicyTest_`, które zapisuje on w `%TEMP%` i od razu
+usuwa (rozdział 6), jak każdy PowerShell; uprzedź zespół bezpieczeństwa (SOC).
 
 ## 9. Czego okno jeszcze nie robi
 
