@@ -298,7 +298,8 @@ question.
   AD Manager process, the window's directory session and its credentials included;
 - it adds no command: the list above is the same. A job that .NET code puts into the session (the engine's own
   `ForEach-Object -Parallel -AsJob`, reached through .NET) is stopped with its command like any other; a thread or a runspace
-  that .NET code makes for itself is beyond the window's reach, like the rest of the process;
+  that .NET code makes for itself is beyond the window's reach, like the rest of the process – it keeps running after *Stop* and
+  after the window closes;
 - while it is on, the title says *– trusted mode* and a note that lasts says the same; turning it off needs no question;
 - it applies to this window only and **is never remembered**: a new window starts in ConstrainedLanguage again;
 - it cannot be changed while a command runs, nor before PowerShell has started;

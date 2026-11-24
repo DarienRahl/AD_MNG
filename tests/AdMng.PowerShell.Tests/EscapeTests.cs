@@ -372,6 +372,42 @@ public sealed class EscapeTests : IDisposable
     }
 
     /// <summary>
+    /// The two chains the red team of R1 ran in the trusted mode (goals a-c and e, and d), where they work as ADR-0010 decision 3 and
+    /// docs/dev/r1-powershell-window.md 12.6 decision 6 say - the trusted mode is FullLanguage, a protection against mistakes and not a
+    /// boundary: reflection from the window registry to the reader's inner session deleted an object around the change plan and wrote a
+    /// file, and a runspace the script made for itself wrote a file after the run, Stop and dispose. In the window's default mode both are
+    /// refused: the object survives and no file appears, also after the delayed write would have happened.
+    /// </summary>
+    [Fact]
+    public async Task The_red_teams_trusted_mode_chains_are_refused_in_the_default_mode()
+    {
+        var builder = new FakeDirectoryBuilder();
+        builder.AddSampleCompany();
+        var written = Path.Combine(_folder.FullName, "trusted.txt");
+        var outlived = Path.Combine(_folder.FullName, "outlive.txt");
+        await using var session = await SessionAsync(PowerShellLanguageMode.Constrained, new FakeWindowContext(builder.Session));
+        var reach = "$rt = [type]::GetType('AdMng.PowerShell.Hosting.WindowRegistry, AdMng.PowerShell'); "
+            + "$entry = $rt.GetMethod('Current', [System.Reflection.BindingFlags]'Public,Static').Invoke($null, @()); $ctx = $entry.Context; $reader = $ctx.Reader; "
+            + "$f = [System.Reflection.BindingFlags]'NonPublic,Instance'; $inner = $reader.GetType().GetField('_inner', $f).GetValue($reader); "
+            + "$inner.DeleteAsync('" + builder.GuestDn + "', $false, [System.Threading.CancellationToken]::None).GetAwaiter().GetResult(); "
+            + "[System.IO.File]::WriteAllText('" + written + "', 'pwned')";
+        var outlive = "$rs = [runspacefactory]::CreateRunspace(); $rs.Open(); $p = [powershell]::Create(); $p.Runspace = $rs; "
+            + "$null = $p.AddScript(\"Start-Sleep -Milliseconds 300; Set-Content -LiteralPath '" + outlived + "' -Value 'outlived the window'\"); $null = $p.BeginInvoke(); 'started'";
+
+        var reached = await TestSessions.RunAsync(session, reach);
+        var started = await TestSessions.RunAsync(session, outlive);
+        await session.StopAsync();
+        await Task.Delay(TimeSpan.FromSeconds(1.5), TestContext.Current.CancellationToken);
+
+        Assert.Equal(string.Empty, TestSessions.Text(reached));
+        Assert.Contains("language mode", TestSessions.Text(reached, PowerShellStream.Error), StringComparison.Ordinal);
+        Assert.NotNull(await builder.Session.GetAsync(builder.GuestDn, ["cn"], TestContext.Current.CancellationToken));
+        Assert.Contains("language mode", TestSessions.Text(started, PowerShellStream.Error), StringComparison.Ordinal);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(_folder.FullName));
+        Assert.Equal(PowerShellLanguageMode.Constrained, session.LanguageMode);
+    }
+
+    /// <summary>
     /// The bridge of the replacement commands binds the engine's cmdlet and its parameters, but leaves nothing behind in the caller's
     /// scope: a script block of ForEach-Object sees no variable that holds the engine's cmdlet (with it, <c>&amp; $command -Parallel</c>
     /// would be the audit's escape again), and the engine's cmdlets are not reachable by their module-qualified names.

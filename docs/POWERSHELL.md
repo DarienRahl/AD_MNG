@@ -295,7 +295,7 @@ Polecenia, które o coś pytają – `Read-Host`, parametr obowiązkowy, `-Confi
   w procesie AD Managera, także do sesji katalogu okna i jej poświadczeń;
 - nie dodaje poleceń: lista wyżej jest ta sama. Zadanie, które kod .NET umieści w sesji (własne `ForEach-Object -Parallel
   -AsJob` silnika, osiągnięte przez .NET), jest zatrzymywane razem z poleceniem jak każde inne; wątek albo runspace,
-  który kod .NET utworzy sam, jest poza zasięgiem okna, jak reszta procesu;
+  który kod .NET utworzy sam, jest poza zasięgiem okna, jak reszta procesu – działa dalej po *Zatrzymaj* i po zamknięciu okna;
 - dopóki jest włączony, tytuł okna ma dopisek *– tryb zaufany* i trwa uwaga, która mówi to samo; wyłączenie nie wymaga pytania;
 - dotyczy tylko tego okna i **nigdy nie jest zapamiętywany**: nowe okno znów zaczyna w ConstrainedLanguage;
 - nie można go zmienić, gdy polecenie trwa ani zanim PowerShell się uruchomi;

@@ -170,7 +170,8 @@ match that backtracks. The limit applies to the whole process: the program's own
 values or on messages, where a match of 2 s would need hundreds of megabytes; a regular expression made with its own limit keeps
 it (batch editing gives the operator's pattern 1 s; the Watchdog service, another process, gives its patterns 1 s). Measured
 here: `'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!' -match '^(a+)+$'` did not end in 20 s without the limit; with it each of the seven ways
-of the language to a regular expression ended after 2.0 s, in both language modes (`RegexLimitTests`).
+of the language to a regular expression ended after 2.0 s, in both language modes (`RegexLimitTests` keeps the seven in the
+default mode and `-match` in the trusted mode).
 
 **Other process-level facts** found while proving it, relevant to later parts:
 
@@ -533,8 +534,9 @@ This is the plan of the parts; the files that exist are in the records of 12.1-1
   reflection chain to the directory session (the object survives, no file is written), the `-AsJob` variant, a job the trusted mode
   starts through the engine's cmdlet object ends with its command and when the window closes, `using module` of a script and of a
   binary module and `using assembly`, the background operator, every file writer and redirection, `Start-Transcript` with and
-  without a path, the commands that run code elsewhere or load it, `$Host.PrivateData` and the audit's reflection chain, and that
-  `ForEach-Object -MemberName` and `New-Object` keep the language mode.
+  without a path, the commands that run code elsewhere or load it, `$Host.PrivateData` and the audit's reflection chain, that
+  `ForEach-Object -MemberName` and `New-Object` keep the language mode, and that the red team's trusted-mode chains (12.7) are
+  refused in the default mode.
 - **`RegexLimitTests`** – the process limits every regular expression without a limit of its own (4.2); a match that backtracks for
   hours ends as an error of its statement after 2 s, for each way of the language (`-match`, `-replace`, `-split`,
   `switch -regex`, `Select-String`, `[regex]::IsMatch`, `[regex]::new`), and the next command runs; a script catches the error;
@@ -620,7 +622,7 @@ What was open when the design was written and what became of it (the state at th
 ## 12. R1 as built
 
 Section 12.0 reads the whole of R1 as one text. Sections 12.1 to 12.4 are the records the four parts wrote when they were done (the source comments cite them by number), and 12.5 records part 5. Where a
-record says "not yet" or ends with a question, 12.0 says what became of it. 12.6 records the repair of the engine's security composition after the audit of R1; where it differs from 12.0-12.5, 12.6 wins. The blocks win over the design above.
+record says "not yet" or ends with a question, 12.0 says what became of it. 12.6 records the repair of the engine's security composition after the audit of R1, and 12.7 what a red team found after it; where they differ from 12.0-12.5, they win. The blocks win over the design above.
 
 ### 12.0 R1 in one text
 
@@ -706,12 +708,12 @@ has the picture.
 |---|---|
 | Commands in the catalog | 10: 6 `Get-` (`Get-AdmVersion` among them), `Search-`, `Out-`, `Open-`, `Export-`; no write verb |
 | Strings | 92 keys in each of `Strings.resx` and `Strings.pl.resx`: 75 `PowerShell.*`, 16 `PowerShellGrid.*`, 1 `Commands.PowerShell`; 91 constants in `L.PowerShell.cs` |
-| Engine tests (`AdMng.PowerShell.Tests`, Linux and Windows) | 239 at the end of R1: 237 passed, 2 skipped by design on each platform (Linux: the Windows-only execution-policy test and the opt-in 40 s cache proof; Windows: the Unix-only positive control and the same opt-in proof). 373 after the repair of 12.6: on Linux 370 passed and 3 skipped (the two above and the Windows-only authorization-manager test) |
+| Engine tests (`AdMng.PowerShell.Tests`, Linux and Windows) | 239 at the end of R1: 237 passed, 2 skipped by design on each platform (Linux: the Windows-only execution-policy test and the opt-in 40 s cache proof; Windows: the Unix-only positive control and the same opt-in proof). 373 after the repair of 12.6: on Linux 370 passed and 3 skipped (the two above and the Windows-only authorization-manager test). 426 after 12.7 (+11 `RegexLimitTests`, +41 `HistoryPolicyTests` cases, +1 `EscapeTests`): on Linux 423 passed, the same 3 skipped |
 | Presentation tests (Linux) | 253 in `AdMng.Presentation.Tests.PowerShell` (one of them is part 5's test that the window's first lines name the guide), +1 in `ShellViewModelTests`; the project has 3,920 |
 | Core tests (Linux) | 8 of `PowerShellGridTableTests`, 10 cases of `LdapFilter.Pattern` / `EqualBinary`; the project has 5,544 |
 | Lab tests against Samba | 5 (`PowerShellReadLabTests`), skipped without `ADMNG_TEST_LDAP_*`, run by the CI lab job |
 | UI tests (Windows only) | 25 test methods (+6 data rows): 20 of the window, 5 of the editor's parts; the lists of `XamlSourceTests`, `HostTests`, `DesignTokenTests` |
-| Published app | `SmokeTest.PowerShell.cs`: a runspace, `1 + 1`, `Get-AdmVersion`, the ten commands, `Import-Module` refused, the help of a command, and since 12.6 the number of the session's commands against the allow-list and the window's `ForEach-Object`; both windows rendered in both languages |
+| Published app | `SmokeTest.PowerShell.cs`: a runspace, `1 + 1`, `Get-AdmVersion`, the ten commands, `Import-Module` refused, the help of a command, since 12.6 the number of the session's commands against the allow-list and the window's `ForEach-Object`, and since 12.7 the time limit of regular expressions (in effect, and a backtracking match caught); both windows rendered in both languages |
 | Sizes (`-r win-x64 --self-contained -p:PublishSingleFile=true`, MB = 10^6 bytes) | `AdMng.exe` 143.5 -> 181.9 MB (+38.4 MB; CI prints 173.5, which is MiB); publish folder 164.7 -> 204.3 MB (+39.6 MB); CI artifact 68.8 -> 82.4 MB (+13.6 MB); the base is the commit of 0.16.0 |
 
 **Checks at the end of R1.** `dotnet build AdMng.slnx -c Release`: 0 warnings, 0 errors. `dotnet test` of `AdMng.PowerShell.Tests`, `AdMng.Presentation.Tests` and `AdMng.Core.Tests`: all pass (numbers above).
@@ -765,7 +767,11 @@ the published-app smoke test that starts the engine and the two CI steps that ch
 - the stage S readiness item for the PowerShell policies and the language mode: not built; `PowerShellPolicyReader` over `WindowsPowerShellPolicySource` and `PowerShellPolicyNotes` are ready to be reused, and it is a new row with its strings and a test;
 - "N objects" in the status line (an engine count), `LockedOut` with the domain's lockout duration, members by primary group in `Get-AdmGroupMember`;
 - the completion list is not announced to a screen reader; `Out-AdmGrid` has no `-PassThru` / `-Wait`; whether the grid should become a tab of the main window;
-- the Windows checks listed above (policies under a real GPO, WDAC, the `NUL` cache path).
+- the Windows checks listed above (policies under a real GPO, WDAC, the `NUL` cache path);
+- a run the window gave up on (12.7): the status line says *stopped*, the session stays busy until the thread returns, and the
+  next command fails with the engine's English "A command is already running in this window." The window could say instead that
+  the command still runs and that a new window has its own session (a state on the end item or a check of `IsRunning` after it,
+  with its strings).
 
 **Questions that remain for the owner.**
 
@@ -1304,3 +1310,35 @@ checked by listing the `[Cmdlet]` attributes of its five assemblies; the live te
 under a WDAC/AppLocker lockdown (it switches the session to FullLanguage for one internal command before the operator's first command;
 the engine has no lockdown check on that switch, but nobody has run it under a lockdown). One run of the audit's 62-command probe battery
 showed a later command with no output after a stopped prompt; three repeats and the isolated sequence did not reproduce it.
+
+### 12.7 After the red team of R1 - a regular expression, the history, the trusted mode
+
+A red team ran scripts against the rebuilt session (12.6) with eight goals: run arbitrary code (a), reach the window's directory
+session (b), write around the change plan (c), outlive the window (d), write a file (e), pass a different language mode (f), keep a
+plain-text secret in the history (g), and hold the window (h). Goals a-f found no way in ConstrainedLanguage. What it found, and what
+became of it:
+
+- **(h) A regular expression held the window.** `'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!' -match '^(a+)+$'` - default mode, no .NET call -
+  backtracked for hours; Stop gave up after the grace period, the session stayed busy for good, and disposing the session left the
+  thread running a core until the process ended (`-replace` the same). Fixed by the process-wide time limit of 4.2 (2 s, set by the
+  program's module initializer): every way of the language to a regular expression ends with an error after 2 s, Stop ends the
+  command itself. `RegexLimitTests` in its first form - the seven ways in both modes, and Stop - failed in all 15 cases before (each
+  run reached the test's 20 s stop and the grace period); it keeps the seven ways in the default mode and `-match` in the trusted
+  mode (each case takes 2 s), with the limit itself and a script that catches the error: 11 tests. Left: a
+  `[regex]` made with a longer limit of its own (allowed in ConstrainedLanguage) and the trusted mode's .NET code can still hold the
+  thread (4.1); the window does not say so yet (open point in 12.0).
+- **(g) Plain-text secrets in the history.** `ShouldRemember` kept `$h = @{ Password = 'x' }; Set-Thing @h`, `-Passphrase`, `-pwd`,
+  `-pass`, `-Key` with a literal and `Reset-AdmPassword user 'x'`; the audit (PS-13) had added the assignments. Fixed in 4.9
+  (hashtable keys, assignment targets, more names, abbreviations, positional literals to a command named after a secret);
+  `HistoryPolicyTests`: 24 lines failed before, 17 ordinary lines near the new rules stay remembered. Left, and said in the guide:
+  a positional secret to a command whose name does not say so, a console program's argument, a name outside the lists.
+- **(a-c, e) in the trusted mode.** `[type]::GetType('AdMng.PowerShell.Hosting.WindowRegistry, AdMng.PowerShell')`, its `Current()`, the
+  context's reader and the reader's `_inner` field reached the `FakeDirectorySession`, deleted the Guest object without a change plan
+  and wrote a file - what ADR-0010 decision 3 says the trusted mode allows (a protection against mistakes, not a boundary). No change;
+  `EscapeTests.The_red_teams_trusted_mode_chains_are_refused_in_the_default_mode` runs the same chain in the default mode (refused, the
+  object survives, no file; it fails when the test's session is switched to the trusted mode), and `LanguageModeTests` keeps a new
+  session constrained after a trusted one.
+- **(d) in the trusted mode.** A runspace the script made for itself (`[runspacefactory]::CreateRunspace()`, `BeginInvoke`) wrote a
+  file 2.5 s later, after the run, Stop and dispose - decision 6 of 12.6 (only jobs in the session's repository are ended). No change;
+  the same regression test runs it in the default mode (refused, no file after the delayed write would have happened).
+
