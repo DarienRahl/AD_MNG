@@ -79,6 +79,26 @@ public sealed class PowerShellWindowUiTests
 
         // The empty editor says how to use it, in the words of the language.
         Assert.StartsWith("Type a command", window.EditorControl.Hint, StringComparison.Ordinal);
+
+        // A line of an error, a warning or the note is heard with its kind first (audit W-07); any other line is its text.
+        var output = window.ViewModel.Output;
+        output.Add([new AdMng.Core.PowerShell.PowerShellTextItem(AdMng.Core.PowerShell.PowerShellStream.Error, "Get-AdmUser: no such user\n")]);
+        output.Add([new AdMng.Core.PowerShell.PowerShellTextItem(AdMng.Core.PowerShell.PowerShellStream.Warning, "Only 10 windows\n")]);
+        output.AddLine(PowerShellLineKind.PolicyNote, "Transcription is on");
+        output.AddLine(PowerShellLineKind.Information, "plain");
+        await UiTestSupport.WaitForIdleAsync();
+        string NameOf(string text)
+        {
+            var line = output.Lines.Last(l => l.Text == text);
+            window.Output.ScrollIntoView(line);
+            window.Output.UpdateLayout();
+            return AutomationProperties.GetName((DependencyObject)window.Output.ItemContainerGenerator.ContainerFromItem(line));
+        }
+
+        Assert.Equal("Error: Get-AdmUser: no such user", NameOf("Get-AdmUser: no such user"));
+        Assert.Equal("Warning: Only 10 windows", NameOf("Only 10 windows"));
+        Assert.Equal("Note: Transcription is on", NameOf("Transcription is on"));
+        Assert.Equal("plain", NameOf("plain"));
         context.AssertHealthy();
     });
 

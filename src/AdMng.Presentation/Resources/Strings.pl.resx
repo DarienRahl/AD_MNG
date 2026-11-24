@@ -25819,13 +25819,13 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Zaznacz wszystko</value>
   </data>
   <data name="PowerShell.Kind.Error" xml:space="preserve">
-    <value>Błąd</value>
+    <value>Błąd: {0}</value>
   </data>
   <data name="PowerShell.Kind.Warning" xml:space="preserve">
-    <value>Ostrzeżenie</value>
+    <value>Ostrzeżenie: {0}</value>
   </data>
   <data name="PowerShell.Kind.Note" xml:space="preserve">
-    <value>Uwaga</value>
+    <value>Uwaga: {0}</value>
   </data>
   <data name="PowerShellGrid.Title" xml:space="preserve">
     <value>Wyniki</value>

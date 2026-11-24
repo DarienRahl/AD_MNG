@@ -87,7 +87,7 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   najwyżej 8000 znaków (dłuższy tekst ciągnie się w następnym wierszu), a postęp pisany kropka po kropce
   (`Write-Host -NoNewline`) nie spowalnia go.
 - **Co jest w oknie.** Wiersz stanu na górze mówi, co robi polecenie, i ma **Stop**; błędy i ostrzeżenia mają ikonę
-  (nie tylko kolor); nazwa wyróżniająca w wyniku jest odnośnikiem (*Otwórz w programie*, prawy przycisk: *Kopiuj nazwę
+  (nie tylko kolor), a czytnik ekranu słyszy przed nimi „Błąd:” albo „Ostrzeżenie:” (przed uwagą o zasadach – „Uwaga:”); nazwa wyróżniająca w wyniku jest odnośnikiem (*Otwórz w programie*, prawy przycisk: *Kopiuj nazwę
   wyróżniającą*, Enter otwiera pierwszą nazwę zaznaczonego wiersza) – z wyjątkiem nazwy uciętej albo takiej, którą `Format-List`
   mógł złamać na szerokości okna, bo ta otworzyłaby inny obiekt. **Tab** uzupełnia (polecenia, parametry, zmienne, nazwy
   atrybutów ze schematu i kontenery, które okno już zna – bez odczytu z katalogu przy każdym znaku; nie ma uzupełniania nazw
@@ -95,7 +95,8 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   uruchamia kompletne polecenie albo dodaje wiersz, gdy jest niedokończone (otwarty cudzysłów, nawias, ukośnik
   pionowy), **Shift+Enter** zawsze dodaje wiersz, **Góra/Dół** chodzą po wierszach, a potem po historii, **Ctrl+R** przeszukuje
   historię, **Esc** zamyka listę, **Ctrl+L** czyści okno – tak samo `cls` (`Clear-Host`) w poleceniu, w miejscu, w którym stoi.
-  `exit` kończy polecenie tam, gdzie stoi, a okno mówi to z kodem wyjścia i zostaje otwarte. O parametr obowiązkowy, który
+  `exit` kończy polecenie tam, gdzie stoi, a okno mówi to z kodem wyjścia i zostaje otwarte. Gdy polecenie czeka na odpowiedź, puste pole mówi
+  „Wpisz odpowiedź i naciśnij Enter.” zamiast podpowiedzi do polecenia. O parametr obowiązkowy, który
   przyjmuje listę (np. `-Identity`), okno pyta element po elemencie (`Identity[0]`, `Identity[1]`…) aż do pustej odpowiedzi,
   jak konsola PowerShella – odpowiedź nie jest dzielona na przecinkach, więc nazwa wyróżniająca jest jedną tożsamością. Pytanie,
   które przyjdzie w trakcie pisania następnego polecenia, nie kasuje wpisanego tekstu (wraca po odpowiedzi), a pierwsze puste

@@ -94,7 +94,10 @@ public static partial class L
 
         public const string SelectAll = "PowerShell.Menu.SelectAll";
 
-        /// <summary>The words a screen reader hears before the glyph-and-colour of a line kind (never colour alone).</summary>
+        /// <summary>
+        /// What a screen reader hears for a line of an error, a warning or the policy note: the kind, then the text ({0}); the glyph and
+        /// the colour are not heard (audit W-07). Used by the line style of the window.
+        /// </summary>
         public const string KindError = "PowerShell.Kind.Error";
 
         public const string KindWarning = "PowerShell.Kind.Warning";

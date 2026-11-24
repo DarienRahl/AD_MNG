@@ -654,6 +654,33 @@ public sealed class PowerShellWindowRunTests
     }
 
     [Fact]
+    public async Task TheEmptyEditor_SaysWhatToType_TheCommandOrTheAnswer_InTheLanguageOfTheWindow()
+    {
+        // Audit W-07: while a command waited for an answer, the empty editor still said "Type a command. Tab completes…".
+        var harness = await PowerShellHarness.CreateAsync();
+        using var window = await harness.OpenAsync();
+        var changed = new List<string?>();
+        window.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        var prompt = new PowerShellPromptItem(PowerShellPromptKind.Text, null, null, "Name: ");
+        harness.Session.Queue(run => Ask(run, prompt, _ => { }, a => $"Hello {a}"));
+        Assert.Equal("Type a command. Tab completes, Enter runs, Shift+Enter starts a new line.", window.EditorHint);
+
+        PowerShellHarness.Type(window, "Read-Host 'Name'");
+        var run = window.RunCommand.ExecuteAsync(null);
+        await UntilAsync(window, () => window.PendingPrompt is not null).WaitAsync(Limit, Ct);
+
+        Assert.Equal("Type the answer and press Enter.", window.EditorHint);
+        Assert.Contains(nameof(PowerShellWindowViewModel.EditorHint), changed);
+        harness.Directory.Localizer.SetCulture(CultureInfo.GetCultureInfo("pl-PL"));
+        Assert.Equal("Wpisz odpowiedź i naciśnij Enter.", window.EditorHint);
+
+        PowerShellHarness.Type(window, "Jan");
+        window.SubmitCommand.Execute(null);
+        await run.WaitAsync(Limit, Ct);
+        Assert.Equal("Wpisz polecenie. Tab uzupełnia, Enter uruchamia, Shift+Enter zaczyna nowy wiersz.", window.EditorHint);
+    }
+
+    [Fact]
     public async Task ASecretQuestion_GetsASecureString_AndTheSecretIsNowhereInTheWindow()
     {
         var harness = await PowerShellHarness.CreateAsync();

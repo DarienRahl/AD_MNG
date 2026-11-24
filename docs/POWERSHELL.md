@@ -34,7 +34,8 @@ PowerShell…*); następne są szybkie.
 Od góry okno ma:
 
 - **wiersz stanu**: co okno robi (*Wykonywanie polecenia…*, *Polecenie zakończyło się: 12 wierszy danych wyjściowych w oknie,
-  0,8 s*, *Polecenie zatrzymano po 3 s*) z przyciskiem **Zatrzymaj**; błędy i ostrzeżenia mają ikonę, nie tylko kolor;
+  0,8 s*, *Polecenie zatrzymano po 3 s*) z przyciskiem **Zatrzymaj**; błędy i ostrzeżenia mają ikonę, nie tylko kolor,
+  a czytnik ekranu słyszy przed takim wierszem wyników *Błąd:*, *Ostrzeżenie:* albo *Uwaga:*;
 - **uwagi, które trwają** – co rejestrują zasady grupy (rozdział 8), *Tryb zaufany jest włączony* (rozdział 7) i *Najstarsze
   wiersze usunięto z tego okna* (okno zachowuje ostatnie 20 000 wierszy);
 - **obszar wyników**: uruchomione polecenia i to, co napisały, z błędami i ostrzeżeniami w kolorach okna;
@@ -471,7 +472,8 @@ musi potwierdzić:
 
 - wygląd kolorowanego tekstu (pole edytuje tekst przezroczysty, kolory rysuje warstwa pod nim), kursor i zaznaczenie w motywie
   jasnym, ciemnym i wysokiego kontrastu, przy skalowaniu 125 %–200 % oraz listę uzupełnień przy krawędzi ekranu;
-- czytnik ekranu (Narrator, NVDA) z oknem: lista uzupełnień nie jest ogłaszana;
+- czytnik ekranu (Narrator, NVDA) z oknem: lista uzupełnień nie jest ogłaszana (wiersz błędu, ostrzeżenia albo uwagi ma nazwę
+  zaczynającą się od swojego rodzaju – nazwy są sprawdzone testem, nikt ich jeszcze nie usłyszał);
 - zasady okna pod **prawdziwymi zasadami grupy** (transkrypcja, rejestrowanie bloków skryptów, rejestrowanie modułów; klucze
   i reguły, który z nich wygrywa, pochodzą z kodu samego silnika i z udokumentowanych szablonów) oraz silnik pod **WDAC / AppLocker**;
 - polecenia na **prawdziwym Windows Server AD** (testy przeszły nad sztucznym katalogiem i kontrolerem Samba).

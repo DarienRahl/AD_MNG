@@ -34,7 +34,8 @@ and you do not sign in again. The first window of a program run takes under a se
 From top to bottom the window has:
 
 - the **status line**: what the window is doing (*Running the command…*, *The command finished: 12 lines of output in the
-  window, 0.8 s*, *The command was stopped after 3 s*) with **Stop**; errors and warnings have an icon, not only a colour;
+  window, 0.8 s*, *The command was stopped after 3 s*) with **Stop**; errors and warnings have an icon, not only a colour,
+  and a screen reader hears *Error:*, *Warning:* or *Note:* before such a line of the output;
 - **notes that last** – what Group Policy records (chapter 8), *Trusted mode is on* (chapter 7), and *The oldest N lines
   were removed from this window* (the window keeps the last 20,000 lines);
 - the **output area**: the commands you ran and what they wrote, with errors and warnings in the window's colours;
@@ -473,7 +474,8 @@ pilot on Windows has to confirm:
 
 - the look of the coloured text (the box edits transparent text, the colours are drawn in a layer under it), the caret and the
   selection in light, dark and High Contrast themes, at 125 %–200 % scaling, and the completion list near the edge of the screen;
-- a screen reader (Narrator, NVDA) with the window: the list of completions is not announced;
+- a screen reader (Narrator, NVDA) with the window: the list of completions is not announced (a line of an error, a warning or
+  the note is named with its kind first – the names are tested, not yet heard);
 - the policies of the window under a **real Group Policy** (transcription, script block logging, module logging; the keys
   and the rules of which one wins come from the engine's own code and the documented templates) and the engine under **WDAC / AppLocker**;
 - the commands against a **real Windows Server AD** (the tests ran over a fake directory and a Samba domain controller).

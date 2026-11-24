@@ -73,6 +73,10 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
             {
                 RunCommand.NotifyCanExecuteChanged();
             }
+            else if (e.PropertyName is nameof(PowerShellInputModel.IsAnswering))
+            {
+                OnPropertyChanged(nameof(EditorHint));
+            }
         };
         Output.PropertyChanged += (_, e) =>
         {
@@ -104,6 +108,12 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
     public override string WindowTitle => _info is { } info
         ? Localizer.Format(IsTrustedMode ? L.PowerShell.WindowTitleTrusted : L.PowerShell.WindowTitle, info.DomainDnsName, info.Server, info.BoundIdentity)
         : Localizer[L.PowerShell.Name];
+
+    /// <summary>
+    /// What the empty editor says: how to type a command, or - while a command waits for an answer - that the answer is typed here
+    /// (audit W-07: the command hint stayed while a question waited).
+    /// </summary>
+    public string EditorHint => Localizer[Input.IsAnswering ? L.PowerShell.AnswerHint : L.PowerShell.EditorHint];
 
     /// <summary>The engine session exists and is not changing its runspace: commands can be run.</summary>
     public bool IsReady => _session is not null && !IsSessionEnded && !IsSwitchingMode;
@@ -404,6 +414,7 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
         OnPropertyChanged(nameof(DroppedNote));
         OnPropertyChanged(nameof(PolicyNoteText));
         OnPropertyChanged(nameof(TrustedModeDisabledReason));
+        OnPropertyChanged(nameof(EditorHint));
     }
 
     protected override void Dispose(bool disposing)
