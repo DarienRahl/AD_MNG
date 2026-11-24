@@ -211,6 +211,10 @@ public sealed class EscapeTests : IDisposable
             "Get-AdmVersion | Export-Clixml '" + dir + "/export.xml'",
             "'data' | Tee-Object -FilePath '" + dir + "/tee.txt'",
             "New-Item -ItemType File -Path '" + dir + "/newitem.txt'",
+            "Copy-Item -Path '" + typeof(EscapeTests).Assembly.Location + "' -Destination '" + dir + "/copied.dll'",
+            "Microsoft.PowerShell.Utility\\Export-Csv -Path '" + dir + "/qualified.csv' -InputObject 1",
+            "Microsoft.PowerShell.Utility\\Out-File -FilePath '" + dir + "/qualified.txt' -InputObject 1",
+            "Microsoft.PowerShell.Management\\Set-Content -Path '" + dir + "/qualified-content.txt' -Value 1",
             "Start-Process -FilePath /bin/sh -ArgumentList '-c','echo x > " + dir + "/spawn.txt' -Wait",
         ];
 
@@ -335,6 +339,57 @@ public sealed class EscapeTests : IDisposable
         Assert.Equal("True\nTrue\n", TestSessions.Text(data));
         Assert.Equal(string.Empty, TestSessions.Text(chain));
         Assert.True(TestSessions.End(chain).HadErrors);
+    }
+
+    /// <summary>
+    /// The other ways a constrained script could try to reach the engine, the session or the disk without a command: the runspace object
+    /// and its language mode, the engine's provider and command intrinsics (they create files and script blocks), a method object of a
+    /// type that is not a core type, reflection from the window's own replacement command to the engine's cmdlet it wraps, and an
+    /// advanced function's <c>$PSCmdlet</c>. ConstrainedLanguage refuses each; none writes, none prints FullLanguage.
+    /// </summary>
+    [Theory]
+    [InlineData("[runspace]::DefaultRunspace.SessionStateProxy.LanguageMode = 'FullLanguage'; $ExecutionContext.SessionState.LanguageMode")]
+    [InlineData("function Set-Mode { [CmdletBinding()] param() $PSCmdlet.SessionState.LanguageMode = 'FullLanguage'; $ExecutionContext.SessionState.LanguageMode }; Set-Mode")]
+    [InlineData("$ExecutionContext.InvokeProvider.Item.New('DIR', 'provider.txt', 'File', 'data')")]
+    [InlineData("$w = $ExecutionContext.InvokeProvider.Content.GetWriter('DIR/writer.txt'); $w.Write(@('data')); $w.Close()")]
+    [InlineData("& ($ExecutionContext.SessionState.InvokeCommand.NewScriptBlock(\"[System.IO.File]::WriteAllText('DIR/sb.txt', 'x'); 'FullLanguage'\"))")]
+    [InlineData("(Get-Item 'DIR').psobject.Methods['CreateSubdirectory'].Invoke('made')")]
+    [InlineData("(Get-Command ForEach-Object).ImplementingType.BaseType.GetField('EngineCmdlet', [System.Reflection.BindingFlags]'NonPublic,Static').GetValue($null)")]
+    [InlineData("[type]::GetType('AdMng.PowerShell.Hosting.WindowRegistry, AdMng.PowerShell')")]
+    public async Task A_constrained_script_reaches_neither_the_engine_nor_the_disk_by_other_paths(string script)
+    {
+        var builder = new FakeDirectoryBuilder();
+        builder.AddSampleCompany();
+        await using var session = await SessionAsync(PowerShellLanguageMode.Constrained, new FakeWindowContext(builder.Session));
+
+        var items = await TestSessions.RunAsync(session, script.Replace("DIR", _folder.FullName, StringComparison.Ordinal));
+
+        Assert.DoesNotContain("FullLanguage", TestSessions.Text(items), StringComparison.Ordinal);
+        Assert.Contains("language mode", TestSessions.Text(items, PowerShellStream.Error), StringComparison.Ordinal);
+        Assert.True(TestSessions.End(items).HadErrors);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(_folder.FullName));
+        Assert.Equal(PowerShellLanguageMode.Constrained, session.LanguageMode);
+    }
+
+    /// <summary>
+    /// The bridge of the replacement commands binds the engine's cmdlet and its parameters, but leaves nothing behind in the caller's
+    /// scope: a script block of ForEach-Object sees no variable that holds the engine's cmdlet (with it, <c>&amp; $command -Parallel</c>
+    /// would be the audit's escape again), and the engine's cmdlets are not reachable by their module-qualified names.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(BothModes))]
+    public async Task The_engine_cmdlet_behind_a_replacement_is_not_reachable(PowerShellLanguageMode mode)
+    {
+        await using var session = await SessionAsync(mode);
+
+        var variables = await TestSessions.RunAsync(
+            session,
+            "1 | ForEach-Object { \"[$command][$parameters]\"; Get-Variable | Where-Object { $_.Value -is [System.Management.Automation.CommandInfo] } | ForEach-Object Name }");
+        var qualified = await TestSessions.RunAsync(session, "Microsoft.PowerShell.Core\\ForEach-Object -InputObject 1 -Parallel { 'ran' }");
+
+        Assert.Equal("[][]\n", TestSessions.Text(variables));
+        Assert.Equal(string.Empty, TestSessions.Text(qualified));
+        Assert.Contains("not recognized", TestSessions.Text(qualified, PowerShellStream.Error), StringComparison.Ordinal);
     }
 
     /// <summary>The window's ForEach-Object keeps ConstrainedLanguage: -MemberName cannot call a method of a type that is not a core type.</summary>
