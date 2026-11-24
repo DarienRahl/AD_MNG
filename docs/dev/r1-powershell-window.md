@@ -122,6 +122,16 @@ scope. `PowerShellSession.CreateAsync(options)` builds it on a pool thread: the 
   ConstrainedLanguage allows that (`[regex]::new('^(a+)+$', 'None', [timespan]::FromHours(1))`, `[regex]::InfiniteMatchTimeout`,
   the static methods with a time limit): such a match, and the trusted mode's .NET code, is what the leaving is for (second red
   team, 12.8). Its thread keeps a processor core busy until the match ends – an hour, or never – or the program closes.
+- **Turning the trusted mode off makes a new runspace** (audit PS-02, 12.10): `SetLanguageModeAsync(Constrained)` on a trusted
+  session does not set the language mode of the same runspace back - a function, an alias, a script block in a variable or a member
+  added to `$Host` defined in FullLanguage keeps running in FullLanguage - but makes a new runspace the way the first was (in
+  ConstrainedLanguage, on a pool thread, under the session's gate: no command and no completion meanwhile) and asks the lockdown
+  again; the trusted runspace leaves `WindowRegistry`, its jobs are ended and it is closed on a pool thread. Every runspace has a
+  host and a raw user interface of its own (the width is the session's), so nothing attached to the old ones is reachable. When the
+  new runspace cannot be made, the session has none: the switch and every later command throw
+  `PowerShellSessionUnavailableException` (Core; the cause is its inner exception), the same as after a left run whose new runspace
+  failed. Turning the trusted mode on keeps the runspace and its variables (the engine itself drops the functions defined in
+  ConstrainedLanguage when the mode becomes FullLanguage).
 - **Jobs.** No job outlives its command: every job left in the session's job repository is stopped (on a pool thread,
   not waited for) and removed when the command ends, on `StopAsync` and on dispose. No command of the window creates a job; .NET
   code of the trusted mode can (`ForEach-Object -Parallel -AsJob` through the engine's cmdlet object). A thread or a runspace that
@@ -234,8 +244,12 @@ PSHostRawUserInterface` (minimal: buffer and window size from the session's widt
   answer converted to the parameter's type), `PromptForChoice` (confirmations: `-Confirm`, `ShouldContinue`) post a **prompt
   item** into the same stream and block the pipeline thread until the consumer answers it; Stop cancels the wait, and a
   cancelled prompt stops the pipeline (`PipelineStoppedException`, like Ctrl+C at a console prompt). `PromptForCredential`
-  throws `PSNotSupportedException` with a clear message (R1 creates no `PSCredential`). `EnterNestedPrompt` is not supported,
-  `SetShouldExit` raises an event the window may use and does not end the process.
+  throws `PSNotSupportedException` with a clear message (R1 creates no `PSCredential`). `EnterNestedPrompt` is not supported.
+- **`exit` and `Clear-Host`** (audit PS-12, 12.10). `SetShouldExit` (the engine calls it for `exit`, also inside a function or a
+  script block) keeps the exit code, which the session puts into the end item; the run ends there and the process does not (until
+  the audit it raised an event nobody subscribed to, and `exit` ended the run without a word). `SetBufferContents` with the
+  rectangle -1, -1, -1, -1 - the whole buffer, what `Clear-Host` asks for - posts a clear item; any other rectangle has nothing to
+  fill.
 - `Name` is "AD Manager PowerShell", `Version` the program's version, `CurrentCulture` and `CurrentUICulture` follow the
   `Culture` option (the window's UI language); `SupportsVirtualTerminal` is false (no ANSI sequences: the window colours
   text itself).
@@ -258,7 +272,8 @@ PSHostRawUserInterface` (minimal: buffer and window size from the session's widt
 | `PowerShellProgressItem(ActivityId, Activity, Status, PercentComplete, Completed)` | `Write-Progress`. |
 | `PowerShellPromptItem` | A prompt or confirmation (4.3): `Kind` Text, Secret or Choice, `Caption`, `Message`, `Label`, `Choices`, `DefaultChoice`; answered with `Respond`, `RespondSecret`, `RespondChoice` or `Cancel`; its `ToString()` shows no question and no answer. |
 | `PowerShellObjectItem(Value)` | Only in **object mode** (`PowerShellSession.RunObjectsAsync`, not on the Core interface): each object the pipeline emits, unformatted (a `PSObject`). For tests of the commands and for programmatic callers. |
-| `PowerShellRunEndItem(State, HadErrors)` | Always the last item: `Completed`, `Stopped` or `Failed` (a terminating error, whose text is the item before it), and whether any error was written. |
+| `PowerShellClearItem` | `Clear-Host` / `cls` (4.3): the window clears its output there, like Ctrl+L, in the order of the other items. |
+| `PowerShellRunEndItem(State, HadErrors, ExitCode?)` | Always the last item: `Completed`, `Stopped`, `Failed` (a terminating error, whose text is the item before it) or `Abandoned` (4.1); whether any error was written - for a stopped run only an error the command wrote, not the stop itself; and the code of an `exit` that ended the script. |
 
 The window uses the **formatted mode**: the script is run as one pipeline followed by `Out-Default`, with the error stream
 merged into it, the way the console host runs a command. The engine's own formatting therefore decides tables and lists (a
@@ -309,8 +324,10 @@ modules; `Out-File`, `Export-Csv`, `Set-Content`, `>` and `Start-Transcript` wit
 - **One list** - `Guards/CommandGuards.cs` - and `CommandGuards.Apply` removes every command entry of `CreateDefault()` that is not
   on it. Kept unchanged: 68 engine cmdlets (`EngineCmdlets`: objects and the pipeline, formatting, data in memory, files and
   locations read only, variables and aliases, `Get-Command` / `Get-Help`, values, messages and `Read-Host`, `Start-Sleep`,
-  `Measure-Command`, `Set-StrictMode`, `Get-ExecutionPolicy`, `Stop-Transcript`) and two engine functions (`Clear-Host`,
-  `TabExpansion2`, which completion calls by name). Added: four **replacements** (below), twelve **refusals** - functions that write
+  `Measure-Command`, `Set-StrictMode`, `Get-ExecutionPolicy`, `Stop-Transcript`) and one engine function (`TabExpansion2`, which
+  completion calls by name). Added: four **replacements** (below), the window's own compiled `Clear-Host` in place of the engine's
+  function (`WindowCommands`; it asks the host to clear its whole buffer, 4.3 - the engine's function did nothing in the window on
+  Windows and wrote terminal codes to the process's console elsewhere, audit PS-12; `cls` stays its alias), twelve **refusals** - functions that write
   an error of the command's own name with the id `AdmCommandNotAvailable` (`Start-Job`, `Import-Module`, `Invoke-Command`,
   `Invoke-Expression`, `Get-Credential`, `Start-Process`, `Out-GridView`, `Export-Csv`, `Export-Clixml`, `Out-File`, `Set-Content`,
   `Add-Content`) - and the alias `help` → `Get-Help` (the engine's `help` function pipes into a pager). Of the engine's aliases only
@@ -365,14 +382,17 @@ adds the Microsoft 365 ones). The list is a protection against mistakes, like th
   (`IPowerShellLockdownProbe`, injected; the real one wraps `SystemPolicy.GetSystemLockdownPolicy()`) is asked at creation and
   again on every switch to the trusted mode: under `Enforce` the session stays `Constrained`, the switch throws and
   `TrustedModeBlock` is `SystemLockdown`; `Audit` does not block.
-- Switching sets `Runspace.SessionStateProxy.LanguageMode`; it is refused while a run is active. The mode never leaves the
-  session object: nothing persists it, and a new window starts in ConstrainedLanguage (a test creates a session after a
-  trusted one).
+- Switching on sets `Runspace.SessionStateProxy.LanguageMode`; switching off makes a new runspace (4.1); both are refused while a
+  run is active. The mode never leaves the session object: nothing persists it, and a new window starts in ConstrainedLanguage (a
+  test creates a session after a trusted one).
 - ConstrainedLanguage holds for every command of the window: no command runs code in another runspace or language mode
   (`LanguageModeTests` tries each way - `-Parallel` typed, as `%` and splatted, `[powershell]`, `[runspacefactory]`, `InvokeScript`,
   `[scriptblock]::Create` and the cast, `Invoke-Expression`, a `function:` assignment, `Add-Type`, jobs). The trusted mode changes
-  the language mode only; it adds no command. Code defined while it was on keeps FullLanguage after the switch back (audit PS-02;
-  the fix - a fresh runspace when the mode is turned off - is a separate change).
+  the language mode only; it adds no command. Nothing defined while it was on runs in FullLanguage after it was turned off - the
+  runspace is new (audit PS-02, `TrustedModeOffTests`). What its .NET code changed outside the runspace stays until the program
+  closes, in every window: a thread or timer it started (4.1), and a member it added to a process-wide .NET object - `Add-Member`
+  on the type object `[string]` or on the culture of `Get-Culture` - which a constrained window can still call, in FullLanguage
+  (measured; no runspace can take it back).
 - The confirmation dialog, the title suffix and the lasting note are the window's (parts 3 and 4); the engine only says what is
   possible.
 
@@ -491,7 +511,13 @@ This is the plan; what was built is section 12.3 and it wins (the policy types a
   engine left (`Abandoned`, 4.1, since 12.8) ends as an Attention ("stopped after … but did not end; the window goes on in a new
   session") with a line in the scrollback that says the variables, functions and modules of earlier commands are gone; when the
   new runspace is constrained because a lockdown came meanwhile, the line of the trusted mode's end follows and the title, the
-  summary and the switch change with it.
+  summary and the switch change with it. Turning the trusted mode off is a state of its own while the session makes its new
+  runspace (`IsSwitchingMode`, 12.10): a Working line that cannot be stopped, Run, Tab and the switch disabled, the completion
+  list and a running highlight dropped first; afterwards a line says that the session is new and the variables, functions and
+  aliases are gone, and the lockdown is read from the session again. What keeps a window from running is kept as its cause - no
+  engine, the exception of a failed start or of a session that lost its runspace - and the texts of the lasting state and of the
+  switch's reason are made when they are read (they follow the language; the reason goes through `ErrorTranslator`); the switch
+  has a reason in every state it is disabled in.
 - `PowerShellInputModel`: the buffer, the caret, the history (a list in memory with Up/Down and Ctrl+R incremental search),
   the completion state (matches, selection, the span to replace) and the "Enter runs or inserts a line" decision
   (`IsComplete`).
@@ -569,6 +595,14 @@ This is the plan of the parts; the files that exist are in the records of 12.1-1
   code in another language mode (4.7); the program's commands work in it; the switch to FullLanguage and a command typed after
   the switch back; refused under a fake lockdown (at the start and when it appears later); `Audit` does not block; refused while
   a run is active; a new session starts constrained after a trusted one.
+- **`TrustedModeOffTests`** – turning the trusted mode off (PS-02, 12.10): eight ways to call what the trusted mode defined (a
+  function, an alias, a script block in a variable, a member of `$Host` and of `$Host.UI.RawUI`, a command object) ran FullLanguage
+  before and fail after it; the new runspace has the window's commands, width and a new host; turning on keeps the variables; the
+  lockdown is asked again; refused while a command runs; the trusted runspace is closed; the new runspace failing and a dispose
+  meanwhile.
+- **`SessionEndingTests`** – `exit` (with and without a code, in a function, in a script block) ends the run with the code in its
+  end item; `Clear-Host` and `cls` give a clear item in the order of the output, also in the trusted mode; a stopped run counts only
+  an error the command wrote (PS-12, 12.10).
 - **`HostRoutingTests`** – each stream arrives as text of its own stream; `Write-Host` colours without duplicates; progress;
   `Read-Host` (text and secret), a missing mandatory parameter, `-Confirm` (both answers) as prompt items with the answer
   going back; a cancelled prompt and a stopped run at a prompt end the run; `Get-Credential` is refused; no nested prompt; the
@@ -630,7 +664,8 @@ call outside the one session, `-Server` and `-Credential` do not exist.
 ### 9.3 Part 3 – `AdMng.Presentation.Tests` (Linux)
 
 The view model against a fake session (and the real engine in a few tests): the status line during a run and on Stop, the
-lasting policy note, the trusted-mode lasting note, history rules, completion state, Enter versus a new line, DN links, the
+lasting policy note, the trusted-mode lasting note, turning the trusted mode off (`PowerShellWindowTrustedModeTests`: the
+switching state, its failure, the lockdown of the new runspace), the reason of the switch in every state, history rules, completion state, Enter versus a new line, DN links, the
 bounded scrollback, the policy reader over a fake registry (every combination of the two hives, the Windows PowerShell switch
 and the two config files), `ConnectionLifetimes` (the new services are scoped).
 
@@ -1354,8 +1389,8 @@ the session; `using module` loaded a module past the `Import-Module` guard; the 
    show a job's output (no `Receive-Job`), so a job left behind would be invisible work.
 6. *Trusted mode*: the same list; the trusted mode adds no command. Its .NET code can still reach anything in the process,
    including the window's session and credentials, and can start threads or runspaces of its own that nothing in the window stops
-   (only jobs in the session's repository are ended). Code defined while it was on keeps FullLanguage after the switch back (PS-02,
-   a separate change).
+   (only jobs in the session's repository are ended). Code defined while it was on kept FullLanguage after the switch back (PS-02;
+   since 12.10 the switch back makes a new runspace).
 
 **What could not be verified here.** Nothing ran on Windows: the authorization manager (the engine asks it on Windows only;
 `SessionCommandsTests.A_script_file_reached_as_a_command_object_is_refused_on_windows` and the smoke test of the published file are the
@@ -1479,3 +1514,43 @@ became of it:
 - **Left.** The limits were measured on Linux; Windows runs the same tests in CI, also the child processes with a 1 MB thread. When no
   thread with 64 MB of stack can be made, a long text is treated as too long (refused, not remembered). In the trusted mode
   `[scriptblock]::Create` still parses any text at run time - FullLanguage, decision 6 of 12.6; ConstrainedLanguage refuses it.
+
+### 12.10 After the audit of R1 - the trusted mode off, the state of the window, exit and cls
+
+Audit findings PS-02 (high), W-10 and the session's part of PS-12, each reproduced before the change (the engine runs on Linux):
+
+- **PS-02: the trusted mode did not end when it was turned off.** The switch back set the language mode of the same runspace; a
+  function, an alias, a script block in a variable and a script method added to `$Host` or `$Host.UI.RawUI` in the trusted mode
+  went on running in FullLanguage while the window said ConstrainedLanguage (`TrustedModeOffTests` printed "FullLanguage" for each
+  of its eight calls). Now the session makes a new runspace (4.1) - the same session object, so the window makes no second request
+  to the factory: the directory, the culture, the width and the actions are the session's by construction, the window's lambdas of
+  the history and the editor stay valid, and there is one code path for "a new runspace" with the left run of 12.8. Every runspace
+  got its own raw user interface for it (a member added to the shared one was reachable from the new runspace). Measured and left,
+  because no runspace can take it back: a member the trusted mode adds to a process-wide .NET object - `[string] | Add-Member
+  -MemberType ScriptMethod …`, the same on the culture of `Get-Culture` - stays callable in FullLanguage, from this window and from a
+  new one, until the program closes; it is the trusted mode's .NET code (ADR-0010 decision 3) and the guide says so.
+- **The window while the new runspace is made** (the auditor's six points): `IsSwitchingMode` - the Working line "Turning the trusted
+  mode off: starting a new PowerShell session…" without Stop; Run, Tab (the editor's `canComplete` gate) and the switch disabled with
+  the reason; the completion list and a running highlight dropped before (the text is highlighted again after); the history and the
+  scrollback stay, the scrollback says that the session is new and the variables, functions and aliases are gone - and the
+  confirmation of the trusted mode says so before it is turned on (turning off asks nothing: it is the safe direction); the lockdown
+  is read from the session again (a new lockdown disables the switch and is said in the scrollback). When the new runspace cannot
+  be made (`PowerShellSessionUnavailableException`), the window is not left trusted: it closes the session and says "PowerShell could
+  not be started" as its lasting state and in the scrollback; a command after which the session has no runspace (a left run whose
+  new runspace failed) ends the same way instead of failing on every command.
+- **W-10: the cause of a window that cannot run is state.** `_noEngine` and `_startFailure` (the exception) replace the text of the
+  start; the lasting state and `TrustedModeDisabledReason` are made when they are read - in the language of then, the reason through
+  `ErrorTranslator`. A build without the engine says "This installation has no PowerShell engine. Use the standard package of AD
+  Manager, which includes the engine." (no "close the window and open it again"). The switch has a reason in every state it is
+  disabled in - the session ended or none, no engine, could not be started, being turned off, not ready yet, a command runs, a
+  lockdown - and `CanToggleTrustedMode` is exactly "no reason". A refused switch says why in the window's words, the run failure
+  "The command could not be started" goes through the translator.
+- **PS-12, the session's part.** `exit` ends the run and the window says "The command ended with exit (exit code n). The window stays
+  open…": closing the window would take the scrollback and the history with a script's `exit`; the dead `ExitRequested` event is
+  gone. `Clear-Host` / `cls` is a compiled command of the window (4.6) and clears the output like Ctrl+L, in the order of the output
+  (`PowerShellClearItem`); the view no longer reads the last item of a list cleared meanwhile. A stopped run's `HadErrors` counts
+  only an error the command wrote, not the stop. Not changed here: `Out-Default` resolved by name, and the rest of W-05.
+- **Tests.** `TrustedModeOffTests` (16) and `SessionEndingTests` (10) in the engine; `PowerShellWindowTrustedModeTests` (9), the
+  reason of the switch in six states, the start failure and the build without the engine before and after a switch to Polish, the
+  clear and the exit line in the window's tests. Not seen on Windows: the switching state and the clear in the real window (the UI
+  tests run there; the smoke test counts the window's own `Clear-Host`).

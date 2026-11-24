@@ -2836,8 +2836,10 @@ Właściciel rozstrzygnął te sprawy dla R1 (uzasadnienie i alternatywy:
   (FullLanguage)* operator włącza po potwierdzeniu, które mówi, na co pozwala (dowolny kod .NET, zapisy z pominięciem planu
   zmian); tryb widać w tytule okna i w trwałej notatce, dopóki jest włączony, i nie jest zapamiętywany między oknami ani
   sesjami; przy blokadzie systemu (WDAC / AppLocker) okno zostaje w ConstrainedLanguage, a przełącznik jest wyłączony z
-  podaniem powodu. Tryb zaufany nie dodaje poleceń; jego kod .NET sięga do całego procesu AD Managera, także do sesji okna
-  i jej poświadczeń. To ochrona przed pomyłką, nie granica bezpieczeństwa. Hasła w obiekcie `PSCredential` nie chroni żaden
+  podaniem powodu. Wyłączenie trybu daje oknu nową sesję PowerShell w ConstrainedLanguage, więc nic zdefiniowanego w trybie
+  zaufanym (funkcje, aliasy, bloki skryptu, zmienne) nie działa potem w FullLanguage. Tryb zaufany nie dodaje poleceń; jego
+  kod .NET sięga do całego procesu AD Managera, także do sesji okna i jej poświadczeń, a to, co zmieni poza sesją (wątek,
+  składowa dodana do typu .NET), zostaje do zamknięcia programu. To ochrona przed pomyłką, nie granica bezpieczeństwa. Hasła w obiekcie `PSCredential` nie chroni żaden
   tryb: `PSCredential` jest typem dozwolonym w ConstrainedLanguage, więc `$cred.GetNetworkCredential().Password` działa
   także tam (R1 nie tworzy żadnego `PSCredential`).
 - **Nazwy i skrót:** przedrostek `Adm`; R1 buduje `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`,

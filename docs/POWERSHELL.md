@@ -272,8 +272,9 @@ skryptów działają; ograniczony jest dowolny kod .NET:
   `New-Guid`, `Get-Culture`, `Get-UICulture`, `Get-ExecutionPolicy`;
 - komunikaty i pytania: `Write-Host`, `Write-Output`, `Write-Error`, `Write-Warning`, `Write-Verbose`, `Write-Debug`,
   `Write-Information`, `Write-Progress`, `Read-Host`;
-- skrypty wpisywane w oknie: `Start-Sleep`, `Measure-Command`, `Set-StrictMode`, `Clear-Host` (`cls`); zapis przebiegu sesji:
-  `Start-Transcript -Path` i `Stop-Transcript` (rozdział 5).
+- skrypty wpisywane w oknie: `Start-Sleep`, `Measure-Command`, `Set-StrictMode`, `Clear-Host` (`cls` – czyści okno jak Ctrl+L,
+  w miejscu polecenia, w którym stoi; historia zostaje); zapis przebiegu sesji: `Start-Transcript -Path` i `Stop-Transcript`
+  (rozdział 5). `exit` kończy polecenie tam, gdzie stoi – także w funkcji – a okno pisze o tym z kodem wyjścia i zostaje otwarte.
 
 Nic poza tym. Nie ma zadań w tle, wątków ani osobnych runspace'ów (`Start-Job`, `ForEach-Object -Parallel`, `&` na końcu
 potoku), sesji zdalnych (`Invoke-Command`, `Enter-PSSession`), `Invoke-Expression`, `Start-Process`, ładowania modułów ani
@@ -296,19 +297,31 @@ Polecenia, które o coś pytają – `Read-Host`, parametr obowiązkowy, `-Confi
 **Tryb zaufany (FullLanguage)** to przełącznik pod wierszem poleceń:
 
 - jego **włączenie** najpierw pyta. Pytanie wymienia domenę i mówi, na co tryb pozwala: na dowolny kod .NET i zmiany katalogu
-  wykonywane bezpośrednio, **z pominięciem planu zmian** – bez podglądu, audytu i cofania AD Managera. Nic w R1 nie powstrzymuje
-  skryptu przed zapisem w tym trybie (polecenia R1 tylko czytają, ale .NET potrafi więcej): kod .NET sięga do wszystkiego
-  w procesie AD Managera, także do sesji katalogu okna i jej poświadczeń;
+  wykonywane bezpośrednio, **z pominięciem planu zmian** – bez podglądu, audytu i cofania AD Managera, a także że wyłączenie
+  trybu uruchamia nową sesję. Nic w R1 nie powstrzymuje skryptu przed zapisem w tym trybie (polecenia R1 tylko czytają, ale .NET
+  potrafi więcej): kod .NET sięga do wszystkiego w procesie AD Managera, także do sesji katalogu okna i jej poświadczeń.
+  Włączenie zachowuje sesję i jej zmienne (funkcje zdefiniowane wcześniej w ConstrainedLanguage silnik PowerShella sam usuwa);
 - nie dodaje poleceń: lista wyżej jest ta sama. Zadanie, które kod .NET umieści w sesji (własne `ForEach-Object -Parallel
   -AsJob` silnika, osiągnięte przez .NET), jest zatrzymywane razem z poleceniem jak każde inne; wątek albo runspace,
   który kod .NET utworzy sam, jest poza zasięgiem okna, jak reszta procesu – działa dalej po *Zatrzymaj* i po zamknięciu okna;
   blok skryptu, który taki licznik czasu albo wątek wywoła po zamknięciu okna, już się nie wykona (nie ma runspace'u), a jego
   błąd nie zamyka programu;
-- dopóki jest włączony, tytuł okna ma dopisek *– tryb zaufany* i trwa uwaga, która mówi to samo; wyłączenie nie wymaga pytania;
+- dopóki jest włączony, tytuł okna ma dopisek *– tryb zaufany* i trwa uwaga, która mówi to samo;
+- jego **wyłączenie** nie pyta, ale uruchamia w oknie **nową sesję PowerShell** w ConstrainedLanguage. Przez ułamek sekundy, gdy
+  powstaje, wiersz stanu mówi *Wyłączanie trybu zaufanego: uruchamianie nowej sesji PowerShell…*, a polecenia, Tab i przełącznik
+  czekają. Zmienne, funkcje, aliasy i bloki skryptu z trybu zaufanego znikają razem ze starą sesją, więc nic z nich nie działa
+  dalej w FullLanguage w oknie, które mówi ConstrainedLanguage; okno pisze o tym w wynikach, a historia poleceń i zawartość okna
+  zostają. Gdy nowej sesji nie da się uruchomić, okno nie zostaje w trybie zaufanym: mówi *Nie można uruchomić PowerShell* i nie
+  wykonuje już poleceń (rozdział 11);
+- to, co kod .NET trybu zaufanego zmienił **poza sesją**, zostaje do zamknięcia programu – także w innych oknach PowerShell i
+  w nowym oknie: wątek albo licznik czasu, który uruchomił, i składowa, którą `Add-Member` dodał do typu .NET albo obiektu
+  całego procesu (np. `[string] | Add-Member -MemberType ScriptMethod …` albo to samo na kulturze z `Get-Culture`) – taką
+  składową okno w ConstrainedLanguage może nadal wywołać i działa ona w FullLanguage. Żadna sesja tego nie cofa; jeśli tak
+  zrobiłeś, zamknij program;
 - dotyczy tylko tego okna i **nigdy nie jest zapamiętywany**: nowe okno znów zaczyna w ConstrainedLanguage;
 - nie można go zmienić, gdy polecenie trwa ani zanim PowerShell się uruchomi;
 - gdy system wymusza ConstrainedLanguage (WDAC albo AppLocker), okno w nim zostaje, a przełącznik jest **wyłączony** – podpowiedź
-  podaje powód.
+  podaje powód, tak jak w każdym innym stanie, w którym przełącznik jest wyłączony.
 
 W ConstrainedLanguage żadne polecenie okna nie uruchamia kodu w innym trybie języka, a nic w sesji – żadna zmienna, parametr ani
 nic z `$Host` – nie przekazuje skryptowi sesji katalogu okna ani jej poświadczeń: polecenia AD Managera znajdują swoje okno
@@ -373,7 +386,7 @@ procesie innym niż `powershell.exe`* – tym procesem jest `AdMng.exe`; uprzed�
 | | **Esc** | Zamyka listę albo wyszukiwanie w historii |
 | | **Góra**, **Dół** | Wiersze polecenia wielowierszowego, potem historia, potem z powrotem do tego, co pisałeś |
 | | **Ctrl+R** | Przeszukuje historię; wpisuj, aby zawężać, **Backspace** usuwa znak |
-| | **Ctrl+L** | Czyści wyniki |
+| | **Ctrl+L** | Czyści wyniki (`cls` w poleceniu robi to samo) |
 | | **Ctrl+C** | Kopiuje, gdy zaznaczono tekst; w przeciwnym razie **zatrzymuje trwające polecenie** |
 | Obszar wyników | **Ctrl+C** | Kopiuje zaznaczone wiersze (bez zaznaczenia: zatrzymuje polecenie) |
 | | **Enter** | Otwiera pierwszą nazwę wyróżniającą zaznaczonego wiersza |
@@ -389,7 +402,7 @@ Edytor koloruje polecenie w trakcie pisania: polecenia, parametry, zmienne, cią
 | Co widzisz | Co sprawdzić |
 |---|---|
 | *Ta instalacja nie zawiera silnika PowerShell.* | To wydanie AD Managera zbudowano bez silnika. Użyj standardowego pakietu. |
-| *Nie można uruchomić PowerShell* | Zamknij okno i otwórz je ponownie. Jeśli się powtarza, zgłoś to ([PILOTAZ.md, rozdział 4](PILOTAZ.md#4-zgłaszanie-problemów)) z wersją programu. |
+| *Nie można uruchomić PowerShell* | Zamknij okno i otwórz je ponownie – także wtedy, gdy stało się to po wyłączeniu trybu zaufanego (nowa sesja nie wystartowała) albo po pozostawionym poleceniu. Powód jest w komunikacie. Jeśli się powtarza, zgłoś to ([PILOTAZ.md, rozdział 4](PILOTAZ.md#4-zgłaszanie-problemów)) z wersją programu. |
 | Polecenie się nie kończy | **Zatrzymaj** (albo Ctrl+C). Jedno dopasowanie wyrażenia regularnego (`-match`, `-replace`, `-split`, `switch -regex`, `Select-String`, `[regex]`) trwa najwyżej 2 sekundy, potem kończy się błędem *The Regex engine has timed out…*. Polecenie utknięte w kodzie .NET, którego zatrzymanie nie przerywa (tryb zaufany albo `[regex]` z własnym, dłuższym limitem czasu), okno zostawia po 5 sekundach i mówi o tym na pasku stanu i w oknie wyników: następne polecenie działa od razu, w nowej sesji, ale zmiennych, funkcji i modułów z wcześniejszych poleceń już w niej nie ma. Pozostawione polecenie może zajmować rdzeń procesora, dopóki się nie skończy albo nie zamkniesz programu; zamknięciu programu nie przeszkadza. |
 | *Cannot find a user with identity …* | Tożsamość nie istnieje, jest innego typu (`Get-AdmUser` nie znajdzie komputera) albo konto jej nie widzi. Nazwa wyróżniająca z przecinkiem w wartości wymaga cudzysłowu. |
 | *Access denied reading …* / *The attribute '…' of '…' was not returned …* | Konto okna nie ma prawa czytać obiektu albo atrybutu; kontroler domeny odpowiada na nieczytelny atrybut tak, jakby był pusty. Komunikat podaje atrybut jeden raz. |
@@ -398,7 +411,7 @@ Edytor koloruje polecenie w trakcie pisania: polecenia, parametry, zmienne, cią
 | *Only core types are supported in this language mode* | Zob. rozdział 7: użyj `New-Object PSObject -Property` albo włącz tryb zaufany. |
 | *… is not available in the AD Manager PowerShell window* / *The term '…' is not recognized* | Okno ma zamkniętą listę poleceń (rozdział 7). Komunikat mówi, czego użyć zamiast – do pliku `Export-AdmList` albo `Start-Transcript -Path` (rozdział 5). |
 | Nazwy wyróżniające kończą się `…` | Użyj `Format-List`, szerszego okna albo `Select-Object -ExpandProperty DistinguishedName`. |
-| Przełącznik trybu zaufanego jest wyłączony | Podpowiedź mówi, dlaczego: trwa polecenie, PowerShell się uruchamia albo system wymusza ConstrainedLanguage (WDAC, AppLocker). |
+| Przełącznik trybu zaufanego jest wyłączony | Podpowiedź mówi, dlaczego: trwa polecenie, PowerShell się uruchamia, właśnie wyłącza tryb zaufany albo nie dał się uruchomić, w tej instalacji nie ma silnika, sesja połączenia się skończyła albo system wymusza ConstrainedLanguage (WDAC, AppLocker). |
 | Uwaga mówi, że włączono transkrypcję lub rejestrowanie | Rozdział 8. To ustawienie zasad grupy tego komputera lub konta, nie AD Managera. |
 | *There are no objects to show: no grid was opened* | Potok `Out-AdmGrid` był pusty. |
 | *The file … exists. Nothing was written; use -Force* / *No file was chosen: nothing was written.* | `Export-AdmList` zastępuje plik tylko z `-Force` i nie zapisuje niczego bez ścieżki ani pliku wybranego w oknie *Zapisz jako*. |

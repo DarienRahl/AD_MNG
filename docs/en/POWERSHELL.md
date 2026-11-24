@@ -274,8 +274,10 @@ script blocks work; what is restricted is arbitrary .NET:
   `Get-Culture`, `Get-UICulture`, `Get-ExecutionPolicy`;
 - messages and questions: `Write-Host`, `Write-Output`, `Write-Error`, `Write-Warning`, `Write-Verbose`, `Write-Debug`,
   `Write-Information`, `Write-Progress`, `Read-Host`;
-- scripts typed in the window: `Start-Sleep`, `Measure-Command`, `Set-StrictMode`, `Clear-Host` (`cls`); the record of the
-  session: `Start-Transcript -Path` and `Stop-Transcript` (chapter 5).
+- scripts typed in the window: `Start-Sleep`, `Measure-Command`, `Set-StrictMode`, `Clear-Host` (`cls` – clears the window like
+  Ctrl+L, at the place in the command where it stands; the history stays); the record of the
+  session: `Start-Transcript -Path` and `Stop-Transcript` (chapter 5). `exit` ends the command where it stands – also in a
+  function – and the window says so with the exit code and stays open.
 
 Nothing else is there. There are no background jobs, threads or runspaces (`Start-Job`, `ForEach-Object -Parallel`, the `&` at
 the end of a pipeline), no remote sessions (`Invoke-Command`, `Enter-PSSession`), no `Invoke-Expression`, no `Start-Process`,
@@ -299,19 +301,32 @@ question.
 **The trusted mode (FullLanguage)** is a switch under the command line:
 
 - turning it **on** asks first. The question names the domain and says what the mode allows: any .NET code, and changes to the
-  directory made directly, **around the change plan** – without AD Manager's preview, audit and rollback. Nothing in R1 stops a
-  script from writing in this mode (the commands of R1 only read, but .NET can do more): .NET code reaches anything in the
-  AD Manager process, the window's directory session and its credentials included;
+  directory made directly, **around the change plan** – without AD Manager's preview, audit and rollback – and that turning the
+  mode off starts a new session. Nothing in R1 stops a script from writing in this mode (the commands of R1 only read, but .NET
+  can do more): .NET code reaches anything in the AD Manager process, the window's directory session and its credentials
+  included. Turning it on keeps the session and its variables (the functions defined before in ConstrainedLanguage the
+  PowerShell engine itself drops);
 - it adds no command: the list above is the same. A job that .NET code puts into the session (the engine's own
   `ForEach-Object -Parallel -AsJob`, reached through .NET) is stopped with its command like any other; a thread or a runspace
   that .NET code makes for itself is beyond the window's reach, like the rest of the process – it keeps running after *Stop* and
   after the window closes; a script block that such a timer or thread calls after the window closed no longer runs (there is no
   runspace), and its error does not close the program;
-- while it is on, the title says *– trusted mode* and a note that lasts says the same; turning it off needs no question;
+- while it is on, the title says *– trusted mode* and a note that lasts says the same;
+- turning it **off** asks nothing, but starts a **new PowerShell session** in the window, in ConstrainedLanguage. For the fraction
+  of a second it takes, the status line says *Turning the trusted mode off: starting a new PowerShell session…*, and commands, Tab
+  and the switch wait. The variables, functions, aliases and script blocks of the trusted mode go with the old session, so none
+  of them goes on running in FullLanguage in a window that says ConstrainedLanguage; the window says so in the output, and the
+  history of commands and the output stay. When the new session cannot be started, the window is not left in the trusted mode:
+  it says *PowerShell could not be started* and runs no more commands (chapter 11);
+- what the trusted mode's .NET code changed **outside the session** stays until the program closes – also in other PowerShell
+  windows and in a new one: a thread or a timer it started, and a member that `Add-Member` added to a .NET type or object of the
+  whole process (for example `[string] | Add-Member -MemberType ScriptMethod …`, or the same on the culture of `Get-Culture`) – a
+  window in ConstrainedLanguage can still call such a member, and it runs in FullLanguage. No session can take that back; if you
+  did it, close the program;
 - it applies to this window only and **is never remembered**: a new window starts in ConstrainedLanguage again;
 - it cannot be changed while a command runs, nor before PowerShell has started;
 - when the system enforces ConstrainedLanguage (WDAC or AppLocker), the window stays in it and the switch is **disabled** –
-  its tool tip gives the reason.
+  its tool tip gives the reason, as in every other state in which the switch is disabled.
 
 In ConstrainedLanguage no command of the window runs code in another language mode, and nothing in the session – no variable, no
 parameter, nothing of `$Host` – hands a script the window's directory session or its credentials: AD Manager's commands find
@@ -376,7 +391,7 @@ in a process other than `powershell.exe`* – the process is `AdMng.exe`; tell t
 | | **Esc** | Closes the list or the history search |
 | | **Up**, **Down** | The lines of a multi-line command, then the history, then back to what you were typing |
 | | **Ctrl+R** | Searches the history; type to narrow, **Backspace** removes a character |
-| | **Ctrl+L** | Clears the output |
+| | **Ctrl+L** | Clears the output (`cls` in a command does the same) |
 | | **Ctrl+C** | Copies when text is selected; otherwise **stops the running command** |
 | Output area | **Ctrl+C** | Copies the selected lines (nothing selected: stops the command) |
 | | **Enter** | Opens the first distinguished name of the selected line |
@@ -392,7 +407,7 @@ The editor colours the command as you type it: commands, parameters, variables, 
 | What you see | What to check |
 |---|---|
 | *This installation has no PowerShell engine.* | This build of AD Manager was made without the engine. Use the standard package. |
-| *PowerShell could not be started* | Close the window and open it again. If it repeats, report it ([PILOT.md, chapter 4](PILOT.md#4-reporting-problems)) with the program version. |
+| *PowerShell could not be started* | Close the window and open it again – also when it happened after the trusted mode was turned off (the new session did not start) or after a left command. The reason is in the message. If it repeats, report it ([PILOT.md, chapter 4](PILOT.md#4-reporting-problems)) with the program version. |
 | A command does not end | **Stop** (or Ctrl+C). One match of a regular expression (`-match`, `-replace`, `-split`, `switch -regex`, `Select-String`, `[regex]`) takes at most 2 seconds, then ends with the error *The Regex engine has timed out…*. A command stuck in .NET code that Stop cannot interrupt (the trusted mode, or a `[regex]` with a longer time limit of its own) is left by the window after 5 seconds, and the status line and the output say so: the next command runs at once, in a new session, but the variables, functions and modules of earlier commands are no longer in it. The left command may keep a processor core busy until it ends or you close the program; it does not keep the program from closing. |
 | *Cannot find a user with identity …* | The identity does not exist, is of another type (`Get-AdmUser` finds no computer) or the account cannot see it. A distinguished name with a comma in a value needs quotes. |
 | *Access denied reading …* / *The attribute '…' of '…' was not returned …* | The window's account has no right to read the object or the attribute; a domain controller answers an unreadable attribute as if it were empty. The message names the attribute once. |
@@ -401,7 +416,7 @@ The editor colours the command as you type it: commands, parameters, variables, 
 | *Only core types are supported in this language mode* | See chapter 7: use `New-Object PSObject -Property`, or turn the trusted mode on. |
 | *… is not available in the AD Manager PowerShell window* / *The term '…' is not recognized* | The window has a fixed list of commands (chapter 7). The message says what to use instead – for a file, `Export-AdmList` or `Start-Transcript -Path` (chapter 5). |
 | The distinguished names end with `…` | Use `Format-List`, a wider window, or `Select-Object -ExpandProperty DistinguishedName`. |
-| The trusted mode switch is disabled | Its tool tip says why: a command is running, PowerShell is starting, or the system enforces ConstrainedLanguage (WDAC, AppLocker). |
+| The trusted mode switch is disabled | Its tool tip says why: a command is running, PowerShell is starting, is turning the trusted mode off or could not be started, this installation has no engine, the session of the connection ended, or the system enforces ConstrainedLanguage (WDAC, AppLocker). |
 | A note says transcription or logging is on | Chapter 8. It is a Group Policy setting of this computer or account, not of AD Manager. |
 | *There are no objects to show: no grid was opened* | The pipeline of `Out-AdmGrid` was empty. |
 | *The file … exists. Nothing was written; use -Force* / *No file was chosen: nothing was written.* | `Export-AdmList` replaces a file only with `-Force`, and writes nothing without a path or a file chosen in *Save As*. |

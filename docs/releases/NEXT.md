@@ -85,7 +85,8 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   atrybutów ze schematu i kontenery, które okno już zna – bez odczytu z katalogu przy każdym znaku; nie ma uzupełniania nazw
   plików), **Enter** uruchamia kompletne polecenie albo dodaje wiersz, gdy jest niedokończone (otwarty cudzysłów, nawias, ukośnik
   pionowy), **Shift+Enter** zawsze dodaje wiersz, **Góra/Dół** chodzą po wierszach, a potem po historii, **Ctrl+R** przeszukuje
-  historię, **Esc** zamyka listę, **Ctrl+L** czyści okno. Historia jest tylko w pamięci okna; wiersz z hasłem jawnym
+  historię, **Esc** zamyka listę, **Ctrl+L** czyści okno – tak samo `cls` (`Clear-Host`) w poleceniu, w miejscu, w którym stoi.
+  `exit` kończy polecenie tam, gdzie stoi, a okno mówi to z kodem wyjścia i zostaje otwarte. Historia jest tylko w pamięci okna; wiersz z hasłem jawnym
   (`-AsPlainText`, przy `ConvertTo-SecureString` także skrócone do `-As` albo `-A`, `ConvertTo-SecureString '…'`, napis zamieniany
   na `[securestring]`, wartość wpisana wprost – także w nawiasach albo złożona z samych napisów – dla parametru, klucza tablicy
   skrótów – także przekazanej przez `@h` albo złożonego ze zmiennej, jak `"Pass$x"` – albo zmiennej o nazwie z `Password`, `Passphrase`, `Pwd`,
@@ -114,9 +115,18 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   Przełącznik **Tryb zaufany (FullLanguage)** po potwierdzeniu, które mówi, co daje (dowolny kod .NET, zapis do katalogu
   z pominięciem planu zmian – bez podglądu, dziennika i cofania), włącza pełny język tylko w tym oknie, na stałej uwadze i
   w tytule okna; nie jest pamiętany. Nie dodaje poleceń – tylko kod .NET, a ten sięga do całego procesu AD Managera, także do
-  sesji okna i jej danych logowania. Blok skryptu, który zostawiony przez taki kod licznik czasu wywoła po zamknięciu okna, kończy
-  się błędem, ale nie zamyka już całego programu z pozostałymi oknami. Gdy system wymusza ConstrainedLanguage (WDAC, AppLocker), przełącznik jest wyłączony
-  z podanym powodem. To ochrona przed pomyłką, nie granica bezpieczeństwa: granicą są uprawnienia konta w AD, a programy
+  sesji okna i jej danych logowania. **Wyłączenie** trybu uruchamia w oknie nową sesję PowerShell w ConstrainedLanguage (wiersz
+  stanu mówi o tym, a polecenia, Tab i przełącznik czekają na nią ułamek sekundy): zmienne, funkcje, aliasy i bloki skryptu
+  z trybu zaufanego znikają razem ze starą sesją, więc nic z nich nie działa dalej w pełnym języku, choć okno mówi
+  ConstrainedLanguage. Historia i zawartość okna zostają; mówi o tym okno, a z góry już pytanie przy włączaniu. Gdy nowej sesji
+  nie da się uruchomić, okno nie zostaje w trybie zaufanym, tylko mówi, że PowerShella nie można uruchomić. To, co kod .NET
+  trybu zaufanego zmienił poza sesją – wątek albo licznik czasu, który uruchomił, składowa dodana przez `Add-Member` do typu .NET
+  całego procesu (np. `[string]`) – zostaje do zamknięcia programu, także w innych oknach. Blok skryptu, który zostawiony przez
+  taki kod licznik czasu wywoła po zamknięciu okna, kończy się błędem, ale nie zamyka już całego programu z pozostałymi oknami.
+  Wyłączony przełącznik zawsze podaje powód: trwa polecenie, PowerShell się uruchamia, wyłącza tryb zaufany albo nie dał się
+  uruchomić, sesja połączenia się skończyła albo system wymusza ConstrainedLanguage (WDAC, AppLocker) – wtedy okno w nim
+  zostaje. Wydanie bez silnika PowerShella mówi, żeby użyć standardowego pakietu, a powód, dla którego PowerShella nie można
+  uruchomić, jest w bieżącym języku interfejsu, także po jego zmianie. To ochrona przed pomyłką, nie granica bezpieczeństwa: granicą są uprawnienia konta w AD, a programy
   konsolowe (`whoami`, `nltest`) działają jak w każdej konsoli – jako osobny proces z tożsamością operatora.
 - **Zasady PowerShella tego komputera.** Przy otwarciu okno czyta zasady grupy PowerShella (transkrypcję, rejestrowanie bloków
   skryptów i modułów) oraz oba pliki `powershell.config.json` i, zanim uruchomisz pierwsze polecenie, mówi stałą uwagą, co jest

@@ -2907,8 +2907,11 @@ the implementation note is [docs/dev/r1-powershell-window.md](docs/dev/r1-powers
   (FullLanguage)* the operator turns on after a confirmation that says what it allows (any .NET code, writes around the
   change plan), shown in the window title and in a lasting note while on and never remembered between windows or
   sessions; with a system lockdown (WDAC / AppLocker) the window stays in ConstrainedLanguage and the switch is
-  disabled with the reason. The trusted mode adds no command; its .NET code reaches the whole AD Manager process, the
-  window's session and credentials included. It is a protection against mistakes, not a security boundary. No mode protects
+  disabled with the reason. Turning it off gives the window a new PowerShell session in ConstrainedLanguage, so nothing
+  defined in the trusted mode (functions, aliases, script blocks, variables) runs in FullLanguage afterwards. The trusted
+  mode adds no command; its .NET code reaches the whole AD Manager process, the window's session and credentials included,
+  and what it changes outside the session (a thread, a member added to a .NET type) stays until the program closes. It is a
+  protection against mistakes, not a security boundary. No mode protects
   the password in a `PSCredential` object: `PSCredential` is an allowed type in ConstrainedLanguage, so
   `$cred.GetNetworkCredential().Password` works there too (R1 creates no `PSCredential`).
 - **Names and shortcut:** the prefix `Adm`; R1 builds `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`,

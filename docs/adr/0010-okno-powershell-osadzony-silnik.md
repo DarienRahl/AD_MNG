@@ -79,10 +79,16 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
    Tryb zaufany zmienia tylko tryb języka: nie dodaje poleceń, a jego kod .NET działa w procesie AD Managera, gdzie może
    sięgnąć do wszystkiego – także do sesji katalogu okna i jej poświadczeń. **To ochrona przed pomyłką, nie granica
    bezpieczeństwa** (README, „Bezpieczeństwo i dane”): w FullLanguage dowolny kod .NET omija plan zmian, a operator może
-   i tak uruchomić `pwsh.exe`. Wątek, runspace albo licznik czasu, które taki kod zostawi, działają dalej po zamknięciu
-   okna; blok skryptu wywołany przez nie po zamknięciu okna nie ma już runspace'u i kończy się błędem, który program
-   traktuje jako obsłużony (obsługa nieobsłużonych wyjątków procesu, ustawiana przy starcie programu), więc nie zamyka
-   programu ani pozostałych okien.
+   i tak uruchomić `pwsh.exe`. **Wyłączenie trybu zaufanego daje oknu nowy runspace** w ConstrainedLanguage (z nowym
+   hostem; stary jest zamykany): funkcja, alias, blok skryptu w zmiennej albo składowa `$Host` zdefiniowane w FullLanguage
+   działały wcześniej dalej w FullLanguage w oknie, które mówiło ConstrainedLanguage (audyt R1, PS-02). Zmienne okna
+   znikają razem ze starym runspace'em; mówi o tym pytanie przy włączaniu i okno przy wyłączaniu. Gdy nowego runspace'u
+   nie da się utworzyć, okno nie zostaje w trybie zaufanym, tylko mówi, że PowerShella nie można uruchomić. Wątek, runspace
+   albo licznik czasu, które taki kod zostawi, działają dalej po wyłączeniu trybu i po zamknięciu okna, a składowa, którą
+   dodał do typu .NET albo obiektu całego procesu (`Add-Member` na `[string]`), daje się wywołać w FullLanguage także
+   z okna ograniczonego – do zamknięcia programu; blok skryptu wywołany przez taki licznik po zamknięciu okna nie ma już
+   runspace'u i kończy się błędem, który program traktuje jako obsłużony (obsługa nieobsłużonych wyjątków procesu, ustawiana
+   przy starcie programu), więc nie zamyka programu ani pozostałych okien.
 4. **Nazwy i skrót (D4): przedrostek `Adm`.** R1 buduje `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`,
    `Get-AdmComputer`, `Get-AdmGroupMember` (`-Recursive` dla członkostwa zagnieżdżonego), `Search-AdmObject`,
    `Out-AdmGrid`, `Open-AdmObject` (otwiera właściwości obiektu w programie według DN lub `objectGUID`) i

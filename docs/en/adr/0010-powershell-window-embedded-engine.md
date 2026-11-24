@@ -79,10 +79,17 @@ the Watchdog package.
    mode. The trusted mode changes the language mode only: it adds no command, and its .NET code runs in AD Manager's process,
    where it can reach anything – the window's directory session and its credentials included. **This is a protection
    against mistakes, not a security boundary** (README, "Security and data"): in FullLanguage any .NET code bypasses the
-   change plan, and the operator can run `pwsh.exe` anyway. A thread, runspace or timer that such code leaves behind keeps
-   running after the window closed; a script block it calls after that has no runspace and ends with an error that the
-   program counts as handled (the process's handler of unhandled exceptions, set when the program starts), so it does not
-   close the program or its other windows.
+   change plan, and the operator can run `pwsh.exe` anyway. **Turning the trusted mode off gives the window a new
+   runspace** in ConstrainedLanguage (with a new host; the old one is closed): a function, an alias, a script block in a
+   variable or a member of `$Host` defined in FullLanguage used to go on running in FullLanguage in a window that said
+   ConstrainedLanguage (audit of R1, PS-02). The window's variables go with the old runspace; the question when the mode is
+   turned on and the window when it is turned off say so. When the new runspace cannot be made, the window is not left in
+   the trusted mode but says that PowerShell could not be started. A thread, runspace or timer that such code leaves
+   behind keeps running after the mode is turned off and after the window closed, and a member it added to a .NET type or
+   object of the whole process (`Add-Member` on `[string]`) can be called in FullLanguage from a constrained window too –
+   until the program closes; a script block such a timer calls after the window closed has no runspace and ends with an
+   error that the program counts as handled (the process's handler of unhandled exceptions, set when the program starts),
+   so it does not close the program or its other windows.
 4. **Names and shortcut (D4): the prefix `Adm`.** R1 builds `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`,
    `Get-AdmComputer`, `Get-AdmGroupMember` (`-Recursive` for nested membership), `Search-AdmObject`, `Out-AdmGrid`,
    `Open-AdmObject` (opens an object's properties in the program by DN or `objectGUID`) and `Export-AdmList` (CSV with
