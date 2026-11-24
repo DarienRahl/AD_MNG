@@ -1,4 +1,5 @@
 using System.Management.Automation;
+using AdMng.PowerShell.Reading;
 
 namespace AdMng.PowerShell.Commands;
 
@@ -35,10 +36,11 @@ public sealed class ExportAdmListCommand : AdmTableCmdlet
     /// </summary>
     protected override void BeginProcessing()
     {
+        base.BeginProcessing();
         if (Delimiter is { } separator && (char.IsControl(separator) || separator is '"' or '\r' or '\n'))
         {
             ThrowTerminatingError(new ErrorRecord(
-                new ArgumentException("The delimiter must be one visible character, not a quote or a line break."),
+                new ArgumentException(Text(AdmText.Keys.ExportInvalidDelimiter)),
                 "AdmInvalidDelimiter",
                 ErrorCategory.InvalidArgument,
                 separator));
@@ -57,7 +59,7 @@ public sealed class ExportAdmListCommand : AdmTableCmdlet
         var table = Table.Build(null);
         if (table is null)
         {
-            WriteWarning("There are no objects to export: nothing was written.");
+            WriteWarning(Text(AdmText.Keys.ExportNoObjects));
             return;
         }
 
@@ -78,7 +80,7 @@ public sealed class ExportAdmListCommand : AdmTableCmdlet
 
         if (written is null)
         {
-            WriteWarning("No file was chosen: nothing was written.");
+            WriteWarning(Text(AdmText.Keys.ExportNoFile));
             return;
         }
 
@@ -91,7 +93,7 @@ public sealed class ExportAdmListCommand : AdmTableCmdlet
         if (path is not null && File.Exists(path) && !Force)
         {
             ThrowTerminatingError(new ErrorRecord(
-                new IOException($"The file '{path}' exists. Nothing was written; use -Force to replace it."),
+                new IOException(Text(AdmText.Keys.ExportFileExists, path)),
                 "AdmExportFileExists",
                 ErrorCategory.ResourceExists,
                 path));
@@ -116,7 +118,7 @@ public sealed class ExportAdmListCommand : AdmTableCmdlet
         if (!string.Equals(provider.Name, "FileSystem", StringComparison.OrdinalIgnoreCase))
         {
             ThrowTerminatingError(new ErrorRecord(
-                new ArgumentException($"'{text}' is not a path in the file system."), "AdmExportInvalidPath", ErrorCategory.InvalidArgument, text));
+                new ArgumentException(Text(AdmText.Keys.ExportNotFileSystem, text)), "AdmExportInvalidPath", ErrorCategory.InvalidArgument, text));
         }
 
         return full;

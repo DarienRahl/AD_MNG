@@ -50,8 +50,10 @@ anything in the trusted mode, so the window treats a running command like any op
 ## 2. Commands
 
 The names are the same in the English and the Polish interface. `Get-Command *-Adm*` lists them, `Get-Help <command>
--Examples` shows the help with examples (in English). The commands have no `-Server` and no `-Credential` parameter: they
-always use the window's session.
+-Examples` shows the help with examples (in English, like the help of PowerShell itself). The errors and warnings of AD
+Manager's commands are in the language of the interface; the messages of the PowerShell engine (such as *The term '…' is not
+recognized*) and the refusals of the window's session itself (chapter 7) are English, as in any PowerShell console. The commands
+have no `-Server` and no `-Credential` parameter: they always use the window's session.
 
 | Command | What it does | Example |
 |---|---|---|
@@ -72,7 +74,8 @@ an `objectGUID` (also `<GUID=…>`), a SID (`S-1-5-…`, also `<SID=…>`), othe
 by user principal name; a computer with or without the `$`). The type of the command is part of the search:
 `Get-AdmUser` returns only user accounts, so a computer with the same name is never returned by it. An identity that finds
 nothing is an error that says so (*Cannot find a user with identity 'nobody' …: it does not exist, or this account cannot
-see it*). A distinguished name with a comma in a value must be quoted: `'CN=Kowalski\, Jan,OU=IT,DC=contoso,DC=test'`.
+see it*); the error has the same id (`AdmObjectNotFound`) in every language, and a read the domain controller did not do (a
+timeout, a refusal) is one error with the id of that cause, not also "not found". A distinguished name with a comma in a value must be quoted: `'CN=Kowalski\, Jan,OU=IT,DC=contoso,DC=test'`.
 
 **Filters** of `Get-AdmUser`, `Get-AdmGroup` and `Get-AdmComputer`: each parameter narrows the result (they are combined
 with *and*) and takes `*` as a wildcard.

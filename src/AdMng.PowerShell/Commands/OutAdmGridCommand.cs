@@ -1,4 +1,5 @@
 using System.Management.Automation;
+using AdMng.PowerShell.Reading;
 
 namespace AdMng.PowerShell.Commands;
 
@@ -21,7 +22,7 @@ public sealed class OutAdmGridCommand : AdmTableCmdlet
         var table = Table.Build(Title);
         if (table is null)
         {
-            WriteWarning("There are no objects to show: no grid was opened.");
+            WriteWarning(Text(AdmText.Keys.GridNoObjects));
             return;
         }
 

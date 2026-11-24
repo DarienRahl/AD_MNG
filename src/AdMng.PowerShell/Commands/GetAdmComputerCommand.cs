@@ -67,7 +67,7 @@ public sealed class GetAdmComputerCommand : AdmSearchCmdlet
         var projection = Project(context, AdmObjectType.Computer);
         if (ParameterSetName == IdentitySet)
         {
-            ReadIdentities(context, Identity, ObjectKind.Computer, projection, "a computer");
+            ReadIdentities(context, Identity, ObjectKind.Computer, projection);
             return;
         }
 

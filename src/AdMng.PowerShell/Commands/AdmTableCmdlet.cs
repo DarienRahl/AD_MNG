@@ -20,6 +20,9 @@ public abstract class AdmTableCmdlet : AdmCmdlet
 
     private protected AdmTableBuilder Table => _table;
 
+    /// <summary>The cells take the window's language (the words that stand for a secure string or a binary value).</summary>
+    protected override void BeginProcessing() => _table.Culture = UiCulture;
+
     protected override void ProcessRecord()
     {
         if (InputObject is not null)

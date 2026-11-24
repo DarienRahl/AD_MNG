@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Management.Automation;
 using AdMng.PowerShell.Hosting;
+using AdMng.PowerShell.Reading;
 
 namespace AdMng.PowerShell.Commands;
 
@@ -24,7 +26,13 @@ public abstract class AdmCmdlet : PSCmdlet
     /// <summary>The window's services.</summary>
     /// <exception cref="PSInvalidOperationException">The command runs outside an AD Manager window.</exception>
     protected IAdmWindowContext RequireContext() =>
-        ContextOrNull ?? throw new PSInvalidOperationException("This command works only in an AD Manager PowerShell window that is connected to a domain.");
+        ContextOrNull ?? throw new PSInvalidOperationException(Text(AdmText.Keys.ContextMissing));
+
+    /// <summary>The language of the window: the culture of the session's host (the culture of the process outside a host).</summary>
+    private protected CultureInfo UiCulture => Host?.CurrentUICulture ?? CultureInfo.CurrentUICulture;
+
+    /// <summary>A text of the commands in the window's language (<see cref="AdmText"/>, audit ps-commands-8).</summary>
+    private protected string Text(string key, params object?[] args) => AdmText.Format(UiCulture, key, args);
 
     protected override void StopProcessing() => _stop.Cancel();
 

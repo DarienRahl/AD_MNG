@@ -79,7 +79,7 @@ public sealed class GetAdmGroupCommand : AdmSearchCmdlet
         var projection = Project(context, AdmObjectType.Group);
         if (ParameterSetName == IdentitySet)
         {
-            ReadIdentities(context, Identity, ObjectKind.Group, projection, "a group");
+            ReadIdentities(context, Identity, ObjectKind.Group, projection);
             return;
         }
 

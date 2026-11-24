@@ -79,7 +79,9 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   (`Where-Object`, `Select-Object`, `Sort-Object`… działają) i domyślnie są jedną tabelą także wtedy, gdy są różnych rodzajów
   (członkowie grupy, wyniki wyszukiwania), z wartościami dekodowanymi tak jak w oknach programu, a hasła i
   klucze, których edytor atrybutów nie pokazuje, są zamaskowane. Wyniki są czytane strumieniem – 100 000 obiektów nie blokuje
-  okna, a **Stop** (przycisk albo Ctrl+C) przerywa odczyt na kontrolerze domeny. Okno zachowuje ostatnie 20 000 wierszy po
+  okna, a **Stop** (przycisk albo Ctrl+C) przerywa odczyt na kontrolerze domeny. Błędy i ostrzeżenia poleceń są w języku
+  interfejsu (pomoc `Get-Help` i komunikaty samego silnika PowerShell są po angielsku), a odczyt, którego kontroler domeny nie
+  wykonał (przekroczony czas, odmowa dostępu), jest jednym błędem tej przyczyny, nie także „nie znaleziono”. Okno zachowuje ostatnie 20 000 wierszy po
   najwyżej 8000 znaków (dłuższy tekst ciągnie się w następnym wierszu), a postęp pisany kropka po kropce
   (`Write-Host -NoNewline`) nie spowalnia go.
 - **Co jest w oknie.** Wiersz stanu na górze mówi, co robi polecenie, i ma **Stop**; błędy i ostrzeżenia mają ikonę

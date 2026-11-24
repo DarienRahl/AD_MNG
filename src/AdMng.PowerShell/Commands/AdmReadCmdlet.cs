@@ -69,7 +69,7 @@ public abstract class AdmReadCmdlet : AdmCmdlet
                     {
                         if (reported.Add(hidden))
                         {
-                            WriteError(AdmErrors.HiddenAttribute(hidden, (string)projected.Object.Properties["DistinguishedName"].Value));
+                            WriteError(AdmErrors.HiddenAttribute(UiCulture, hidden, (string)projected.Object.Properties["DistinguishedName"].Value));
                         }
                     }
 
@@ -85,7 +85,7 @@ public abstract class AdmReadCmdlet : AdmCmdlet
                 throw new PipelineStoppedException();
             }
 
-            WriteError(AdmErrors.FromDirectory(error, target));
+            WriteError(AdmErrors.FromDirectory(UiCulture, error, target));
             return new AdmReadResult(written, Failed: true);
         }
 
@@ -95,7 +95,7 @@ public abstract class AdmReadCmdlet : AdmCmdlet
     /// <summary>The attributes and type names of the command's objects; ends the command with an error when a name is refused.</summary>
     private protected AdmProjection Project(IAdmWindowContext context, AdmObjectType type)
     {
-        var projection = AdmProjection.Create(type, Properties, context.Reader.Schema, out var problem);
+        var projection = AdmProjection.Create(type, Properties, context.Reader.Schema, UiCulture, out var problem);
         if (projection is null)
         {
             ThrowTerminatingError(AdmErrors.InvalidArgument(problem!, "AdmInvalidProperty", Properties));
@@ -110,7 +110,7 @@ public abstract class AdmReadCmdlet : AdmCmdlet
         var problem = AdmFilterBuilder.CheckRaw(filter, out var wrapped);
         if (problem is not null)
         {
-            ThrowTerminatingError(AdmErrors.InvalidArgument($"The LDAP filter is not valid: {problem}", "AdmInvalidLdapFilter", filter));
+            ThrowTerminatingError(AdmErrors.InvalidArgument(Text(AdmText.Keys.LdapFilterInvalid, problem), "AdmInvalidLdapFilter", filter));
         }
 
         return wrapped;
@@ -155,7 +155,7 @@ public abstract class AdmSearchCmdlet : AdmReadCmdlet
 
         if (!DistinguishedName.TryParse(SearchBase, out var parsed) || parsed.IsRoot)
         {
-            ThrowTerminatingError(AdmErrors.InvalidArgument($"'{SearchBase}' is not a distinguished name (-SearchBase takes the DN of a container).", "AdmInvalidSearchBase", SearchBase));
+            ThrowTerminatingError(AdmErrors.InvalidArgument(Text(AdmText.Keys.SearchBaseInvalid, SearchBase), "AdmInvalidSearchBase", SearchBase));
         }
 
         return SearchBase;
@@ -165,7 +165,7 @@ public abstract class AdmSearchCmdlet : AdmReadCmdlet
     /// Reads the objects named by <paramref name="identities"/> (a DN, an <c>objectGUID</c>, a SID or an account name): an object
     /// that does not exist, or is not of <paramref name="kind"/>, is a non-terminating error that names it.
     /// </summary>
-    private protected void ReadIdentities(IAdmWindowContext context, IEnumerable<string?> identities, ObjectKind kind, AdmProjection projection, string description)
+    private protected void ReadIdentities(IAdmWindowContext context, IEnumerable<string?> identities, ObjectKind kind, AdmProjection projection)
     {
         foreach (var text in identities)
         {
@@ -177,7 +177,7 @@ public abstract class AdmSearchCmdlet : AdmReadCmdlet
             var identity = AdmIdentity.Parse(text);
             if (identity is null)
             {
-                WriteError(AdmErrors.InvalidIdentity());
+                WriteError(AdmErrors.InvalidIdentity(UiCulture));
                 continue;
             }
 
@@ -197,7 +197,7 @@ public abstract class AdmSearchCmdlet : AdmReadCmdlet
             // A read the directory failed was reported as its error: the object may well exist.
             if (read.Written == 0 && !read.Failed && !StopToken.IsCancellationRequested)
             {
-                WriteError(AdmErrors.NotFound(identity.Text, description, identity.Kind == AdmIdentityKind.DistinguishedName ? null : searchBase));
+                WriteError(AdmErrors.NotFound(UiCulture, identity.Text, kind, identity.Kind == AdmIdentityKind.DistinguishedName ? null : searchBase));
             }
         }
     }

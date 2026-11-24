@@ -33,7 +33,7 @@ public sealed class GetAdmObjectCommand : AdmSearchCmdlet
         var projection = Project(context, AdmObjectType.Object);
         if (ParameterSetName == IdentitySet)
         {
-            ReadIdentities(context, Identity, ObjectKind.Unknown, projection, "an object");
+            ReadIdentities(context, Identity, ObjectKind.Unknown, projection);
             return;
         }
 

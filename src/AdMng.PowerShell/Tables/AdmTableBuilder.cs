@@ -27,6 +27,9 @@ internal sealed class AdmTableBuilder
 
     public int RowCount => _rows.Count;
 
+    /// <summary>The window's language: the words of a cell that stands for a secure string or a binary value.</summary>
+    public CultureInfo Culture { get; set; } = CultureInfo.CurrentUICulture;
+
     /// <summary>
     /// Adds a row for <paramref name="item"/>; an array or a list is added element by element, and a null element is a row without a
     /// value (audit ps-commands-6: it ended the command).
@@ -100,12 +103,12 @@ internal sealed class AdmTableBuilder
         {
             foreach (DictionaryEntry entry in dictionary)
             {
-                cells.Add((Convert.ToString(entry.Key, CultureInfo.InvariantCulture) ?? string.Empty, CellText.Of(entry.Value)));
+                cells.Add((Convert.ToString(entry.Key, CultureInfo.InvariantCulture) ?? string.Empty, CellText.Of(entry.Value, Culture)));
             }
         }
         else if (CellText.IsSimple(value))
         {
-            cells.Add((ValueColumn, CellText.Of(value)));
+            cells.Add((ValueColumn, CellText.Of(value, Culture)));
         }
         else
         {
@@ -119,7 +122,7 @@ internal sealed class AdmTableBuilder
                 string? text;
                 try
                 {
-                    text = CellText.Of(property.Value);
+                    text = CellText.Of(property.Value, Culture);
                 }
                 catch (Exception ex) when (ex is GetValueException or InvalidOperationException or NotSupportedException or ArgumentException)
                 {
@@ -192,20 +195,20 @@ internal static class CellText
     /// lists (<see cref="MaxListDepth"/> levels deep); a date and time as <see cref="DateTimeFormat"/>; numbers independent of the
     /// language; binary values only as their size; a secure string never as anything but its name.
     /// </summary>
-    public static string? Of(object? value) => Of(value, 0);
+    public static string? Of(object? value, CultureInfo? culture = null) => Of(value, culture ?? CultureInfo.CurrentUICulture, 0);
 
-    private static string? Of(object? value, int depth)
+    private static string? Of(object? value, CultureInfo culture, int depth)
     {
         switch (value)
         {
             case null or DBNull:
                 return null;
             case PSObject wrapped:
-                return wrapped.BaseObject is PSCustomObject ? wrapped.ToString() : Of(wrapped.BaseObject, depth);
+                return wrapped.BaseObject is PSCustomObject ? wrapped.ToString() : Of(wrapped.BaseObject, culture, depth);
             case string text:
                 return text;
             case SecureString:
-                return "(secure string)";
+                return Reading.AdmText.Get(culture, Reading.AdmText.Keys.CellSecureString);
             case bool flag:
                 return flag ? "True" : "False";
             case DateTime moment:
@@ -219,7 +222,7 @@ internal static class CellText
             case Enum or Uri or char:
                 return value.ToString();
             case byte[] bytes:
-                return $"(binary, {bytes.Length} bytes)";
+                return Reading.AdmText.Plural(culture, Reading.AdmText.Keys.CellBinary, bytes.Length);
             case IFormattable formattable:
                 return formattable.ToString(null, CultureInfo.InvariantCulture);
             case IDictionary:
@@ -227,7 +230,7 @@ internal static class CellText
             case IEnumerable when depth >= MaxListDepth:
                 return value.GetType().ToString();
             case IEnumerable list:
-                return string.Join(AttributeFormatter.ValueSeparator, list.Cast<object?>().Select(element => Of(element, depth + 1)).Where(part => part is not null));
+                return string.Join(AttributeFormatter.ValueSeparator, list.Cast<object?>().Select(element => Of(element, culture, depth + 1)).Where(part => part is not null));
             default:
                 try
                 {

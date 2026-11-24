@@ -73,7 +73,7 @@ internal sealed partial class AdmProjection
     /// The projection of <paramref name="type"/> with the operator's <paramref name="properties"/>; <paramref name="error"/> says
     /// why a name is refused (an unknown attribute, or a text that is no attribute name).
     /// </summary>
-    public static AdmProjection? Create(AdmObjectType type, IReadOnlyList<string>? properties, ISchemaCatalog schema, out string? error)
+    public static AdmProjection? Create(AdmObjectType type, IReadOnlyList<string>? properties, ISchemaCatalog schema, System.Globalization.CultureInfo culture, out string? error)
     {
         ArgumentNullException.ThrowIfNull(schema);
         error = null;
@@ -103,13 +103,13 @@ internal sealed partial class AdmProjection
 
             if (!AttributeName().IsMatch(name))
             {
-                error = $"'{name}' is not an attribute name (letters, digits and '-'; '*' for all attributes).";
+                error = AdmText.Format(culture, AdmText.Keys.PropertiesNotAName, name);
                 return null;
             }
 
             if (schema.Attributes.Count > 0 && schema.FindAttribute(name) is null)
             {
-                error = $"The schema of this domain has no attribute '{name}'. Press Tab after -Properties to see the attribute names.";
+                error = AdmText.Format(culture, AdmText.Keys.PropertiesUnknown, name);
                 return null;
             }
 

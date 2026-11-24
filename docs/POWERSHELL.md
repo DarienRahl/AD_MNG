@@ -51,7 +51,9 @@ wpiszesz, może zrobić wszystko, więc okno traktuje trwające polecenie jak ka
 ## 2. Polecenia
 
 Nazwy są takie same w angielskim i polskim interfejsie. `Get-Command *-Adm*` wypisuje je, `Get-Help <polecenie> -Examples`
-pokazuje pomoc z przykładami (po angielsku). Polecenia nie mają parametrów `-Server` ani `-Credential`: zawsze używają sesji
+pokazuje pomoc z przykładami (po angielsku, jak pomoc samego PowerShella). Błędy i ostrzeżenia poleceń AD Managera są w języku
+interfejsu; komunikaty silnika PowerShell (np. *The term '…' is not recognized*) i odmowy samej sesji okna (rozdział 7) są po
+angielsku, jak w każdej konsoli PowerShell. Polecenia nie mają parametrów `-Server` ani `-Credential`: zawsze używają sesji
 okna.
 
 | Polecenie | Co robi | Przykład |
@@ -72,8 +74,9 @@ okna.
 jest), `objectGUID` (także `<GUID=…>`), SID (`S-1-5-…`, także `<SID=…>`), w pozostałych przypadkach `sAMAccountName` (użytkownik
 lub obiekt także po głównej nazwie użytkownika; komputer z `$` albo bez). Typ polecenia jest częścią wyszukiwania: `Get-AdmUser`
 zwraca tylko konta użytkowników, więc komputer o tej samej nazwie nigdy przez nie nie wróci. Tożsamość, która niczego nie
-znajduje, to błąd, który to mówi (*Cannot find a user with identity 'nobody' …: it does not exist, or this account cannot see
-it*). Nazwę wyróżniającą z przecinkiem w wartości trzeba ująć w cudzysłów: `'CN=Kowalski\, Jan,OU=IT,DC=contoso,DC=test'`.
+znajduje, to błąd, który to mówi (*Nie znaleziono użytkownika o tożsamości 'nobody' …: nie istnieje albo to konto go nie
+widzi*); błąd ma zawsze ten sam identyfikator (`AdmObjectNotFound`) w każdym języku, a odczyt, którego kontroler domeny nie wykonał
+(przekroczony czas, odmowa dostępu), jest jednym błędem z identyfikatorem tej przyczyny, nie także „nie znaleziono”. Nazwę wyróżniającą z przecinkiem w wartości trzeba ująć w cudzysłów: `'CN=Kowalski\, Jan,OU=IT,DC=contoso,DC=test'`.
 
 **Filtry** poleceń `Get-AdmUser`, `Get-AdmGroup` i `Get-AdmComputer`: każdy parametr zawęża wynik (łączą się przez *i*) i
 przyjmuje `*` jako wieloznacznik.
@@ -129,7 +132,7 @@ Małgorzata Wójcik      malgorzata.wojcik    True    CN=Małgorzata Wójcik,OU=
 Grażyna Dąbrowska      grazyna.dabrowska    True    CN=Grażyna Dąbrowska,OU=Księgowość,OU=Pracownicy,OU=Firma,DC=conto…
 
 PS> Get-AdmUser -Identity nobody
-Get-AdmUser: Cannot find a user with identity 'nobody' under 'DC=contoso,DC=test': it does not exist, or this account cannot see it.
+Get-AdmUser: Nie znaleziono użytkownika o tożsamości 'nobody' w 'DC=contoso,DC=test': nie istnieje albo to konto go nie widzi.
 ```
 
 ## 3. Znaki specjalne i wieloznaczniki
@@ -434,8 +437,8 @@ Edytor koloruje polecenie w trakcie pisania: polecenia, parametry, zmienne, cią
 | *Ta instalacja nie zawiera silnika PowerShell.* | To wydanie AD Managera zbudowano bez silnika. Użyj standardowego pakietu. |
 | *Nie można uruchomić PowerShell* | Zamknij okno i otwórz je ponownie – także wtedy, gdy stało się to po wyłączeniu trybu zaufanego (nowa sesja nie wystartowała) albo po pozostawionym poleceniu. Powód jest w komunikacie. Jeśli się powtarza, zgłoś to ([PILOTAZ.md, rozdział 4](PILOTAZ.md#4-zgłaszanie-problemów)) z wersją programu. |
 | Polecenie się nie kończy | **Zatrzymaj** (albo Ctrl+C). Jedno dopasowanie wyrażenia regularnego (`-match`, `-replace`, `-split`, `switch -regex`, `Select-String`, `[regex]`) trwa najwyżej 2 sekundy, potem kończy się błędem *The Regex engine has timed out…*. Polecenie utknięte w kodzie .NET, którego zatrzymanie nie przerywa (tryb zaufany albo `[regex]` z własnym, dłuższym limitem czasu), okno zostawia po 5 sekundach i mówi o tym na pasku stanu i w oknie wyników: następne polecenie działa od razu, w nowej sesji, ale zmiennych, funkcji i modułów z wcześniejszych poleceń już w niej nie ma. Pozostawione polecenie może zajmować rdzeń procesora, dopóki się nie skończy albo nie zamkniesz programu; zamknięciu programu nie przeszkadza. |
-| *Cannot find a user with identity …* | Tożsamość nie istnieje, jest innego typu (`Get-AdmUser` nie znajdzie komputera) albo konto jej nie widzi. Nazwa wyróżniająca z przecinkiem w wartości wymaga cudzysłowu. |
-| *Access denied reading …* / *The attribute '…' of '…' was not returned …* | Konto okna nie ma prawa czytać obiektu albo atrybutu; kontroler domeny odpowiada na nieczytelny atrybut tak, jakby był pusty. Komunikat podaje atrybut jeden raz. |
+| *Nie znaleziono użytkownika o tożsamości …* | Tożsamość nie istnieje, jest innego typu (`Get-AdmUser` nie znajdzie komputera) albo konto jej nie widzi. Nazwa wyróżniająca z przecinkiem w wartości wymaga cudzysłowu. |
+| *Odmowa dostępu przy odczycie …* / *Atrybut '…' obiektu '…' nie został zwrócony …* | Konto okna nie ma prawa czytać obiektu albo atrybutu; kontroler domeny odpowiada na nieczytelny atrybut tak, jakby był pusty. Komunikat podaje atrybut jeden raz. |
 | *The LDAP filter is not valid* | Składnia `-LdapFilter` lub `-Filter`: zrównoważone nawiasy, `(atrybut=wartość)`. |
 | Nic nie wraca | Sprawdź filtr i `-SearchBase`; przy kilku parametrach filtra muszą pasować wszystkie. Nieistniejąca baza wyszukiwania to błąd, który ją nazywa. |
 | *Only core types are supported in this language mode* | Zob. rozdział 7: użyj `New-Object PSObject -Property` albo włącz tryb zaufany. |
@@ -443,8 +446,8 @@ Edytor koloruje polecenie w trakcie pisania: polecenia, parametry, zmienne, cią
 | Nazwy wyróżniające kończą się `…` | Użyj `Format-List`, szerszego okna albo `Select-Object -ExpandProperty DistinguishedName`. |
 | Przełącznik trybu zaufanego jest wyłączony | Podpowiedź mówi, dlaczego: trwa polecenie, PowerShell się uruchamia, właśnie wyłącza tryb zaufany albo nie dał się uruchomić, w tej instalacji nie ma silnika, sesja połączenia się skończyła albo system wymusza ConstrainedLanguage (WDAC, AppLocker). |
 | Uwaga mówi, że włączono transkrypcję lub rejestrowanie | Rozdział 8. To ustawienie zasad grupy tego komputera lub konta, nie AD Managera. |
-| *There are no objects to show: no grid was opened* | Potok `Out-AdmGrid` był pusty. |
-| *The file … exists. Nothing was written; use -Force* / *No file was chosen: nothing was written.* | `Export-AdmList` zastępuje plik tylko z `-Force` i nie zapisuje niczego bez ścieżki ani pliku wybranego w oknie *Zapisz jako*. |
+| *Nie ma obiektów do pokazania: nie otwarto siatki* | Potok `Out-AdmGrid` był pusty. |
+| *Plik … istnieje. Nic nie zapisano; użyj -Force* / *Nie wybrano pliku: nic nie zapisano.* | `Export-AdmList` zastępuje plik tylko z `-Force` i nie zapisuje niczego bez ścieżki ani pliku wybranego w oknie *Zapisz jako*. |
 | `Get-Help` nie pokazuje przykładów | Usunięto plik `AdMng.PowerShell.dll-Help.xml` obok `AdMng.exe`. Przywróć go z pakietu. |
 
 ## 12. Ograniczenia i pilotaż

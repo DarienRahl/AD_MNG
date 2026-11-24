@@ -116,7 +116,7 @@ public sealed class GroupMemberAndSearchTests
         var result = await harness.RunAsync("Get-AdmGroupMember -Identity GG_IT");
 
         Assert.Equal(2, result.Objects.Count);
-        Assert.StartsWith("2 member(s) of ", result.Warnings, StringComparison.Ordinal);
+        Assert.StartsWith("2 members of ", result.Warnings, StringComparison.Ordinal);
         Assert.Contains("CN=Gone,OU=Elsewhere,DC=other,DC=test", result.Warnings, StringComparison.Ordinal);
         Assert.False(result.End.HadErrors);
     }
