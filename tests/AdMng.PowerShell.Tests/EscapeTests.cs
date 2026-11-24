@@ -462,7 +462,7 @@ public sealed class EscapeTests : IDisposable
         using var window = new TempFolder();
 
         var results = await Task.WhenAll(
-            ChildProcess.RunAsync("leftover-callback-control", control.Home, control.ReportPath),
+            ChildProcess.RunAsync("leftover-callback-control", control.Home, control.ReportPath, crashDumps: false),
             ChildProcess.RunAsync("leftover-callback", window.Home, window.ReportPath));
 
         Assert.True(results[0].ExitCode != 0, "The control survived, so the case shows nothing:\n" + results[0].Output);
@@ -471,6 +471,38 @@ public sealed class EscapeTests : IDisposable
         Assert.True(results[1].ExitCode == 0, "The process ended with the left script block:\n" + results[1].Output);
         Assert.Contains("survived\ndone", results[1].Report, StringComparison.Ordinal);
         Assert.Equal(string.Empty, string.Join('\n', window.Files()));
+    }
+
+    /// <summary>
+    /// The control above crashes on purpose, so it starts without the runtime's crash dump and crash report settings that the CI sets for
+    /// the test run (.github/workflows/ci.yml, the lab job): with them, every run left a 25 MB dump and a crash report of the probe for the
+    /// "Crash reports" step, beside - and hiding - a crash that is not meant. The probe reports the settings it got; the child that is not
+    /// meant to crash keeps them.
+    /// </summary>
+    [Fact]
+    public async Task A_child_that_is_meant_to_crash_gets_no_crash_dump_or_crash_report_settings()
+    {
+        var ci = new Dictionary<string, string?>
+        {
+            ["DOTNET_DbgEnableMiniDump"] = "1",
+            ["DOTNET_DbgMiniDumpType"] = "1",
+            ["DOTNET_DbgMiniDumpName"] = Path.Combine(_folder.FullName, "admng-crash-%p.dmp"),
+            ["DOTNET_EnableCrashReport"] = "1",
+            ["COMPlus_DbgEnableMiniDump"] = "1",
+        };
+        using var meant = new TempFolder();
+        using var kept = new TempFolder();
+
+        var results = await Task.WhenAll(
+            ChildProcess.RunAsync("environment", meant.Home, meant.ReportPath, ci, crashDumps: false),
+            ChildProcess.RunAsync("environment", kept.Home, kept.ReportPath, ci));
+
+        Assert.True(results[0].ExitCode == 0, results[0].Output);
+        Assert.Equal("done\n", results[0].Report);
+        foreach (var (name, value) in ci)
+        {
+            Assert.Contains(name + "=" + value + "\n", results[1].Report, StringComparison.Ordinal);
+        }
     }
 
     /// <summary>True only for the error of a script block called without a runspace; every other exception still ends the process.</summary>

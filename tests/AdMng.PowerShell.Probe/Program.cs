@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Diagnostics;
 using System.Globalization;
 using System.Management.Automation;
@@ -19,7 +20,8 @@ namespace AdMng.PowerShell.Probe;
 /// that trusted-mode code left behind runs after its window closed: the process survives it, the control crashes), <c>deep-input:&lt;case&gt;</c>
 /// (a line nested deeper than the engine can walk, checked, highlighted, completed and run from a thread with the stack of the window's UI
 /// thread: the process survives it and the window runs the next command), <c>parallel-job-open</c> (the window ends a parallel job of the
-/// trusted mode while the engine still opens its child's runspace: the process survives it).
+/// trusted mode while the engine still opens its child's runspace: the process survives it), <c>environment</c> (the runtime's crash dump
+/// and crash report settings the child got).
 /// </summary>
 internal static class Program
 {
@@ -27,7 +29,7 @@ internal static class Program
     {
         if (args.Length != 2)
         {
-            await Console.Error.WriteLineAsync("usage: probe <files|control|cache-control|cache-window|left-run|leftover-callback|leftover-callback-control|deep-input:<case>|parallel-job-open> <report file>");
+            await Console.Error.WriteLineAsync("usage: probe <files|control|cache-control|cache-window|left-run|leftover-callback|leftover-callback-control|deep-input:<case>|parallel-job-open|environment> <report file>");
             return 2;
         }
 
@@ -65,6 +67,9 @@ internal static class Program
                     break;
                 case "parallel-job-open":
                     await ParallelJobOpenAsync(report);
+                    break;
+                case "environment":
+                    await File.WriteAllTextAsync(report, CrashSettings());
                     break;
                 default:
                     await Console.Error.WriteLineAsync("unknown mode " + args[0]);
@@ -281,6 +286,16 @@ internal static class Program
 
         return job.JobStateInfo.State;
     }
+
+    /// <summary>The runtime's crash dump and crash report settings in the child's environment, one <c>name=value</c> line each, sorted.</summary>
+    private static string CrashSettings() =>
+        string.Concat(Environment.GetEnvironmentVariables()
+            .Cast<DictionaryEntry>()
+            .Select(entry => (Name: (string)entry.Key, Value: entry.Value as string))
+            .Where(entry => entry.Name.Contains("MiniDump", StringComparison.OrdinalIgnoreCase) || entry.Name.Contains("CrashReport", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(entry => entry.Name, StringComparer.Ordinal)
+            .Select(entry => entry.Name + "=" + entry.Value + "\n"))
+        + "done\n";
 
     /// <summary>
     /// The lines of the third red team of R1 (goal h) and its neighbours. A chain of operators is parsed without the parser's own
