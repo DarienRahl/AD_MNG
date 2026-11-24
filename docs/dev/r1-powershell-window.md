@@ -282,9 +282,11 @@ The window uses the **formatted mode**: the script is run as one pipeline follow
 merged into it, the way the console host runs a command. The engine's own formatting therefore decides tables and lists (a
 header once, column widths from `OutputWidth`), and the text reaches the host as above; the objects are real objects up to
 `Out-Default`, so `Where-Object`, `Select-Object` and `Out-AdmGrid` in the pipeline work on them. The script runs in the
-global scope (variables stay between commands, like in a console). The channel is bounded (4096 items; a producer that
-outruns the window waits, so `while ($true) { 1 }` cannot eat the memory before Stop) and the session never buffers a whole
-result. The session is idle again **before** the consumer sees the end item.
+global scope (variables stay between commands, like in a console). The channel is bounded by its number of items (4096) and
+by the size of the text it holds (1,048,576 characters, 2 MB; audit PS-09 - by the count alone, 4096 strings of 100,000
+characters held 790 MB while the window was behind): a producer that outruns the window waits, so `while ($true) { 1 }`
+cannot eat the memory before Stop, one text larger than the bound still passes when the channel is empty, and the session
+never buffers a whole result. The session is idle again **before** the consumer sees the end item.
 
 ### 4.5 AD Manager's commands
 

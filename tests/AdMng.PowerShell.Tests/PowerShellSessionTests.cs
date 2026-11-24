@@ -196,6 +196,58 @@ public sealed class PowerShellSessionTests
         Assert.False(session.IsRunning);
     }
 
+    /// <summary>
+    /// Audit PS-09: the channel was bounded by its number of items only, so a flood of large strings held 4096 of them - 790 MB with
+    /// strings of 100,000 characters - while the window was behind. The text it holds is bounded by its size too.
+    /// </summary>
+    [Fact]
+    public async Task A_flood_of_large_strings_holds_at_most_the_channels_size_of_text_while_the_consumer_is_behind()
+    {
+        await using var session = await TestSessions.CreateAsync();
+        await using var run = session.RunAsync("$big = 'y' * 100000; while ($true) { $big }", TestContext.Current.CancellationToken).GetAsyncEnumerator(TestContext.Current.CancellationToken);
+
+        Assert.True(await run.MoveNextAsync());
+
+        // The consumer stays away; the producer runs until it waits for room (the held text stops growing).
+        var held = -1L;
+        var deadline = DateTime.UtcNow.AddSeconds(20);
+        while (DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(300, TestContext.Current.CancellationToken);
+            var now = session.BufferedCharacters;
+            if (now == held && now > 0)
+            {
+                break;
+            }
+
+            held = now;
+        }
+
+        Assert.InRange(session.BufferedCharacters, PowerShellSession.ChannelCharacterCapacity - 100_001, PowerShellSession.ChannelCharacterCapacity);
+        Assert.True(session.BufferedItemCount < 20, $"{session.BufferedItemCount} items held");
+
+        await session.StopAsync();
+        var last = run.Current;
+        while (await run.MoveNextAsync())
+        {
+            last = run.Current;
+        }
+
+        Assert.Equal(PowerShellRunState.Stopped, Assert.IsType<PowerShellRunEndItem>(last).State);
+        Assert.Equal(0, session.BufferedCharacters);
+    }
+
+    [Fact]
+    public async Task One_text_larger_than_the_channels_size_of_text_still_arrives_whole()
+    {
+        await using var session = await TestSessions.CreateAsync();
+
+        var items = await TestSessions.RunAsync(session, $"'z' * {PowerShellSession.ChannelCharacterCapacity + 10}; 'after'");
+
+        Assert.Equal(new string('z', PowerShellSession.ChannelCharacterCapacity + 10) + "\nafter\n", TestSessions.Text(items));
+        Assert.Equal(PowerShellRunState.Completed, TestSessions.End(items).State);
+    }
+
     [Fact]
     public async Task Cancelling_the_token_stops_the_pipeline_and_the_enumeration_still_ends_with_the_end_item()
     {

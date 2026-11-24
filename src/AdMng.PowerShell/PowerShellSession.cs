@@ -29,6 +29,9 @@ public sealed class PowerShellSession : IPowerShellSession
     /// <summary>The most items the output channel of a run holds before the pipeline waits for the window.</summary>
     internal const int ChannelCapacity = 4096;
 
+    /// <summary>The most characters of text (2 MB) the output channel of a run holds before the pipeline waits for the window (audit PS-09).</summary>
+    internal const int ChannelCharacterCapacity = 1 << 20;
+
     private const int RunActive = 0;
     private const int RunFinished = 1;
     private const int RunLeft = 2;
@@ -127,6 +130,18 @@ public sealed class PowerShellSession : IPowerShellSession
             lock (_sync)
             {
                 return _run?.Channel.Reader.Count ?? 0;
+            }
+        }
+    }
+
+    /// <summary>For tests: how many characters of text of the active run wait in its channel for the consumer (0 when no run is active).</summary>
+    internal long BufferedCharacters
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _run?.Sink.BufferedCharacters ?? 0;
             }
         }
     }
@@ -711,6 +726,7 @@ public sealed class PowerShellSession : IPowerShellSession
 
                 while (!run.Left.Task.IsCompleted && reader.TryRead(out var item))
                 {
+                    run.Sink.Taken(item);
                     yield return item;
                 }
             }
@@ -719,6 +735,7 @@ public sealed class PowerShellSession : IPowerShellSession
             // runspace. What it wrote before is shown (at most one channel's worth), then the end of a left run.
             for (var i = 0; i < ChannelCapacity && reader.TryRead(out var early); i++)
             {
+                run.Sink.Taken(early);
                 yield return early;
             }
 
@@ -754,7 +771,7 @@ public sealed class PowerShellSession : IPowerShellSession
             FullMode = BoundedChannelFullMode.Wait,
         });
         var stop = new CancellationTokenSource();
-        var sink = new OutputSink(channel.Writer, stop.Token);
+        var sink = new OutputSink(channel.Writer, stop.Token, ChannelCharacterCapacity);
         var ps = SmaPowerShell.Create();
         ps.Runspace = engine.Runspace;
         ps.AddScript(script, useLocalScope: false);
