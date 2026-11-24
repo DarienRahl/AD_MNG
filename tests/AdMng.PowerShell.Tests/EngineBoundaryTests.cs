@@ -5,8 +5,9 @@ namespace AdMng.PowerShell.Tests;
 
 /// <summary>
 /// Where the engine is and is not (ADR-0010, CLAUDE.md layout): AdMng.App is the only program that references it - no Watchdog project,
-/// no Presentation, no Core, so the Watchdog package can never contain it - and the one configuration file that ships beside the program is
-/// the one that turns off what a user's own file could switch on.
+/// no Presentation, no Core, so the Watchdog package can never contain it - and the one configuration file that ships beside the program
+/// turns off the transcription and the module logging a user's own file could switch on, and leaves script block logging to Windows and
+/// Group Policy (decision D-B, audit PS-04).
 /// </summary>
 public sealed partial class EngineBoundaryTests
 {
@@ -63,17 +64,25 @@ public sealed partial class EngineBoundaryTests
         }
     }
 
+    /// <summary>The program's all-users configuration file of the engine (published beside <c>AdMng.exe</c>, <c>$PSHOME</c>).</summary>
+    internal static string ShippedConfigFile => Path.Combine(Root(), "src", "AdMng.App", "powershell.config.json");
+
     [Fact]
-    public void TheConfigurationFileBesideTheProgram_TurnsOffWhatAUsersFileCouldSwitchOn_AndIsPublishedNotBundled()
+    public void TheConfigurationFileBesideTheProgram_TurnsOffTheTranscriptionAndModuleLoggingAUsersFileCouldSwitchOn_AndIsPublishedNotBundled()
     {
-        var path = Path.Combine(Root(), "src", "AdMng.App", "powershell.config.json");
+        var path = ShippedConfigFile;
         using var document = JsonDocument.Parse(File.ReadAllText(path));
         var policies = document.RootElement.GetProperty("PowerShellPolicies");
 
         Assert.False(policies.GetProperty("Transcription").GetProperty("EnableTranscripting").GetBoolean());
         Assert.False(policies.GetProperty("ModuleLogging").GetProperty("EnableModuleLogging").GetBoolean());
-        Assert.False(policies.GetProperty("ScriptBlockLogging").GetProperty("EnableScriptBlockLogging").GetBoolean());
         Assert.True(document.RootElement.GetProperty("DisableImplicitWinCompat").GetBoolean());
+
+        // Script block logging is not the program's to decide (D-B): with the section in this file, set to anything, it would decide the
+        // policy over the user's file and, set to false, switch off the engine's own logging of suspicious script blocks
+        // (ScriptBlockLoggingTests). The engine matches the names without regard to case.
+        Assert.DoesNotContain(policies.EnumerateObject(), policy => string.Equals(policy.Name, "ScriptBlockLogging", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain("ScriptBlock", File.ReadAllText(path), StringComparison.OrdinalIgnoreCase);
 
         // Nothing in it turns anything on, and it names no directory.
         Assert.DoesNotContain("true", Regex.Replace(File.ReadAllText(path), "\"DisableImplicitWinCompat\": true", string.Empty), StringComparison.Ordinal);

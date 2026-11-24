@@ -117,8 +117,9 @@ internal static partial class SmokeTest
 
     /// <summary>
     /// The policy note's reads on this machine (audit W-12: the published program never ran them): they must not throw, and in the
-    /// single file the program's <c>powershell.config.json</c> decides every recording policy that no Group Policy sets, also over a
-    /// user's file that turns them on (simulated in memory, nothing is written). Returns whether anything records (no path, no value).
+    /// single file the program's <c>powershell.config.json</c> decides the transcription and the module logging that no Group Policy
+    /// sets, also over a user's file that turns them on (simulated in memory, nothing is written), and never script block logging
+    /// (decision D-B: Group Policy, then the user's file, decide it as in a plain pwsh). Returns whether anything records (no path, no value).
     /// </summary>
     private static bool CheckPolicies()
     {
@@ -131,13 +132,19 @@ internal static partial class SmokeTest
             foreach (var (name, origin) in new[]
             {
                 ("transcription", simulated.Transcription.Origin),
-                ("script block logging", simulated.ScriptBlockLogging.Origin),
                 ("module logging", simulated.ModuleLogging.Origin),
             })
             {
                 Expect(
                     origin is { Store: not Presentation.PowerShell.PowerShellPolicyStore.ConfigFile } or { Scope: Presentation.PowerShell.PowerShellPolicyScope.Computer },
                     $"The {name} of a user's powershell.config.json wins over the program's file (origin {origin}).");
+            }
+
+            foreach (var origin in new[] { policies.ScriptBlockLogging.Origin, simulated.ScriptBlockLogging.Origin })
+            {
+                Expect(
+                    origin is not { Store: Presentation.PowerShell.PowerShellPolicyStore.ConfigFile, Scope: Presentation.PowerShell.PowerShellPolicyScope.Computer },
+                    $"The program's powershell.config.json decides script block logging (origin {origin}): it has to leave it to Group Policy and the user's file.");
             }
         }
 

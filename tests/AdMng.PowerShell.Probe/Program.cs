@@ -18,7 +18,8 @@ namespace AdMng.PowerShell.Probe;
 /// run the session left: the process still ends), <c>leftover-callback</c> and <c>leftover-callback-control</c> (a script block
 /// that trusted-mode code left behind runs after its window closed: the process survives it, the control crashes), <c>deep-input:&lt;case&gt;</c>
 /// (a line nested deeper than the engine can walk, checked, highlighted, completed and run from a thread with the stack of the window's UI
-/// thread: the process survives it and the window runs the next command).
+/// thread: the process survives it and the window runs the next command), <c>script-block-logging:&lt;file&gt;</c> (what the engine logs of
+/// a script block with that all-users configuration file, <see cref="ScriptBlockLoggingProbe"/>).
 /// </summary>
 internal static class Program
 {
@@ -26,7 +27,7 @@ internal static class Program
     {
         if (args.Length != 2)
         {
-            await Console.Error.WriteLineAsync("usage: probe <files|control|cache-control|cache-window|left-run|leftover-callback|leftover-callback-control|deep-input:<case>> <report file>");
+            await Console.Error.WriteLineAsync("usage: probe <files|control|cache-control|cache-window|left-run|leftover-callback|leftover-callback-control|deep-input:<case>|script-block-logging:<file>> <report file>");
             return 2;
         }
 
@@ -60,6 +61,9 @@ internal static class Program
                     break;
                 case var deep when deep.StartsWith("deep-input:", StringComparison.Ordinal):
                     DeepInput(deep["deep-input:".Length..], report);
+                    break;
+                case var logging when logging.StartsWith("script-block-logging:", StringComparison.Ordinal):
+                    await File.WriteAllTextAsync(report, ScriptBlockLoggingProbe.Run(logging["script-block-logging:".Length..]));
                     break;
                 default:
                     await Console.Error.WriteLineAsync("unknown mode " + args[0]);

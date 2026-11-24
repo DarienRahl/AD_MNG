@@ -284,7 +284,8 @@ public sealed class PowerShellPolicyReaderTests
     [Fact]
     public void TheAllUsersConfigFile_BeatsTheUsersFile_AndAFileThatSaysOffIsTheWayToTurnOffWhatTheUsersFileTurnedOn()
     {
-        // The file next to the engine (AD Manager ships one that turns the recording off) wins over the user's file.
+        // The file next to the engine wins over the user's file, section by section (AD Manager ships one that turns the transcription
+        // and the module logging off and leaves script block logging alone: PowerShellPolicyEngineRulesTests).
         var source = new FakePowerShellPolicySource()
             .SetFile(Computer, """{ "PowerShellPolicies": { "Transcription": { "EnableTranscripting": false }, "ScriptBlockLogging": { "EnableScriptBlockLogging": false } } }""")
             .SetFile(User, """{ "PowerShellPolicies": { "Transcription": { "EnableTranscripting": true }, "ScriptBlockLogging": { "EnableScriptBlockLogging": true } } }""");
