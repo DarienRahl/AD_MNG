@@ -94,7 +94,9 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   na `[securestring]`, wartość wpisana wprost – także w nawiasach albo złożona z samych napisów – dla parametru, klucza tablicy
   skrótów – także przekazanej przez `@h` albo złożonego ze zmiennej, jak `"Pass$x"` – albo zmiennej o nazwie z `Password`, `Passphrase`, `Pwd`,
   `Secret`, `Token`, `ApiKey` i podobnych, również skróconej do `-Pa`, wartość bez nazwy parametru dla polecenia, którego nazwa
-  mówi o haśle) nie trafia do niej. Filtr nie rozpozna każdego hasła,
+  mówi o haśle, napis, który trafia tam przez zmienną z tego samego wiersza, poświadczenie złożone z napisu i hasło programu
+  konsolowego – `net user jan hasło`, `/pass:…`, `/pd:…`, `/rp …`, `psexec -p …`) nie trafia do niej, a w obszarze wyników
+  rozpoznane hasło takiego wiersza jest zastąpione przez `***`. Filtr nie rozpozna każdego hasła,
   więc hasła nie wpisuje się do polecenia w ogóle.
 - **Lista poleceń, tryb ograniczony i tryb zaufany.** Okno zaczyna w ConstrainedLanguage i ma zamkniętą listę poleceń: polecenia
   programu oraz zwykłe cmdlety do pracy z obiektami (`Where-Object`, `Select-Object`, `Sort-Object`, `Group-Object`,

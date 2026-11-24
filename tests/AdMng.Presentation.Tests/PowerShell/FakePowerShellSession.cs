@@ -68,6 +68,12 @@ internal sealed class FakePowerShellSession : IPowerShellSession
     /// <summary>What the history policy says; the default refuses a plain-text password.</summary>
     public Func<string, bool> Remember { get; set; } = line => !line.Contains("-AsPlainText", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>How the scrollback echoes a line; the default masks the literal before <c>-AsPlainText</c> the way the engine does (<c>'x'</c> becomes <c>***</c>).</summary>
+    public Func<string, string> Hide { get; set; } = line =>
+        line.Contains("-AsPlainText", StringComparison.OrdinalIgnoreCase)
+            ? System.Text.RegularExpressions.Regex.Replace(line, "'[^']*'(?=\\s+-AsPlainText)", "***", System.Text.RegularExpressions.RegexOptions.None, TimeSpan.FromSeconds(1))
+            : line;
+
     /// <summary>What completion answers; the default is nothing.</summary>
     public Func<string, int, PowerShellCompletionResult> Completion { get; set; } = (_, _) => PowerShellCompletionResult.Empty;
 
@@ -194,6 +200,8 @@ internal sealed class FakePowerShellSession : IPowerShellSession
     }
 
     public bool ShouldRemember(string line) => Remember(line);
+
+    public string HideSecrets(string line) => Hide(line);
 
     public async Task SetLanguageModeAsync(PowerShellLanguageMode mode, CancellationToken cancellationToken)
     {

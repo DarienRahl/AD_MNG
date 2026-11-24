@@ -281,6 +281,9 @@ public sealed class PowerShellSession : IPowerShellSession
     public bool ShouldRemember(string line) => PowerShellHistoryPolicy.ShouldRemember(line);
 
     /// <inheritdoc />
+    public string HideSecrets(string line) => PowerShellHistoryPolicy.HideSecrets(line);
+
+    /// <inheritdoc />
     /// <remarks>
     /// Turning the trusted mode on sets the language mode of the runspace: its variables stay (the engine itself drops the functions that
     /// were defined in ConstrainedLanguage). Turning it off does not set the mode of the same runspace back - a function, an alias, a

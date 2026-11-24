@@ -444,10 +444,19 @@ write verb (`Set`, `New`, `Remove`, `Move`, `Rename`, `Add`, `Enable`, `Disable`
   (12.8) the literal in parentheses or put together from literals, `-Pa`/`-Pas` and the chained assignment, and the third (12.9)
   `ConvertTo-SecureString -As`, the interpolated key `"Pass$x"` and `[securestring]$x = 'x'`; all are refused now
   (`HistoryPolicyTests`), while `-PassThru`, attribute names such as `pwdLastSet` given as values, `Get-Secret MySecret` and
-  `Reset-AdmPassword -Identity x` stay remembered. What is still remembered: a secret given positionally to a command whose name
-  does not say so (`Connect-Thing 'x'`), one inside a longer text, an argument of a console program (`net user jkowalski x`) and
-  a name outside the lists – the guide says not to type a password into a command at all. The window's history
-  lives in `AdMng.Presentation` (memory only) and asks this function through `IPowerShellSession.ShouldRemember`.
+  `Reset-AdmPassword -Identity x` stay remembered. After the audit's engine unit (12.11, the rest of PS-13) a literal is also a
+  variable the same line set to one (`$p = 'x'; Set-Thing -Password $p`), the second argument of `New-Object PSCredential` or
+  `[pscredential]::new` is a secret, and console programs (a name with `.exe` and the like, or without a dash) have rules of
+  their own: the third word of `net user` and the word after the share of `net use` (not `*`), a switch `/name:value` or
+  `/name value` whose name is a secret's name or `p`, `pd`, `po`, `pw`, `rp`, `pass`, and `-p`/`-P` (also those short names)
+  of `psexec`, `sqlcmd` and a few others or of any `.exe` - only there, since `-p` of a cmdlet is usually `-Path`. What is still
+  remembered: a secret given positionally to a command whose name does not say so (`Connect-Thing 'x'`), one inside a longer
+  text, a switch of a console program outside these names and a name outside the lists – the guide says not to type a password
+  into a command at all. The window's history lives in `AdMng.Presentation` (memory only) and asks this function through
+  `IPowerShellSession.ShouldRemember`. `PowerShellHistoryPolicy.HideSecrets(line)` (`IPowerShellSession.HideSecrets`) gives the
+  line as the scrollback echoes it: each secret the rules found - the literal, the literal a variable was set to, the value after
+  a console program's switch, the literals of a command with `-AsPlainText` and those piped into it - replaced by `***`; the
+  command itself runs as typed.
 - `PowerShellSyntax.Tokenize(input)` returns spans (`Start`, `Length`, `Kind`: command, parameter, variable, string, number,
   operator, comment, keyword, type, member) from the parser's tokens (`InputParser`), in order, never empty, with whitespace,
   brackets and bare arguments left out (kind `Other` is not listed); a text too long to parse has none. `IsComplete(input)` is

@@ -63,7 +63,9 @@ public sealed partial class PowerShellWindowViewModel
         }
 
         var script = Input.Text;
-        Output.AddCommand(script, PromptText, ContinuationText);
+
+        // The echo masks a plain-text secret that keeps the line out of the history (audit PS-13); the command runs as typed.
+        Output.AddCommand(session.HideSecrets(script), PromptText, ContinuationText);
         History.Add(script);
         Input.Clear();
         if (!session.IsRunning)

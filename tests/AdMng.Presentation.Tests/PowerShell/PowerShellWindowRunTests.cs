@@ -697,8 +697,11 @@ public sealed class PowerShellWindowRunTests
         await PowerShellHarness.RunAsync(window, "Get-AdmGroup *");
 
         Assert.Equal(["Get-AdmUser jan", "Get-AdmGroup *"], window.History.Entries);
-        // The line that was not remembered was run all the same.
+        // The line that was not remembered was run all the same, as typed; the scrollback echoes it with its secret masked (audit PS-13).
         Assert.Equal(4, harness.Session.Scripts.Count);
+        Assert.Equal("$p = ConvertTo-SecureString 'Sup3r' -AsPlainText -Force", harness.Session.Scripts[2]);
+        Assert.Contains("PS> $p = ConvertTo-SecureString *** -AsPlainText -Force", window.Output.Lines.Select(line => line.Text));
+        Assert.DoesNotContain(window.Output.Lines, line => line.Text.Contains("Sup3r", StringComparison.Ordinal));
 
         window.ClearCommand.Execute(null);
         Assert.Empty(window.Output.Lines);

@@ -231,11 +231,17 @@ odrzuca wynik, a `2>&1` nadal łączy strumienie). Do CSV użyj `Export-AdmList`
   `Token`, `ApiKey` lub `PrivateKey`, nazwa `Pw`, `Pin` albo `Key` w całości i skróty `-Pa`, `-Pas`, `-Pass`. Wartość w
   nawiasach albo złożona z samych napisów (`-Password ('tekst')`, `$password = 'te' + 'kst'`, `$password = $x = 'tekst'`) liczy
   się tak samo jak wpisana wprost. Nie jest zapamiętywany także
-  wiersz z wartością wpisaną bez nazwy parametru dla polecenia, którego nazwa mówi o haśle (`Reset-AdmPassword jan 'tekst'`).
-  Zmienna albo `Read-Host -AsSecureString` jako wartość jest w porządku. Filtr nie rozpozna każdego hasła: wartości bez nazwy
-  parametru dla innego polecenia, hasła wewnątrz dłuższego tekstu, argumentu programu konsolowego (`net user jan tekst`) ani
-  nazwy spoza listy (np. polskiej: `$haslo = 'tekst'` zostaje zapamiętany). Wpisany wiersz zostaje też widoczny w obszarze wyników, dopóki go nie wyczyścisz albo nie
-  zamkniesz okna – i zasady grupy mogą go zarejestrować (rozdział 8) – więc nie wpisuj hasła do polecenia w ogóle. Hasło, o które prosi `Read-Host -AsSecureString` albo parametr obowiązkowy, wpisuje się w polu hasła i
+  wiersz z wartością wpisaną bez nazwy parametru dla polecenia, którego nazwa mówi o haśle (`Reset-AdmPassword jan 'tekst'`),
+  z napisem, który trafia do nazwy sekretu przez zmienną ustawioną w tym samym wierszu (`$p = 'tekst'; Set-Thing -Password $p`),
+  z poświadczeniem złożonym z napisu (`New-Object PSCredential 'jan', 'tekst'`, `[pscredential]::new('jan', 'tekst')`) ani z
+  hasłem programu konsolowego: po `net user jan` (`net user jan tekst`) i po `net use \\serwer\udział`, w przełączniku z nazwą
+  sekretu albo krótką nazwą hasła (`/pass:tekst`, `/password:tekst`, `/pd:tekst`, `/p:tekst`, `/rp tekst`) i po `-p` lub `-P`
+  programów `psexec`, `sqlcmd` i podobnych. Zmienna albo `Read-Host -AsSecureString` jako wartość jest w porządku. Filtr nie
+  rozpozna każdego hasła: wartości bez nazwy parametru dla innego polecenia, hasła wewnątrz dłuższego tekstu, przełącznika programu
+  konsolowego spoza tych nazw ani nazwy spoza listy (np. polskiej: `$haslo = 'tekst'` zostaje zapamiętany). Wpisany wiersz zostaje
+  też w obszarze wyników, dopóki go nie wyczyścisz albo nie zamkniesz okna – z hasłem, które filtr rozpoznał, zastąpionym przez
+  `***` (polecenie działa z hasłem, jak je wpisano) – a zasady grupy mogą go zarejestrować (rozdział 8), więc nie wpisuj hasła do
+  polecenia w ogóle. Hasło, o które prosi `Read-Host -AsSecureString` albo parametr obowiązkowy, wpisuje się w polu hasła i
   nigdy nie jest pokazywane.
 - **Program nie zapisuje niczego więcej.** PSReadLine nie jest ładowany (nie ma pliku historii), żaden profil nie jest
   uruchamiany (`$PROFILE` nigdy nie jest ładowany), telemetria i kanał diagnostyczny silnika są wyłączone, automatyczne

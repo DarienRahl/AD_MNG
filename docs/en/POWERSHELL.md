@@ -233,12 +233,17 @@ that says so, and redirection to a file (`>`, `>>`, `2>`) is refused before the 
   `Pw`, `Pin` or `Key`, and the abbreviations `-Pa`, `-Pas`, `-Pass`. A value in parentheses or put together from literals
   alone (`-Password ('literal')`, `$password = 'lit' + 'eral'`, `$password = $x = 'literal'`) counts the same as one typed
   directly. A line with a value written without a parameter name to a command whose
-  name speaks of a password (`Reset-AdmPassword jan 'literal'`) is not remembered either. A variable or
-  `Read-Host -AsSecureString` as the value is fine. The filter does not recognise every password: a value without a parameter
-  name for another command, a password inside a longer text, an argument of a console program (`net user jan literal`) or a
-  name outside the list (a Polish one, for example: `$haslo = 'literal'` is remembered). The line you typed also stays visible
-  in the output area until you clear it or close the window – and Group Policy may record it (chapter 8) – so do not type a
-  password into a command at all. A
+  name speaks of a password (`Reset-AdmPassword jan 'literal'`) is not remembered either, nor one with a literal that reaches a
+  secret's name through a variable set in the same line (`$p = 'literal'; Set-Thing -Password $p`), a credential built from a
+  literal (`New-Object PSCredential 'jan', 'literal'`, `[pscredential]::new('jan', 'literal')`) or a password of a console
+  program: after `net user jan` (`net user jan literal`) and after `net use \\server\share`, in a switch with a secret's name or a
+  short name of a password (`/pass:literal`, `/password:literal`, `/pd:literal`, `/p:literal`, `/rp literal`) and after `-p` or
+  `-P` of `psexec`, `sqlcmd` and the like. A variable or `Read-Host -AsSecureString` as the value is fine. The filter does not
+  recognise every password: a value without a parameter name for another command, a password inside a longer text, a switch of a
+  console program outside these names or a name outside the list (a Polish one, for example: `$haslo = 'literal'` is
+  remembered). The line you typed also stays in the output area until you clear it or close the window – with a password the
+  filter recognised replaced by `***` (the command runs with the password as typed) – and Group Policy may record it (chapter 8),
+  so do not type a password into a command at all. A
   password asked for by `Read-Host -AsSecureString` or a mandatory parameter is typed into a password box and never shown.
 - **The program writes nothing else.** PSReadLine is not loaded (no history file), no profile is run (`$PROFILE` is never
   loaded), the engine's telemetry and diagnostics channel are off, module auto-loading and the module analysis cache are
