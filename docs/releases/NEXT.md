@@ -40,9 +40,10 @@ się nie zmienia, a zapisy do katalogu nadal idą wyłącznie przez plan zmian z
   zniknął – zdanie jest jedno. Lista, którą odczytywano z błędem albo zatrzymano, nie jest „pusta”: mówi o tym wiersz
   stanu, jak dotąd. Gdy lista obiektów czyta kontener po raz pierwszy (nie przy odświeżeniu, które ma już wiersze), pod
   nagłówkami kolumn pokazują się szare wiersze zastępcze (najwyżej 12) – po około 0,15 s, więc odczyt, który kończy się od
-  razu, ich nie pokazuje; bez ruchu stoją nieruchomo, z ruchem delikatnie „oddychają”. Wynik każdego sprawdzenia w raporcie
-  gotowości środowiska i stan każdego sprawdzenia na karcie *Stan* AdMng Watchdog to teraz plakietka: obrazek stanu i
-  słowo (OK, Ostrzeżenie, Błąd, Nie sprawdzono…), w jednej kolumnie przed tytułem; obszary raportu mają plakietkę swojego
+  razu, ich nie pokazuje; odcinają się od tła listy w motywie jasnym, ciemnym i w wysokim kontraście (tam rysuje je
+  obrys); bez ruchu stoją nieruchomo, z ruchem delikatnie „oddychają”. Wynik każdego sprawdzenia w raporcie gotowości
+  środowiska i stan każdego sprawdzenia na karcie *Stan* AdMng Watchdog to teraz plakietka: obrazek stanu i słowo (OK,
+  Ostrzeżenie, Błąd, Nie sprawdzono…), w jednej kolumnie przed tytułem; obszary raportu mają plakietkę swojego
   najgorszego wyniku. Stan nie jest już podawany samym kolorem ani powtórzony za tytułem.
 - **Przycisk okna na pasku zadań pokazuje postęp, a zamknięcie okna w trakcie zapisu najpierw pyta.** Okno AD Managera, które
   ma własny przycisk na pasku zadań – okno główne, edytor zbiorczy, Kosz AD, *Korespondencja*, wiadomości do użytkowników,
@@ -225,7 +226,8 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
 - Odczytywanie zmienionego podsumowania i opóźnienie stanu *Trwa* sprawdzono testami automatycznymi i na podstawie kodu;
   nie sprawdzono ich z prawdziwym czytnikiem ekranu (Narrator, NVDA) ani na ekranie.
 - Plakietki stanu, puste listy i szare wiersze zastępcze sprawdzono testami automatycznymi (właściwości, zasoby, stan
-  modeli widoku), ale nikt ich jeszcze nie oglądał na ekranie: wygląd w jasnym, ciemnym i wysokim kontraście oraz szerokość
+  modeli widoku; kontrast szarych wierszy wobec tła listy test liczy z barw motywu jasnego, ciemnego i wysokiego
+  kontrastu), ale nikt ich jeszcze nie oglądał na ekranie: wygląd w jasnym, ciemnym i wysokim kontraście oraz szerokość
   plakietek w wąskich oknach czeka na pilotaż. Plakietki stanu kanałów i kontrolerów domeny na karcie *Stan* Watchdoga nie
   zostały wprowadzone (te kolumny są wąskie) – zostają przy ikonie z podpowiedzią.
 - Postęp na pasku zadań i pytanie o zamknięcie okna sprawdzono testami automatycznymi (model na Linuksie, okna na Windows),

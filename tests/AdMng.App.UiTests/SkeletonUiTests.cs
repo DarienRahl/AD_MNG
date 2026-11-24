@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Automation.Peers;
 using System.Windows.Controls;
+using System.Windows.Media;
 using AdMng.App.Behaviors;
 using AdMng.App.Controls;
 using AdMng.App.Infrastructure;
@@ -115,12 +116,15 @@ public sealed class SkeletonUiTests
         {
             await UiTestSupport.WaitForIdleAsync(rounds: 2);
             var rows = ControlHost.Part<Panel>(first, Skeleton.RowsPartName).Children.OfType<Grid>().ToList();
-            var colour = ControlHost.ThemeColor(first, "CardStrokeColorDefaultBrush");
+            var barStyle = Application.Current.FindResource(Skeleton.BarStyleKey);
+            var fill = ControlHost.ThemeColor(first, "ControlStrongFillColorDisabledBrush");
+            var outline = ControlHost.ThemeColor(first, "ControlStrokeColorDefaultBrush");
 
             Assert.Equal(5, rows.Count);
             Assert.All(rows, row =>
             {
-                // A picture of 16 px and three bars; every bar is a rounded grey shape in the colour of the strokes of the theme.
+                // A picture of 16 px and three bars; every bar is a rounded grey shape of the style of Themes/Controls.xaml: the
+                // strong disabled fill of the theme with the 1 px control stroke around it (what draws it in High Contrast).
                 Assert.Equal(30d, row.Height);
                 var bars = row.Children.OfType<Border>().ToList();
                 Assert.Equal(4, bars.Count);
@@ -128,7 +132,10 @@ public sealed class SkeletonUiTests
                 Assert.All(bars.Skip(1), bar => Assert.Equal(10d, bar.Height));
                 Assert.All(bars, bar =>
                 {
-                    Assert.Equal(colour, ControlHost.ColorOf(bar.Background));
+                    Assert.Same(barStyle, bar.Style);
+                    Assert.Equal(fill, ControlHost.ColorOf(bar.Background));
+                    Assert.Equal(outline, ControlHost.ColorOf(bar.BorderBrush));
+                    Assert.Equal(new Thickness(1), bar.BorderThickness);
                     Assert.True(bar.CornerRadius.TopLeft >= 3);
                 });
             });
@@ -149,6 +156,69 @@ public sealed class SkeletonUiTests
             var rebuilt = ControlHost.Part<Panel>(first, Skeleton.RowsPartName).Children.OfType<Grid>().ToList();
             Assert.Equal(3, rebuilt.Count);
             Assert.All(rebuilt, row => Assert.Equal(40d, row.Height));
+        }
+        finally
+        {
+            window.Close();
+        }
+    });
+
+    /// <summary>
+    /// The bars are seen (audit ACV-2: they were the card stroke - 6 % of black in light, 10 % of black in dark, about 1.04:1 on the
+    /// dark list - and the test only compared the key with itself). In a window that holds the light, the dark or the High
+    /// Contrast dictionary of the Fluent theme, every bar is composited over the two surfaces a list stands on - the window
+    /// background (the Find window) and the layer of the document panel over it (the main window) - and must stand out by at
+    /// least 2:1 in light and dark. In High Contrast every fill of the theme is the button face, which the contrast themes of
+    /// Windows make the window colour, so there the outline draws the bar: at least 3:1, with the colours of the system that
+    /// runs the test.
+    /// </summary>
+    [Theory]
+    [InlineData("Light")]
+    [InlineData("Dark")]
+    [InlineData("HC")]
+    public Task TheBars_StandOutFromTheSurfacesOfAList_InLightDarkAndHighContrast(string theme) => WpfTestHost.RunAsync(async () =>
+    {
+        var clock = new ManualStatusScheduler();
+        var skeleton = new Skeleton { Scheduler = clock, RowCount = 3, IsActive = true, Width = 600 };
+        var panel = new Border { Child = skeleton };
+        panel.SetResourceReference(Border.BackgroundProperty, "LayerFillColorDefaultBrush");
+        var window = new Window { Width = 700, Height = 200, Content = panel, WindowStyle = WindowStyle.ToolWindow };
+        window.Resources.MergedDictionaries.Add(new ResourceDictionary
+        {
+            Source = new Uri($"pack://application:,,,/PresentationFramework.Fluent;component/Resources/Theme/{theme}.xaml", UriKind.Absolute),
+        });
+        UiTestSupport.ShowOffScreen(window);
+        try
+        {
+            await UiTestSupport.WaitForIdleAsync(rounds: 2);
+            clock.Advance(Assert.NotNull(Motion.TimeOf(Motion.WorkingDelayKey)));
+            window.UpdateLayout();
+            Assert.True(skeleton.IsShown);
+
+            // The surfaces of this theme: the window background, and the layer of the document panel over it.
+            var background = Opaque(ControlHost.ThemeColor(skeleton, "ApplicationBackgroundBrush"));
+            Color[] surfaces = [background, Over(ControlHost.ThemeColor(skeleton, "LayerFillColorDefaultBrush"), background)];
+            var bars = ControlHost.Part<Panel>(skeleton, Skeleton.RowsPartName).Children.OfType<Grid>()
+                .SelectMany(row => row.Children.OfType<Border>()).ToList();
+            Assert.Equal(3 * 4, bars.Count);
+            foreach (var bar in bars)
+            {
+                var fill = ControlHost.ColorOf(bar.Background);
+                foreach (var surface in surfaces)
+                {
+                    if (theme == "HC")
+                    {
+                        Assert.True(bar.BorderThickness.Left >= 1, "HC: the bar has no outline");
+                        var outline = Contrast(Over(ControlHost.ColorOf(bar.BorderBrush), surface), surface);
+                        Assert.True(outline >= 3, $"HC: the outline of a bar stands out by {outline:F2}:1 only");
+                    }
+                    else
+                    {
+                        var seen = Contrast(Over(fill, surface), surface);
+                        Assert.True(seen >= 2, $"{theme}: a bar {fill} stands out from the surface {surface} by {seen:F2}:1 only");
+                    }
+                }
+            }
         }
         finally
         {
@@ -272,4 +342,33 @@ public sealed class SkeletonUiTests
             window.Close();
         }
     });
+
+    /// <summary>A colour of a theme that is a surface: opaque (a window background is).</summary>
+    private static Color Opaque(Color colour) => Color.FromRgb(colour.R, colour.G, colour.B);
+
+    /// <summary><paramref name="top"/> with its alpha drawn over the opaque <paramref name="under"/>.</summary>
+    private static Color Over(Color top, Color under)
+    {
+        var alpha = top.A / 255d;
+        byte Mix(byte above, byte below) => (byte)Math.Round((above * alpha) + (below * (1 - alpha)));
+        return Color.FromRgb(Mix(top.R, under.R), Mix(top.G, under.G), Mix(top.B, under.B));
+    }
+
+    /// <summary>The contrast ratio of two opaque colours (WCAG 2: relative luminance, 1:1 to 21:1).</summary>
+    private static double Contrast(Color first, Color second)
+    {
+        var (a, b) = (Luminance(first), Luminance(second));
+        return (Math.Max(a, b) + 0.05) / (Math.Min(a, b) + 0.05);
+    }
+
+    private static double Luminance(Color colour)
+    {
+        static double Channel(byte value)
+        {
+            var s = value / 255d;
+            return s <= 0.04045 ? s / 12.92 : Math.Pow((s + 0.055) / 1.055, 2.4);
+        }
+
+        return (0.2126 * Channel(colour.R)) + (0.7152 * Channel(colour.G)) + (0.0722 * Channel(colour.B));
+    }
 }

@@ -784,8 +784,8 @@
     Placeholder rows (stage V2b-5b; c:Skeleton takes this style by itself): what a list shows for the first read of what it
     shows, in place of blank space - rounded grey bars in the shape of rows (a picture and three bars), at most 12.
     * The style only holds the panel PART_Rows; the control builds the rows (RowCount of RowHeight) and gives their bars the
-      brush CardStrokeColorDefaultBrush as a dynamic resource. The host puts the control over the body of the list, under the
-      column headers, and binds IsActive to the "first read" state of its view model.
+      style Ad.Skeleton.Bar below. The host puts the control over the body of the list, under the column headers, and binds
+      IsActive to the "first read" state of its view model.
     * Collapsed while it is not active; the bars appear after Motion.WorkingDelay (IsShown), so a read that ends at once never
       flashes them. A calm static picture without motion; with motion the rows breathe (Motion.Pulse, only while visible).
     * Decorative: no element of the UI Automation tree, no focus, no pointer. Clipped to its bounds.
@@ -812,6 +812,23 @@
         <Setter Property="Visibility" Value="Collapsed" />
       </Trigger>
     </Style.Triggers>
+  </Style>
+
+  <!--
+    A bar of c:Skeleton (Skeleton.BarStyleKey; the control sets the size and the corners). It must be seen on the surface of a
+    list - the window background and the layer of the document panel - in every theme (audit ACV-2: the card stroke, 6 % of
+    black in light and 10 % of black in dark, was about 1.1:1 and 1.04:1):
+    * the fill ControlStrongFillColorDisabledBrush - about a third of black in light and a quarter of white in dark - stands out
+      by about 2.2:1 in both;
+    * the 1 px outline ControlStrokeColorDefaultBrush is what draws the bar in High Contrast, where every fill is the button
+      face, which the contrast themes make the window colour, and the control stroke is the button text colour; in light and
+      dark it is 6-7 % of black or white, as around the controls of the theme.
+    SkeletonUiTests measures it against the three dictionaries of the theme.
+  -->
+  <Style x:Key="Ad.Skeleton.Bar" TargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource ControlStrongFillColorDisabledBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
   </Style>
 
   <!-- Panels -->

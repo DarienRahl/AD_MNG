@@ -19,9 +19,12 @@ namespace AdMng.App.Controls;
 /// that ends at once never flashes placeholder rows. <see cref="IsShown"/> is what is drawn; a test replaces
 /// <see cref="Scheduler"/> to move that time by hand.</para>
 /// <para>Without motion the placeholder rows are a calm static picture. With motion they breathe: the opacity of the bars goes
-/// down and up over <c>Motion.Shimmer</c> (<see cref="Motion.Pulse"/>) and only while they are visible. The brushes are Fluent
-/// keys read as dynamic resources, so a theme switch and High Contrast follow. The control is decorative: it is not an element of
-/// the UI Automation tree - the status line says "Reading ..." - takes no focus and no pointer, and clips to its bounds.</para>
+/// down and up over <c>Motion.Shimmer</c> (<see cref="Motion.Pulse"/>) and only while they are visible. A bar has the style
+/// <see cref="BarStyleKey"/> of Themes/Controls.xaml, whose Fluent brushes are dynamic resources, so a theme switch and High
+/// Contrast follow: the strong disabled fill (about 2.2:1 against the surface of a list in light and in dark) and a 1 px control
+/// stroke, which draws the bar in High Contrast, where every fill is the button face and so the window colour. The control is
+/// decorative: it is not an element of the UI Automation tree - the status line says "Reading ..." - takes no focus and no
+/// pointer, and clips to its bounds.</para>
 /// <para>The look is the style <c>Ad.Skeleton</c> of Themes/Controls.xaml, which the control takes by itself; the style has only
 /// the host panel <c>PART_Rows</c>, and the rows are made by the control, deterministically (the same bars for the same row),
 /// when <see cref="RowCount"/> or <see cref="RowHeight"/> change.</para>
@@ -33,6 +36,9 @@ public class Skeleton : Control
 
     /// <summary>The template part that holds the rows.</summary>
     public const string RowsPartName = "PART_Rows";
+
+    /// <summary>The resource key of the style of a bar in Themes/Controls.xaml (its fill and its outline).</summary>
+    public const string BarStyleKey = "Ad.Skeleton.Bar";
 
     /// <summary>The most rows a list shows as placeholders (design note 6.7).</summary>
     public const int MaxRows = 12;
@@ -234,8 +240,9 @@ public class Skeleton : Control
             SnapsToDevicePixels = true,
         };
 
-        // A theme brush as a resource reference: the bar follows light, dark and High Contrast while the application runs.
-        bar.SetResourceReference(Border.BackgroundProperty, "CardStrokeColorDefaultBrush");
+        // The style as a resource reference, its theme brushes as dynamic resources: the bar follows light, dark and High
+        // Contrast while the application runs.
+        bar.SetResourceReference(StyleProperty, BarStyleKey);
         return bar;
     }
 }

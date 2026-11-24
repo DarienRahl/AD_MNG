@@ -5132,7 +5132,16 @@ releases.
     a line that collapses, so nothing moves when a list becomes empty or gets rows.
   - *`Skeleton`* (`RowCount` 1 to 12, 8 by default; `RowHeight`, 26 by default; `IsActive`; read-only `IsShown`). The style holds only the host
     panel `PART_Rows`; the control builds the rows (a 16 px picture and three bars of lengths that differ from row to row, the same ones every
-    time) as `Border`s with the brush `CardStrokeColorDefaultBrush` as a dynamic resource, and rebuilds them when the count or the height change.
+    time) as `Border`s of the style `Ad.Skeleton.Bar` (Themes/Controls.xaml, a resource reference), and rebuilds them when the count or the
+    height change. *The brush of the bars* (audit ACV-2): as first built they were `CardStrokeColorDefaultBrush` - 6 % of black in light and
+    10 % of *black* in dark, about 1.14:1 and 1.04:1 against the surface of a list, so a dark list showed blank space - and the test
+    compared the key with itself. Now the fill is `ControlStrongFillColorDisabledBrush` (`#51000000` light, `#3FFFFFFF` dark: about 2.2:1 on
+    the window background and on the layer of the document panel, values of the theme dictionaries of `PresentationFramework.Fluent`
+    10.0.15), with a 1 px outline of `ControlStrokeColorDefaultBrush`: in High Contrast every fill is the button face, which the contrast
+    themes make the window colour, and the outline - the button text colour - draws the bar (the pattern of the icon buttons, *V1c as
+    built*). The closed set of Fluent brush keys has 29 keys with it. `SkeletonUiTests` loads the light, the dark and the High Contrast
+    dictionary into a window and measures every bar against both surfaces (at least 2:1 in light and dark, the outline at least 3:1 in High
+    Contrast with the runner's system colours).
     Collapsed while it is not active; **the bars appear after `Motion.WorkingDelay`** (150 ms, the delay of decision 5, on the same
     `IStatusScheduler` seam as the status line, so a test moves it with a `ManualStatusScheduler`): a read that ends at once never flashes
     placeholder rows, as it never flashes "Working". Without motion the rows stand still; with motion `Motion.Pulse` runs one opacity animation
@@ -5153,15 +5162,16 @@ releases.
     strings of both languages (`List.EmptyFiltered`, `List.ClearFilter`, `GpEditing.GpoNone`, `GpEditing.ClearSearch`, `PkiTpl.EmptyNone`,
     `PkiTpl.EmptyFiltered`, `PkiTpl.ClearFilters`; the first sentence and "Refresh" are `List.Empty` and `Commands.Refresh` of before).
   - *Tests.* `StatusPillUiTests`, `EmptyStateUiTests`, `SkeletonUiTests` (parts, properties, the automation name and peer, the manual clock,
-    `MotionScope.On()` for the pulse, nothing left running); `ObjectListEmptyStateUiTests` (an empty container with its Refresh, a filter and
-    its action, the held first read with the placeholder rows after the manual delay and a reload without them, a read that ends before the
-    delay, a failed read), the Group Policy list in `GroupPolicyEditingUiTests`, the PKI templates in `PkiOverviewUiTests`, the pills in
-    `ReadinessStatusUiTests` (one pill per area and per check, the words, the kinds, one column, no old glyph, no word said twice) and
-    `WatchdogViewTests`; Presentation: `ObjectListEmptyStateTests`, `StatusPillKindTests`, the empty states in `GroupPolicyEditingComfortTests` and
-    `PkiTemplatesTests`; and two source rules in `XamlSourceTests` (the three styles have no colour of their own; every pill, empty state and
-    skeleton in the views is bound to what makes it complete). The keys of the new styles were proved with a script over the real XAML
-    files (every `Ad.*` key defined, the closed set of Fluent brushes unchanged and all dynamic, the `StaticResource` order of
-    `Controls.xaml`).
+    `MotionScope.On()` for the pulse, nothing left running, and since ACV-2 the contrast of the bars in the three dictionaries of the
+    theme); `ObjectListEmptyStateUiTests` (an empty container with its Refresh, a filter and its action, the held first read with the
+    placeholder rows after the manual delay and a reload without them, a read that ends before the delay, a failed read), the Group Policy
+    list in `GroupPolicyEditingUiTests`, the PKI templates in `PkiOverviewUiTests`, the pills in `ReadinessStatusUiTests` (one pill per area
+    and per check, the words, the kinds, one column, no old glyph, no word said twice) and `WatchdogViewTests`; Presentation:
+    `ObjectListEmptyStateTests`, `StatusPillKindTests`, the empty states in `GroupPolicyEditingComfortTests` and `PkiTemplatesTests`; and
+    two source rules in `XamlSourceTests` (the three styles have no colour of their own; every pill, empty state and skeleton in the views
+    is bound to what makes it complete). The keys of the new styles were proved with a script over the real XAML files (every `Ad.*` key
+    defined, the closed set of Fluent brushes unchanged - the fix of ACV-2 later added one, see *`Skeleton`* - and all dynamic, the
+    `StaticResource` order of `Controls.xaml`).
 - **Taskbar progress and the close question (decision 6, unit 4).** Two answers to "this window works", both made of what the holder
   already says: the taskbar button of every window shows the progress of its line, and a window that is closed while it writes asks one
   question. Neither adds a status: they read the holder (`Current`, `Operation`) and the flag of the operation.
