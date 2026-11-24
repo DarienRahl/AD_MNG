@@ -19,6 +19,9 @@ public sealed partial class PowerShellWindowViewModel
     private string? _firstError;
     private PowerShellRunEndItem? _end;
 
+    /// <summary>The count of lines written when the running command last cleared the window (<c>Clear-Host</c>): its result counts what is left.</summary>
+    private long _linesAtClear = -1;
+
     /// <summary>
     /// Enter in the editor: an open completion list or search takes its choice, the answer to a question of the running command is
     /// sent, a complete input is run and an incomplete one (an open quote, a bracket, a trailing pipe) gets a new line.
@@ -70,6 +73,7 @@ public sealed partial class PowerShellWindowViewModel
 
         _firstError = null;
         _end = null;
+        _linesAtClear = -1;
         var modeBefore = LanguageMode;
         var linesBefore = Output.OutputLinesWritten;
         var started = Services.Time.GetUtcNow();
@@ -241,6 +245,11 @@ public sealed partial class PowerShellWindowViewModel
                 case PowerShellPromptItem prompt:
                     ShowPrompt(prompt);
                     break;
+                case PowerShellClearItem:
+                    // Clear-Host / cls: like Ctrl+L, in the order of the output (what came before goes, what follows is shown).
+                    Output.Clear();
+                    _linesAtClear = Output.OutputLinesWritten;
+                    break;
                 case PowerShellRunEndItem end:
                     _end = end;
                     break;
@@ -286,7 +295,13 @@ public sealed partial class PowerShellWindowViewModel
         var end = _end ?? new PowerShellRunEndItem(scope.Token.IsCancellationRequested ? PowerShellRunState.Stopped : PowerShellRunState.Completed, _firstError is not null);
         var elapsed = Services.Time.GetUtcNow() - started;
         var time = Localizer.Format(L.PowerShellStatus.Seconds, Math.Max(0, elapsed.TotalSeconds).ToString("0.0", Localizer.Culture));
-        var lines = Output.OutputLinesWritten - linesBefore;
+        var lines = Output.OutputLinesWritten - Math.Max(linesBefore, _linesAtClear);
+        if (end.ExitCode is { } exitCode)
+        {
+            // exit ended the script (audit PS-12: it was swallowed without a word); the window does not close.
+            Output.AddLine(PowerShellLineKind.Information, Localizer.Format(L.PowerShell.Exited, exitCode.ToString(Localizer.Culture)));
+        }
+
         var milliseconds = (long)Math.Max(0, elapsed.TotalMilliseconds);
         switch (end.State)
         {

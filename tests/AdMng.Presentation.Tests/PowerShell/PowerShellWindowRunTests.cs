@@ -441,6 +441,40 @@ public sealed class PowerShellWindowRunTests
         Assert.Equal("The command failed. Correct the command and run it again. The error text is in the window.", window.Status.Current.Message);
     }
 
+    /// <summary>Audit PS-12: <c>Clear-Host</c> / <c>cls</c> did nothing in the window; now it clears it like Ctrl+L, in the order of the output.</summary>
+    [Fact]
+    public async Task ClearHost_ClearsTheScrollback_InTheOrderOfTheOutput_AndTheLineCountsWhatIsLeft()
+    {
+        var harness = await PowerShellHarness.CreateAsync();
+        using var window = await harness.OpenAsync();
+        harness.Session.Queue(Text("before\n"), Text("more\n"), PowerShellClearItem.Instance, Text("after\n"));
+
+        await PowerShellHarness.RunAsync(window, "'before'; 'more'; cls; 'after'");
+
+        Assert.Equal([(PowerShellLineKind.Output, "after")], Lines(window));
+        Assert.Equal(["'before'; 'more'; cls; 'after'"], window.History.Entries);
+        Assert.Equal(PageStatusKind.Done, window.Status.Current.Kind);
+        Assert.StartsWith("The command finished: 1 line of output in the window", window.Status.Current.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Audit PS-12: <c>exit</c> ended the run without a word; now the window says that the command ended there and the window stays open.</summary>
+    [Theory]
+    [InlineData("en-US", "The command ended with exit (exit code 5). The window stays open; close it with the window's close button or Alt+F4.")]
+    [InlineData("pl-PL", "Polecenie zakończyło się instrukcją exit (kod wyjścia 5). Okno pozostaje otwarte; zamknij je przyciskiem zamykania okna lub klawiszami Alt+F4.")]
+    public async Task Exit_EndsTheCommand_AndTheWindowSaysItStaysOpen(string culture, string expected)
+    {
+        var harness = await PowerShellHarness.CreateAsync(CultureInfo.GetCultureInfo(culture));
+        using var window = await harness.OpenAsync();
+        harness.Session.Queue(Text("before\n"), new PowerShellRunEndItem(PowerShellRunState.Completed, HadErrors: false, ExitCode: 5));
+
+        await PowerShellHarness.RunAsync(window, "'before'; exit 5");
+
+        Assert.Equal((PowerShellLineKind.Information, expected), Lines(window).Last());
+        Assert.Equal(PageStatusKind.Done, window.Status.Current.Kind);
+        Assert.False(window.IsRunning);
+        Assert.True(window.IsReady);
+    }
+
     [Fact]
     public async Task AnEngineThatThrows_IsAnErrorOnTheLine_AndTheWindowCanRunAgain()
     {

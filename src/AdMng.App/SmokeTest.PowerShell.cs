@@ -55,7 +55,8 @@ internal static partial class SmokeTest
 
         // The allow-list of the session and the window's ForEach-Object (its bridge to the engine's cmdlet) in the single file.
         var count = await RunPowerShellAsync(session, "(Get-Command -CommandType Cmdlet, Function | Measure-Object).Count").ConfigureAwait(true);
-        var allowed = CommandGuards.EngineCmdlets.Count + CommandGuards.EngineFunctions.Count + CommandGuards.Replacements.Count + CommandGuards.Refusals.Count + AdmCommands.Names.Count;
+        var allowed = CommandGuards.EngineCmdlets.Count + CommandGuards.EngineFunctions.Count + CommandGuards.Replacements.Count
+            + CommandGuards.WindowCommands.Count + CommandGuards.Refusals.Count + AdmCommands.Names.Count;
         Expect(count == allowed.ToString(CultureInfo.InvariantCulture), $"The session has {count} commands, the allow-list {allowed}.");
         var doubled = await RunPowerShellAsync(session, "(1, 2 | ForEach-Object { $_ * 2 }) -join ','").ConfigureAwait(true);
         Expect(doubled == "2,4", $"ForEach-Object gave '{doubled}'.");

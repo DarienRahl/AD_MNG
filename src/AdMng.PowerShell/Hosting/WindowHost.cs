@@ -35,10 +35,22 @@ internal sealed class WindowHost : PSHost
 
     public override CultureInfo CurrentUICulture { get; }
 
-    /// <summary>The script asked to exit (<c>exit</c>); the window decides what that means (R1: nothing).</summary>
-    public event Action<int>? ExitRequested;
+    private int _exitCode;
+    private int _exited;
 
-    public override void SetShouldExit(int exitCode) => ExitRequested?.Invoke(exitCode);
+    /// <summary>
+    /// The script ended with <c>exit</c> (audit PS-12: the event that once took it had no subscriber, and <c>exit</c> ended the run
+    /// without a word). The engine calls this on the pipeline thread before the run ends; the session puts the code into the end item
+    /// (<see cref="TakeExit"/>) and the window says that the command ended there. The window does not close.
+    /// </summary>
+    public override void SetShouldExit(int exitCode)
+    {
+        Volatile.Write(ref _exitCode, exitCode);
+        Volatile.Write(ref _exited, 1);
+    }
+
+    /// <summary>The exit code of a run that ended with <c>exit</c>, or null; clears it.</summary>
+    public int? TakeExit() => Interlocked.Exchange(ref _exited, 0) == 1 ? Volatile.Read(ref _exitCode) : null;
 
     public override void EnterNestedPrompt() =>
         throw new PSNotSupportedException("Nested prompts are not available in the AD Manager PowerShell window.");

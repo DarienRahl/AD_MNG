@@ -30,6 +30,9 @@ public static partial class L
 
         /// <summary>A line of the window: the engine left a command that did not end after Stop and goes on in a new session.</summary>
         public const string SessionRestarted = "PowerShell.SessionRestarted";
+
+        /// <summary>A line of the window: the command ended with <c>exit</c>, the window stays open; {0} = the exit code.</summary>
+        public const string Exited = "PowerShell.Exited";
         public const string TrustedConfirmTitle = "PowerShell.Trusted.ConfirmTitle";
 
         /// <summary>{0} = the domain.</summary>

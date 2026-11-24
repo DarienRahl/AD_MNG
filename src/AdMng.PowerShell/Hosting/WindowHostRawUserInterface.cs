@@ -65,8 +65,19 @@ internal sealed class WindowHostRawUserInterface : PSHostRawUserInterface
     {
     }
 
+    /// <summary>Called when a command clears the whole buffer (<c>Clear-Host</c>): the host's user interface clears the window.</summary>
+    public Action? Cleared { get; set; }
+
+    /// <summary>
+    /// The rectangle -1, -1, -1, -1 is the whole buffer: <c>Clear-Host</c> asks for it (the window's own command, and the engine's
+    /// function on Windows), and the window clears its output. Any other rectangle has nothing to fill: the window has no buffer.
+    /// </summary>
     public override void SetBufferContents(Rectangle rectangle, BufferCell fill)
     {
+        if (rectangle is { Left: -1, Top: -1, Right: -1, Bottom: -1 })
+        {
+            Cleared?.Invoke();
+        }
     }
 
     public override BufferCell[,] GetBufferContents(Rectangle rectangle) => new BufferCell[0, 0];

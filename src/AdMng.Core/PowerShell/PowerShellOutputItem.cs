@@ -42,8 +42,20 @@ public sealed record PowerShellObjectItem(object? Value) : PowerShellOutputItem
     public override string ToString() => $"PowerShellObjectItem({Value?.GetType().Name ?? "null"})";
 }
 
-/// <summary>Always the last item of a run; <see cref="HadErrors"/> is true when any error was written (also a non-terminating one).</summary>
-public sealed record PowerShellRunEndItem(PowerShellRunState State, bool HadErrors) : PowerShellOutputItem;
+/// <summary>
+/// Always the last item of a run; <see cref="HadErrors"/> is true when any error was written (also a non-terminating one) - a stop of
+/// the operator is not an error. <see cref="ExitCode"/> is set when the script ended with <c>exit</c>: the run ends there and the window
+/// stays open.
+/// </summary>
+public sealed record PowerShellRunEndItem(PowerShellRunState State, bool HadErrors, int? ExitCode = null) : PowerShellOutputItem;
+
+/// <summary>The command cleared the window (<c>Clear-Host</c>, <c>cls</c>): what came before goes, like Ctrl+L; what follows is shown.</summary>
+public sealed record PowerShellClearItem : PowerShellOutputItem
+{
+    public static PowerShellClearItem Instance { get; } = new();
+
+    public override string ToString() => nameof(PowerShellClearItem);
+}
 
 /// <summary>One choice of a <see cref="PowerShellPromptKind.Choice"/> prompt; <see cref="Label"/> may carry an '&amp;' accelerator.</summary>
 public sealed record PowerShellChoice(string Label, string HelpMessage);

@@ -763,6 +763,8 @@ public sealed class PowerShellSession : IPowerShellSession
             _run = run;
         }
 
+        engine.Host.TakeExit();
+
         engine.Host.Output.Attach(sink);
         try
         {
@@ -796,6 +798,7 @@ public sealed class PowerShellSession : IPowerShellSession
         var stopped = Volatile.Read(ref run.StopRequested) == 1;
         var state = PowerShellRunState.Completed;
         var hadErrors = run.Sink.HadErrorText || run.Ps.HadErrors;
+        var exitCode = run.Engine.Host.TakeExit();
         if (invoke.IsFaulted)
         {
             var error = invoke.Exception!.GetBaseException();
@@ -815,6 +818,13 @@ public sealed class PowerShellSession : IPowerShellSession
             state = PowerShellRunState.Stopped;
         }
 
+        if (state == PowerShellRunState.Stopped)
+        {
+            // The engine counts the stop itself as an error (HadErrors); only an error the command wrote before it counts (audit PS-12).
+            hadErrors = run.Sink.HadErrorText;
+            exitCode = null;
+        }
+
         // No job the command left in the session outlives it.
         EndJobs(run.Engine.Jobs);
 
@@ -828,7 +838,7 @@ public sealed class PowerShellSession : IPowerShellSession
 
         run.Ps.Dispose();
         _gate.Release();
-        run.Sink.Post(new PowerShellRunEndItem(state, hadErrors));
+        run.Sink.Post(new PowerShellRunEndItem(state, hadErrors, exitCode));
 
         // Idle first: a consumer that sees the channel end must also see the run as finished.
         run.Idle.TrySetResult();

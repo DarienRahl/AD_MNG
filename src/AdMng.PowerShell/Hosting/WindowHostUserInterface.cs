@@ -18,7 +18,11 @@ internal sealed class WindowHostUserInterface : PSHostUserInterface
     private readonly WindowHostRawUserInterface _raw;
     private OutputSink? _sink;
 
-    public WindowHostUserInterface(WindowHostRawUserInterface raw) => _raw = raw;
+    public WindowHostUserInterface(WindowHostRawUserInterface raw)
+    {
+        _raw = raw;
+        _raw.Cleared = () => Sink?.Post(PowerShellClearItem.Instance);
+    }
 
     public override PSHostRawUserInterface RawUI => _raw;
 

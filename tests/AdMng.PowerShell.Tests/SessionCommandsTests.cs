@@ -29,8 +29,11 @@ public sealed class SessionCommandsTests
     /// <summary>Engine cmdlets the window replaces by its own command with fewer parameters.</summary>
     private static readonly string[] Replaced = ["ForEach-Object", "New-Object", "Start-Transcript", "Tee-Object"];
 
-    /// <summary>The engine's functions the window keeps (Tab completion calls TabExpansion2 by name).</summary>
-    private static readonly string[] EngineFunctions = ["Clear-Host", "TabExpansion2"];
+    /// <summary>The engine's function the window keeps (Tab completion calls TabExpansion2 by name).</summary>
+    private static readonly string[] EngineFunctions = ["TabExpansion2"];
+
+    /// <summary>Engine functions the window replaces by a compiled command of its own (Clear-Host clears the window, audit PS-12).</summary>
+    private static readonly string[] WindowCommands = ["Clear-Host"];
 
     /// <summary>Names that answer with a message instead of "not recognized".</summary>
     private static readonly string[] Refused =
@@ -47,7 +50,7 @@ public sealed class SessionCommandsTests
         var cmdlets = await TestSessions.RunAsync(session, "Get-Command -CommandType Cmdlet | ForEach-Object { $_.Name }");
         var functions = await TestSessions.RunAsync(session, "Get-Command -CommandType Function | ForEach-Object { $_.Name }");
 
-        Assert.Equal(Sorted([.. EngineCmdlets, .. Replaced, .. AdmCommands.Names]), Lines(cmdlets));
+        Assert.Equal(Sorted([.. EngineCmdlets, .. Replaced, .. WindowCommands, .. AdmCommands.Names]), Lines(cmdlets));
         Assert.Equal(Sorted([.. EngineFunctions, .. Refused]), Lines(functions));
     }
 
@@ -57,6 +60,7 @@ public sealed class SessionCommandsTests
         Assert.Equal(Sorted(EngineCmdlets), Sorted([.. CommandGuards.EngineCmdlets]));
         Assert.Equal(Sorted(Replaced), Sorted([.. CommandGuards.Replacements.Select(r => r.Name)]));
         Assert.Equal(Sorted(EngineFunctions), Sorted([.. CommandGuards.EngineFunctions]));
+        Assert.Equal(Sorted(WindowCommands), Sorted([.. CommandGuards.WindowCommands.Select(c => c.Name)]));
         Assert.Equal(Sorted(Refused), Sorted([.. CommandGuards.Refusals.Select(r => r.Name)]));
     }
 

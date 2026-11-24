@@ -7,7 +7,8 @@ namespace AdMng.PowerShell.Guards;
 /// session state is an allow-list: <see cref="Apply"/> keeps of the engine's default commands only <see cref="EngineCmdlets"/> and
 /// <see cref="EngineFunctions"/>, replaces four cmdlets by commands of the window with fewer parameters (<see cref="Replacements"/>:
 /// ForEach-Object without <c>-Parallel</c> and <c>-AsJob</c>, Tee-Object without a file, New-Object without COM, Start-Transcript only
-/// to a file the operator names), registers a refusal with a clear message for the names an operator is likely to type
+/// to a file the operator names), replaces the engine's Clear-Host function by a command that clears the window
+/// (<see cref="WindowCommands"/>), registers a refusal with a clear message for the names an operator is likely to type
 /// (<see cref="Refusals"/>), and keeps the aliases that point at what is left. Everything else - jobs, runspaces, remote sessions,
 /// processes, modules, file writers, Invoke-Expression, events, the debugger, help updates, the execution policy - is not in the
 /// session at all. The session lists no script file (<see cref="ScriptFileGuard"/> has the other layers) and has no <c>function:</c>
@@ -56,8 +57,15 @@ public static class CommandGuards
         "Stop-Transcript",
     ];
 
-    /// <summary>The engine's functions the window keeps: <c>Clear-Host</c> (<c>cls</c>) and <c>TabExpansion2</c>, which Tab completion calls by name.</summary>
-    public static IReadOnlyList<string> EngineFunctions { get; } = ["Clear-Host", "TabExpansion2"];
+    /// <summary>The engine's function the window keeps: <c>TabExpansion2</c>, which Tab completion calls by name.</summary>
+    public static IReadOnlyList<string> EngineFunctions { get; } = ["TabExpansion2"];
+
+    /// <summary>
+    /// Engine functions the window replaces by a command of its own: <c>Clear-Host</c> (<c>cls</c>) clears the window's output like
+    /// Ctrl+L (<see cref="Hosting.WindowClearHostCommand"/>; the engine's function did nothing in the window on Windows and wrote terminal
+    /// codes to the process's console elsewhere, audit PS-12).
+    /// </summary>
+    public static IReadOnlyList<(string Name, Type Type)> WindowCommands { get; } = [("Clear-Host", typeof(Hosting.WindowClearHostCommand))];
 
     /// <summary>Engine cmdlets the window replaces by a command of its own with the same name and fewer parameters (<c>ReplacementCommands.cs</c>).</summary>
     public static IReadOnlyList<(string Name, Type Type)> Replacements { get; } =
@@ -119,7 +127,9 @@ public static class CommandGuards
     internal static void Apply(InitialSessionState state)
     {
         var keep = new HashSet<string>([.. EngineCmdlets, .. EngineFunctions], StringComparer.OrdinalIgnoreCase);
-        var named = new HashSet<string>([.. keep, .. Replacements.Select(r => r.Name), .. Refusals.Select(r => r.Name), .. Aliases.Select(a => a.Name)], StringComparer.OrdinalIgnoreCase);
+        var named = new HashSet<string>(
+            [.. keep, .. Replacements.Select(r => r.Name), .. WindowCommands.Select(c => c.Name), .. Refusals.Select(r => r.Name), .. Aliases.Select(a => a.Name)],
+            StringComparer.OrdinalIgnoreCase);
         for (var index = state.Commands.Count - 1; index >= 0; index--)
         {
             var entry = state.Commands[index];
@@ -139,7 +149,7 @@ public static class CommandGuards
             }
         }
 
-        foreach (var (name, type) in Replacements)
+        foreach (var (name, type) in Replacements.Concat(WindowCommands))
         {
             state.Commands.Add(new SessionStateCmdletEntry(name, type, null));
         }

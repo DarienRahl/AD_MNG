@@ -25647,6 +25647,9 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="PowerShell.SessionRestarted" xml:space="preserve">
     <value>Polecenie nie zakończyło się po zatrzymaniu: wykonuje kod .NET, którego zatrzymanie nie przerywa. Okno je zostawiło i uruchomiło nową sesję PowerShell, więc zmiennych, funkcji i modułów z wcześniejszych poleceń już nie ma. Polecenie może zajmować rdzeń procesora, dopóki się nie skończy albo program nie zostanie zamknięty.</value>
   </data>
+  <data name="PowerShell.Exited" xml:space="preserve">
+    <value>Polecenie zakończyło się instrukcją exit (kod wyjścia {0}). Okno pozostaje otwarte; zamknij je przyciskiem zamykania okna lub klawiszami Alt+F4.</value>
+  </data>
   <data name="PowerShell.Trusted.ConfirmTitle" xml:space="preserve">
     <value>Tryb zaufany</value>
   </data>

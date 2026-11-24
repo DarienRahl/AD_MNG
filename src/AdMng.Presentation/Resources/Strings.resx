@@ -25647,6 +25647,9 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="PowerShell.SessionRestarted" xml:space="preserve">
     <value>The command did not end after it was stopped: it is in .NET code that Stop cannot interrupt. The window left it and started a new PowerShell session, so the variables, functions and modules of earlier commands are gone. The command may keep a processor core busy until it ends or the program closes.</value>
   </data>
+  <data name="PowerShell.Exited" xml:space="preserve">
+    <value>The command ended with exit (exit code {0}). The window stays open; close it with the window's close button or Alt+F4.</value>
+  </data>
   <data name="PowerShell.Trusted.ConfirmTitle" xml:space="preserve">
     <value>Trusted mode</value>
   </data>

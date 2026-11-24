@@ -89,8 +89,17 @@ public partial class PowerShellWindow : Window, IDialogResultWindow
     {
         if (_following && OutputList.Items.Count > 0)
         {
-            // After the layout: the new lines have a place by then.
-            Dispatcher.InvokeAsync(() => OutputList.ScrollIntoView(OutputList.Items[^1]), System.Windows.Threading.DispatcherPriority.Background);
+            // After the layout: the new lines have a place by then. The list may be empty by then - Ctrl+L, or Clear-Host at the end of a
+            // command (audit PS-12 made cls clear the window) - and Items[^1] of an empty list would throw on the UI thread.
+            Dispatcher.InvokeAsync(
+                () =>
+                {
+                    if (OutputList.Items.Count > 0)
+                    {
+                        OutputList.ScrollIntoView(OutputList.Items[^1]);
+                    }
+                },
+                System.Windows.Threading.DispatcherPriority.Background);
         }
     }
 
