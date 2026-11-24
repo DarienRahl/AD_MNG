@@ -6,6 +6,7 @@ using System.Management.Automation.Runspaces;
 using AdMng.Core.PowerShell;
 using AdMng.PowerShell.Commands;
 using AdMng.Testing;
+using Microsoft.Extensions.Time.Testing;
 using SmaPowerShell = System.Management.Automation.PowerShell;
 
 namespace AdMng.PowerShell.Probe;
@@ -20,8 +21,9 @@ namespace AdMng.PowerShell.Probe;
 /// that trusted-mode code left behind runs after its window closed: the process survives it, the control crashes), <c>deep-input:&lt;case&gt;</c>
 /// (a line nested deeper than the engine can walk, checked, highlighted, completed and run from a thread with the stack of the window's UI
 /// thread: the process survives it and the window runs the next command), <c>parallel-job-open</c> (the window ends a parallel job of the
-/// trusted mode while the engine still opens its child's runspace: the process survives it), <c>environment</c> (the runtime's crash dump
-/// and crash report settings the child got).
+/// trusted mode while the engine still opens its child's runspace: the process survives it), <c>parallel-job-children</c> (the same for a
+/// job of several children: while the engine opens the runspace of a later child, and when a child ends by itself at the moment the job
+/// is stopped), <c>environment</c> (the runtime's crash dump and crash report settings the child got).
 /// </summary>
 internal static class Program
 {
@@ -29,7 +31,7 @@ internal static class Program
     {
         if (args.Length != 2)
         {
-            await Console.Error.WriteLineAsync("usage: probe <files|control|cache-control|cache-window|left-run|leftover-callback|leftover-callback-control|deep-input:<case>|parallel-job-open|environment> <report file>");
+            await Console.Error.WriteLineAsync("usage: probe <files|control|cache-control|cache-window|left-run|leftover-callback|leftover-callback-control|deep-input:<case>|parallel-job-open|parallel-job-children|environment> <report file>");
             return 2;
         }
 
@@ -67,6 +69,9 @@ internal static class Program
                     break;
                 case "parallel-job-open":
                     await ParallelJobOpenAsync(report);
+                    break;
+                case "parallel-job-children":
+                    await ParallelJobChildrenAsync(report);
                     break;
                 case "environment":
                     await File.WriteAllTextAsync(report, CrashSettings());
@@ -276,11 +281,99 @@ internal static class Program
         await File.AppendAllTextAsync(report, "survived\ndone\n");
     }
 
-    private static async Task<JobState> WaitForJobAsync(Job job, Func<JobState, bool> done, TimeSpan timeout)
+    /// <summary>
+    /// The race of <see cref="ParallelJobOpenAsync"/> with a job of three children, each with a file of its own, in a session whose clock
+    /// is a fake that the probe moves on by an hour every 20 ms - whatever the window waits for on its own clock has passed:
+    /// <list type="bullet">
+    /// <item><c>later-child</c>: the gate holds the runspace of the second child (the first one runs) when the command ends.</item>
+    /// <item><c>child-ends-at-stop</c>: with a throttle limit of 1 the first child waits and the other two wait for its place; when the
+    /// window stops the job, the first child ends by itself (<see cref="ParallelJobChild.EndFirstChildAtStop"/>) - which lets the
+    /// engine open a runspace for the second one if it still hands out children - and the gate holds that runspace.</item>
+    /// </list>
+    /// The probe notes the job's state while the second child's runspace is held (<c>later-child</c>) or what the first child's end met
+    /// (<c>child-ends-at-stop</c>), lets the runspace go, and notes the job's end, whether a file was written and the children's states.
+    /// Set up as the program is (src/AdMng.App/ProcessStart.cs); each line goes to the report as soon as it is known.
+    /// </summary>
+    private static async Task ParallelJobChildrenAsync(string report)
+    {
+        PowerShellEnvironment.LimitRegularExpressions();
+        PowerShellEnvironment.ContainLeftoverScriptBlocks();
+        PowerShellEnvironment.Apply();
+        await File.WriteAllTextAsync(report, string.Empty);
+        using var gate = ParallelRunspaceGate.Install();
+        foreach (var name in new[] { "later-child", "child-ends-at-stop" })
+        {
+            var ending = name == "child-ends-at-stop";
+            var folder = Environment.CurrentDirectory.Replace("'", "''", StringComparison.Ordinal);
+            var write = "[System.IO.File]::WriteAllText([System.IO.Path]::Combine('" + folder + "', \"" + name + "-$_.txt\"), 'job')";
+            var body = ending
+                ? "$ErrorActionPreference = 'Stop'; if ($_ -eq 1) { [AdMng.PowerShell.Probe.ParallelJobChild]::Wait() } else { Start-Sleep -Seconds 30; " + write + " }"
+                : "$ErrorActionPreference = 'Stop'; Start-Sleep -Seconds 30; " + write;
+            var script = "$j = 1..3 | & ([System.Management.Automation.CmdletInfo]::new('ForEach-Object', [Microsoft.PowerShell.Commands.ForEachObjectCommand])) "
+                + (ending ? "-ThrottleLimit 1 -UseNewRunspace " : string.Empty) + "-AsJob -Parallel { " + body + " }; "
+                + (ending
+                    ? "[AdMng.PowerShell.Probe.ParallelJobChild]::EndFirstChildAtStop($j); [AdMng.PowerShell.Probe.ParallelJobChild]::WaitUntilStarted($j); "
+                    : "[AdMng.PowerShell.Probe.ParallelRunspaceGate]::WaitHeld(); ")
+                + "$j";
+            var time = new FakeTimeProvider();
+            gate.Arm(skip: 1);
+            var session = await CreateAsync(time);
+            await session.SetLanguageModeAsync(PowerShellLanguageMode.Full, CancellationToken.None);
+            Job? job = null;
+            await foreach (var item in session.RunObjectsAsync(script))
+            {
+                switch (item)
+                {
+                    case PowerShellObjectItem { Value: PSObject { BaseObject: Job started } }:
+                        job = started;
+                        break;
+                    case PowerShellTextItem { Stream: PowerShellStream.Error } error:
+                        await File.AppendAllTextAsync(report, name + " error=" + error.Text);
+                        break;
+                }
+            }
+
+            if (job is null)
+            {
+                await File.AppendAllTextAsync(report, name + " job=none\n");
+                gate.Release();
+                await session.DisposeAsync();
+                continue;
+            }
+
+            if (ending)
+            {
+                // The window stops the job on a pool thread once the run has ended; the first child ends during that stop.
+                await WaitForJobAsync(job, Finished, TimeSpan.FromSeconds(30), time);
+                await File.AppendAllTextAsync(report, name + " at-stop=" + ParallelJobChild.AtStop + "\n");
+            }
+            else
+            {
+                var whileOpening = await WaitForJobAsync(job, state => state != JobState.Running, TimeSpan.FromSeconds(2), time);
+                await File.AppendAllTextAsync(report, name + " while-opening=" + whileOpening + "\n");
+            }
+
+            gate.Release();
+            var end = await WaitForJobAsync(job, Finished, TimeSpan.FromSeconds(30), time);
+            var written = Directory.EnumerateFiles(Environment.CurrentDirectory, name + "-*.txt").Any();
+            await File.AppendAllTextAsync(
+                report,
+                name + " ended=" + Finished(end) + "\n" + name + " written=" + written + "\n"
+                + name + " children=" + string.Join(",", job.ChildJobs.Select(child => child.JobStateInfo.State)) + "\n");
+            await session.DisposeAsync();
+        }
+
+        await File.AppendAllTextAsync(report, "survived\ndone\n");
+    }
+
+    private static bool Finished(JobState state) => state is JobState.Completed or JobState.Failed or JobState.Stopped;
+
+    private static async Task<JobState> WaitForJobAsync(Job job, Func<JobState, bool> done, TimeSpan timeout, FakeTimeProvider? time = null)
     {
         var watch = Stopwatch.StartNew();
         while (!done(job.JobStateInfo.State) && watch.Elapsed < timeout)
         {
+            time?.Advance(TimeSpan.FromHours(1));
             await Task.Delay(20);
         }
 
@@ -400,8 +493,12 @@ internal static class Program
         return end + ": " + first;
     }
 
-    private static Task<PowerShellSession> CreateAsync() =>
-        PowerShellSession.CreateAsync(new PowerShellSessionOptions { Context = new AdmWindowContext(new FakeDirectorySession(), "probe") });
+    private static Task<PowerShellSession> CreateAsync(TimeProvider? time = null) =>
+        PowerShellSession.CreateAsync(new PowerShellSessionOptions
+        {
+            Context = new AdmWindowContext(new FakeDirectorySession(), "probe"),
+            TimeProvider = time ?? TimeProvider.System,
+        });
 
     private static async Task RunAsync(PowerShellSession session, string script)
     {

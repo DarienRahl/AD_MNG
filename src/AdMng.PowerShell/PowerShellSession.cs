@@ -365,7 +365,7 @@ public sealed class PowerShellSession : IPowerShellSession
     }
 
     /// <summary>A runspace the session no longer uses: out of the registry, its jobs ended, closed on a pool thread (the caller does not wait).</summary>
-    private void Retire(Engine engine)
+    private static void Retire(Engine engine)
     {
         engine.Host.Output.Attach(null);
         WindowRegistry.Remove(engine.Runspace);
@@ -516,19 +516,12 @@ public sealed class PowerShellSession : IPowerShellSession
     }
 
     /// <summary>
-    /// How long the children of a parallel job must stay unchanged, while some run and others wait for a place under its throttle
-    /// limit, before the job is stopped as a whole (<see cref="WaitUntilStoppableAsync"/>): then the pool's thread waits for a free
-    /// place. Far longer than the engine takes to open a runspace, which it does on that thread between two children.
-    /// </summary>
-    internal static TimeSpan ParallelJobQuietPeriod { get; } = TimeSpan.FromSeconds(10);
-
-    /// <summary>
     /// Stops and forgets every job in a job repository of the session (no command of the window creates one; .NET code of the trusted
     /// mode can, e.g. ForEach-Object -Parallel -AsJob through the engine's cmdlet object). <c>Jobs</c> is a copy; the end of the session
     /// that removes a job from the repository ends it (<see cref="EndJobAsync"/>), on a pool thread: a job stuck in .NET code cannot be
     /// interrupted, and the window does not wait for it.
     /// </summary>
-    private void EndJobs(JobRepository? jobs)
+    private static void EndJobs(JobRepository? jobs)
     {
         if (jobs is null)
         {
@@ -547,27 +540,26 @@ public sealed class PowerShellSession : IPowerShellSession
                 continue;
             }
 
-            _ = Task.Run(() => EndJobAsync(job, _time));
+            _ = Task.Run(() => EndJobAsync(job));
         }
     }
 
     /// <summary>
     /// Stops and disposes a job; a job that has finished is only disposed. A ForEach-Object -Parallel job (<see cref="PSTaskJob"/>) is
-    /// stopped only when its pool is not opening a runspace (<see cref="WaitUntilStoppableAsync"/>): PowerShell 7.6 hands the children to
-    /// the job's pool on a pool thread of its own and opens a runspace for each there, and stopping or disposing the job closes the
-    /// runspaces of the pool - also one still opening, whose <c>InitialSessionState.BindRunspace</c> then fails with a
-    /// NullReferenceException on that thread, which nothing catches and which ends the process (CI run 45315307313; <c>EscapeTests</c>,
-    /// the probe's <c>parallel-job-open</c>). No child is stopped by itself: a child's stop while the pool's thread still starts it left
-    /// the pool stuck in the engine, and a stop of the job never meets a child half started (the pool starts each under the lock that
-    /// its stop takes).
+    /// stopped only once the engine's work item that hands its children to its pool is done with the pool, and none of its children
+    /// that had not got a place starts any more (<see cref="ParallelJobs.PrepareEndAsync"/>): stopping or disposing the job closes the
+    /// runspaces of the pool - also one that work item is still opening, which then fails on that thread and ends the process (CI run
+    /// 45315307313; <c>EscapeTests</c>, the probe's <c>parallel-job-open</c> and <c>parallel-job-children</c>). A parallel job that
+    /// something else stopped first is left as it is. No child is stopped by itself: a child's stop while the pool's thread still starts
+    /// it left the pool stuck in the engine.
     /// </summary>
-    private static async Task EndJobAsync(Job job, TimeProvider time)
+    private static async Task EndJobAsync(Job job)
     {
         try
         {
-            if (job is PSTaskJob parallel)
+            if (job is PSTaskJob parallel && !await ParallelJobs.PrepareEndAsync(parallel).ConfigureAwait(false))
             {
-                await WaitUntilStoppableAsync(parallel, time).ConfigureAwait(false);
+                return;
             }
 
             if (job.JobStateInfo.State is not (JobState.Completed or JobState.Failed or JobState.Stopped))
@@ -580,63 +572,6 @@ public sealed class PowerShellSession : IPowerShellSession
         catch (Exception)
         {
             // A job that fails to stop has nothing left for the window to do; the window is not told.
-        }
-    }
-
-    /// <summary>
-    /// Returns once the pool of <paramref name="job"/> opens no runspace any more and will not open one: every child has left NotStarted,
-    /// or the pool ended by itself (Completed, Failed), or - with a throttle limit that holds children back - the running children stayed
-    /// unchanged for <see cref="ParallelJobQuietPeriod"/>, so that the pool's thread waits for a free place. While no child runs and one
-    /// waits, the pool is about to start one, and the wait goes on - also for a job that trusted-mode code stopped itself, whose waiting
-    /// children then never start: it is left as it is.
-    /// </summary>
-    private static async Task WaitUntilStoppableAsync(PSTaskJob job, TimeProvider time)
-    {
-        // The pool's thread and the children's pipelines change the states; the handler only wakes this loop and never acts on their
-        // threads (the pool's thread holds the pool's lock while a child starts).
-        var changed = new SemaphoreSlim(0);
-        void OnChanged(object? sender, JobStateEventArgs e) => changed.Release();
-        var children = job.ChildJobs.ToArray();
-        job.StateChanged += OnChanged;
-        foreach (var child in children)
-        {
-            child.StateChanged += OnChanged;
-        }
-
-        try
-        {
-            while (job.JobStateInfo.State is not (JobState.Completed or JobState.Failed))
-            {
-                var pending = children.Any(child => child.JobStateInfo.State == JobState.NotStarted);
-                if (!pending)
-                {
-                    return;
-                }
-
-                if (!children.Any(child => child.JobStateInfo.State == JobState.Running))
-                {
-                    await changed.WaitAsync().ConfigureAwait(false);
-                    continue;
-                }
-
-                using var quiet = new CancellationTokenSource(ParallelJobQuietPeriod, time);
-                try
-                {
-                    await changed.WaitAsync(quiet.Token).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    return;
-                }
-            }
-        }
-        finally
-        {
-            job.StateChanged -= OnChanged;
-            foreach (var child in children)
-            {
-                child.StateChanged -= OnChanged;
-            }
         }
     }
 

@@ -11,7 +11,8 @@ namespace AdMng.PowerShell.Probe;
 /// marks the runspace Opened, traces "runspace opened successfully" through the <c>RunspaceInit</c> trace source and only then binds the
 /// initial session state (<c>InitialSessionState.BindRunspace</c>). A close of the runspace in between - what stopping or disposing the
 /// job does to the runspaces of its pool - takes the engine away, and <c>BindRunspace</c> then fails with a NullReferenceException on that
-/// pool thread. The gate is a trace listener on that line: armed, it holds the next such thread there until <see cref="Release"/>.
+/// pool thread. The gate is a trace listener on that line: armed, it holds such a thread there - the first, or a later one - until
+/// <see cref="Release"/>.
 /// </summary>
 public sealed class ParallelRunspaceGate : TraceListener
 {
@@ -22,7 +23,8 @@ public sealed class ParallelRunspaceGate : TraceListener
     private readonly PSTraceSource _source;
     private readonly PSTraceSourceOptions _options;
     private readonly SourceLevels _level;
-    private int _armed;
+    /// <summary>How many more runspaces of parallel jobs open until the one that is held; 0 while the gate is not armed.</summary>
+    private int _remaining;
 
     private ParallelRunspaceGate(PSTraceSource source)
     {
@@ -59,12 +61,16 @@ public sealed class ParallelRunspaceGate : TraceListener
         return gate;
     }
 
-    /// <summary>Holds the next runspace a parallel job opens.</summary>
-    public void Arm()
+    /// <summary>Whether a runspace is held now (and not yet released).</summary>
+    public bool Held => _held.IsSet && !_release.IsSet;
+
+    /// <summary>Holds a runspace that a parallel job opens: the next one, or the one after <paramref name="skip"/> others have opened.</summary>
+    public void Arm(int skip = 0)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(skip);
         _held.Reset();
         _release.Reset();
-        Volatile.Write(ref _armed, 1);
+        Volatile.Write(ref _remaining, skip + 1);
     }
 
     /// <summary>Waits until a runspace of a parallel job is held; called by the probe's script before its command ends.</summary>
@@ -102,8 +108,9 @@ public sealed class ParallelRunspaceGate : TraceListener
     {
         if (message is null
             || !message.Contains(OpenedLine, StringComparison.Ordinal)
+            || Volatile.Read(ref _remaining) == 0
             || !new StackTrace().ToString().Contains("PSTaskPool.GetRunspace", StringComparison.Ordinal)
-            || Interlocked.Exchange(ref _armed, 0) != 1)
+            || Interlocked.Decrement(ref _remaining) != 0)
         {
             return;
         }

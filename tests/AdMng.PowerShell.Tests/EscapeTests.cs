@@ -3,7 +3,6 @@ using System.Management.Automation;
 using AdMng.Core.PowerShell;
 using AdMng.PowerShell.Guards;
 using AdMng.Testing;
-using Microsoft.Extensions.Time.Testing;
 
 namespace AdMng.PowerShell.Tests;
 
@@ -159,46 +158,75 @@ public sealed class EscapeTests : IDisposable
     }
 
     /// <summary>
-    /// The window stops a parallel job only once its pool has every child (above): with several children it waits while the pool opens
-    /// a runspace for each in turn, then stops them all - none ends by itself, nothing is written.
+    /// The race above with several children, where a wait for a quiet moment is not enough (round 2 of CI run 45315307313): the engine's
+    /// work item opens the runspace of a later child while an earlier one runs, and a child that ends frees its place, after which the
+    /// work item opens the next runspace - also at the moment the window stops the job. In a child process set up as the program, with a
+    /// session clock that has always run on: the gate holds the second child's runspace when the command ends (<c>later-child</c>), and
+    /// with a throttle limit of 1 the first child ends by itself as the window stops the job, the gate held ready for the second child's
+    /// runspace (<c>child-ends-at-stop</c>). The window stops the job only once the work item has handed out its last child, and lets it
+    /// start none that was still waiting: the process survives, no runspace opens during the stop, nothing is written, and the children
+    /// that had not started never do.
     /// </summary>
     [Fact]
-    public async Task A_job_of_several_children_ends_with_its_command_once_all_have_started()
+    public async Task A_job_of_several_children_is_ended_without_a_runspace_opening_under_its_stop()
+    {
+        using var folder = new TempFolder();
+
+        var result = await ChildProcess.RunAsync("parallel-job-children", folder.Home, folder.ReportPath);
+
+        Assert.True(result.ExitCode == 0, "The process ended:\n" + result.Output + "\n" + result.Report);
+        Assert.Contains("later-child while-opening=Running\n", result.Report, StringComparison.Ordinal);
+        Assert.Contains("child-ends-at-stop at-stop=pool closed\n", result.Report, StringComparison.Ordinal);
+        foreach (var name in new[] { "later-child", "child-ends-at-stop" })
+        {
+            Assert.Contains(name + " ended=True\n" + name + " written=False\n", result.Report, StringComparison.Ordinal);
+        }
+
+        // The two children that ran are stopped (Failed when the stop met the load of Start-Sleep's module); the third never started.
+        Assert.Matches(@"(?m)^later-child children=(Stopped|Failed),(Stopped|Failed),NotStarted$", result.Report);
+        Assert.Contains("child-ends-at-stop children=Completed,NotStarted,NotStarted\n", result.Report, StringComparison.Ordinal);
+        Assert.EndsWith("survived\ndone\n", result.Report, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// What the window's way of ending a parallel job needs from the engine: the pool of the job, its two events and whether it is open
+    /// (<c>ParallelJobs</c>, private members of PowerShell 7.6.10). When an update of the engine changes them, this fails - without them
+    /// the window waits until every child of such a job has started before it stops the job.
+    /// </summary>
+    [Fact]
+    public void The_engine_has_what_the_window_needs_to_end_a_parallel_job() => Assert.True(ParallelJobs.PoolMembersFound);
+
+    /// <summary>
+    /// Three children, each in a runspace of its own: the job ends with its command, every child that had started is stopped, one that
+    /// had not never starts, and nothing is written.
+    /// </summary>
+    [Fact]
+    public async Task A_job_of_several_children_ends_with_its_command()
     {
         await using var session = await SessionAsync(PowerShellLanguageMode.Full);
 
         var job = await StartParallelJobAsync(session, "1..3", string.Empty);
         await WaitForAsync(() => Finished(job.JobStateInfo.State), "The job did not end: " + job.JobStateInfo.State);
 
-        Assert.Equal(JobState.Stopped, job.JobStateInfo.State);
-        Assert.All(job.ChildJobs, child => Assert.True(child.JobStateInfo.State is JobState.Stopped or JobState.Failed, child.JobStateInfo.State.ToString()));
+        Assert.True(job.JobStateInfo.State is JobState.Stopped or JobState.Failed, job.JobStateInfo.State.ToString());
+        Assert.All(job.ChildJobs, child => Assert.True(child.JobStateInfo.State is JobState.Stopped or JobState.Failed or JobState.NotStarted, child.JobStateInfo.State.ToString()));
         Assert.Empty(Directory.EnumerateFileSystemEntries(_folder.FullName));
     }
 
     /// <summary>
-    /// With a throttle limit that holds children back the pool's thread starts the next child when one ends, so the window cannot wait
-    /// for every child: it stops the job once the running children stayed unchanged for the quiet period (a fake clock here), when the
-    /// pool's thread waits for a free place and opens no runspace. The child that ran is stopped, the ones behind it never start.
+    /// With a throttle limit that holds children back the window does not wait for a place to free up: the job ends with its command,
+    /// the child that ran is stopped, and the ones that waited for its place never start (the session's clock does not matter).
     /// </summary>
     [Fact]
-    public async Task A_throttled_job_ends_once_its_pool_waits_for_a_free_place()
+    public async Task A_throttled_job_ends_with_its_command_and_its_waiting_children_never_start()
     {
-        var time = new FakeTimeProvider();
-        await using var session = await TestSessions.CreateAsync(time: time);
-        await session.SetLanguageModeAsync(PowerShellLanguageMode.Full, TestContext.Current.CancellationToken);
+        await using var session = await SessionAsync(PowerShellLanguageMode.Full);
 
         var job = await StartParallelJobAsync(session, "1..3", "-ThrottleLimit 1");
-        await WaitForAsync(() => job.ChildJobs[0].JobStateInfo.State != JobState.NotStarted, "The first child did not start.");
-        await WaitForAsync(
-            () =>
-            {
-                time.Advance(PowerShellSession.ParallelJobQuietPeriod);
-                return Finished(job.JobStateInfo.State);
-            },
-            "The job did not end: " + job.JobStateInfo.State);
+        await WaitForAsync(() => Finished(job.JobStateInfo.State), "The job did not end: " + job.JobStateInfo.State);
 
-        Assert.Equal(JobState.Stopped, job.JobStateInfo.State);
-        Assert.True(job.ChildJobs[0].JobStateInfo.State is JobState.Stopped or JobState.Failed, job.ChildJobs[0].JobStateInfo.State.ToString());
+        Assert.True(job.JobStateInfo.State is JobState.Stopped or JobState.Failed, job.JobStateInfo.State.ToString());
+        Assert.True(job.ChildJobs[0].JobStateInfo.State is JobState.Stopped or JobState.Failed or JobState.NotStarted, job.ChildJobs[0].JobStateInfo.State.ToString());
         Assert.Equal([JobState.NotStarted, JobState.NotStarted], job.ChildJobs.Skip(1).Select(child => child.JobStateInfo.State));
         Assert.Empty(Directory.EnumerateFileSystemEntries(_folder.FullName));
     }
