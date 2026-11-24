@@ -14,7 +14,8 @@ namespace AdMng.PowerShell.Probe;
 /// <c>files</c> (the window's session, a script that touches the formatter, module discovery, completion, syntax and the
 /// history policy, then a measurement), <c>control</c> (an ordinary runspace of the SDK: the parent expects it to leave
 /// telemetry.uuid), <c>cache-control</c> and <c>cache-window</c> (the module analysis cache, about 40 s each), <c>left-run</c> (a
-/// run the session left: the process still ends).
+/// run the session left: the process still ends), <c>leftover-callback</c> and <c>leftover-callback-control</c> (a script block
+/// that trusted-mode code left behind runs after its window closed: the process survives it, the control crashes).
 /// </summary>
 internal static class Program
 {
@@ -22,7 +23,7 @@ internal static class Program
     {
         if (args.Length != 2)
         {
-            await Console.Error.WriteLineAsync("usage: probe <files|control|cache-control|cache-window|left-run> <report file>");
+            await Console.Error.WriteLineAsync("usage: probe <files|control|cache-control|cache-window|left-run|leftover-callback|leftover-callback-control> <report file>");
             return 2;
         }
 
@@ -48,6 +49,12 @@ internal static class Program
                     break;
                 case "left-run":
                     await File.WriteAllTextAsync(report, await LeftRunAsync());
+                    break;
+                case "leftover-callback":
+                    await File.WriteAllTextAsync(report, await LeftoverCallbackAsync(contained: true));
+                    break;
+                case "leftover-callback-control":
+                    await File.WriteAllTextAsync(report, await LeftoverCallbackAsync(contained: false));
                     break;
                 default:
                     await Console.Error.WriteLineAsync("unknown mode " + args[0]);
@@ -161,6 +168,30 @@ internal static class Program
         }
 
         return "end=" + end + "\ndone\n";
+    }
+
+    /// <summary>
+    /// The second red team of R1 (goal d): in the trusted mode a script leaves a timer whose callback is a script block; the window closes
+    /// before it fires, and the script block then runs on a timer thread without a runspace and throws - unhandled, which ends the
+    /// process and every window of the program with it. <paramref name="contained"/> sets up the process the way the program does
+    /// (src/AdMng.App/ProcessStart.cs); the control does not, and the parent expects it to end with the crash.
+    /// </summary>
+    private static async Task<string> LeftoverCallbackAsync(bool contained)
+    {
+        if (contained)
+        {
+            PowerShellEnvironment.ContainLeftoverScriptBlocks();
+        }
+
+        await using (var session = await CreateAsync())
+        {
+            await session.SetLanguageModeAsync(PowerShellLanguageMode.Full, CancellationToken.None);
+            var late = Path.Combine(Environment.CurrentDirectory, "late.txt").Replace("'", "''", StringComparison.Ordinal);
+            await RunAsync(session, "$global:tmr = [System.Threading.Timer]::new([System.Threading.TimerCallback]{ [System.IO.File]::WriteAllText('" + late + "', 'x') }, $null, 1500, -1); 'started'");
+        }
+
+        await Task.Delay(TimeSpan.FromSeconds(4));
+        return "survived\ndone\n";
     }
 
     private static Task<PowerShellSession> CreateAsync() =>

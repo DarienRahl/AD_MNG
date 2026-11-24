@@ -78,7 +78,10 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
    Tryb zaufany zmienia tylko tryb języka: nie dodaje poleceń, a jego kod .NET działa w procesie AD Managera, gdzie może
    sięgnąć do wszystkiego – także do sesji katalogu okna i jej poświadczeń. **To ochrona przed pomyłką, nie granica
    bezpieczeństwa** (README, „Bezpieczeństwo i dane”): w FullLanguage dowolny kod .NET omija plan zmian, a operator może
-   i tak uruchomić `pwsh.exe`.
+   i tak uruchomić `pwsh.exe`. Wątek, runspace albo licznik czasu, które taki kod zostawi, działają dalej po zamknięciu
+   okna; blok skryptu wywołany przez nie po zamknięciu okna nie ma już runspace'u i kończy się błędem, który program
+   traktuje jako obsłużony (obsługa nieobsłużonych wyjątków procesu, ustawiana przy starcie programu), więc nie zamyka
+   programu ani pozostałych okien.
 4. **Nazwy i skrót (D4): przedrostek `Adm`.** R1 buduje `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`,
    `Get-AdmComputer`, `Get-AdmGroupMember` (`-Recursive` dla członkostwa zagnieżdżonego), `Search-AdmObject`,
    `Out-AdmGrid`, `Open-AdmObject` (otwiera właściwości obiektu w programie według DN lub `objectGUID`) i

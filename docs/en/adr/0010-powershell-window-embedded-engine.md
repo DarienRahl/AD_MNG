@@ -78,7 +78,10 @@ the Watchdog package.
    mode. The trusted mode changes the language mode only: it adds no command, and its .NET code runs in AD Manager's process,
    where it can reach anything – the window's directory session and its credentials included. **This is a protection
    against mistakes, not a security boundary** (README, "Security and data"): in FullLanguage any .NET code bypasses the
-   change plan, and the operator can run `pwsh.exe` anyway.
+   change plan, and the operator can run `pwsh.exe` anyway. A thread, runspace or timer that such code leaves behind keeps
+   running after the window closed; a script block it calls after that has no runspace and ends with an error that the
+   program counts as handled (the process's handler of unhandled exceptions, set when the program starts), so it does not
+   close the program or its other windows.
 4. **Names and shortcut (D4): the prefix `Adm`.** R1 builds `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`,
    `Get-AdmComputer`, `Get-AdmGroupMember` (`-Recursive` for nested membership), `Search-AdmObject`, `Out-AdmGrid`,
    `Open-AdmObject` (opens an object's properties in the program by DN or `objectGUID`) and `Export-AdmList` (CSV with

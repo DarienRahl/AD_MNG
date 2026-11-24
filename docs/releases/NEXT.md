@@ -110,7 +110,8 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   Przełącznik **Tryb zaufany (FullLanguage)** po potwierdzeniu, które mówi, co daje (dowolny kod .NET, zapis do katalogu
   z pominięciem planu zmian – bez podglądu, dziennika i cofania), włącza pełny język tylko w tym oknie, na stałej uwadze i
   w tytule okna; nie jest pamiętany. Nie dodaje poleceń – tylko kod .NET, a ten sięga do całego procesu AD Managera, także do
-  sesji okna i jej danych logowania. Gdy system wymusza ConstrainedLanguage (WDAC, AppLocker), przełącznik jest wyłączony
+  sesji okna i jej danych logowania. Blok skryptu, który zostawiony przez taki kod licznik czasu wywoła po zamknięciu okna, kończy
+  się błędem, ale nie zamyka już całego programu z pozostałymi oknami. Gdy system wymusza ConstrainedLanguage (WDAC, AppLocker), przełącznik jest wyłączony
   z podanym powodem. To ochrona przed pomyłką, nie granica bezpieczeństwa: granicą są uprawnienia konta w AD, a programy
   konsolowe (`whoami`, `nltest`) działają jak w każdej konsoli – jako osobny proces z tożsamością operatora.
 - **Zasady PowerShella tego komputera.** Przy otwarciu okno czyta zasady grupy PowerShella (transkrypcję, rejestrowanie bloków

@@ -19,8 +19,9 @@ internal static partial class SmokeTest
     /// decision 1): a runspace is created, <c>1 + 1</c> and <c>Get-AdmVersion</c> run, the window starts in ConstrainedLanguage with the
     /// execution policy Restricted, the ten commands of AD Manager are registered, no write command exists, the help of a
     /// command (the file beside the program) is found, the session has exactly the commands of the allow-list, the window's
-    /// ForEach-Object (without -Parallel) works and a regular expression that backtracks ends with an error (the time limit that
-    /// <c>ProcessStart</c> sets before the first regular expression of the process). No directory is involved: the commands that need one are covered by the UI tests.
+    /// ForEach-Object (without -Parallel) works, a regular expression that backtracks ends with an error (the time limit that
+    /// <c>ProcessStart</c> sets before the first regular expression of the process) and a timer the trusted mode leaves behind does not
+    /// end the program when it fires after its window closed. No directory is involved: the commands that need one are covered by the UI tests.
     /// What it found goes to the report (the version, <c>$PSHOME</c>, the time of the first runspace), so that the log of a CI run says
     /// how the single-file layout behaves.
     /// </summary>
@@ -67,11 +68,28 @@ internal static partial class SmokeTest
         var limited = await RunPowerShellAsync(session, "try { $null = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!' -match '^(a+)+$'; 'matched' } catch { 'limited' }").ConfigureAwait(true);
         Expect(limited == "limited", $"A match that backtracks gave '{limited}'.");
 
+        // A script block the trusted mode leaves behind fires after its window closed (ProcessStart, docs/dev/r1-powershell-window.md
+        // 12.8): without the containment its error ends this process, and the smoke test with it.
+        Expect(PowerShellEnvironment.LeftoverScriptBlocksContained, "A script block left behind by the trusted mode would end the program: ProcessStart did not contain it.");
+        await LeaveATimerBehindAsync().ConfigureAwait(true);
+
         var home = await RunPowerShellAsync(session, "$PSHOME").ConfigureAwait(true);
         var second = await TimeASecondRunspaceAsync().ConfigureAwait(true);
         Console.Error.WriteLine(string.Create(
             CultureInfo.InvariantCulture,
             $"smoke test: the PowerShell engine {PowerShellEnvironment.EngineHome} ($PSHOME '{home}'), the first runspace {first.TotalMilliseconds:0} ms, the second {second.TotalMilliseconds:0} ms"));
+    }
+
+    private static async Task LeaveATimerBehindAsync()
+    {
+        await using (var trusted = await PowerShellSession.CreateAsync(new PowerShellSessionOptions { Culture = CultureInfo.InvariantCulture }, CancellationToken.None).ConfigureAwait(true))
+        {
+            await trusted.SetLanguageModeAsync(PowerShellLanguageMode.Full, CancellationToken.None).ConfigureAwait(true);
+            var started = await RunPowerShellAsync(trusted, "$global:timer = [System.Threading.Timer]::new([System.Threading.TimerCallback]{ 'late' }, $null, 300, -1); 'started'").ConfigureAwait(true);
+            Expect(started == "started", $"The timer of the trusted mode gave '{started}'.");
+        }
+
+        await Task.Delay(TimeSpan.FromSeconds(1.5)).ConfigureAwait(true);
     }
 
     private static async Task<TimeSpan> TimeASecondRunspaceAsync()

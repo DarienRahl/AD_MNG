@@ -1,3 +1,5 @@
+using System.Management.Automation;
+using System.Runtime.ExceptionServices;
 using System.Text.RegularExpressions;
 
 namespace AdMng.PowerShell;
@@ -16,8 +18,12 @@ public static class PowerShellEnvironment
     /// <summary>The name of the setting .NET reads for the default time limit of a regular expression.</summary>
     private const string RegexTimeoutKey = "REGEX_DEFAULT_MATCH_TIMEOUT";
 
+    /// <summary>The error id of a script block called on a thread without a runspace (System.Management.Automation, <c>ScriptBlock.GetContextFromTLS</c>).</summary>
+    private const string LeftoverScriptBlockErrorId = "ScriptBlockDelegateInvokedFromWrongThread";
+
     private static readonly object Gate = new();
     private static bool _applied;
+    private static bool _contained;
 
     /// <summary>The null device of this platform: <c>/dev/null</c>, or <c>NUL</c> on Windows.</summary>
     public static string NullDevice => OperatingSystem.IsWindows() ? "NUL" : "/dev/null";
@@ -87,6 +93,62 @@ public static class PowerShellEnvironment
     /// process; a regular expression made with its own time limit keeps it. Idempotent.
     /// </summary>
     public static void LimitRegularExpressions() => AppContext.SetData(RegexTimeoutKey, RegexMatchTimeout);
+
+    /// <summary>True once <see cref="ContainLeftoverScriptBlocks"/> set the handler of unhandled exceptions in this process.</summary>
+    public static bool LeftoverScriptBlocksContained
+    {
+        get
+        {
+            lock (Gate)
+            {
+                return _contained;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Keeps a script block that trusted-mode code left behind from ending the process (second red team of R1, goal d): a
+    /// <c>[System.Threading.Timer]</c> or a thread whose callback is a script block fires after its window closed, the script block
+    /// finds no runspace on that thread and throws (<see cref="IsLeftoverScriptBlockCall"/>), and an exception nobody handles on a timer
+    /// or pool thread ends the whole program - every connection window with it. This sets the process's handler of unhandled
+    /// exceptions (<see cref="ExceptionHandling.SetUnhandledExceptionHandler"/>): exactly that error counts as handled - the callback
+    /// ends, its thread goes on - and every other exception still ends the process as before. .NET allows one such handler per process
+    /// (a second call throws), so a process that hosts the engine calls this once, at its start: the program in its module initializer
+    /// (src/AdMng.App/ProcessStart.cs), the engine's tests the same way. Idempotent; when another handler was set first it does nothing
+    /// (<see cref="LeftoverScriptBlocksContained"/> stays false). Nothing else of the trusted mode is contained: the leftover work runs as
+    /// long as it can.
+    /// </summary>
+    public static void ContainLeftoverScriptBlocks()
+    {
+        lock (Gate)
+        {
+            if (_contained)
+            {
+                return;
+            }
+
+            try
+            {
+                ExceptionHandling.SetUnhandledExceptionHandler(IsLeftoverScriptBlockCall);
+            }
+            catch (InvalidOperationException)
+            {
+                // Something else of the process set the one handler first: not contained (LeftoverScriptBlocksContained stays false,
+                // which the program's smoke test and HostTests check), but a module initializer must not fail the program's start.
+                return;
+            }
+
+            _contained = true;
+        }
+    }
+
+    /// <summary>
+    /// True for the error a PowerShell script block throws when .NET code calls it as a delegate on a thread without a runspace
+    /// (<c>ScriptBlockDelegateInvokedFromWrongThread</c>, "There is no Runspace available to run scripts in this thread"), as the
+    /// callback of a timer or thread does after its window closed.
+    /// </summary>
+    public static bool IsLeftoverScriptBlockCall(Exception exception) =>
+        exception is PSInvalidOperationException { ErrorRecord.FullyQualifiedErrorId: LeftoverScriptBlockErrorId };
 
     /// <summary>True once <see cref="Apply"/> ran in this process.</summary>
     public static bool IsApplied

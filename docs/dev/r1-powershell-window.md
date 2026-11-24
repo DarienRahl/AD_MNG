@@ -125,7 +125,9 @@ scope. `PowerShellSession.CreateAsync(options)` builds it on a pool thread: the 
 - **Jobs.** No job outlives its command: every job left in the session's job repository is stopped (on a pool thread,
   not waited for) and removed when the command ends, on `StopAsync` and on dispose. No command of the window creates a job; .NET
   code of the trusted mode can (`ForEach-Object -Parallel -AsJob` through the engine's cmdlet object). A thread or a runspace that
-  such code makes for itself is not a job, and nothing in the window ends it (12.6 decision 6). The transcript of
+  such code makes for itself is not a job, and nothing in the window ends it (12.6 decision 6). A script block such code leaves
+  as the callback of a timer or thread and that fires after its window closed finds no runspace and throws; the process's handler
+  of unhandled exceptions (4.2) counts exactly that error as handled, so it ends the callback, not the program (12.8). The transcript of
   `Start-Transcript -Path` ends with `Stop-Transcript` or when the runspace closes (its end lines are written then).
 - **`DisposeAsync`:** stops the running pipeline, waits until the session is idle (the run ended, or after the grace period the
   session left it – a disposed session makes no new runspace), ends the jobs, removes the window's registry entry, disposes the
@@ -185,6 +187,20 @@ one a script makes with a limit of its own, which only the leaving of a run (4.1
 here: `'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!' -match '^(a+)+$'` did not end in 20 s without the limit; with it each of the seven ways
 of the language to a regular expression ended after 2.0 s, in both language modes (`RegexLimitTests` keeps the seven in the
 default mode and `-match` in the trusted mode).
+
+**The handler of unhandled exceptions.** A script block that .NET code calls as a delegate on a thread without a runspace throws
+`PSInvalidOperationException` with the error id `ScriptBlockDelegateInvokedFromWrongThread` ("There is no Runspace available to
+run scripts in this thread"); on a timer or pool thread nothing handles it, and an unhandled exception ends a .NET process
+(observed: exit 134 on Linux) – in the program every connection window with it. The trusted mode can leave such a callback
+behind (a `[System.Threading.Timer]` whose callback is a script block, firing after its window closed; ConstrainedLanguage
+refuses the timer, which is not a core type). `PowerShellEnvironment.ContainLeftoverScriptBlocks()` sets the process's handler of
+unhandled exceptions (`ExceptionHandling.SetUnhandledExceptionHandler`, .NET 9 and later): exactly that error counts as handled
+– the callback ends, its thread goes on – and every other exception ends the process as before (the predicate is
+`IsLeftoverScriptBlockCall`). .NET allows one handler per process (a second call throws; the method then does nothing, and
+`LeftoverScriptBlocksContained` stays false), so the program's module initializer sets it next to the regular expression limit,
+and the engine's tests do the same. `EscapeTests` proves it in child processes (the probe's `leftover-callback` and its control,
+which still crashes), `HostTests` checks that the program's module sets it, and the smoke test leaves such a timer behind in the
+published `AdMng.exe`.
 
 **Other process-level facts** found while proving it, relevant to later parts:
 
@@ -558,8 +574,10 @@ This is the plan of the parts; the files that exist are in the records of 12.1-1
   starts through the engine's cmdlet object ends with its command and when the window closes, `using module` of a script and of a
   binary module and `using assembly`, the background operator, every file writer and redirection, `Start-Transcript` with and
   without a path, the commands that run code elsewhere or load it, `$Host.PrivateData` and the audit's reflection chain, that
-  `ForEach-Object -MemberName` and `New-Object` keep the language mode, and that the red team's trusted-mode chains (12.7) are
-  refused in the default mode.
+  `ForEach-Object -MemberName` and `New-Object` keep the language mode, that the red team's trusted-mode chains (12.7) are
+  refused in the default mode, and that a script block the trusted mode left behind does not end the process when it fires after
+  its window closed (child processes: the probe's `leftover-callback`, and its control without the program's set-up, which crashes)
+  while only that error is contained.
 - **`RegexLimitTests`** – the process limits every regular expression without a limit of its own (4.2); a match that backtracks for
   hours ends as an error of its statement after 2 s, for each way of the language (`-match`, `-replace`, `-split`,
   `switch -regex`, `Select-String`, `[regex]::IsMatch`, `[regex]::new`), and the next command runs; a script catches the error;
@@ -1395,3 +1413,14 @@ again. What it found, and what became of it:
   thread; `PowerShellWindowRunTests` the attention, the line in the scrollback in both languages and the trusted mode ended under
   a lockdown (each failed before the view model knew the new state). Left: the thread of a left run still uses its core until it
   returns, and trusted-mode .NET code that never returns holds whatever it holds.
+- **(d) in the trusted mode: a script block left behind ended the process.**
+  `$global:tmr = [System.Threading.Timer]::new([System.Threading.TimerCallback]{ [System.IO.File]::WriteAllText('C:\x.txt','x') }, $null, 1500, -1)`
+  fired 1.5 s after the window was disposed; the script block found no runspace on the timer thread and threw
+  `ScriptBlockDelegateInvokedFromWrongThread` unhandled, which ended the whole process (exit 134 on Linux) - on a workstation every
+  connection window with it. That the timer outlives the window is the trusted mode (12.6 decision 6), and a runspace the script
+  makes for itself still runs and writes; the crash is not. The program now sets the process's handler of unhandled exceptions in its
+  module initializer (4.2, `PowerShellEnvironment.ContainLeftoverScriptBlocks`): exactly that error counts as handled, every other
+  still ends the process. `EscapeTests` runs the red team's script in two child processes: the control, without the program's set-up,
+  still crashes; the one set up as the program lives on and nothing was written - it failed before the handler (the child crashed
+  with the same error). The smoke test leaves such a timer behind in the published program and `HostTests` checks the program's
+  module; ConstrainedLanguage refuses the timer itself.

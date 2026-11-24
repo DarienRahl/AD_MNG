@@ -8,10 +8,17 @@ namespace AdMng.App;
 /// a regular expression match (<see cref="PowerShellEnvironment.LimitRegularExpressions"/>) - .NET reads it when the first regular
 /// expression of the process is made, so later is too late - keeps a pattern typed in the PowerShell window from holding the window and
 /// a processor core (docs/dev/r1-powershell-window.md 4.2). It applies to every regular expression of the program that has no limit of
-/// its own. Only <see cref="PowerShellEnvironment"/> is loaded here, not the engine.
+/// its own. The process's handler of unhandled exceptions (<see cref="PowerShellEnvironment.ContainLeftoverScriptBlocks"/>, one per
+/// process) keeps a script block that the trusted mode left behind - a timer that fires after its window closed - from ending the
+/// program and every window with it (12.8); every other unhandled exception ends the process as before. Only
+/// <see cref="PowerShellEnvironment"/> is loaded here, not the engine.
 /// </summary>
 internal static class ProcessStart
 {
     [ModuleInitializer]
-    internal static void Initialize() => PowerShellEnvironment.LimitRegularExpressions();
+    internal static void Initialize()
+    {
+        PowerShellEnvironment.LimitRegularExpressions();
+        PowerShellEnvironment.ContainLeftoverScriptBlocks();
+    }
 }

@@ -372,6 +372,52 @@ public sealed class EscapeTests : IDisposable
     }
 
     /// <summary>
+    /// The second red team of R1 (goal d): in the trusted mode a script leaves a timer whose callback is a script block
+    /// (<c>[System.Threading.Timer]::new([System.Threading.TimerCallback]{ [System.IO.File]::WriteAllText(…) }, $null, 1500, -1)</c>).
+    /// It fires after the window closed, finds no runspace on its timer thread and throws; unhandled, that ended the whole process
+    /// (exit 134 here) - on the workstation every connection window of the program. In child processes: the control, started without
+    /// the program's set-up, still crashes; the one set up as the program is (<see cref="PowerShellEnvironment.ContainLeftoverScriptBlocks"/>)
+    /// lives on, and the callback wrote nothing. Constrained mode refuses the timer itself (<c>[System.Threading.Timer]</c> is not a
+    /// core type).
+    /// </summary>
+    [Fact]
+    public async Task A_script_block_the_trusted_mode_left_behind_does_not_end_the_process_after_its_window_closed()
+    {
+        using var control = new TempFolder();
+        using var window = new TempFolder();
+
+        var results = await Task.WhenAll(
+            ChildProcess.RunAsync("leftover-callback-control", control.Home, control.ReportPath),
+            ChildProcess.RunAsync("leftover-callback", window.Home, window.ReportPath));
+
+        Assert.True(results[0].ExitCode != 0, "The control survived, so the case shows nothing:\n" + results[0].Output);
+        Assert.Contains("There is no Runspace available to run scripts in this thread", results[0].Output, StringComparison.Ordinal);
+        Assert.DoesNotContain("survived", results[0].Report, StringComparison.Ordinal);
+        Assert.True(results[1].ExitCode == 0, "The process ended with the left script block:\n" + results[1].Output);
+        Assert.Contains("survived\ndone", results[1].Report, StringComparison.Ordinal);
+        Assert.Equal(string.Empty, string.Join('\n', window.Files()));
+    }
+
+    /// <summary>True only for the error of a script block called without a runspace; every other exception still ends the process.</summary>
+    [Fact]
+    public void Only_a_script_block_called_without_a_runspace_is_contained()
+    {
+        Assert.True(PowerShellEnvironment.LeftoverScriptBlocksContained, "The test process did not set up the containment the way the program does.");
+        Assert.False(PowerShellEnvironment.IsLeftoverScriptBlockCall(new InvalidOperationException("There is no Runspace available to run scripts in this thread.")));
+        Assert.False(PowerShellEnvironment.IsLeftoverScriptBlockCall(new System.Management.Automation.PSInvalidOperationException("x")));
+        Assert.False(PowerShellEnvironment.IsLeftoverScriptBlockCall(new NullReferenceException()));
+        var leftover = Assert.Throws<System.Management.Automation.PSInvalidOperationException>(() =>
+        {
+            var callback = System.Management.Automation.ScriptBlock.Create("'late'");
+            System.Management.Automation.LanguagePrimitives.ConvertTo<Action>(callback)();
+        });
+        Assert.True(PowerShellEnvironment.IsLeftoverScriptBlockCall(leftover), leftover.ErrorRecord.FullyQualifiedErrorId);
+
+        // Idempotent: .NET would throw on a second handler.
+        PowerShellEnvironment.ContainLeftoverScriptBlocks();
+    }
+
+    /// <summary>
     /// The two chains the red team of R1 ran in the trusted mode (goals a-c and e, and d), where they work as ADR-0010 decision 3 and
     /// docs/dev/r1-powershell-window.md 12.6 decision 6 say - the trusted mode is FullLanguage, a protection against mistakes and not a
     /// boundary: reflection from the window registry to the reader's inner session deleted an object around the change plan and wrote a

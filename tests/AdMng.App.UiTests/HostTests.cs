@@ -43,6 +43,19 @@ public sealed class HostTests
         Assert.Equal(AdMng.PowerShell.PowerShellEnvironment.RegexMatchTimeout, AppContext.GetData("REGEX_DEFAULT_MATCH_TIMEOUT"));
     }
 
+    /// <summary>
+    /// The program's module initializer also contains a script block that the trusted mode of a PowerShell window left behind
+    /// (docs/dev/r1-powershell-window.md 12.8): .NET allows one handler of unhandled exceptions per process, and the engine's tests prove
+    /// in child processes what it does; the smoke test of the published program leaves such a timer behind.
+    /// </summary>
+    [Fact]
+    public void The_program_contains_a_script_block_left_behind_by_the_trusted_mode_when_its_module_is_loaded()
+    {
+        System.Runtime.CompilerServices.RuntimeHelpers.RunModuleConstructor(typeof(App).Module.ModuleHandle);
+
+        Assert.True(AdMng.PowerShell.PowerShellEnvironment.LeftoverScriptBlocksContained);
+    }
+
     [Fact]
     public Task AppHost_RegistersTheUiServices_AndTheDialogWindows() => WpfTestHost.RunAsync(async () =>
     {
