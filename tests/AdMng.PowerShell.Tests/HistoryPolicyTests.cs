@@ -108,6 +108,43 @@ public sealed class HistoryPolicyTests
     }
 
     /// <summary>
+    /// The lines of the third red team of R1 (goal g) that the filter kept: <c>-As</c> and <c>-A</c> bind to <c>-AsPlainText</c> of
+    /// ConvertTo-SecureString (the secret piped in), an interpolated hashtable key or index that begins with a secret's name, and a
+    /// literal cast to SecureString.
+    /// </summary>
+    [Theory]
+    [InlineData("'P@ssw0rd!' | ConvertTo-SecureString -As -Force")]
+    [InlineData("$v = 'P@ssw0rd!' | ConvertTo-SecureString -A -Force")]
+    [InlineData("'P@ssw0rd!' | Microsoft.PowerShell.Security\\ConvertTo-SecureString -as -Force")]
+    [InlineData("$h = @{ \"Pass$x\" = 'P@ssw0rd!' }")]
+    [InlineData("$h = @{ \"Key$i\" = 'P@ssw0rd!' }")]
+    [InlineData("$h[\"Pass$x\"] = 'P@ssw0rd!'")]
+    [InlineData("$o.\"Pass$x\" = 'P@ssw0rd!'")]
+    [InlineData("[securestring]$x = 'P@ssw0rd!'")]
+    [InlineData("[System.Security.SecureString]$x = 'P@ssw0rd!'")]
+    [InlineData("$x = [securestring]'P@ssw0rd!'")]
+    [InlineData("Set-Thing -Value ([Security.SecureString]('P@ss' + 'w0rd!'))")]
+    public void A_line_of_the_third_red_team_is_not_remembered(string line)
+    {
+        Assert.False(PowerShellHistoryPolicy.ShouldRemember(line), line);
+    }
+
+    /// <summary>What the rules of the third red team must not catch: <c>-A</c> of another command, an interpolated key without a secret's name, a SecureString that is no literal.</summary>
+    [Theory]
+    [InlineData("Get-Thing -A 1")]
+    [InlineData("Get-ChildItem -As")]
+    [InlineData("$encrypted | ConvertTo-SecureString -Key $key")]
+    [InlineData("$h = @{ \"Name$x\" = 'Kowalski' }")]
+    [InlineData("$h[\"Department$i\"] = 'Księgowość'")]
+    [InlineData("[securestring]$x = Read-Host -AsSecureString")]
+    [InlineData("$x = [securestring]$secure")]
+    [InlineData("[string]$x = 'Łukasz'")]
+    public void An_ordinary_line_near_the_rules_of_the_third_red_team_is_remembered(string line)
+    {
+        Assert.True(PowerShellHistoryPolicy.ShouldRemember(line), line);
+    }
+
+    /// <summary>
     /// The third red team of R1: 5 000 nested parentheses threw out of the filter where the parser gave up on them (no syntax tree); on the
     /// Release build of CI it made a tree and the line was remembered. It is not remembered, either way.
     /// </summary>

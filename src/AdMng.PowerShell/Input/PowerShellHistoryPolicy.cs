@@ -30,16 +30,18 @@ public static class PowerShellHistoryPolicy
     /// <summary>
     /// False for an empty line, for input that is still incomplete, for a text too long or nested too deeply to parse safely
     /// (<see cref="InputParser"/>; the guard refuses it), and for a line with a plain-text secret: the
-    /// <c>-AsPlainText</c> parameter (also its prefixes of three letters or more); a literal given to a parameter, a hashtable key
-    /// (an inline or splatted hashtable) or assigned to a variable, property or index whose name is a secret's name
+    /// <c>-AsPlainText</c> parameter (also its prefixes of three letters or more, and of ConvertTo-SecureString every prefix: <c>-As</c>,
+    /// <c>-A</c>); a literal given to a parameter, a hashtable key (an inline or splatted hashtable) or assigned to a variable, property or
+    /// index whose name is a secret's name (of an interpolated key, property or index such as <c>"Pass$x"</c> its literal parts count)
     /// (<c>Password</c>, <c>Passphrase</c>, <c>Pwd</c>, <c>Secret</c>, <c>Token</c>, <c>ApiKey</c>, <c>PrivateKey</c> anywhere in
     /// the name; <c>Pw</c>, <c>Pin</c>, <c>Key</c> as the whole name; <c>-Pa</c>, <c>-Pas</c>, <c>-Pass</c> and the other
     /// abbreviations of <c>Password</c>/<c>Passphrase</c>); a literal written positionally to <c>ConvertTo-SecureString</c> (or as
     /// its <c>-String</c>) or to a command whose noun is a secret's name (<c>Reset-AdmPassword user 'x'</c>), unless its verb only
     /// names one (<c>Get</c>, <c>Find</c>, <c>Search</c>, <c>Show</c>). A literal is also a value computed from literals only: in
     /// parentheses or a subexpression (<c>('x')</c>, <c>$('x')</c>), joined or cast (<c>'a' + 'b'</c>, <c>-join ('a', 'b')</c>,
-    /// <c>[string]'x'</c>), or the value of a chained assignment (<c>$password = $x = 'x'</c>). A variable, a command or
-    /// <c>Read-Host -AsSecureString</c> in the value is fine.
+    /// <c>[string]'x'</c>), or the value of a chained assignment (<c>$password = $x = 'x'</c>). A literal cast to SecureString
+    /// (<c>[securestring]'x'</c>) or assigned to a variable typed so (<c>[securestring]$x = 'x'</c>) is a secret whatever the name. A
+    /// variable, a command or <c>Read-Host -AsSecureString</c> in the value is fine.
     /// </summary>
     public static bool ShouldRemember(string line)
     {
@@ -65,22 +67,30 @@ public static class PowerShellHistoryPolicy
         return !ast.FindAll(IsSensitive, searchNestedScriptBlocks: true).Any();
     }
 
+    /// <summary>
+    /// <c>-AsPlainText</c> of any command, abbreviated to three letters or more (<c>-Asp</c>); a shorter prefix only of ConvertTo-SecureString
+    /// (<see cref="IsSensitive(CommandAst)"/>), where <c>-As</c> and <c>-A</c> bind to it too but elsewhere are often another parameter.
+    /// </summary>
     private static bool IsPlainTextParameter(Token token) =>
         token.Kind == TokenKind.Parameter && token is ParameterToken { ParameterName.Length: >= 3 } parameter
-            && "AsPlainText".StartsWith(parameter.ParameterName, StringComparison.OrdinalIgnoreCase);
+            && IsPlainTextPrefix(parameter.ParameterName);
+
+    private static bool IsPlainTextPrefix(string parameterName) =>
+        parameterName.Length > 0 && "AsPlainText".StartsWith(parameterName, StringComparison.OrdinalIgnoreCase);
 
     private static bool IsSensitive(Ast node) => node switch
     {
         CommandAst command => IsSensitive(command),
-        HashtableAst hashtable => hashtable.KeyValuePairs.Any(pair => pair.Item1 is StringConstantExpressionAst key && IsSecretName(key.Value) && IsLiteral(pair.Item2)),
-        AssignmentStatementAst assignment => NameOf(assignment.Left) is { } name && IsSecretName(name) && IsLiteral(assignment.Right),
+        HashtableAst hashtable => hashtable.KeyValuePairs.Any(pair => IsSecretKey(pair.Item1) && IsLiteral(pair.Item2)),
+        AssignmentStatementAst assignment => (IsSecretTarget(assignment.Left) || IsSecureStringTarget(assignment.Left)) && IsLiteral(assignment.Right),
+        ConvertExpressionAst convert => IsSecureString(convert.Type.TypeName) && IsLiteral(convert.Child),
         _ => false,
     };
 
     private static bool IsSensitive(CommandAst command)
     {
         var elements = command.CommandElements;
-        var name = command.GetCommandName();
+        var name = command.GetCommandName() is { } qualified ? qualified[(qualified.LastIndexOf('\\') + 1)..] : null;
         var isSecureStringConversion = string.Equals(name, "ConvertTo-SecureString", StringComparison.OrdinalIgnoreCase);
         var takesSecretPositionally = isSecureStringConversion || IsNamedAfterSecret(name);
         for (var i = 1; i < elements.Count; i++)
@@ -88,6 +98,12 @@ public static class PowerShellHistoryPolicy
             var element = elements[i];
             if (element is CommandParameterAst parameter)
             {
+                // The secret may come through the pipeline: ConvertTo-SecureString -As (or -A) is enough.
+                if (isSecureStringConversion && IsPlainTextPrefix(parameter.ParameterName))
+                {
+                    return true;
+                }
+
                 var argument = parameter.Argument ?? (i + 1 < elements.Count && elements[i + 1] is not CommandParameterAst ? elements[i + 1] : null);
                 if (argument is not null && IsLiteral(argument) && IsSecretName(parameter.ParameterName))
                 {
@@ -130,15 +146,53 @@ public static class PowerShellHistoryPolicy
         || SecretNames.Contains(name, StringComparer.OrdinalIgnoreCase)
         || (name.Length >= 2 && AbbreviatedWords.Any(word => word.StartsWith(name, StringComparison.OrdinalIgnoreCase)));
 
-    /// <summary>The name an assignment writes: a variable (without its scope or drive), a property, a constant index, through a type cast.</summary>
-    private static string? NameOf(ExpressionAst target) => target switch
+    /// <summary>Whether an assignment writes a secret's name: a variable (without its scope or drive), a property, an index, through a type cast.</summary>
+    private static bool IsSecretTarget(ExpressionAst target) => target switch
     {
-        VariableExpressionAst variable => variable.VariablePath.UserPath[(variable.VariablePath.UserPath.LastIndexOf(':') + 1)..],
-        MemberExpressionAst { Member: StringConstantExpressionAst member } => member.Value,
-        IndexExpressionAst { Index: StringConstantExpressionAst index } => index.Value,
-        AttributedExpressionAst attributed => NameOf(attributed.Child),
-        _ => null,
+        VariableExpressionAst variable => IsSecretName(variable.VariablePath.UserPath[(variable.VariablePath.UserPath.LastIndexOf(':') + 1)..]),
+        MemberExpressionAst member => IsSecretKey(member.Member),
+        IndexExpressionAst index => IsSecretKey(index.Index),
+        AttributedExpressionAst attributed => IsSecretTarget(attributed.Child),
+        _ => false,
     };
+
+    /// <summary>
+    /// Whether a key, a property or an index is a secret's name: a constant (a bare word or a string), or an interpolated string one of
+    /// whose literal parts is (<c>"Pass$x"</c>: <c>Pass</c> abbreviates <c>Password</c>; <c>"Key$i"</c>).
+    /// </summary>
+    private static bool IsSecretKey(Ast? key) => key switch
+    {
+        StringConstantExpressionAst constant => IsSecretName(constant.Value),
+        ExpandableStringExpressionAst expandable => IsSecretName(expandable.Value) || LiteralParts(expandable).Any(IsSecretName),
+        _ => false,
+    };
+
+    /// <summary>The text of an interpolated string outside its embedded expressions, without the quotes: <c>"Pass$x"</c> gives <c>Pass</c>.</summary>
+    private static IEnumerable<string> LiteralParts(ExpandableStringExpressionAst expandable)
+    {
+        var text = expandable.Extent.Text;
+        var start = expandable.Extent.StartOffset;
+        var position = 0;
+        foreach (var nested in expandable.NestedExpressions.OrderBy(nested => nested.Extent.StartOffset))
+        {
+            var end = Math.Clamp(nested.Extent.StartOffset - start, position, text.Length);
+            yield return Unquoted(text[position..end]);
+            position = Math.Clamp(nested.Extent.EndOffset - start, end, text.Length);
+        }
+
+        yield return Unquoted(text[position..]);
+    }
+
+    private static string Unquoted(string part) => part.Trim('"', '\u201C', '\u201D', '\u201E', '@', ' ', '\t', '\r', '\n');
+
+    /// <summary>A target typed as SecureString: <c>[securestring]$x</c>, also among other attributes.</summary>
+    private static bool IsSecureStringTarget(ExpressionAst target) =>
+        target is AttributedExpressionAst attributed
+        && ((attributed is ConvertExpressionAst convert && IsSecureString(convert.Type.TypeName)) || IsSecureStringTarget(attributed.Child));
+
+    /// <summary><c>[securestring]</c>, <c>[Security.SecureString]</c>, <c>[System.Security.SecureString]</c>.</summary>
+    private static bool IsSecureString(ITypeName type) =>
+        type.FullName[(type.FullName.LastIndexOf('.') + 1)..].Equals("SecureString", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>A statement whose value is a literal: a pure expression, or a (chained) assignment of one.</summary>
     private static bool IsLiteral(StatementAst statement) => statement switch
