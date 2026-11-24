@@ -1,3 +1,5 @@
+using System.Globalization;
+using AdMng.Presentation.Localization;
 using AdMng.Presentation.PowerShell;
 
 namespace AdMng.Presentation.Tests.PowerShell;
@@ -53,8 +55,11 @@ public sealed class PowerShellPolicyEngineRulesTests
         Assert.False(policies.ModuleLogging.Enabled);
         Assert.Equal(new PowerShellPolicyOrigin(PowerShellPolicyStore.ConfigFile, Computer), policies.ModuleLogging.Origin);
 
-        // D-B: no policy and no file sets it - the engine's default, which still logs suspicious script blocks (the window's note says so).
+        // D-B: no policy and no file sets it - the engine's default, which still logs the script blocks it finds suspicious
+        // (ScriptBlockLoggingTests). The window shows no note then: the note says what the policies record and makes no sentence
+        // of that default (docs/dev/r1-powershell-window.md 12.12); the guide, chapter 8, says it.
         Assert.Equal(PowerShellScriptBlockLoggingPolicy.NotSet, policies.ScriptBlockLogging);
+        Assert.Null(PowerShellPolicyNotes.For(policies, new ResxLocalizer(CultureInfo.GetCultureInfo("en-US"))));
     }
 
     [Fact]

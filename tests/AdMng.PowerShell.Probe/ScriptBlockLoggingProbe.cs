@@ -2,53 +2,88 @@ using System.Globalization;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
 using System.Reflection;
+using System.Text;
 using SmaPowerShell = System.Management.Automation.PowerShell;
 
 namespace AdMng.PowerShell.Probe;
 
 /// <summary>
-/// The mode <c>script-block-logging:&lt;file&gt;</c>: what the engine does with script block logging when its all-users
-/// <c>powershell.config.json</c> is <c>&lt;file&gt;</c> (decision D-B, audit PS-04). The file is set the way <c>pwsh -SettingsFile</c>
-/// sets it (<c>PowerShellConfig.SetSystemConfigFilePath</c>), before the engine reads any configuration of this process. The report
-/// says the setting the engine works with (<c>Utils.GetPolicySetting&lt;ScriptBlockLogging&gt;</c>: Group Policy, then the all-users
-/// file, then the user's - <c>null</c> when none sets it) and, for a script block with a word of the engine's list of suspicious
-/// content and an ordinary one, whether the engine wrote it to its log (<c>HasLogged</c>) or decided not to (<c>SkipLogging</c>).
-/// The members are internal to <c>System.Management.Automation</c> 7.6.10 (<c>CompiledScriptBlock.cs</c>, <c>Utils.cs</c>,
-/// <c>PSConfiguration.cs</c>); a later engine that renames one fails here, loudly, and the docs that rely on it are read again.
+/// The mode <c>script-block-logging:&lt;all-users file&gt;|&lt;user's file&gt;</c>: what the engine does with script block logging
+/// when its all-users <c>powershell.config.json</c> is the first file and the user's the second (decision D-B, audit PS-04). The
+/// all-users file is set the way <c>pwsh -SettingsFile</c> sets it (<c>PowerShellConfig.SetSystemConfigFilePath</c>), the user's
+/// file by its field (<c>perUserConfigFile</c>, so that the real user's file never counts; a path that does not exist is no file),
+/// both before the engine reads any configuration of this process. The report says the setting the engine works with
+/// (<c>Utils.GetPolicySetting&lt;ScriptBlockLogging&gt;</c>: Group Policy, then the all-users file, then the user's - <c>null</c>
+/// when none sets it) and, for each of <see cref="Lines"/>, whether the engine wrote the compiled and run script block to its log
+/// (<c>HasLogged</c>) or decided not to (<c>SkipLogging</c>). The members are internal to <c>System.Management.Automation</c> 7.6.10
+/// (<c>CompiledScriptBlock.cs</c>, <c>Utils.cs</c>, <c>PSConfiguration.cs</c>); a later engine that renames one fails here, loudly,
+/// and the docs that rely on it are read again.
 /// </summary>
 internal static class ScriptBlockLoggingProbe
 {
-    /// <summary>An operator's line with "Properties" in it - a word of the engine's list (<c>SuspiciousContentChecker</c>).</summary>
-    public const string Suspicious = "$properties = 'mail', 'department'";
-
-    /// <summary>The same line without a word of the list.</summary>
-    public const string Ordinary = "$attributes = 'mail', 'department'";
+    /// <summary>
+    /// The operator's lines, by name, in the order of the report. The first six are marked suspicious by
+    /// <c>ScriptBlock.CheckSuspiciousContent</c>: a word of the engine's list ("Properties", <c>SuspiciousContentChecker.Match</c>),
+    /// or a mark of the parser's <c>SemanticChecks</c> (<c>CheckMemberAccess</c>: a member name that is not a constant, a static
+    /// member of something that is not a type literal; <c>VisitTypeExpression</c>: the type <c>[type]</c>). The last two are not.
+    /// </summary>
+    public static IReadOnlyList<(string Name, string Line)> Lines { get; } =
+    [
+        ("word", "$properties = 'mail', 'department'"),
+        ("member-by-variable", "$u = @{ mail = 'a' }; foreach ($a in 'mail', 'department') { $u.$a }"),
+        ("member-by-expression", "$u = @{ mail = 'a' }; $u.('mail')"),
+        ("member-by-expandable-string", "$u = @{ mail = 'a' }; $n = 'mail'; $u.\"$n\""),
+        ("static-member-through-variable", "$t = [datetime]; $t::Now"),
+        ("type-type", "[type]"),
+        ("ordinary", "$attributes = 'mail', 'department'"),
+        ("members-by-constant-name", "$u = @{ mail = 'a' }; $u.mail; $u.'mail'; [datetime]::Now"),
+    ];
 
     private const BindingFlags Internal = BindingFlags.NonPublic | BindingFlags.Instance;
     private const BindingFlags InternalStatic = BindingFlags.NonPublic | BindingFlags.Static;
 
-    public static string Run(string allUsersFile)
+    public static string Run(string files)
     {
+        var parts = files.Split('|');
+        if (parts.Length != 2)
+        {
+            throw new ArgumentException("Expected <all-users file>|<user's file>: " + files, nameof(files));
+        }
+
         PowerShellEnvironment.Apply();
         var engine = typeof(PSObject).Assembly;
         var config = Required(engine.GetType("System.Management.Automation.Configuration.PowerShellConfig"), "PowerShellConfig");
         var instance = Required(config.GetField("Instance", InternalStatic), "PowerShellConfig.Instance").GetValue(null);
-        Required(config.GetMethod("SetSystemConfigFilePath", Internal), "PowerShellConfig.SetSystemConfigFilePath").Invoke(instance, [Path.GetFullPath(allUsersFile)]);
+        Required(config.GetMethod("SetSystemConfigFilePath", Internal), "PowerShellConfig.SetSystemConfigFilePath").Invoke(instance, [Path.GetFullPath(parts[0])]);
+        Required(config.GetField("perUserConfigFile", Internal), "PowerShellConfig.perUserConfigFile").SetValue(instance, Path.GetFullPath(parts[1]));
 
         using var runspace = RunspaceFactory.CreateRunspace();
         runspace.Open();
         using var ps = SmaPowerShell.Create(runspace);
-        var blocks = ps.AddScript(
-            $"$s = [scriptblock]::Create('{Suspicious.Replace("'", "''", StringComparison.Ordinal)}'); & $s; "
-            + $"$o = [scriptblock]::Create('{Ordinary.Replace("'", "''", StringComparison.Ordinal)}'); & $o; $s; $o").Invoke();
-        if (ps.HadErrors || blocks.Count != 2)
+
+        // Each line is compiled as a script block of its own and run once (logging happens when a block starts), then the blocks
+        // are the output.
+        var script = new StringBuilder();
+        for (var index = 0; index < Lines.Count; index++)
+        {
+            script.Append(CultureInfo.InvariantCulture, $"$b{index} = [scriptblock]::Create('{Lines[index].Line.Replace("'", "''", StringComparison.Ordinal)}'); $null = & $b{index}; ");
+        }
+
+        script.Append(string.Join(", ", Enumerable.Range(0, Lines.Count).Select(index => "$b" + index.ToString(CultureInfo.InvariantCulture))));
+        var blocks = ps.AddScript(script.ToString()).Invoke();
+        if (ps.HadErrors || blocks.Count != Lines.Count)
         {
             throw new InvalidOperationException("The script blocks did not run: " + string.Join("; ", ps.Streams.Error.Select(error => error.ToString())));
         }
 
-        return string.Create(
-            CultureInfo.InvariantCulture,
-            $"setting={Setting(engine)}\nsuspicious={State(blocks[0].BaseObject)}\nordinary={State(blocks[1].BaseObject)}\ndone\n");
+        var report = new StringBuilder();
+        report.Append(CultureInfo.InvariantCulture, $"setting={Setting(engine)}\n");
+        for (var index = 0; index < Lines.Count; index++)
+        {
+            report.Append(CultureInfo.InvariantCulture, $"{Lines[index].Name}={State(blocks[index].BaseObject)}\n");
+        }
+
+        return report.Append("done\n").ToString();
     }
 
     /// <summary><c>EnableScriptBlockLogging</c> of the setting the engine works with: <c>null</c>, <c>True</c> or <c>False</c>.</summary>
