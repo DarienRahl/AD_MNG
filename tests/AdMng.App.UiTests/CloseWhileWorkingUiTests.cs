@@ -310,6 +310,74 @@ public sealed class CloseWhileWorkingUiTests
         context.AssertHealthy();
     });
 
+    [Fact]
+    public Task ARestoreStoppedInItsLine_ThenTheWindowClosed_TheRealFailureDialogComesAfterTheWindowClosed_AndIsNotOwnedByIt() => WpfTestHost.RunAsync(async () =>
+    {
+        // The real dialog service: it shows a dialog inline on the UI thread and owns it by the active - or the last visible - window
+        // of the connection. The failure dialog of the connection for a restore that was stopped and then closed must come once the
+        // Recycle Bin window has closed: owned by it, the dialog would close with it, and the failure would be said nowhere.
+        await using var context = await UiTestContext.CreateAsync();
+        await context.ConnectAsync();
+        await context.Services.GetRequiredService<ISettingsStore>().UpdateAsync(s => s.BatchMaxParallelism = 1);
+        var session = context.Directory.Session;
+        await session.DeleteAsync(context.Company.JanKowalski, subtree: false, CancellationToken.None);
+        await session.DeleteAsync(context.Company.Laptop, subtree: false, CancellationToken.None);
+        var bin = context.Services.GetRequiredService<IDialogViewModelFactory>().CreateRecycleBin();
+        var window = (RecycleBinWindow)context.Services.GetRequiredService<IWindowService>().CreateWindow(bin);
+        UiTestSupport.ShowOffScreen(window);
+        await UiWait.InitializedAsync(window.Initialization);
+        await bin.Loading;
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+        var closed = false;
+        window.Closed += (_, _) => closed = true;
+        bin.SelectedItems = bin.Items.ToList();
+        await bin.RestoreCommand.ExecuteAsync(null);
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+
+        // The first restore waits for the test, and the DC refuses it.
+        session.FailNext(FakeOperationKind.RestoreDeleted, null, Core.Directory.DirectoryErrorKind.AccessDenied);
+        var restore = new Gate();
+        session.BeforeOperationAsync = operation => operation.Kind == FakeOperationKind.RestoreDeleted ? restore.PassAsync() : Task.CompletedTask;
+        Task restoring;
+        try
+        {
+            restoring = bin.ConfirmRestoreCommand.ExecuteAsync(null);
+            await UiWait.UntilAsync(() => restore.Reached.Task.IsCompleted && window.PageStatus.Kind == PageStatusKind.Working, "the restore is held");
+
+            // Stop in the line, then the title bar: nothing to ask - the window waits for the end.
+            bin.Status.CancelCommand.Execute(null);
+            await UiWait.UntilAsync(() => bin.Status.IsCancelling, "the line says Stopping…");
+            window.Close();
+            await UiTestSupport.WaitForIdleAsync(rounds: 2);
+            Assert.False(closed);
+            Assert.True(window.IsVisible);
+        }
+        finally
+        {
+            restore.Release();
+        }
+
+        MessageDialogWindow? failure = null;
+        var closedWhenShown = false;
+        await UiWait.DriveModalAsync<MessageDialogWindow>(dialog =>
+        {
+            failure = dialog;
+            closedWhenShown = closed;
+            dialog.ViewModel.CancelCommand.Execute(null);
+            return Task.CompletedTask;
+        });
+        await restoring.WaitAsync(TimeSpan.FromSeconds(20));
+
+        Assert.True(closed);
+        Assert.NotNull(failure);
+        Assert.True(closedWhenShown);
+        Assert.NotSame(window, failure.Owner);
+        Assert.StartsWith(
+            "Executing “Restore from the AD Recycle Bin (2)” in contoso.test was stopped: 0 of 2 objects done, failed: 1", failure.ViewModel.Message, StringComparison.Ordinal);
+        Assert.EndsWith("Every change and its result are in the session log.", failure.ViewModel.Message, StringComparison.Ordinal);
+        context.AssertHealthy();
+    });
+
     // ---- Helpers ------------------------------------------------------------------------------------------------
 
     /// <summary>A connected test host whose confirmations are the test's, and whose batches run one object after another.</summary>
