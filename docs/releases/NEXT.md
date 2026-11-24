@@ -86,7 +86,10 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   plików), **Enter** uruchamia kompletne polecenie albo dodaje wiersz, gdy jest niedokończone (otwarty cudzysłów, nawias, ukośnik
   pionowy), **Shift+Enter** zawsze dodaje wiersz, **Góra/Dół** chodzą po wierszach, a potem po historii, **Ctrl+R** przeszukuje
   historię, **Esc** zamyka listę, **Ctrl+L** czyści okno. Historia jest tylko w pamięci okna; wiersz z hasłem jawnym
-  (`-AsPlainText`, `ConvertTo-SecureString '…'`, parametr `…Password` z wartością wpisaną wprost) nie trafia do niej.
+  (`-AsPlainText`, `ConvertTo-SecureString '…'`, wartość wpisana wprost dla parametru, klucza tablicy skrótów – także
+  przekazanej przez `@h` – albo zmiennej o nazwie z `Password`, `Passphrase`, `Pwd`, `Secret`, `Token`, `ApiKey` i podobnych,
+  wartość bez nazwy parametru dla polecenia, którego nazwa mówi o haśle) nie trafia do niej. Filtr nie rozpozna każdego hasła,
+  więc hasła nie wpisuje się do polecenia w ogóle.
 - **Lista poleceń, tryb ograniczony i tryb zaufany.** Okno zaczyna w ConstrainedLanguage i ma zamkniętą listę poleceń: polecenia
   programu oraz zwykłe cmdlety do pracy z obiektami (`Where-Object`, `Select-Object`, `Sort-Object`, `Group-Object`,
   `Measure-Object`, `ForEach-Object` – bez `-Parallel` i `-AsJob`), formatowania, zmiennych i odczytu plików (`Get-Content`,

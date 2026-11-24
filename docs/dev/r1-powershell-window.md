@@ -354,12 +354,22 @@ write verb (`Set`, `New`, `Remove`, `Move`, `Rename`, `Add`, `Enable`, `Disable`
 ### 4.9 History, syntax and completion
 
 - `PowerShellHistoryPolicy.ShouldRemember(line)` is a pure function over the parser's tokens and AST. A line is **not**
-  remembered if it is empty, still incomplete, has the `-AsPlainText` parameter (also a prefix of three letters or more), a
-  `ConvertTo-SecureString` with a literal argument (positional or `-String`), or a named parameter with `Password`, `Passwd`,
-  `Secret`, `Token` or `ApiKey` in its name whose argument is a literal (a constant, or a string without embedded
-  expressions; also `-Password:'x'` and a bare word). A variable, a subexpression or `Read-Host -AsSecureString` as the
-  argument is fine; a line with a syntax error is still checked from its tokens. (README and ADR name `-AsPlainText`,
-  `ConvertTo-SecureString '…'` and *Password*; the other secret words are the filter PSReadLine applies.) The window's history
+  remembered if it is empty, still incomplete, has the `-AsPlainText` parameter (also a prefix of three letters or more), or
+  gives a literal (a constant, a string without embedded expressions, an array of these; also `-Password:'x'` and a bare word)
+  to a **secret's name**: a named parameter, a key of a hashtable (inline or splatted, `@{ Password = 'x' }`), or the target of
+  an assignment (a variable without its scope or drive, `$env:ADMIN_PASSWORD`, a property `$cred.Password`, a constant index
+  `$h['ApiKey']`, through a cast `[string]$token`). A secret's name contains `Password`, `Passwd`, `Passphrase`, `Pwd`,
+  `Secret`, `Token`, `ApiKey` or `PrivateKey`, is `Pw`, `Pin` or `Key` as a whole, or abbreviates `Password`/`Passphrase` with
+  four letters or more (`-Pass`, `-Passw`). A literal written positionally is a secret for `ConvertTo-SecureString` (or as its
+  `-String`) and for a command whose noun is a secret's name (`Reset-AdmPassword user 'x'`, `Set-Secret n 'x'`) unless its verb
+  only names one (`Get`, `Find`, `Search`, `Show`). A variable, a subexpression or `Read-Host -AsSecureString` as the value is
+  fine; a line with a syntax error is still checked from its tokens. The words began as PSReadLine's filter; the red team of R1
+  (goal g) found that the first list kept the splatted hashtable - the usual way to pass credentials - `-Passphrase`, `-Pwd`,
+  `-Pass`, `-Key` and the positional `Reset-AdmPassword user 'x'`, and the audit (PS-13) the assignments; all are refused now
+  (`HistoryPolicyTests`), while `-PassThru`, attribute names such as `pwdLastSet` given as values, `Get-Secret MySecret` and
+  `Reset-AdmPassword -Identity x` stay remembered. What is still remembered: a secret given positionally to a command whose name
+  does not say so (`Connect-Thing 'x'`), one inside a longer text, an argument of a console program (`net user jkowalski x`) and
+  a name outside the lists – the guide says not to type a password into a command at all. The window's history
   lives in `AdMng.Presentation` (memory only) and asks this function through `IPowerShellSession.ShouldRemember`.
 - `PowerShellSyntax.Tokenize(input)` returns spans (`Start`, `Length`, `Kind`: command, parameter, variable, string, number,
   operator, comment, keyword, type, member) from `Parser.ParseInput`'s tokens, in order, never empty, with whitespace,

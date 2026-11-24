@@ -5,18 +5,35 @@ namespace AdMng.PowerShell.Input;
 /// <summary>
 /// Which lines the window's history may remember (docs/dev/r1-powershell-window.md 4.9; the history itself lives in memory
 /// in the view model). A line that carries a plain-text secret must not be recalled with the arrow keys, shown on a shared
-/// screen or copied around; the filter is the one PSReadLine applies, made more exact by the AST. Pure and stateless.
+/// screen or copied around; the filter follows PSReadLine's idea (a word list), made more exact by the AST and wider than its
+/// list. It is a protection against recalling a secret, not a proof that none was typed: a secret given positionally to a
+/// command whose name does not say so, one inside a longer text, an argument of a console program (<c>net user</c>) or a name
+/// outside the lists below is remembered. Pure and stateless.
 /// </summary>
 public static class PowerShellHistoryPolicy
 {
-    /// <summary>A parameter whose name contains one of these, followed by a literal, makes the line sensitive.</summary>
-    private static readonly string[] SecretWords = ["password", "passwd", "secret", "token", "apikey"];
+    /// <summary>A name (of a parameter, a hashtable key, a variable or a property) that contains one of these is a secret's name.</summary>
+    private static readonly string[] SecretWords = ["password", "passwd", "passphrase", "pwd", "secret", "token", "apikey", "privatekey"];
+
+    /// <summary>Names that are a secret's name only as the whole name: as parts of a name they are too common (<c>-Pinned</c>, <c>-KeyName</c>).</summary>
+    private static readonly string[] SecretNames = ["pw", "pin", "key"];
+
+    /// <summary>Abbreviations: a name of four letters or more that begins one of these (<c>-Pass</c>, <c>-Passw</c>) is a secret's name.</summary>
+    private static readonly string[] AbbreviatedWords = ["password", "passphrase"];
+
+    /// <summary>The verbs of a command named after a secret that take a name, never the secret itself (<c>Get-Secret MySecret</c>).</summary>
+    private static readonly string[] NamingVerbs = ["Get", "Find", "Search", "Show"];
 
     /// <summary>
-    /// False for an empty line, for input that is still incomplete, and for a line with a plain-text password: the
-    /// <c>-AsPlainText</c> parameter (also its prefixes of three letters or more), a <c>ConvertTo-SecureString</c> with a
-    /// literal argument, or a named parameter with <c>Password</c> (or another secret word) in its name whose argument is a
-    /// literal. A variable, a subexpression or <c>Read-Host -AsSecureString</c> as the argument is fine.
+    /// False for an empty line, for input that is still incomplete, and for a line with a plain-text secret: the
+    /// <c>-AsPlainText</c> parameter (also its prefixes of three letters or more); a literal given to a parameter, a hashtable key
+    /// (an inline or splatted hashtable) or assigned to a variable, property or index whose name is a secret's name
+    /// (<c>Password</c>, <c>Passphrase</c>, <c>Pwd</c>, <c>Secret</c>, <c>Token</c>, <c>ApiKey</c>, <c>PrivateKey</c> anywhere in
+    /// the name; <c>Pw</c>, <c>Pin</c>, <c>Key</c> as the whole name; <c>-Pass</c> and the other abbreviations of
+    /// <c>Password</c>/<c>Passphrase</c>); a literal written positionally to <c>ConvertTo-SecureString</c> (or as its
+    /// <c>-String</c>) or to a command whose noun is a secret's name (<c>Reset-AdmPassword user 'x'</c>), unless its verb only
+    /// names one (<c>Get</c>, <c>Find</c>, <c>Search</c>, <c>Show</c>). A variable, a subexpression or
+    /// <c>Read-Host -AsSecureString</c> as the value is fine.
     /// </summary>
     public static bool ShouldRemember(string line)
     {
@@ -39,32 +56,34 @@ public static class PowerShellHistoryPolicy
             return false;
         }
 
-        foreach (var command in ast.FindAll(node => node is CommandAst, searchNestedScriptBlocks: true).Cast<CommandAst>())
-        {
-            if (IsSensitive(command))
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return !ast.FindAll(IsSensitive, searchNestedScriptBlocks: true).Any();
     }
 
     private static bool IsPlainTextParameter(Token token) =>
         token.Kind == TokenKind.Parameter && token is ParameterToken { ParameterName.Length: >= 3 } parameter
             && "AsPlainText".StartsWith(parameter.ParameterName, StringComparison.OrdinalIgnoreCase);
 
+    private static bool IsSensitive(Ast node) => node switch
+    {
+        CommandAst command => IsSensitive(command),
+        HashtableAst hashtable => hashtable.KeyValuePairs.Any(pair => pair.Item1 is StringConstantExpressionAst key && IsSecretName(key.Value) && IsLiteral(pair.Item2)),
+        AssignmentStatementAst assignment => NameOf(assignment.Left) is { } name && IsSecretName(name) && IsLiteral(assignment.Right),
+        _ => false,
+    };
+
     private static bool IsSensitive(CommandAst command)
     {
         var elements = command.CommandElements;
-        var isSecureStringConversion = string.Equals(command.GetCommandName(), "ConvertTo-SecureString", StringComparison.OrdinalIgnoreCase);
+        var name = command.GetCommandName();
+        var isSecureStringConversion = string.Equals(name, "ConvertTo-SecureString", StringComparison.OrdinalIgnoreCase);
+        var takesSecretPositionally = isSecureStringConversion || IsNamedAfterSecret(name);
         for (var i = 1; i < elements.Count; i++)
         {
             var element = elements[i];
             if (element is CommandParameterAst parameter)
             {
                 var argument = parameter.Argument ?? (i + 1 < elements.Count && elements[i + 1] is not CommandParameterAst ? elements[i + 1] : null);
-                if (argument is not null && IsLiteral(argument) && HasSecretWord(parameter.ParameterName))
+                if (argument is not null && IsLiteral(argument) && IsSecretName(parameter.ParameterName))
                 {
                     return true;
                 }
@@ -75,7 +94,7 @@ public static class PowerShellHistoryPolicy
                     return true;
                 }
             }
-            else if (isSecureStringConversion && IsLiteral(element) && !IsArgumentOfParameter(elements, i))
+            else if (takesSecretPositionally && IsLiteral(element) && !IsArgumentOfParameter(elements, i))
             {
                 return true;
             }
@@ -87,13 +106,46 @@ public static class PowerShellHistoryPolicy
     private static bool IsArgumentOfParameter(IReadOnlyList<CommandElementAst> elements, int index) =>
         index > 1 && elements[index - 1] is CommandParameterAst { Argument: null };
 
-    private static bool HasSecretWord(string parameterName) =>
-        SecretWords.Any(word => parameterName.Contains(word, StringComparison.OrdinalIgnoreCase));
+    /// <summary>A command <c>Verb-Noun</c> whose noun is a secret's name and whose verb does more than name one.</summary>
+    private static bool IsNamedAfterSecret(string? command)
+    {
+        var dash = command?.IndexOf('-', StringComparison.Ordinal) ?? -1;
+        if (command is null || dash <= 0)
+        {
+            return false;
+        }
+
+        var verb = command[..dash];
+        return !NamingVerbs.Contains(verb, StringComparer.OrdinalIgnoreCase) && IsSecretName(command[(dash + 1)..]);
+    }
+
+    private static bool IsSecretName(string name) =>
+        SecretWords.Any(word => name.Contains(word, StringComparison.OrdinalIgnoreCase))
+        || SecretNames.Contains(name, StringComparer.OrdinalIgnoreCase)
+        || (name.Length >= 4 && AbbreviatedWords.Any(word => word.StartsWith(name, StringComparison.OrdinalIgnoreCase)));
+
+    /// <summary>The name an assignment writes: a variable (without its scope or drive), a property, a constant index, through a type cast.</summary>
+    private static string? NameOf(ExpressionAst target) => target switch
+    {
+        VariableExpressionAst variable => variable.VariablePath.UserPath[(variable.VariablePath.UserPath.LastIndexOf(':') + 1)..],
+        MemberExpressionAst { Member: StringConstantExpressionAst member } => member.Value,
+        IndexExpressionAst { Index: StringConstantExpressionAst index } => index.Value,
+        AttributedExpressionAst attributed => NameOf(attributed.Child),
+        _ => null,
+    };
+
+    private static bool IsLiteral(StatementAst statement) => statement switch
+    {
+        PipelineAst pipeline => pipeline.GetPureExpression() is { } expression && IsLiteral(expression),
+        CommandExpressionAst command => IsLiteral(command.Expression),
+        _ => false,
+    };
 
     private static bool IsLiteral(Ast node) => node switch
     {
         ConstantExpressionAst => true,
         ExpandableStringExpressionAst expandable => expandable.NestedExpressions.Count == 0,
+        ArrayLiteralAst array => array.Elements.All(IsLiteral),
         _ => false,
     };
 }

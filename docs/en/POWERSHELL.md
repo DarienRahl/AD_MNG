@@ -225,9 +225,16 @@ that says so, and redirection to a file (`>`, `>>`, `2>`) is refused before the 
   the match, Esc cancels). It is not saved and is gone when the window closes. *Clear* (Ctrl+L) clears the output, not the
   history.
 - **A line with a plain-text password is not remembered:** one with `-AsPlainText`, a `ConvertTo-SecureString 'literal'`, or a
-  parameter whose name contains `Password`, `Passwd`, `Secret`, `Token` or `ApiKey` with a literal value. A variable or
-  `Read-Host -AsSecureString` as the value is fine. The line you typed stays visible in the output area until you clear it or
-  close the window – and Group Policy may record it (chapter 8) – so do not type a password into a command at all. A
+  literal value for a secret's name – of a parameter (`-Password 'literal'`), a key of a hashtable (`@{ Password = 'literal' }`,
+  also one passed as `@h`) or a variable or property (`$password = 'literal'`, `$cred.Password = 'literal'`). A secret's name
+  is one that contains `Password`, `Passwd`, `Passphrase`, `Pwd`, `Secret`, `Token`, `ApiKey` or `PrivateKey`, the whole name
+  `Pw`, `Pin` or `Key`, and the abbreviation `-Pass`. A line with a value written without a parameter name to a command whose
+  name speaks of a password (`Reset-AdmPassword jan 'literal'`) is not remembered either. A variable or
+  `Read-Host -AsSecureString` as the value is fine. The filter does not recognise every password: a value without a parameter
+  name for another command, a password inside a longer text, an argument of a console program (`net user jan literal`) or a
+  name outside the list (a Polish one, for example: `$haslo = 'literal'` is remembered). The line you typed also stays visible
+  in the output area until you clear it or close the window – and Group Policy may record it (chapter 8) – so do not type a
+  password into a command at all. A
   password asked for by `Read-Host -AsSecureString` or a mandatory parameter is typed into a password box and never shown.
 - **The program writes nothing else.** PSReadLine is not loaded (no history file), no profile is run (`$PROFILE` is never
   loaded), the engine's telemetry and diagnostics channel are off, module auto-loading and the module analysis cache are

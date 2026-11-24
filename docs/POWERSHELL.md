@@ -224,10 +224,14 @@ odrzuca wynik, a `2>&1` nadal łączy strumienie). Do CSV użyj `Export-AdmList`
   niej (najpierw po wierszach polecenia wielowierszowego), **Ctrl+R** ją przeszukuje (*Szukanie w historii: …*; Enter bierze
   trafienie, Esc anuluje). Nie jest zapisywana i znika, gdy okno się zamyka. *Wyczyść* (Ctrl+L) czyści wyniki, nie historię.
 - **Wiersz z hasłem jawnym tekstem nie jest zapamiętywany:** z `-AsPlainText`, z `ConvertTo-SecureString 'tekst'` albo z
-  parametrem, którego nazwa zawiera `Password`, `Passwd`, `Secret`, `Token` lub `ApiKey` z wartością wpisaną wprost. Zmienna
-  albo `Read-Host -AsSecureString` jako wartość jest w porządku. Wpisany wiersz zostaje widoczny w obszarze wyników, dopóki go
-  nie wyczyścisz albo nie zamkniesz okna – i zasady grupy mogą go zarejestrować (rozdział 8) – więc nie wpisuj hasła do
-  polecenia w ogóle. Hasło, o które prosi `Read-Host -AsSecureString` albo parametr obowiązkowy, wpisuje się w polu hasła i
+  wartością wpisaną wprost dla nazwy sekretu – parametru (`-Password 'tekst'`), klucza tablicy skrótów (`@{ Password = 'tekst' }`,
+  także przekazanej przez `@h`) albo zmiennej lub właściwości (`$password = 'tekst'`, `$cred.Password = 'tekst'`). Nazwą sekretu jest nazwa, która zawiera `Password`, `Passwd`, `Passphrase`, `Pwd`, `Secret`,
+  `Token`, `ApiKey` lub `PrivateKey`, nazwa `Pw`, `Pin` albo `Key` w całości i skrót `-Pass`. Nie jest zapamiętywany także
+  wiersz z wartością wpisaną bez nazwy parametru dla polecenia, którego nazwa mówi o haśle (`Reset-AdmPassword jan 'tekst'`).
+  Zmienna albo `Read-Host -AsSecureString` jako wartość jest w porządku. Filtr nie rozpozna każdego hasła: wartości bez nazwy
+  parametru dla innego polecenia, hasła wewnątrz dłuższego tekstu, argumentu programu konsolowego (`net user jan tekst`) ani
+  nazwy spoza listy (np. polskiej: `$haslo = 'tekst'` zostaje zapamiętany). Wpisany wiersz zostaje też widoczny w obszarze wyników, dopóki go nie wyczyścisz albo nie
+  zamkniesz okna – i zasady grupy mogą go zarejestrować (rozdział 8) – więc nie wpisuj hasła do polecenia w ogóle. Hasło, o które prosi `Read-Host -AsSecureString` albo parametr obowiązkowy, wpisuje się w polu hasła i
   nigdy nie jest pokazywane.
 - **Program nie zapisuje niczego więcej.** PSReadLine nie jest ładowany (nie ma pliku historii), żaden profil nie jest
   uruchamiany (`$PROFILE` nigdy nie jest ładowany), telemetria i kanał diagnostyczny silnika są wyłączone, automatyczne
