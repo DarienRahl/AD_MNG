@@ -1,4 +1,5 @@
 using AdMng.Core.PowerShell;
+using AdMng.PowerShell.Guards;
 using AdMng.Testing;
 
 namespace AdMng.PowerShell.Tests;
@@ -503,6 +504,33 @@ public sealed class EscapeTests : IDisposable
         Assert.Equal("1\n", TestSessions.Text(allowed));
         Assert.True(TestSessions.End(refused).HadErrors);
         Assert.DoesNotContain("ComObject", TestSessions.Text(syntax), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The third red team of R1 (goal h): at about 4 500 nested parentheses the parser gives up ("ScriptTooComplicated") and returns no
+    /// syntax tree. The guard dereferenced it, so the run threw a NullReferenceException after the session had counted itself as running,
+    /// and every later command of the window was refused with "A command is already running in this window" - Stop could not help, as no
+    /// pipeline had started. The line is refused now, and the window runs the next command.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(BothModes))]
+    public async Task The_red_teams_deeply_nested_line_is_refused_and_the_window_runs_the_next_command(PowerShellLanguageMode mode)
+    {
+        await using var session = await SessionAsync(mode);
+        var script = "$x = " + new string('(', 5000) + "1" + new string(')', 5000);
+
+        var refused = await TestSessions.RunAsync(session, script);
+        var next = await TestSessions.RunAsync(session, "'alive'");
+
+        Assert.Equal(string.Empty, TestSessions.Text(refused));
+        Assert.Equal(InputGuard.TooComplexMessage + "\n", TestSessions.Text(refused, PowerShellStream.Error));
+        Assert.Equal(new PowerShellRunEndItem(PowerShellRunState.Failed, HadErrors: true), refused[^1]);
+        Assert.False(session.IsRunning);
+        Assert.Equal("alive\n", TestSessions.Text(next));
+        Assert.True(session.IsInputComplete(script));
+        Assert.False(session.ShouldRemember(script));
+        Assert.NotEmpty(session.Tokenize(script));
+        Assert.Equal(PowerShellCompletionResult.Empty, await session.CompleteAsync(script, script.Length, TestContext.Current.CancellationToken));
     }
 
     private static string ParallelJobScript(string file) =>

@@ -505,7 +505,23 @@ public sealed class PowerShellSession : IPowerShellSession
             _running = true;
         }
 
-        if (InputGuard.Refusal(script) is { } refusal)
+        string? refusal;
+        try
+        {
+            refusal = InputGuard.Refusal(script);
+        }
+        catch
+        {
+            // Nothing started: a check that fails must not leave the session counted as running (every later command was refused).
+            lock (_sync)
+            {
+                _running = false;
+            }
+
+            throw;
+        }
+
+        if (refusal is not null)
         {
             // Refused before it runs, like a command that does not parse: the error, then the end of a failed run.
             lock (_sync)

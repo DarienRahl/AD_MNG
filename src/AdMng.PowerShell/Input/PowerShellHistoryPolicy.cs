@@ -50,7 +50,7 @@ public static class PowerShellHistoryPolicy
 
         PowerShellEnvironment.Apply();
         var ast = Parser.ParseInput(line, out var tokens, out var errors);
-        if (errors.Any(error => error.IncompleteInput))
+        if (ast is null || errors.Any(error => error.IncompleteInput))
         {
             return false;
         }

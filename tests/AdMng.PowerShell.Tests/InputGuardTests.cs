@@ -29,6 +29,18 @@ public sealed class InputGuardTests
         Assert.Equal(expected, InputGuard.Refusal(script));
     }
 
+    /// <summary>A line the parser gives up on (no syntax tree, "ScriptTooComplicated") is refused, not passed - the guard could not look into it.</summary>
+    [Theory]
+    [InlineData("(", ")")]
+    [InlineData("$(", ")")]
+    [InlineData("{", "}")]
+    public void A_line_the_parser_gives_up_on_is_refused(string open, string close)
+    {
+        var script = "$x = " + string.Concat(Enumerable.Repeat(open, 20000)) + "1" + string.Concat(Enumerable.Repeat(close, 20000));
+
+        Assert.Equal(InputGuard.TooComplexMessage, InputGuard.Refusal(script));
+    }
+
     [Theory]
     [InlineData("& { Get-Date }")]
     [InlineData("& 'Get-Date'")]

@@ -107,6 +107,15 @@ public sealed class HistoryPolicyTests
         Assert.False(PowerShellHistoryPolicy.ShouldRemember(line), line);
     }
 
+    /// <summary>The third red team of R1: a line the parser gives up on (no syntax tree) threw out of the filter; it is not remembered.</summary>
+    [Fact]
+    public void A_line_the_parser_gives_up_on_is_not_remembered()
+    {
+        var line = "$x = " + new string('(', 5000) + "1" + new string(')', 5000);
+
+        Assert.False(PowerShellHistoryPolicy.ShouldRemember(line));
+    }
+
     /// <summary>What the wider rules must not catch: attribute names with "pwd" as values, -PassThru, a hashtable or an assignment without a secret.</summary>
     [Theory]
     [InlineData("Get-AdmUser jkowalski -Properties pwdLastSet, badPwdCount")]

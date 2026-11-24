@@ -27,11 +27,20 @@ internal static class InputGuard
     internal const string RedirectionMessage =
         "Redirecting output to a file ('>', '>>') is not available in the AD Manager PowerShell window: it writes a file only through Export-AdmList or Start-Transcript -Path ('> $null' still discards output). Nothing of the command was run.";
 
+    internal const string TooComplexMessage =
+        "The command is nested too deeply for the PowerShell parser, so the AD Manager PowerShell window cannot check it. Nothing of the command was run.";
+
     /// <summary>The message refusing <paramref name="script"/>, or null when nothing in it is refused.</summary>
     public static string? Refusal(string script)
     {
         ArgumentNullException.ThrowIfNull(script);
         var ast = Parser.ParseInput(script, out _, out _);
+        if (ast is null)
+        {
+            // The parser gave up (about 4 500 nested parentheses: "ScriptTooComplicated") and there is nothing to look into.
+            return TooComplexMessage;
+        }
+
         if (ast.Find(IsLoad, searchNestedScriptBlocks: true) is not null)
         {
             return UsingMessage;
