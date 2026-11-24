@@ -340,6 +340,42 @@ public sealed class PowerShellSessionTests
     }
 
     /// <summary>
+    /// Audit PS-10: a completion stuck in .NET code that its stop cannot interrupt (a completer of the operator's that calls such code)
+    /// held the session's gate for good. After its time limit and the grace period the session leaves it like a left run and goes on
+    /// in a new runspace.
+    /// </summary>
+    [Fact]
+    public async Task A_completion_that_its_stop_cannot_end_is_left_after_the_grace_period_and_the_next_command_runs_in_a_new_runspace()
+    {
+        var time = new FakeTimeProvider();
+        TestCommands.Release.Reset();
+        await using var session = await TestSessions.CreateAsync(time: time, extra: TestCommands.All);
+        await TestSessions.RunAsync(session, "$before = 'kept'; function global:TabExpansion2 { Block-AdmTest }");
+        try
+        {
+            var completing = session.CompleteAsync("Get-Ad", 6, TestContext.Current.CancellationToken).AsTask();
+            await Task.Delay(300, TestContext.Current.CancellationToken);
+            Assert.False(completing.IsCompleted);
+
+            time.Advance(PowerShellSessionOptions.DefaultCompletionTimeLimit);
+            await Task.Delay(200, TestContext.Current.CancellationToken);
+            Assert.False(completing.IsCompleted);
+            time.Advance(TimeSpan.FromSeconds(5));
+
+            var result = await completing.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+            Assert.Empty(result.Matches);
+            var next = await TestSessions.RunAsync(session, "$null -eq $before; 'next'");
+            Assert.Equal("True\nnext\n", TestSessions.Text(next));
+            var again = await session.CompleteAsync("Get-Ad", 6, TestContext.Current.CancellationToken);
+            Assert.Contains(again.Matches, match => match.Text == "Get-AdmVersion");
+        }
+        finally
+        {
+            TestCommands.Release.Set();
+        }
+    }
+
+    /// <summary>
     /// Every command of the window runs on the runspace's own thread, and it is a background thread: a left run's thread that never
     /// returns must not keep the program's process alive (<c>RegexLimitTests</c> proves the exit in a child process). Also in a runspace
     /// the session made after it left a run.

@@ -98,4 +98,55 @@ public sealed class CompletionTests
 
         Assert.Contains(result.Matches, m => m.Text == "Get-AdmVersion");
     }
+
+    /// <summary>
+    /// Audit PS-10: completion runs the session's <c>TabExpansion2</c> - a function the operator can replace - on the window's runspace
+    /// with the session's gate held, and nothing could end it: the window ran no command any more until it was closed.
+    /// </summary>
+    [Fact]
+    public async Task A_completion_that_loops_ends_at_its_time_limit_and_the_next_command_runs()
+    {
+        await using var session = await PowerShellSession.CreateAsync(
+            new PowerShellSessionOptions { LockdownProbe = new FakeLockdownProbe(), CompletionTimeLimit = TimeSpan.FromMilliseconds(300) },
+            TestContext.Current.CancellationToken);
+        await TestSessions.RunAsync(session, "function global:TabExpansion2 { while ($true) { } }");
+
+        var result = await session.CompleteAsync("Get-Ad", 6, TestContext.Current.CancellationToken).AsTask().WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+
+        Assert.Empty(result.Matches);
+        Assert.Equal("ok\n", TestSessions.Text(await TestSessions.RunAsync(session, "'ok'")));
+    }
+
+    [Fact]
+    public async Task Stop_ends_a_completion_that_loops()
+    {
+        await using var session = await TestSessions.CreateAsync();
+        await TestSessions.RunAsync(session, "function global:TabExpansion2 { while ($true) { } }");
+
+        var completing = session.CompleteAsync("Get-Ad", 6, TestContext.Current.CancellationToken).AsTask();
+        await Task.Delay(300, TestContext.Current.CancellationToken);
+        Assert.False(completing.IsCompleted);
+        await session.StopAsync().WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+
+        // Well before the time limit of the completion (5 s).
+        var result = await completing.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        Assert.Empty(result.Matches);
+        Assert.Equal("ok\n", TestSessions.Text(await TestSessions.RunAsync(session, "'ok'")));
+    }
+
+    [Fact]
+    public async Task Cancelling_its_token_ends_a_completion_that_loops()
+    {
+        await using var session = await TestSessions.CreateAsync();
+        await TestSessions.RunAsync(session, "function global:TabExpansion2 { while ($true) { } }");
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+
+        var completing = session.CompleteAsync("Get-Ad", 6, cts.Token).AsTask();
+        await Task.Delay(300, TestContext.Current.CancellationToken);
+        Assert.False(completing.IsCompleted);
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => completing.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken));
+        Assert.Equal("ok\n", TestSessions.Text(await TestSessions.RunAsync(session, "'ok'")));
+    }
 }

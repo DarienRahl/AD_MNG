@@ -98,7 +98,9 @@ scope. `PowerShellSession.CreateAsync(options)` builds it on a pool thread: the 
   constrained again before anything of the operator runs, and the window's entry (context and bridge) goes into `WindowRegistry`.
 - **One run at a time.** `RunAsync` on a busy session throws `InvalidOperationException` (when the enumeration starts); the
   window's command is disabled while a run is active. Completion returns nothing and the language switch throws while a run
-  is active; a completion in flight delays the start of a run by its own duration (one gate).
+  is active; a completion in flight delays the start of a run by its own duration (one gate), which is bounded: a completion
+  is stopped after `CompletionTimeLimit` (5 s), on `StopAsync` and when its token is cancelled, and one that its stop cannot end
+  is left after the grace period like a run (a new runspace; audit PS-10).
 - **Stop.** `StopAsync()` (the Stop button) and the cancellation token of `RunAsync` do the same: cancel the sink's token
   (wakes a producer waiting for room in the channel and a prompt waiting for an answer), `PowerShell.BeginStop` (the engine's
   stop – a `StopProcessing` call on every running command, which cancels the command's `StopToken`), and start the
@@ -447,7 +449,10 @@ write verb (`Set`, `New`, `Remove`, `Move`, `Rename`, `Add`, `Enable`, `Disable`
   may call them on every keystroke.
 - `CompleteAsync(input, cursor)` calls `CommandCompletion.CompleteInput` on the window's idle runspace and returns the
   replacement span and the matches (text, list text, kind, tool tip); a text too long or too deep to parse gets none (the engine's
-  completion would parse it again on a pool thread). File system completion is removed in R1: matches of
+  completion would parse it again on a pool thread). `CompleteInput` runs the session's `TabExpansion2` and the argument
+  completers - code the operator can replace - so the completion has a time limit (5 s), Stop and its token stop it, one stuck in
+  .NET code is left after the grace period (the session goes on in a new runspace), and one that fails or is stopped offers
+  nothing (audit PS-10: a looping `TabExpansion2` held the session's gate until the window closed). File system completion is removed in R1: matches of
   kind `ProviderItem` and `ProviderContainer` are dropped (a test shows they would otherwise be offered for `Get-ChildItem /`).
   Parameter completers for AD Manager's commands (part 2) are `IArgumentCompleter`s on the parameters: they read
   `Context.Reader.Schema` (attribute names) and the DNs the session already knows, never the directory.

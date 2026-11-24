@@ -377,7 +377,9 @@ in a process other than `powershell.exe`* – the process is `AdMng.exe`; tell t
 - **No Microsoft 365 modules** (track C), no remote PowerShell sessions to servers, no background jobs, no scripts from files
   (`.ps1`) and no scheduled scripts.
 - **No file system completion.** Tab completes commands, parameters, variables, attribute names and the window's containers,
-  not file names; the window never reads the directory per keystroke.
+  not file names; the window never reads the directory per keystroke. Completion takes at most 5 seconds: a `TabExpansion2`
+  function of your own that loops is stopped then (also by *Stop* or the next Tab), and one that cannot be stopped is left like a
+  command – the window goes on in a new session, without the earlier variables and functions.
 - **The status line counts lines, not objects.** The window shows the engine's formatted text, so it says *12 lines of
   output*, not *12 objects*.
 - `LockedOut` is the domain controller's own flag when it returns one, and otherwise "has a lockout time"; the list of

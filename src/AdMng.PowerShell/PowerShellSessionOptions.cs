@@ -22,7 +22,17 @@ public sealed class PowerShellSessionOptions
     /// <summary>How long a stopped run may take to end before the session leaves it and goes on in a new runspace (a command stuck in .NET code cannot be interrupted).</summary>
     public TimeSpan StopGracePeriod { get; init; } = TimeSpan.FromSeconds(5);
 
-    /// <summary>Used for the stop grace period; tests inject a fake.</summary>
+    /// <summary>How long a completion (Tab) runs before the session stops it (5 s).</summary>
+    public static readonly TimeSpan DefaultCompletionTimeLimit = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// How long a completion may run before the session stops it (audit PS-10: completion runs <c>TabExpansion2</c> and argument
+    /// completers, which the operator can replace with code that never returns); a completion that its stop cannot end either is left
+    /// after <see cref="StopGracePeriod"/>, like a run.
+    /// </summary>
+    public TimeSpan CompletionTimeLimit { get; init; } = DefaultCompletionTimeLimit;
+
+    /// <summary>Used for the stop grace period and the time limit of a completion; tests inject a fake.</summary>
     public TimeProvider TimeProvider { get; init; } = TimeProvider.System;
 
     /// <summary>Test seam: commands added to the session state besides the program's.</summary>

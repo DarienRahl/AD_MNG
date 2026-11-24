@@ -373,7 +373,9 @@ procesie innym niż `powershell.exe`* – tym procesem jest `AdMng.exe`; uprzed�
 - **Brak modułów Microsoft 365** (ścieżka C), zdalnych sesji PowerShell do serwerów, zadań w tle, skryptów z plików (`.ps1`)
   i skryptów uruchamianych według harmonogramu.
 - **Brak uzupełniania nazw plików.** Tab uzupełnia polecenia, parametry, zmienne, nazwy atrybutów i kontenery okna, nie nazwy
-  plików; okno nigdy nie czyta katalogu na każdy klawisz.
+  plików; okno nigdy nie czyta katalogu na każdy klawisz. Uzupełnianie trwa najwyżej 5 sekund: własna funkcja `TabExpansion2`,
+  która się zapętla, jest wtedy zatrzymywana (także przez *Zatrzymaj* albo następny Tab), a taka, której zatrzymać się nie da,
+  zostaje porzucona jak polecenie – okno działa dalej w nowej sesji, bez wcześniejszych zmiennych i funkcji.
 - **Wiersz stanu liczy wiersze, nie obiekty.** Okno pokazuje sformatowany tekst silnika, więc mówi *12 wierszy danych
   wyjściowych*, nie *12 obiektów*.
 - `LockedOut` to własna flaga kontrolera domeny, gdy ją zwraca, a w przeciwnym razie „ma czas blokady”; lista kont w programie
