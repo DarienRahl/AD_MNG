@@ -30,7 +30,7 @@ public abstract class AdmReadCmdlet : AdmCmdlet
     [ValidateRange(0, int.MaxValue)]
     public int ResultSetSize { get; set; }
 
-    /// <summary>Reads the objects of one search and writes them to the pipeline; returns how many were written.</summary>
+    /// <summary>Reads the objects of one search and writes them to the pipeline; returns how many were written and whether the directory failed the read.</summary>
     /// <param name="context">The window's services.</param>
     /// <param name="search">The search; <see cref="DirectorySearch.PageSize"/> and <see cref="DirectorySearch.SizeLimit"/> are filled in here.</param>
     /// <param name="projection">The attributes of the result objects.</param>
@@ -39,14 +39,17 @@ public abstract class AdmReadCmdlet : AdmCmdlet
     /// False when the caller reads an object by its distinguished name and reports "not found" itself: the directory's "no such
     /// object" then reaches it as an exception instead of an error record.
     /// </param>
-    private protected int WriteSearch(IAdmWindowContext context, DirectorySearch search, AdmProjection projection, string? target, bool missingBaseIsAnError = true)
+    private protected AdmReadResult WriteSearch(IAdmWindowContext context, DirectorySearch search, AdmProjection projection, string? target, bool missingBaseIsAnError = true)
     {
         var withLimits = search with { PageSize = ResultPageSize, SizeLimit = ResultSetSize };
         return Stream(context, context.Reader.SearchAsync(withLimits, StopToken), projection, target, missingBaseIsAnError);
     }
 
-    /// <summary>Writes the objects of <paramref name="source"/> projected as script objects; a directory error becomes an error record.</summary>
-    private protected int Stream(IAdmWindowContext context, IAsyncEnumerable<DirectoryObject> source, AdmProjection projection, string? target, bool missingBaseIsAnError = true)
+    /// <summary>
+    /// Writes the objects of <paramref name="source"/> projected as script objects; a directory error becomes an error record, and the
+    /// result says so (audit ps-commands-1: a caller that saw only "nothing written" also reported the object as not found).
+    /// </summary>
+    private protected AdmReadResult Stream(IAdmWindowContext context, IAsyncEnumerable<DirectoryObject> source, AdmProjection projection, string? target, bool missingBaseIsAnError = true)
     {
         var projector = new AdmObjectProjector(context.Reader, context.KnownContainers);
         var reported = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -78,9 +81,10 @@ public abstract class AdmReadCmdlet : AdmCmdlet
             }
 
             WriteError(AdmErrors.FromDirectory(error, target));
+            return new AdmReadResult(written, Failed: true);
         }
 
-        return written;
+        return new AdmReadResult(written, Failed: false);
     }
 
     /// <summary>The attributes and type names of the command's objects; ends the command with an error when a name is refused.</summary>
@@ -119,6 +123,9 @@ public abstract class AdmReadCmdlet : AdmCmdlet
         }
     }
 }
+
+/// <summary>What one read wrote: how many objects, and whether the directory failed it (its error was written).</summary>
+internal readonly record struct AdmReadResult(int Written, bool Failed);
 
 /// <summary>A read command that searches below a base: <c>-SearchBase</c> and <c>-SearchScope</c>.</summary>
 public abstract class AdmSearchCmdlet : AdmReadCmdlet
@@ -172,17 +179,18 @@ public abstract class AdmSearchCmdlet : AdmReadCmdlet
             var searchBase = identity.Kind == AdmIdentityKind.DistinguishedName ? identity.Value : ResolveBase(context);
             var search = AdmSearchPlan.ForIdentity(context.Reader, identity, kind, projection.Request, SearchBase, SearchScope);
 
-            int found;
+            AdmReadResult read;
             try
             {
-                found = WriteSearch(context, search, projection, identity.Text, missingBaseIsAnError: false);
+                read = WriteSearch(context, search, projection, identity.Text, missingBaseIsAnError: false);
             }
             catch (DirectoryException error) when (error.Kind == DirectoryErrorKind.NoSuchObject)
             {
-                found = 0;
+                read = new AdmReadResult(0, Failed: false);
             }
 
-            if (found == 0 && !StopToken.IsCancellationRequested)
+            // A read the directory failed was reported as its error: the object may well exist.
+            if (read.Written == 0 && !read.Failed && !StopToken.IsCancellationRequested)
             {
                 WriteError(AdmErrors.NotFound(identity.Text, description, identity.Kind == AdmIdentityKind.DistinguishedName ? null : searchBase));
             }

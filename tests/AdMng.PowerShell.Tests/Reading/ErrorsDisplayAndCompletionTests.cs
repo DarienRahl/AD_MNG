@@ -59,6 +59,36 @@ public sealed class ErrorsDisplayAndCompletionTests
         Assert.Equal(["jan.kowalski"], next.Texts("sAMAccountName"));
     }
 
+    /// <summary>
+    /// Audit ps-commands-1: a read by identity that the directory failed (a timeout, a refusal) also said the object does not exist, so a
+    /// script that goes on at "not found" was told an existing account is missing. It is one error, the directory's.
+    /// </summary>
+    [Theory]
+    [InlineData(DirectoryErrorKind.Timeout, "AdmTimeout", "Get-AdmUser")]
+    [InlineData(DirectoryErrorKind.AccessDenied, "AdmAccessDenied", "Get-AdmUser")]
+    [InlineData(DirectoryErrorKind.Timeout, "AdmTimeout", "Get-AdmObject")]
+    [InlineData(DirectoryErrorKind.ServerUnavailable, "AdmServerUnavailable", "Get-AdmGroup")]
+    [InlineData(DirectoryErrorKind.Timeout, "AdmTimeout", "Get-AdmComputer")]
+    public async Task A_read_by_identity_that_the_directory_failed_is_one_error_of_the_directory_not_also_not_found(DirectoryErrorKind kind, string id, string command)
+    {
+        await using var harness = await ReadHarness.CreateAsync();
+        harness.Directory.FailNext(FakeOperationKind.Search, null, kind);
+
+        var result = await harness.RunAsync($"{command} -Identity jan.kowalski -ErrorVariable e -ErrorAction SilentlyContinue; $e.Count; $e | ForEach-Object {{ $_.FullyQualifiedErrorId.Split(',')[0] }}");
+
+        Assert.Equal(["1", id], result.Objects.Select(o => o.ToString()).ToArray());
+    }
+
+    [Fact]
+    public async Task An_identity_that_does_not_exist_is_still_one_not_found_error()
+    {
+        await using var harness = await ReadHarness.CreateAsync();
+
+        var result = await harness.RunAsync("Get-AdmUser -Identity nobody.here -ErrorVariable e -ErrorAction SilentlyContinue; $e.Count; $e | ForEach-Object { $_.FullyQualifiedErrorId.Split(',')[0] }");
+
+        Assert.Equal(["1", "AdmObjectNotFound"], result.Objects.Select(o => o.ToString()).ToArray());
+    }
+
     [Fact]
     public async Task A_mandatory_attribute_the_account_may_not_read_is_reported_once_with_its_name_and_the_objects_still_arrive()
     {
