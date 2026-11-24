@@ -3298,8 +3298,10 @@ and what nobody has seen on a screen yet.
     window closes); stopped, "The backup was stopped: 1 of 3 GPOs were written to the folder. Press “Back Up” to try again."
     with the button that backs up; failed, "Could not back up 1 of 3 GPOs: reason. (code)" (the reason of the first
     failure; it was only a count); SYSVOL not available before anything was written, "The backup was not made: …" with
-    Retry; a stopped read of the folder, with Retry (a result: the list is as it was); the plan as in 4 above. **States:** a
-    folder that could not be read ("Could not list the backups: The folder could not be read or written. Press Retry to try
+    Retry; a stopped read of the folder, with Retry (a result: the list is as it was); the plan as in 4 above – about the
+    backup it was made for: selecting another backup takes it and its Retry off the line (a plan that still runs keeps the
+    line), and a plan that ends after another backup was selected says how it ended without Retry, which would plan the
+    backup selected now. **States:** a folder that could not be read ("Could not list the backups: The folder could not be read or written. Press Retry to try
     again. (ArgumentException)") and a backup that could not be read or was stopped ("Could not read the backup of “…”: …
     (GpoBackupException)", "Reading the backup was stopped: it cannot be used yet. Press “Retry” to read it again.") –
     the second is the state of that selection and goes with it; the end of the session, or no session.
