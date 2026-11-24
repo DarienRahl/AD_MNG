@@ -154,7 +154,10 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   `objectGUID`, SID, nazwa konta; najwyżej 10 okien naraz). `Export-AdmList` zapisuje CSV tak jak eksport listy (formuły
   chronione, separator z ustawień regionalnych, UTF-8 z BOM) tylko do pliku z `-Path` albo wybranego w oknie *Zapisz jako*;
   istniejący plik zastępuje tylko z `-Force`, a bez ścieżki i bez wybranego pliku nic nie zapisuje. Ścieżkę, `-Force` i
-  separator sprawdza, zanim polecenie przed nim cokolwiek przeczyta.
+  separator sprawdza, zanim polecenie przed nim cokolwiek przeczyta. Kolumny z sekretami (hasło LAPS jawnym tekstem, hasło
+  odzyskiwania BitLockera, atrybuty poufne) `Export-AdmList` i eksport siatki zapisują dopiero po tym samym pytaniu co eksport
+  listy programu, a kopiowanie wierszy siatki je pomija. *Zatrzymaj* przy eksporcie siatki przerywa zapis i usuwa zapisaną część
+  pliku, a wiersz stanu mówi to własnymi słowami.
 - **Nic na dysku.** Wynik, historia i zawartość okna są tylko w pamięci i znikają z oknem. Silnik (PowerShell 7.6 wbudowany w
   program) ma wyłączone: telemetrię, kanał diagnostyczny, sprawdzanie aktualizacji, automatyczne ładowanie modułów i zapis
   pamięci podręcznej analizy modułów; test „bez plików” sprawdza, że praca w oknie nie zostawia pliku. W trybie ograniczonym

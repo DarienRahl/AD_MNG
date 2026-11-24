@@ -48,11 +48,31 @@ public sealed class PowerShellRulesTests
         foreach (var file in SourceFiles())
         {
             var text = File.ReadAllText(file);
+            if (Path.GetFileName(file) == "PowerShellGridViewModel.cs")
+            {
+                // The one deletion: the part of an export the operator stopped (audit TI-3) - the file the grid itself began on the
+                // operator's path, never anything else.
+                Assert.Equal(1, Occurrences(text, "File.Delete"));
+                Assert.Contains("private static Task<bool> RemovePartAsync(string path)", text, StringComparison.Ordinal);
+                text = text.Replace("File.Delete", string.Empty, StringComparison.Ordinal);
+            }
+
             foreach (var word in forbidden)
             {
                 Assert.False(text.Contains(word, StringComparison.Ordinal), $"{Path.GetFileName(file)} mentions '{word}'.");
             }
         }
+    }
+
+    private static int Occurrences(string text, string word)
+    {
+        var count = 0;
+        for (var index = text.IndexOf(word, StringComparison.Ordinal); index >= 0; index = text.IndexOf(word, index + word.Length, StringComparison.Ordinal))
+        {
+            count++;
+        }
+
+        return count;
     }
 
     [Fact]

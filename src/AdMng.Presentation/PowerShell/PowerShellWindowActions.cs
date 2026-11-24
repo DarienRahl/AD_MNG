@@ -1,6 +1,7 @@
 using AdMng.Core.Csv;
 using AdMng.Core.Ldap;
 using AdMng.Core.PowerShell;
+using AdMng.Core.Schema;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
@@ -55,6 +56,22 @@ public sealed class PowerShellWindowActions(DialogServices services, ICsvCodec c
     {
         ArgumentNullException.ThrowIfNull(table);
         cancellationToken.ThrowIfCancellationRequested();
+
+        // Columns with secrets (the clear-text LAPS password, a BitLocker recovery password, what the schema marks confidential) are
+        // written only after the question of the program's list export; declined, they are left out (audit ps-commands-4).
+        var kept = Enumerable.Range(0, table.Columns.Count).ToList();
+        var secret = kept.Where(index => SecretAttributes.IsSecret(table.Columns[index], _services.Sessions.Current?.Schema)).ToList();
+        if (secret.Count > 0)
+        {
+            var message = _services.Localizer.Format(L.Files.ExportSecretColumns, string.Join(", ", secret.Select(index => table.Columns[index])));
+            var include = await OnUiThreadAsync(() => _services.Dialogs.ConfirmAsync(_services.Localizer[L.Batch.ExportPasswordsTitle], message, destructive: true)).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!include)
+            {
+                kept.RemoveAll(secret.Contains);
+            }
+        }
+
         var target = path;
         if (target is null)
         {
@@ -71,8 +88,8 @@ public sealed class PowerShellWindowActions(DialogServices services, ICsvCodec c
 
         // The separator of the operator's region (';' in Poland) unless the command named one.
         var separator = delimiter ?? CsvFiles.ListSeparator(_services.Regional.Culture);
-        var headers = table.Columns;
-        var rows = table.Rows.Select(row => (IReadOnlyList<string>)[.. row.Select(cell => cell ?? string.Empty)]);
+        IReadOnlyList<string> headers = [.. kept.Select(index => table.Columns[index])];
+        var rows = table.Rows.Select(row => (IReadOnlyList<string>)[.. kept.Select(index => index < row.Count ? row[index] ?? string.Empty : string.Empty)]);
         await CsvFiles.WriteAsync(target, writer => _csv.Write(writer, headers, rows, separator, protectFormulas: true), cancellationToken).ConfigureAwait(false);
         return target;
     }

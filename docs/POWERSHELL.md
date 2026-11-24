@@ -217,7 +217,13 @@ Plik powstaje w dokładnie trzech przypadkach i tylko wtedy, gdy o to prosisz:
   mówi o tym. Ścieżkę, `-Force` i separator sprawdza, zanim polecenie przed nim cokolwiek przeczyta, więc
   `Get-AdmUser | Export-AdmList istniejący.csv` kończy się błędem od razu, a nie po odczytaniu całej domeny. Wypisuje ścieżkę
   oraz liczbę wierszy i kolumn, nigdy wartości.
-- ***Eksportuj listę…*** w oknie siatki `Out-AdmGrid`: ten sam CSV do wybranego pliku.
+- ***Eksportuj listę…*** w oknie siatki `Out-AdmGrid`: ten sam CSV do wybranego pliku. *Zatrzymaj* w wierszu stanu przerywa zapis
+  między dwoma wierszami i usuwa zapisaną już część pliku (wiersz stanu mówi o tym).
+- **Kolumny z sekretami** – hasło LAPS jawnym tekstem (`ms-Mcs-AdmPwd`, `msLAPS-Password`), hasło odzyskiwania BitLockera
+  (`msFVE-RecoveryPassword`) i atrybuty, które schemat oznacza jako poufne – `Export-AdmList` i eksport siatki zapisują dopiero po
+  tym samym pytaniu, które zadaje eksport listy programu (*Dołączyć hasła?*); odpowiedź *Nie* pomija te kolumny. Kopiowanie
+  wierszy siatki (Ctrl+C) zawsze je pomija i mówi, które – jak kopiowanie listy programu. `-Properties *` zwraca te atrybuty,
+  gdy konto może je czytać.
 - **`Start-Transcript -Path <plik>`** (albo `-LiteralPath`) zapisuje przebieg sesji – polecenia i wszystko, co pokazały, a więc
   także dane z katalogu – do pliku, który wskażesz, aż do `Stop-Transcript` albo do zamknięcia okna. Bez ścieżki jest odrzucany:
   silnik zapisałby wtedy plik o nadanej przez siebie nazwie w Twoim folderze *Dokumenty*. Nie ma tu ochrony formuł; traktuj ten plik

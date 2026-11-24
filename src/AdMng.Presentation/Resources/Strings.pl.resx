@@ -25860,6 +25860,12 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="PowerShellGrid.ExportFailed" xml:space="preserve">
     <value>Nie zapisano pliku</value>
   </data>
+  <data name="PowerShellGrid.ExportStopped" xml:space="preserve">
+    <value>Eksport zatrzymano: plik {0} nie został zapisany (zapisaną już część usunięto).</value>
+  </data>
+  <data name="PowerShellGrid.ExportStoppedLeft" xml:space="preserve">
+    <value>Eksport zatrzymano: plik {0} jest niekompletny i nie dało się go usunąć. Usuń go albo wyeksportuj listę jeszcze raz.</value>
+  </data>
   <data name="PowerShellGrid.Menu.CopyRows" xml:space="preserve">
     <value>Kopiuj wiersze</value>
   </data>

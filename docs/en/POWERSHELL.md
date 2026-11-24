@@ -216,7 +216,13 @@ A file is written in exactly three cases, and only when you ask:
   It checks the path, `-Force` and the delimiter before the command in front of it reads anything, so
   `Get-AdmUser | Export-AdmList existing.csv` ends with an error at once, not after reading the whole domain. It prints the
   path and the number of rows and columns, never the values.
-- ***Export list…*** in the grid window of `Out-AdmGrid`: the same CSV, to the file you choose.
+- ***Export list…*** in the grid window of `Out-AdmGrid`: the same CSV, to the file you choose. *Stop* on the status line ends the
+  write between two rows and deletes the part of the file already written (the status line says so).
+- **Columns with secrets** – the clear-text LAPS password (`ms-Mcs-AdmPwd`, `msLAPS-Password`), a BitLocker recovery password
+  (`msFVE-RecoveryPassword`) and attributes the schema marks confidential – are written by `Export-AdmList` and the grid's export
+  only after the same question the program's list export asks (*Include passwords?*); *No* leaves these columns out. Copying rows
+  of the grid (Ctrl+C) always leaves them out and says which, as copying the program's list does. `-Properties *` returns these
+  attributes when the account may read them.
 - **`Start-Transcript -Path <file>`** (or `-LiteralPath`) records the session – the commands and everything they show, so
   directory data too – to the file you name, until `Stop-Transcript` or until the window closes. Without a path it is refused:
   the engine would write to a file it names itself in your *Documents* folder. There is no formula protection; treat the file like an

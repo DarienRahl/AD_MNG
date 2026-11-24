@@ -138,6 +138,12 @@ public static partial class L
         /// <summary>What was tried, without a full stop.</summary>
         public const string ExportFailed = "PowerShellGrid.ExportFailed";
 
+        /// <summary>Stop during an export (audit TI-3): {0} = the file name; the part written was deleted.</summary>
+        public const string ExportStopped = "PowerShellGrid.ExportStopped";
+
+        /// <summary>Stop during an export, and the part written could not be deleted: {0} = the file name.</summary>
+        public const string ExportStoppedLeft = "PowerShellGrid.ExportStoppedLeft";
+
         public const string CopyRows = "PowerShellGrid.Menu.CopyRows";
         public const string CopyRowsWithHeaders = "PowerShellGrid.Menu.CopyRowsWithHeaders";
     }
