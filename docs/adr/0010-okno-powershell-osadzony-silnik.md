@@ -120,6 +120,10 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
    `-replace`, `-split`, `switch -regex`, `Select-String` i `[regex]` działają w ConstrainedLanguage, więc program, zanim
    powstanie pierwsze wyrażenie regularne procesu (inicjator modułu programu), daje każdemu wyrażeniu bez własnego limitu
    limit czasu 2 s: wzorzec z katastrofalnym nawracaniem kończy się błędem polecenia, zamiast trzymać okno i rdzeń procesora.
+   Wyrażenie, któremu skrypt daje własny, dłuższy limit (`[regex]::new('…', 'None', [timespan]::FromHours(1))`, dozwolone w
+   ConstrainedLanguage), i kod .NET trybu zaufanego mogą nadal utknąć: polecenie, które nie skończy się w ciągu 5 s od
+   Zatrzymaj, sesja zostawia jego wątkowi (wątkowi w tle, który nie wstrzymuje zamknięcia programu) i następne polecenie
+   uruchamia od razu w nowym runspace, bez zmiennych i funkcji starego, a okno to mówi.
 9. **Zapisy (D9): w R1 nie ma żadnych.** Nie istnieje żadne polecenie `Set-`/`New-`/`Remove-`/`Move-`/`Rename-`/`Add-`/
    `Enable-`/`Disable-`/`Unlock-`/`Reset-Adm*`, nie ma dysku `AD:` ani RSAT; test sprawdza, że lista zarejestrowanych
    poleceń AD Managera zawiera tylko polecenia odczytu z punktu 4 (i `Get-AdmVersion`). Okno ma miejsce na oczekujący plan,

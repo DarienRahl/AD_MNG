@@ -25,6 +25,9 @@ public static partial class L
 
         public const string TrustedOn = "PowerShell.Trusted.On";
         public const string TrustedOff = "PowerShell.Trusted.Off";
+
+        /// <summary>A line of the window: the engine left a command that did not end after Stop and goes on in a new session.</summary>
+        public const string SessionRestarted = "PowerShell.SessionRestarted";
         public const string TrustedConfirmTitle = "PowerShell.Trusted.ConfirmTitle";
 
         /// <summary>{0} = the domain.</summary>
@@ -179,6 +182,9 @@ public static partial class L
 
         /// <summary>{0} = the time.</summary>
         public const string Stopped = "PowerShell.Status.Stopped";
+
+        /// <summary>{0} = the time: the command did not end after Stop and the window left it.</summary>
+        public const string Abandoned = "PowerShell.Status.Abandoned";
 
         /// <summary>What was tried, without a full stop.</summary>
         public const string CouldNotRun = "PowerShell.Status.CouldNotRun";

@@ -39,14 +39,21 @@ internal sealed record WindowEntry(IAdmWindowContext? Context, ScriptBlock Bridg
 /// <summary>
 /// Runs once, while a new session is set up and before anything of the operator runs: makes the bridge of <see cref="WindowEntry"/> (a
 /// script block takes the language mode of the session it is made in) and hands over the session's job repository, so that the session
-/// can end every job a command leaves behind. Never in the session's command list; invoked through its <see cref="CmdletInfo"/>.
+/// can end every job a command leaves behind. It runs on the runspace's own pipeline thread (<c>PSThreadOptions.ReuseThread</c>: every
+/// command of the runspace runs there) and makes it a background thread - the engine makes it a foreground thread, and one stuck in .NET
+/// code that never returns (a run the session left) would keep the program's process alive after its last window closed. Never in the
+/// session's command list; invoked through its <see cref="CmdletInfo"/>.
 /// </summary>
 [Cmdlet(VerbsData.Initialize, "AdmWindowSession")]
 internal sealed class WindowSetupCommand : PSCmdlet
 {
     internal const string BridgeText = "param($command, $parameters) & $command @parameters";
 
-    protected override void EndProcessing() => WriteObject(new WindowSetup(ScriptBlock.Create(BridgeText), JobRepository));
+    protected override void EndProcessing()
+    {
+        Thread.CurrentThread.IsBackground = true;
+        WriteObject(new WindowSetup(ScriptBlock.Create(BridgeText), JobRepository));
+    }
 }
 
 /// <summary>What <see cref="WindowSetupCommand"/> returns.</summary>

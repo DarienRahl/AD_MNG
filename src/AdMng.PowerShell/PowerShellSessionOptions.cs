@@ -19,7 +19,7 @@ public sealed class PowerShellSessionOptions
     /// <summary>The culture of the engine (the window's UI language); the current culture when null.</summary>
     public CultureInfo? Culture { get; init; }
 
-    /// <summary>How long a stopped run may take to end before the window stops waiting for it (a command stuck in .NET code cannot be interrupted).</summary>
+    /// <summary>How long a stopped run may take to end before the session leaves it and goes on in a new runspace (a command stuck in .NET code cannot be interrupted).</summary>
     public TimeSpan StopGracePeriod { get; init; } = TimeSpan.FromSeconds(5);
 
     /// <summary>Used for the stop grace period; tests inject a fake.</summary>

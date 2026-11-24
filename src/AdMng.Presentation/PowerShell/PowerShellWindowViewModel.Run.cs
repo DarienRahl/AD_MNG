@@ -70,6 +70,7 @@ public sealed partial class PowerShellWindowViewModel
 
         _firstError = null;
         _end = null;
+        var modeBefore = LanguageMode;
         var linesBefore = Output.OutputLinesWritten;
         var started = Services.Time.GetUtcNow();
         IsRunning = true;
@@ -82,7 +83,7 @@ public sealed partial class PowerShellWindowViewModel
             await Task.Run(() => PumpAsync(session, script, scope.Token), CancellationToken.None).ConfigureAwait(true);
             if (!IsDisposed)
             {
-                Finish(scope, started, linesBefore);
+                Finish(scope, started, linesBefore, modeBefore);
             }
         }
         catch (OperationCanceledException) when (scope.Token.IsCancellationRequested)
@@ -90,7 +91,7 @@ public sealed partial class PowerShellWindowViewModel
             // An engine that ends a stopped run by throwing is a stopped run too.
             if (!IsDisposed)
             {
-                Finish(scope, started, linesBefore);
+                Finish(scope, started, linesBefore, modeBefore);
             }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -268,8 +269,12 @@ public sealed partial class PowerShellWindowViewModel
             new PageStatusLog(L.PowerShellStatus.Progress));
     }
 
-    /// <summary>How the command ended, as the result of its operation.</summary>
-    private void Finish(OperationScope scope, DateTimeOffset started, long linesBefore)
+    /// <summary>
+    /// How the command ended, as the result of its operation. A command the engine left (it did not end after Stop) also gets a line
+    /// in the scrollback: the window goes on in a new session without the variables of the old one - and constrained when a lockdown
+    /// came into force meanwhile.
+    /// </summary>
+    private void Finish(OperationScope scope, DateTimeOffset started, long linesBefore, PowerShellLanguageMode modeBefore)
     {
         Output.EndRun();
         var end = _end ?? new PowerShellRunEndItem(scope.Token.IsCancellationRequested ? PowerShellRunState.Stopped : PowerShellRunState.Completed, _firstError is not null);
@@ -281,6 +286,16 @@ public sealed partial class PowerShellWindowViewModel
         {
             case PowerShellRunState.Stopped:
                 scope.CompleteAttention(Localizer.Format(L.PowerShellStatus.Stopped, time), new PageStatusLog(L.PowerShellStatus.Stopped, milliseconds));
+                break;
+            case PowerShellRunState.Abandoned:
+                Output.AddLine(PowerShellLineKind.Information, Localizer[L.PowerShell.SessionRestarted]);
+                scope.CompleteAttention(Localizer.Format(L.PowerShellStatus.Abandoned, time), new PageStatusLog(L.PowerShellStatus.Abandoned, milliseconds));
+                if (LanguageMode != modeBefore)
+                {
+                    Output.AddLine(PowerShellLineKind.Information, Localizer[IsTrustedMode ? L.PowerShell.TrustedOn : L.PowerShell.TrustedOff]);
+                    NotifyMode();
+                }
+
                 break;
             case PowerShellRunState.Failed:
                 scope.CompleteError(

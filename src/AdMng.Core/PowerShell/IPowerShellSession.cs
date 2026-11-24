@@ -22,12 +22,14 @@ public interface IPowerShellSession : IAsyncDisposable
     /// <summary>
     /// Runs <paramref name="script"/> and streams what it produces: text of all streams (formatted by the engine's own
     /// formatting, the way the console host does it), progress, prompts, and a last <see cref="PowerShellRunEndItem"/>.
-    /// Cancelling the token stops the pipeline; the enumeration still ends with the end item.
+    /// Cancelling the token stops the pipeline; the enumeration still ends with the end item. A run that does not end within the grace
+    /// period of a stop ends as <see cref="PowerShellRunState.Abandoned"/>: the session left it to its thread and runs the next command
+    /// in a new runspace.
     /// </summary>
     /// <exception cref="InvalidOperationException">A run is already active.</exception>
     IAsyncEnumerable<PowerShellOutputItem> RunAsync(string script, CancellationToken cancellationToken);
 
-    /// <summary>Stops the active run (no effect when idle); completes when the run has ended.</summary>
+    /// <summary>Stops the active run (no effect when idle); completes when the session is idle again: the run ended, or the session left it.</summary>
     Task StopAsync();
 
     /// <summary>Completion of the input at the cursor on the idle runspace; no file system matches; empty while a run is active.</summary>

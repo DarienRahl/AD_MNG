@@ -25644,6 +25644,9 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="PowerShell.Trusted.Off" xml:space="preserve">
     <value>Trusted mode is off: ConstrainedLanguage.</value>
   </data>
+  <data name="PowerShell.SessionRestarted" xml:space="preserve">
+    <value>The command did not end after it was stopped: it is in .NET code that Stop cannot interrupt. The window left it and started a new PowerShell session, so the variables, functions and modules of earlier commands are gone. The command may keep a processor core busy until it ends or the program closes.</value>
+  </data>
   <data name="PowerShell.Trusted.ConfirmTitle" xml:space="preserve">
     <value>Trusted mode</value>
   </data>
@@ -25727,6 +25730,9 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   </data>
   <data name="PowerShell.Status.Stopped" xml:space="preserve">
     <value>The command was stopped after {0}. The output until then stays in the window.</value>
+  </data>
+  <data name="PowerShell.Status.Abandoned" xml:space="preserve">
+    <value>The command was stopped after {0} but did not end. The window left it and goes on in a new session.</value>
   </data>
   <data name="PowerShell.Status.CouldNotRun" xml:space="preserve">
     <value>The command could not be started</value>

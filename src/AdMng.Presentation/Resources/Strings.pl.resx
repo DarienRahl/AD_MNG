@@ -25644,6 +25644,9 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="PowerShell.Trusted.Off" xml:space="preserve">
     <value>Tryb zaufany jest wyłączony: ConstrainedLanguage.</value>
   </data>
+  <data name="PowerShell.SessionRestarted" xml:space="preserve">
+    <value>Polecenie nie zakończyło się po zatrzymaniu: wykonuje kod .NET, którego zatrzymanie nie przerywa. Okno je zostawiło i uruchomiło nową sesję PowerShell, więc zmiennych, funkcji i modułów z wcześniejszych poleceń już nie ma. Polecenie może zajmować rdzeń procesora, dopóki się nie skończy albo program nie zostanie zamknięty.</value>
+  </data>
   <data name="PowerShell.Trusted.ConfirmTitle" xml:space="preserve">
     <value>Tryb zaufany</value>
   </data>
@@ -25727,6 +25730,9 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <data name="PowerShell.Status.Stopped" xml:space="preserve">
     <value>Polecenie zatrzymano po {0}. Dane wyjściowe do tego momentu pozostają w oknie.</value>
+  </data>
+  <data name="PowerShell.Status.Abandoned" xml:space="preserve">
+    <value>Polecenie zatrzymano po {0}, ale się nie zakończyło. Okno je zostawiło i działa dalej w nowej sesji.</value>
   </data>
   <data name="PowerShell.Status.CouldNotRun" xml:space="preserve">
     <value>Nie można uruchomić polecenia</value>

@@ -137,4 +137,73 @@ public sealed class RegexLimitTests
         Assert.False(session.IsRunning);
         Assert.Equal("next\n", TestSessions.Text(await TestSessions.RunAsync(session, "'next'")));
     }
+
+    /// <summary>
+    /// The second red team of R1 (goal h): a <c>[regex]</c> made with a time limit of its own - <c>[timespan]::FromHours(1)</c> or
+    /// <c>[regex]::InfiniteMatchTimeout</c>, all of it allowed in ConstrainedLanguage - is not bound by the process's limit, so the
+    /// match backtracks past Stop. The red team's text had 36 a's (hours); 26 a's backtrack for about 5 s here, long enough to outlast
+    /// the second this test gives Stop, short enough not to keep a core of the test run busy for long.
+    /// </summary>
+    public static TheoryData<string> MatchesWithTheirOwnLimit { get; } = new(
+        "[regex]::new('^(a+)+$', 'None', [timespan]::FromHours(1)).IsMatch(" + LongBacktracking + ")",
+        "[regex]::Matches(" + LongBacktracking + ", '^(a+)+$', [System.Text.RegularExpressions.RegexOptions]::None, [timespan]::FromHours(1)).Count",
+        "[regex]::new('^(a+)+$', [System.Text.RegularExpressions.RegexOptions]::None, [regex]::InfiniteMatchTimeout).IsMatch(" + LongBacktracking + ")");
+
+    private const string LongBacktracking = "'aaaaaaaaaaaaaaaaaaaaaaaaaa!'";
+
+    /// <summary>
+    /// Stop cannot end such a match, and before the fix the window stayed busy for good ("A command is already running in this window").
+    /// After the grace period the session leaves the run - it ends as <see cref="PowerShellRunState.Abandoned"/> - and the next command
+    /// runs at once in a new runspace, without what the old one held.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(MatchesWithTheirOwnLimit))]
+    public async Task Stop_of_a_match_with_a_longer_limit_of_its_own_leaves_it_and_the_window_runs_the_next_command(string match)
+    {
+        var time = new FakeTimeProvider();
+        await using var session = await TestSessions.CreateAsync(time: time);
+        await TestSessions.RunAsync(session, "$before = 'kept'");
+        var items = new List<PowerShellOutputItem>();
+        var stopEndedTheMatch = false;
+
+        await foreach (var item in session.RunAsync("'started'; " + match + "; 'after'", TestContext.Current.CancellationToken))
+        {
+            items.Add(item);
+            if (item is PowerShellTextItem { Text: "started\n" })
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(300), TestContext.Current.CancellationToken);
+                var stopping = session.StopAsync();
+                stopEndedTheMatch = await Task.WhenAny(stopping, Task.Delay(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken)) == stopping;
+
+                // The grace period passes.
+                time.Advance(TimeSpan.FromSeconds(5));
+                await stopping.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+            }
+        }
+
+        Assert.False(stopEndedTheMatch, "Stop ended the match: the case does not show what it is about. " + TestSessions.Dump(items));
+        Assert.False(session.IsRunning, "The window is still busy with the match it gave up on. " + TestSessions.Dump(items));
+        var next = await TestSessions.RunAsync(session, "41 + 1; $null -eq $before");
+        Assert.Equal("42\nTrue\n", TestSessions.Text(next));
+        Assert.Equal(new PowerShellRunEndItem(PowerShellRunState.Completed, HadErrors: false), TestSessions.End(next));
+
+        Assert.Equal(PowerShellRunState.Abandoned, TestSessions.End(items).State);
+        Assert.DoesNotContain("after", TestSessions.Text(items), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The left thread of such a match never returns ([regex]::InfiniteMatchTimeout), and the engine's pipeline thread is a foreground
+    /// thread: the program must still end when its last window closed. A child process runs the match, Stop, the end of the window and
+    /// the end of <c>Main</c>; it has to exit on its own.
+    /// </summary>
+    [Fact]
+    public async Task A_process_whose_window_left_a_match_that_never_ends_still_exits()
+    {
+        using var home = new TempFolder();
+
+        var result = await ChildProcess.RunAsync("left-run", home.Home, home.ReportPath, timeout: TimeSpan.FromSeconds(60));
+
+        Assert.True(result.ExitCode == 0, "The child failed:\n" + result.Output);
+        Assert.Contains("end=Abandoned\ndone", result.Report, StringComparison.Ordinal);
+    }
 }

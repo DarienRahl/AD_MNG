@@ -13,7 +13,8 @@ namespace AdMng.PowerShell.Probe;
 /// environment (HOME, TEMP, XDG_*, the user's own PowerShell settings) and looks at the folders afterwards. Modes:
 /// <c>files</c> (the window's session, a script that touches the formatter, module discovery, completion, syntax and the
 /// history policy, then a measurement), <c>control</c> (an ordinary runspace of the SDK: the parent expects it to leave
-/// telemetry.uuid), <c>cache-control</c> and <c>cache-window</c> (the module analysis cache, about 40 s each).
+/// telemetry.uuid), <c>cache-control</c> and <c>cache-window</c> (the module analysis cache, about 40 s each), <c>left-run</c> (a
+/// run the session left: the process still ends).
 /// </summary>
 internal static class Program
 {
@@ -21,7 +22,7 @@ internal static class Program
     {
         if (args.Length != 2)
         {
-            await Console.Error.WriteLineAsync("usage: probe <files|control|cache-control|cache-window> <report file>");
+            await Console.Error.WriteLineAsync("usage: probe <files|control|cache-control|cache-window|left-run> <report file>");
             return 2;
         }
 
@@ -44,6 +45,9 @@ internal static class Program
                 case "cache-window":
                     await CacheWindowAsync();
                     await File.WriteAllTextAsync(report, "done\n");
+                    break;
+                case "left-run":
+                    await File.WriteAllTextAsync(report, await LeftRunAsync());
                     break;
                 default:
                     await Console.Error.WriteLineAsync("unknown mode " + args[0]);
@@ -127,6 +131,36 @@ internal static class Program
         await RunAsync(session, "Get-Command Get-Fake* | Out-Null; Get-Module -ListAvailable | Out-Null; Get-Command | Out-Null");
         await session.CompleteAsync("Get-", 4, CancellationToken.None);
         await WaitForCacheAsync(TimeSpan.FromSeconds(40), expectFile: false);
+    }
+
+    /// <summary>
+    /// A run that Stop cannot end - a regular expression with an infinite time limit of its own, allowed in ConstrainedLanguage - is left
+    /// by the session, the session is disposed, and <c>Main</c> returns: the parent checks that the process ends although the left
+    /// thread never returns (second red team of R1).
+    /// </summary>
+    private static async Task<string> LeftRunAsync()
+    {
+        await using var session = await PowerShellSession.CreateAsync(new PowerShellSessionOptions
+        {
+            Context = new AdmWindowContext(new FakeDirectorySession(), "probe"),
+            StopGracePeriod = TimeSpan.FromSeconds(1),
+        });
+        var end = "none";
+        var script = "'started'; [regex]::new('^(a+)+$', 'None', [regex]::InfiniteMatchTimeout).IsMatch('" + new string('a', 40) + "!')";
+        await foreach (var item in session.RunAsync(script, CancellationToken.None))
+        {
+            if (item is PowerShellTextItem { Text: "started\n" })
+            {
+                await Task.Delay(300);
+                _ = session.StopAsync();
+            }
+            else if (item is PowerShellRunEndItem runEnd)
+            {
+                end = runEnd.State.ToString();
+            }
+        }
+
+        return "end=" + end + "\ndone\n";
     }
 
     private static Task<PowerShellSession> CreateAsync() =>

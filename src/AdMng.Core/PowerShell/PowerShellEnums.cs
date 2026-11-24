@@ -52,6 +52,12 @@ public enum PowerShellRunState
 
     /// <summary>A terminating error ended it.</summary>
     Failed = 2,
+
+    /// <summary>
+    /// It was stopped and did not end within the grace period (it is stuck in .NET code that Stop cannot interrupt): the session left
+    /// it to its thread and runs the next command in a new runspace, without the variables, functions and modules of the old one.
+    /// </summary>
+    Abandoned = 3,
 }
 
 /// <summary>What a prompt item asks for.</summary>

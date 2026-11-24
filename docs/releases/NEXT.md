@@ -103,7 +103,10 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   przy **Stop** i przy zamknięciu okna. Jedno dopasowanie wyrażenia regularnego (`-match`, `-replace`, `-split`,
   `switch -regex`, `Select-String`, `[regex]`) trwa najwyżej 2 sekundy, a potem kończy się błędem polecenia, więc wzorzec
   z katastrofalnym nawracaniem (np. `'^(a+)+$'`) nie zawiesza okna ani nie zajmuje procesora do zamknięcia programu; limit
-  obowiązuje każde wyrażenie regularne programu, które nie ma własnego.
+  obowiązuje każde wyrażenie regularne programu, które nie ma własnego. Polecenie, którego **Stop** nie przerywa (kod .NET
+  trybu zaufanego albo `[regex]` z własnym, dłuższym limitem czasu), okno zostawia po 5 sekundach i mówi o tym: następne
+  polecenie działa od razu w nowej sesji, bez zmiennych i funkcji z wcześniejszych poleceń, a pozostawione polecenie nie
+  przeszkadza zamknięciu programu.
   Przełącznik **Tryb zaufany (FullLanguage)** po potwierdzeniu, które mówi, co daje (dowolny kod .NET, zapis do katalogu
   z pominięciem planu zmian – bez podglądu, dziennika i cofania), włącza pełny język tylko w tym oknie, na stałej uwadze i
   w tytule okna; nie jest pamiętany. Nie dodaje poleceń – tylko kod .NET, a ten sięga do całego procesu AD Managera, także do

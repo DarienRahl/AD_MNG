@@ -49,6 +49,13 @@ internal sealed class FakePowerShellSession : IPowerShellSession
 
     public PowerShellLanguageMode LanguageMode { get; private set; }
 
+    /// <summary>What the real engine does when it leaves a run under a lockdown that came into force meanwhile: its new runspace is constrained.</summary>
+    public void EnforceConstrainedFromTheEngine()
+    {
+        LanguageMode = PowerShellLanguageMode.Constrained;
+        TrustedModeBlock = PowerShellTrustedModeBlock.SystemLockdown;
+    }
+
     public PowerShellTrustedModeBlock TrustedModeBlock { get; set; }
 
     public bool IsRunning { get; private set; }

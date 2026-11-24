@@ -18,17 +18,22 @@ namespace AdMng.PowerShell;
 /// session state - an allow-list of commands (<see cref="CommandGuards"/>) - never shared with another window, with the custom host
 /// and AD Manager's commands. It refuses what the text of a command would do past that list (<see cref="InputGuard"/>), runs one
 /// pipeline at a time and streams what the pipeline produces as <see cref="PowerShellOutputItem"/>s, in memory only. No job
-/// outlives its command: a job left in the session's job repository is stopped when the command ends, on Stop and on dispose.
-/// Disposing it stops the pipeline and closes the runspace.
+/// outlives its command: a job left in the session's job repository is stopped when the command ends, on Stop and on dispose. A
+/// command that Stop cannot end (stuck in .NET code) is left to its thread after the grace period, and the session goes on in a new
+/// runspace (<see cref="PowerShellRunState.Abandoned"/>). Disposing it stops the pipeline and closes the runspace.
 /// </summary>
 public sealed class PowerShellSession : IPowerShellSession
 {
     private const int ChannelCapacity = 4096;
 
-    private readonly Runspace _runspace;
-    private readonly WindowHost _host;
+    private const int RunActive = 0;
+    private const int RunFinished = 1;
+    private const int RunLeft = 2;
+
+    private readonly PowerShellSessionOptions _options;
+    private readonly Version _version;
+    private readonly CultureInfo _culture;
     private readonly WindowHostRawUserInterface _raw;
-    private readonly JobRepository _jobs;
     private readonly IPowerShellLockdownProbe _probe;
     private readonly TimeProvider _time;
     private readonly TimeSpan _grace;
@@ -37,37 +42,26 @@ public sealed class PowerShellSession : IPowerShellSession
     private ActiveRun? _run;
     private bool _running;
     private bool _disposed;
+
+    /// <summary>The runspace the next command runs in; replaced when a run is left; null once disposed or when a new one could not be made.</summary>
+    private Engine? _engine;
+
+    /// <summary>Why the session has no runspace after it left a run (the next command says so).</summary>
+    private Exception? _restartFailure;
     private PowerShellLanguageMode _mode = PowerShellLanguageMode.Constrained;
     private PowerShellLockdownState _lockdown;
 
     private PowerShellSession(PowerShellSessionOptions options)
     {
+        _options = options;
         _probe = options.LockdownProbe;
         _time = options.TimeProvider;
         _grace = options.StopGracePeriod;
         _raw = new WindowHostRawUserInterface(options.OutputWidth);
-        _host = new WindowHost(ResolveVersion(options.Context), options.Culture ?? CultureInfo.CurrentCulture, _raw);
+        _version = ResolveVersion(options.Context);
+        _culture = options.Culture ?? CultureInfo.CurrentCulture;
         _lockdown = _probe.Probe();
-        _runspace = RunspaceFactory.CreateRunspace(_host, CreateInitialState(options));
-        _runspace.ThreadOptions = PSThreadOptions.ReuseThread;
-        if (OperatingSystem.IsWindows())
-        {
-            _runspace.ApartmentState = ApartmentState.STA;
-        }
-
-        _runspace.Open();
-        try
-        {
-            _runspace.SessionStateProxy.InvokeCommand.PostCommandLookupAction = ScriptFileGuard.DropScriptFiles;
-            var setup = SetUp();
-            _jobs = setup.Jobs;
-            WindowRegistry.Register(_runspace, new WindowEntry(options.Context, setup.Bridge));
-        }
-        catch
-        {
-            _runspace.Dispose();
-            throw;
-        }
+        _engine = CreateEngine(PSLanguageMode.ConstrainedLanguage);
     }
 
     /// <summary>
@@ -147,13 +141,13 @@ public sealed class PowerShellSession : IPowerShellSession
 
         if (run is null)
         {
-            EndJobs();
+            EndJobs(CurrentEngine()?.Jobs);
             return;
         }
 
         RequestStop(run);
-        await Task.WhenAny(run.Completed.Task, run.Grace.Task).ConfigureAwait(false);
-        EndJobs();
+        await run.Idle.Task.ConfigureAwait(false);
+        EndJobs(CurrentEngine()?.Jobs);
     }
 
     /// <inheritdoc />
@@ -175,7 +169,9 @@ public sealed class PowerShellSession : IPowerShellSession
 
         try
         {
-            return await Task.Run(() => Complete(input, cursorIndex), cancellationToken).ConfigureAwait(false);
+            return CurrentEngine() is { } engine
+                ? await Task.Run(() => Complete(engine.Runspace, input, cursorIndex), cancellationToken).ConfigureAwait(false)
+                : PowerShellCompletionResult.Empty;
         }
         finally
         {
@@ -225,7 +221,8 @@ public sealed class PowerShellSession : IPowerShellSession
                 }
             }
 
-            _runspace.SessionStateProxy.LanguageMode = mode == PowerShellLanguageMode.Full ? PSLanguageMode.FullLanguage : PSLanguageMode.ConstrainedLanguage;
+            var engine = CurrentEngine() ?? throw NoRunspace();
+            engine.Runspace.SessionStateProxy.LanguageMode = mode == PowerShellLanguageMode.Full ? PSLanguageMode.FullLanguage : PSLanguageMode.ConstrainedLanguage;
             lock (_sync)
             {
                 _mode = mode;
@@ -252,34 +249,28 @@ public sealed class PowerShellSession : IPowerShellSession
             run = _run;
         }
 
-        var abandoned = false;
         if (run is not null)
         {
+            // A run that does not end within the grace period is left (Leave), and no new runspace is made for a disposed session.
             RequestStop(run);
-            var finished = await Task.WhenAny(run.Completed.Task, run.Grace.Task).ConfigureAwait(false);
-            abandoned = finished != run.Completed.Task;
+            await run.Idle.Task.ConfigureAwait(false);
         }
 
-        EndJobs();
-        WindowRegistry.Remove(_runspace);
-        if (abandoned)
+        Engine? engine;
+        lock (_sync)
         {
-            // A command stuck in .NET code cannot be interrupted; Dispose would wait for it, so only ask the runspace to close.
-            _runspace.CloseAsync();
+            engine = _engine;
+            _engine = null;
+        }
+
+        if (engine is null)
+        {
             return;
         }
 
-        await Task.Run(() =>
-        {
-            try
-            {
-                _runspace.Dispose();
-            }
-            catch (InvalidRunspaceStateException)
-            {
-                // Already closed.
-            }
-        }).ConfigureAwait(false);
+        EndJobs(engine.Jobs);
+        WindowRegistry.Remove(engine.Runspace);
+        await Task.Run(() => DisposeRunspace(engine.Runspace)).ConfigureAwait(false);
     }
 
     private static Version ResolveVersion(IAdmWindowContext? context)
@@ -336,17 +327,49 @@ public sealed class PowerShellSession : IPowerShellSession
     }
 
     /// <summary>
-    /// Runs <see cref="WindowSetupCommand"/> once, before anything of the operator runs, with the session briefly in FullLanguage: the
-    /// bridge of the replacement commands takes that mode, which lets them build a steppable pipeline in a constrained session (their
-    /// cmdlet itself then runs in the caller's mode). The session is constrained again before this returns, also when it fails.
+    /// A runspace of the window with its own host: made when the session starts and again when the session leaves a run that Stop could not
+    /// end, so that the next command runs at once and nothing the left run still writes reaches it. The window's entry (context and bridge)
+    /// goes into <see cref="WindowRegistry"/>; <paramref name="mode"/> is set last, after the set-up.
     /// </summary>
-    private WindowSetup SetUp()
+    private Engine CreateEngine(PSLanguageMode mode)
     {
-        _runspace.SessionStateProxy.LanguageMode = PSLanguageMode.FullLanguage;
+        var host = new WindowHost(_version, _culture, _raw);
+        var runspace = RunspaceFactory.CreateRunspace(host, CreateInitialState(_options));
+        runspace.ThreadOptions = PSThreadOptions.ReuseThread;
+        if (OperatingSystem.IsWindows())
+        {
+            runspace.ApartmentState = ApartmentState.STA;
+        }
+
+        runspace.Open();
+        try
+        {
+            runspace.SessionStateProxy.InvokeCommand.PostCommandLookupAction = ScriptFileGuard.DropScriptFiles;
+            var setup = SetUp(runspace);
+            WindowRegistry.Register(runspace, new WindowEntry(_options.Context, setup.Bridge));
+            runspace.SessionStateProxy.LanguageMode = mode;
+            return new Engine(runspace, host, setup.Jobs);
+        }
+        catch
+        {
+            WindowRegistry.Remove(runspace);
+            runspace.Dispose();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Runs <see cref="WindowSetupCommand"/> once, before anything of the operator runs, with the runspace briefly in FullLanguage: the
+    /// bridge of the replacement commands takes that mode, which lets them build a steppable pipeline in a constrained session (their
+    /// cmdlet itself then runs in the caller's mode). The runspace is constrained again before this returns, also when it fails.
+    /// </summary>
+    private static WindowSetup SetUp(Runspace runspace)
+    {
+        runspace.SessionStateProxy.LanguageMode = PSLanguageMode.FullLanguage;
         try
         {
             using var ps = SmaPowerShell.Create();
-            ps.Runspace = _runspace;
+            ps.Runspace = runspace;
             ps.AddCommand(new CmdletInfo("Initialize-AdmWindowSession", typeof(WindowSetupCommand)));
             var result = ps.Invoke();
             return result.Count == 1 && result[0].BaseObject is WindowSetup setup
@@ -355,22 +378,60 @@ public sealed class PowerShellSession : IPowerShellSession
         }
         finally
         {
-            _runspace.SessionStateProxy.LanguageMode = PSLanguageMode.ConstrainedLanguage;
+            runspace.SessionStateProxy.LanguageMode = PSLanguageMode.ConstrainedLanguage;
+        }
+    }
+
+    private Engine? CurrentEngine()
+    {
+        lock (_sync)
+        {
+            return _engine;
+        }
+    }
+
+    private InvalidOperationException NoRunspace()
+    {
+        Exception? failure;
+        lock (_sync)
+        {
+            failure = _restartFailure;
+        }
+
+        return new InvalidOperationException(
+            "The PowerShell session of the window could not be started again after a command that did not stop; open a new PowerShell window.",
+            failure);
+    }
+
+    private static void DisposeRunspace(Runspace runspace)
+    {
+        try
+        {
+            runspace.Dispose();
+        }
+        catch (InvalidRunspaceStateException)
+        {
+            // Already closed.
         }
     }
 
     /// <summary>
-    /// Stops and forgets every job in the session's job repository (no command of the window creates one; .NET code of the trusted mode
-    /// can, e.g. ForEach-Object -Parallel -AsJob through the engine's cmdlet object). <c>Jobs</c> is a copy. A job is stopped on a pool
-    /// thread: a job stuck in .NET code cannot be interrupted, and the window does not wait for it.
+    /// Stops and forgets every job in a job repository of the session (no command of the window creates one; .NET code of the trusted
+    /// mode can, e.g. ForEach-Object -Parallel -AsJob through the engine's cmdlet object). <c>Jobs</c> is a copy. A job is stopped on a
+    /// pool thread: a job stuck in .NET code cannot be interrupted, and the window does not wait for it.
     /// </summary>
-    private void EndJobs()
+    private static void EndJobs(JobRepository? jobs)
     {
-        foreach (var job in _jobs.Jobs)
+        if (jobs is null)
+        {
+            return;
+        }
+
+        foreach (var job in jobs.Jobs)
         {
             try
             {
-                _jobs.Remove(job);
+                jobs.Remove(job);
             }
             catch (ArgumentException)
             {
@@ -392,10 +453,10 @@ public sealed class PowerShellSession : IPowerShellSession
         }
     }
 
-    private PowerShellCompletionResult Complete(string input, int cursorIndex)
+    private static PowerShellCompletionResult Complete(Runspace runspace, string input, int cursorIndex)
     {
         using var ps = SmaPowerShell.Create();
-        ps.Runspace = _runspace;
+        ps.Runspace = runspace;
         var result = CommandCompletion.CompleteInput(input, Math.Clamp(cursorIndex, 0, input.Length), options: null, ps);
         var matches = new List<PowerShellCompletionMatch>(result.CompletionMatches.Count);
         foreach (var match in result.CompletionMatches)
@@ -488,44 +549,68 @@ public sealed class PowerShellSession : IPowerShellSession
         }
 
         using var registration = cancellationToken.Register(() => RequestStop(run));
+        var reader = run.Channel.Reader;
         try
         {
-            var reader = run.Channel.Reader;
-            while (true)
+            while (!run.Left.Task.IsCompleted)
             {
                 var read = reader.WaitToReadAsync(CancellationToken.None).AsTask();
-                var first = await Task.WhenAny(read, run.Grace.Task).ConfigureAwait(false);
-                if (first != read)
+                await Task.WhenAny(read, run.Left.Task).ConfigureAwait(false);
+                if (!read.IsCompleted)
                 {
-                    // The run was stopped and did not end within the grace period: the window stops waiting for it.
-                    yield return new PowerShellRunEndItem(PowerShellRunState.Stopped, HadErrors: false);
-                    yield break;
+                    break;
                 }
 
                 if (!await read.ConfigureAwait(false))
                 {
-                    yield break;
+                    if (Volatile.Read(ref run.State) != RunLeft)
+                    {
+                        yield break;
+                    }
+
+                    // The thread of a run being left returned while the session was making its new runspace.
+                    await run.Left.Task.ConfigureAwait(false);
+                    break;
                 }
 
-                while (reader.TryRead(out var item))
+                while (!run.Left.Task.IsCompleted && reader.TryRead(out var item))
                 {
                     yield return item;
                 }
             }
+
+            // The run was stopped and did not end within the grace period: the session left it and runs the next command in a new
+            // runspace. What it wrote before is shown (at most one channel's worth), then the end of a left run.
+            for (var i = 0; i < ChannelCapacity && reader.TryRead(out var early); i++)
+            {
+                yield return early;
+            }
+
+            yield return new PowerShellRunEndItem(PowerShellRunState.Abandoned, HadErrors: false);
         }
         finally
         {
-            if (!run.Completed.Task.IsCompleted)
+            if (!run.Idle.Task.IsCompleted)
             {
-                // The consumer left before the end item (it broke out of its loop): stop the run and wait for it.
+                // The consumer left before the end item (it broke out of its loop): stop the run and wait until the session is idle.
                 RequestStop(run);
-                await Task.WhenAny(run.Completed.Task, run.Grace.Task).ConfigureAwait(false);
+                await run.Idle.Task.ConfigureAwait(false);
+            }
+
+            if (run.Left.Task.IsCompleted)
+            {
+                // Nothing reads a left run's channel any more; what its thread may still write is dropped.
+                run.Channel.Writer.TryComplete();
+                while (reader.TryRead(out _))
+                {
+                }
             }
         }
     }
 
     private ActiveRun StartRun(string script, bool objects)
     {
+        var engine = CurrentEngine() ?? throw NoRunspace();
         var channel = Channel.CreateBounded<PowerShellOutputItem>(new BoundedChannelOptions(ChannelCapacity)
         {
             SingleReader = true,
@@ -535,7 +620,7 @@ public sealed class PowerShellSession : IPowerShellSession
         var stop = new CancellationTokenSource();
         var sink = new OutputSink(channel.Writer, stop.Token);
         var ps = SmaPowerShell.Create();
-        ps.Runspace = _runspace;
+        ps.Runspace = engine.Runspace;
         ps.AddScript(script, useLocalScope: false);
         var output = new PSDataCollection<PSObject>();
         if (objects)
@@ -551,13 +636,13 @@ public sealed class PowerShellSession : IPowerShellSession
             ps.Commands.Commands[^1].MergeUnclaimedPreviousCommandResults = PipelineResultTypes.Error | PipelineResultTypes.Output;
         }
 
-        var run = new ActiveRun(ps, channel, stop, sink);
+        var run = new ActiveRun(engine, ps, channel, stop, sink);
         lock (_sync)
         {
             _run = run;
         }
 
-        _host.Output.Attach(sink);
+        engine.Host.Output.Attach(sink);
         try
         {
             var started = ps.BeginInvoke<PSObject, PSObject>(null, output);
@@ -566,7 +651,7 @@ public sealed class PowerShellSession : IPowerShellSession
         }
         catch
         {
-            _host.Output.Attach(null);
+            engine.Host.Output.Attach(null);
             lock (_sync)
             {
                 _run = null;
@@ -581,6 +666,12 @@ public sealed class PowerShellSession : IPowerShellSession
 
     private void FinishRun(ActiveRun run, Task<PSDataCollection<PSObject>> invoke)
     {
+        if (Interlocked.CompareExchange(ref run.State, RunFinished, RunActive) != RunActive)
+        {
+            FinishLeftRun(run, invoke);
+            return;
+        }
+
         var stopped = Volatile.Read(ref run.StopRequested) == 1;
         var state = PowerShellRunState.Completed;
         var hadErrors = run.Sink.HadErrorText || run.Ps.HadErrors;
@@ -604,10 +695,10 @@ public sealed class PowerShellSession : IPowerShellSession
         }
 
         // No job the command left in the session outlives it.
-        EndJobs();
+        EndJobs(run.Engine.Jobs);
 
         // The session is idle before the consumer sees the end item, so it can run the next command at once.
-        _host.Output.Attach(null);
+        run.Engine.Host.Output.Attach(null);
         lock (_sync)
         {
             _run = null;
@@ -618,9 +709,29 @@ public sealed class PowerShellSession : IPowerShellSession
         _gate.Release();
         run.Sink.Post(new PowerShellRunEndItem(state, hadErrors));
 
-        // Completed first: a consumer that sees the channel end must also see the run as finished.
-        run.Completed.TrySetResult();
+        // Idle first: a consumer that sees the channel end must also see the run as finished.
+        run.Idle.TrySetResult();
         run.Channel.Writer.TryComplete();
+    }
+
+    /// <summary>
+    /// The thread of a run the session left (<see cref="Leave"/>) returned at last: the pipeline ends in its old runspace, which nothing
+    /// else uses any more, and the session it belonged to is not touched.
+    /// </summary>
+    private static void FinishLeftRun(ActiveRun run, Task<PSDataCollection<PSObject>> invoke)
+    {
+        _ = invoke.Exception;
+        run.Channel.Writer.TryComplete();
+        try
+        {
+            run.Ps.Dispose();
+        }
+        catch (Exception)
+        {
+            // The runspace of a left run has nothing left for the window to do; the window is not told.
+        }
+
+        DisposeRunspace(run.Engine.Runspace);
     }
 
     private void RequestStop(ActiveRun run)
@@ -631,31 +742,107 @@ public sealed class PowerShellSession : IPowerShellSession
         }
 
         run.Stop.Cancel();
+
+        // The engine's stop waits until the pipeline stopped. BeginStop waits on a foreground thread of its own, which for a pipeline
+        // that never returns would keep the process alive after its last window closed; the window stops on a background thread.
+        var stopper = new Thread(() => StopPipeline(run.Ps)) { IsBackground = true, Name = "AD Manager PowerShell stop" };
+        stopper.Start();
+        _ = Task.Delay(_grace, _time).ContinueWith(_ => Leave(run), CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+    }
+
+    private static void StopPipeline(SmaPowerShell ps)
+    {
         try
         {
-            run.Ps.BeginStop(null, null);
+            ps.Stop();
         }
-        catch (ObjectDisposedException)
+        catch (Exception)
         {
-            // The run just ended.
+            // The run just ended or its pipeline is not running (any more); an exception here would end the process.
         }
-        catch (InvalidOperationException)
+    }
+
+    /// <summary>
+    /// The grace period of a stop passed. A run that has not ended by then is stuck in .NET code that Stop cannot interrupt (a
+    /// <c>[regex]</c> made with a long time limit of its own is enough in ConstrainedLanguage, red team of R1): the session leaves it to
+    /// its thread - its runspace leaves the window's registry, its host is detached, its jobs are ended - and goes on in a new runspace in
+    /// the same language mode (constrained again when a lockdown is now enforced), so that the next command runs at once. Its thread runs
+    /// on until it returns (<see cref="FinishLeftRun"/>) or the process ends. A disposed session makes no new runspace.
+    /// </summary>
+    private void Leave(ActiveRun run)
+    {
+        if (Interlocked.CompareExchange(ref run.State, RunLeft, RunActive) != RunActive)
         {
-            // The pipeline is not running (any more).
+            return;
         }
 
-        _ = Task.Delay(_grace, _time).ContinueWith(_ => run.Grace.TrySetResult(), CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+        Engine? fresh = null;
+        Exception? failure = null;
+        try
+        {
+            run.Engine.Host.Output.Attach(null);
+            WindowRegistry.Remove(run.Engine.Runspace);
+            EndJobs(run.Engine.Jobs);
+            bool disposed;
+            PowerShellLanguageMode mode;
+            lock (_sync)
+            {
+                disposed = _disposed;
+                mode = _mode;
+            }
+
+            if (!disposed)
+            {
+                if (mode == PowerShellLanguageMode.Full && _probe.Probe() == PowerShellLockdownState.Enforce)
+                {
+                    mode = PowerShellLanguageMode.Constrained;
+                    lock (_sync)
+                    {
+                        _lockdown = PowerShellLockdownState.Enforce;
+                        _mode = mode;
+                    }
+                }
+
+                fresh = CreateEngine(mode == PowerShellLanguageMode.Full ? PSLanguageMode.FullLanguage : PSLanguageMode.ConstrainedLanguage);
+            }
+        }
+        catch (Exception ex)
+        {
+            // The window cannot run another command; the next one says so.
+            failure = ex;
+        }
+        finally
+        {
+            lock (_sync)
+            {
+                _engine = fresh;
+                _restartFailure = failure;
+                _run = null;
+                _running = false;
+            }
+
+            _gate.Release();
+            run.Left.TrySetResult();
+            run.Idle.TrySetResult();
+        }
     }
+
+    /// <summary>A runspace of the window, its host and its job repository.</summary>
+    private sealed record Engine(Runspace Runspace, WindowHost Host, JobRepository Jobs);
 
     private sealed class ActiveRun
     {
-        public ActiveRun(SmaPowerShell ps, Channel<PowerShellOutputItem> channel, CancellationTokenSource stop, OutputSink sink)
+        public ActiveRun(Engine engine, SmaPowerShell ps, Channel<PowerShellOutputItem> channel, CancellationTokenSource stop, OutputSink sink)
         {
+            Engine = engine;
             Ps = ps;
             Channel = channel;
             Stop = stop;
             Sink = sink;
         }
+
+        /// <summary>The runspace the run runs in.</summary>
+        public Engine Engine { get; }
 
         public SmaPowerShell Ps { get; }
 
@@ -668,10 +855,13 @@ public sealed class PowerShellSession : IPowerShellSession
         /// <summary>Set (to 1) by the first stop request.</summary>
         public int StopRequested;
 
-        /// <summary>Completed when the run ended and the session is idle again.</summary>
-        public TaskCompletionSource Completed { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        /// <summary><see cref="RunActive"/>, then <see cref="RunFinished"/> (the pipeline ended) or <see cref="RunLeft"/> (the session left it), whichever comes first.</summary>
+        public int State;
 
-        /// <summary>Completed when a stop was requested and the grace period passed.</summary>
-        public TaskCompletionSource Grace { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        /// <summary>Completed when the session is idle again: the run ended, or the session left it.</summary>
+        public TaskCompletionSource Idle { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>Completed when the session left the run (<see cref="Leave"/>), before <see cref="Idle"/>.</summary>
+        public TaskCompletionSource Left { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 }

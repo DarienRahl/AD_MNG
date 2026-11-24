@@ -120,7 +120,11 @@ the Watchdog package.
    does not interrupt a match of a regular expression, and `-match`, `-replace`, `-split`, `switch -regex`, `Select-String`
    and `[regex]` work in ConstrainedLanguage, so before the first regular expression of the process (the program's module
    initializer) the program gives every regular expression without a limit of its own a time limit of 2 s: a pattern that
-   backtracks catastrophically ends as an error of its command instead of holding the window and a processor core.
+   backtracks catastrophically ends as an error of its command instead of holding the window and a processor core. A pattern
+   a script gives a longer limit of its own (`[regex]::new('…', 'None', [timespan]::FromHours(1))`, allowed in
+   ConstrainedLanguage) and the trusted mode's .NET code can still get stuck: a command that has not ended 5 s after Stop is
+   left by the session to its thread (a background thread, which does not hold up the closing of the program), and the next
+   command runs at once in a new runspace, without the old one's variables and functions, and the window says so.
 9. **Writes (D9): none in R1.** There is no `Set-`/`New-`/`Remove-`/`Move-`/`Rename-`/`Add-`/`Enable-`/`Disable-`/`Unlock-`/
    `Reset-Adm*` command, no `AD:` drive and no RSAT; a test asserts that the registered AD Manager command list contains
    only the read commands of item 4 (and `Get-AdmVersion`). The window has a place for the pending plan that R2 adds.

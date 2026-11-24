@@ -209,6 +209,110 @@ public sealed class PowerShellWindowRunTests
         Assert.False(window.IsRunning);
     }
 
+    /// <summary>
+    /// The engine left a command that did not end after Stop (stuck in .NET code, second red team of R1) and goes on in a new session:
+    /// the line says so as an attention, the scrollback says what is gone, and the window runs the next command.
+    /// </summary>
+    [Fact]
+    public async Task ACommandTheEngineLeftAfterStop_IsAnAttention_TheWindowSaysItGoesOnInANewSession_AndRunsTheNextCommand()
+    {
+        var harness = await PowerShellHarness.CreateAsync();
+        using var window = await harness.OpenAsync();
+        harness.Session.Queue(LeftAfterStop);
+        var seen = harness.Record(window);
+        var started = harness.Session.NextRunStarted();
+        PowerShellHarness.Type(window, "[regex]::new('^(a+)+$', 'None', [regex]::InfiniteMatchTimeout).IsMatch('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!')");
+
+        var run = window.RunCommand.ExecuteAsync(null);
+        var fake = await started.WaitAsync(Limit, Ct);
+        await fake.Reached.WaitAsync(Limit, Ct);
+        harness.Directory.Time.Advance(TimeSpan.FromMilliseconds(6_500));
+        window.StopCommand.Execute(null);
+        await run.WaitAsync(Limit, Ct);
+
+        Assert.Equal(
+            [
+                (PageStatusKind.Working, "Running the command…"),
+                (PageStatusKind.Working, "Stopping…"),
+                (PageStatusKind.Attention, "The command was stopped after 6.5 s but did not end. The window left it and goes on in a new session."),
+            ],
+            seen.Plain);
+        Assert.Contains(
+            (PowerShellLineKind.Information, "The command did not end after it was stopped: it is in .NET code that Stop cannot interrupt. The window left it and started a new PowerShell session, so the variables, functions and modules of earlier commands are gone. The command may keep a processor core busy until it ends or the program closes."),
+            Lines(window));
+        Assert.Contains("partial", window.Output.Lines.Select(line => line.Text));
+        Assert.False(window.IsRunning);
+        Assert.False(window.IsTrustedMode);
+
+        harness.Session.Queue(Text("next\n"));
+        await PowerShellHarness.RunAsync(window, "'next'");
+        Assert.Equal("next", window.Output.Lines[^1].Text);
+        Assert.Equal(PageStatusKind.Done, window.Status.Current.Kind);
+    }
+
+    [Fact]
+    public async Task ACommandTheEngineLeft_InPolish_SaysSoInPolish()
+    {
+        var harness = await PowerShellHarness.CreateAsync(Polish);
+        using var window = await harness.OpenAsync();
+        harness.Session.Queue(LeftAfterStop);
+        var started = harness.Session.NextRunStarted();
+        PowerShellHarness.Type(window, "Wait-Forever");
+
+        var run = window.RunCommand.ExecuteAsync(null);
+        await (await started.WaitAsync(Limit, Ct)).Reached.WaitAsync(Limit, Ct);
+        harness.Directory.Time.Advance(TimeSpan.FromMilliseconds(6_500));
+        window.StopCommand.Execute(null);
+        await run.WaitAsync(Limit, Ct);
+
+        Assert.Equal("Polecenie zatrzymano po 6,5 s, ale się nie zakończyło. Okno je zostawiło i działa dalej w nowej sesji.", window.Status.Current.Message);
+        Assert.Contains(window.Output.Lines, line => line.Kind == PowerShellLineKind.Information && line.Text.StartsWith("Polecenie nie zakończyło się po zatrzymaniu", StringComparison.Ordinal));
+    }
+
+    /// <summary>A lockdown that came into force meanwhile: the engine's new session is constrained, and the window's mode follows it.</summary>
+    [Fact]
+    public async Task ACommandTheEngineLeftInTheTrustedMode_UnderANewLockdown_EndsTheTrustedModeOfTheWindow()
+    {
+        var harness = await PowerShellHarness.CreateAsync();
+        using var window = await harness.OpenAsync();
+        harness.Directory.Dialogs.ConfirmAnswers.Enqueue(true);
+        await window.ToggleTrustedModeCommand.ExecuteAsync(null);
+        Assert.True(window.IsTrustedMode);
+        harness.Session.Queue(fakeRun => LeftAfterStop(fakeRun, harness.Session.EnforceConstrainedFromTheEngine));
+        var started = harness.Session.NextRunStarted();
+        PowerShellHarness.Type(window, "Wait-Forever");
+        var title = new List<string>();
+        window.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(PowerShellWindowViewModel.WindowTitle))
+            {
+                title.Add(window.WindowTitle);
+            }
+        };
+
+        var run = window.RunCommand.ExecuteAsync(null);
+        await (await started.WaitAsync(Limit, Ct)).Reached.WaitAsync(Limit, Ct);
+        window.StopCommand.Execute(null);
+        await run.WaitAsync(Limit, Ct);
+
+        Assert.False(window.IsTrustedMode);
+        Assert.Equal((PowerShellLineKind.Information, "Trusted mode is off: ConstrainedLanguage."), Lines(window).Last());
+        Assert.NotEmpty(title);
+        Assert.DoesNotContain("trusted mode", window.WindowTitle, StringComparison.Ordinal);
+        Assert.False(window.CanToggleTrustedMode);
+    }
+
+    /// <summary>What the engine streams for a run it left: the output so far, then - after Stop - the end of a left run.</summary>
+    private static IAsyncEnumerable<PowerShellOutputItem> LeftAfterStop(FakeRun run) => LeftAfterStop(run, () => { });
+
+    private static async IAsyncEnumerable<PowerShellOutputItem> LeftAfterStop(FakeRun run, Action newSession)
+    {
+        yield return Text("partial\n");
+        await run.WaitAsync().ConfigureAwait(false);
+        newSession();
+        yield return End(PowerShellRunState.Abandoned);
+    }
+
     [Fact]
     public async Task Stop_WithNothingRunning_DoesNothing()
     {

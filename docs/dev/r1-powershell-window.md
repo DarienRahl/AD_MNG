@@ -102,23 +102,35 @@ scope. `PowerShellSession.CreateAsync(options)` builds it on a pool thread: the 
 - **Stop.** `StopAsync()` (the Stop button) and the cancellation token of `RunAsync` do the same: cancel the sink's token
   (wakes a producer waiting for room in the channel and a prompt waiting for an answer), `PowerShell.BeginStop` (the engine's
   stop – a `StopProcessing` call on every running command, which cancels the command's `StopToken`), and start the
-  **grace period** (`StopGracePeriod`, 5 s). A run that ends ends with `PowerShellRunEndItem(Stopped)`. A pipeline stuck in
-  .NET code cannot be interrupted: after the grace period the enumeration ends anyway with a synthetic
-  `PowerShellRunEndItem(Stopped)`, `IsRunning` stays true until the thread returns and a new run is refused meanwhile.
-  ConstrainedLanguage reaches such code too: a match of a regular expression (`-match`, `-replace`, `-split`, `switch -regex`,
-  `Select-String`, `[regex]`) is .NET code that Stop does not interrupt, and one pattern that backtracks held the runspace and a
-  processor core until the process ended (red team of R1, goal h). The time limit of 4.2 ends every match of a regular
-  expression without a limit of its own after 2 s – shorter than the grace period, so Stop ends the command itself; a `[regex]`
-  made with a longer limit of its own and the trusted mode's .NET code can still hold the thread. `DisposeAsync` abandons such a
-  thread: the window closes, the thread runs on – and keeps its core busy – until it returns or the process ends.
+  **grace period** (`StopGracePeriod`, 5 s). A run that ends ends with `PowerShellRunEndItem(Stopped)`. The engine's stop
+  (`PowerShell.Stop`) waits until the pipeline stopped, so it runs on a background thread of the window (`BeginStop` would wait
+  on a foreground thread of the engine's own).
+- **A run that Stop cannot end is left.** A pipeline stuck in .NET code cannot be interrupted. When the grace period passes and
+  the run has not ended, the session **leaves** it: its runspace leaves `WindowRegistry`, its host is detached (nothing it still
+  writes reaches the window), its jobs are ended, and a **new runspace** is made the way the first was (a new host, the same
+  initial state, set-up and registry entry, the session's language mode – constrained again when a lockdown is now enforced). The
+  enumeration ends with `PowerShellRunEndItem(Abandoned)` once the session is idle, so the next command runs at once – without
+  the variables, functions and modules of the old runspace; the window says so in its scrollback and on its status line (6).
+  The left thread runs on until it returns – its pipeline then stops in the old runspace, which is disposed – or until the
+  process ends. The runspace's pipeline thread is made a background thread by the set-up (the engine makes it a foreground
+  thread, observed), so a thread that never returns does not keep the program's process alive after its last window closed
+  (`RegexLimitTests` proves it in a child process). ConstrainedLanguage reaches such code too: a match of a regular expression
+  (`-match`, `-replace`, `-split`, `switch -regex`, `Select-String`, `[regex]`) is .NET code that Stop does not interrupt,
+  and one pattern that backtracks held the runspace and a processor core until the process ended (red team of R1, goal h). The
+  time limit of 4.2 ends every match of a regular expression without a limit of its own after 2 s – shorter than the grace
+  period, so Stop ends the command itself. A `[regex]` made with a limit of its own is **not** bound by it, and
+  ConstrainedLanguage allows that (`[regex]::new('^(a+)+$', 'None', [timespan]::FromHours(1))`, `[regex]::InfiniteMatchTimeout`,
+  the static methods with a time limit): such a match, and the trusted mode's .NET code, is what the leaving is for (second red
+  team, 12.8). Its thread keeps a processor core busy until the match ends – an hour, or never – or the program closes.
 - **Jobs.** No job outlives its command: every job left in the session's job repository is stopped (on a pool thread,
   not waited for) and removed when the command ends, on `StopAsync` and on dispose. No command of the window creates a job; .NET
   code of the trusted mode can (`ForEach-Object -Parallel -AsJob` through the engine's cmdlet object). A thread or a runspace that
   such code makes for itself is not a job, and nothing in the window ends it (12.6 decision 6). The transcript of
   `Start-Transcript -Path` ends with `Stop-Transcript` or when the runspace closes (its end lines are written then).
-- **`DisposeAsync`:** stops the running pipeline, waits for it (at most the grace period), ends the jobs, removes the window's
-  registry entry, closes and disposes the runspace (only closes it when the pipeline is abandoned), is safe to call twice, and
-  makes later `RunAsync` calls throw `ObjectDisposedException`.
+- **`DisposeAsync`:** stops the running pipeline, waits until the session is idle (the run ended, or after the grace period the
+  session left it – a disposed session makes no new runspace), ends the jobs, removes the window's registry entry, disposes the
+  runspace (a left one is disposed when its thread returns), is safe to call twice, and makes later `RunAsync` calls throw
+  `ObjectDisposedException`.
 
 ### 4.2 The engine's environment (D8, proven)
 
@@ -168,7 +180,8 @@ the same (`tests/AdMng.PowerShell.Tests/ProcessStart.cs`). `HostTests` checks th
 checks in the published `AdMng.exe` that it is in effect (`RegularExpressionsLimited`) and that a script catches the error of a
 match that backtracks. The limit applies to the whole process: the program's own patterns do not backtrack and run on short
 values or on messages, where a match of 2 s would need hundreds of megabytes; a regular expression made with its own limit keeps
-it (batch editing gives the operator's pattern 1 s; the Watchdog service, another process, gives its patterns 1 s). Measured
+it (batch editing gives the operator's pattern 1 s; the Watchdog service, another process, gives its patterns 1 s) – and so does
+one a script makes with a limit of its own, which only the leaving of a run (4.1) ends in the window. Measured
 here: `'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!' -match '^(a+)+$'` did not end in 20 s without the limit; with it each of the seven ways
 of the language to a regular expression ended after 2.0 s, in both language modes (`RegexLimitTests` keeps the seven in the
 default mode and `-match` in the trusted mode).
@@ -447,7 +460,11 @@ This is the plan; what was built is section 12.3 and it wins (the policy types a
 - the **status line** (`PageStatusHolder`, `docs/dev/v2-status-controls.md`): the summary is "domain · DC · account · mode"; a
   running command is an `OperationScope` (`Status.Begin`) with the Stop of the line (the window's own Stop button is the
   action button's cancel); the PowerShell policy note is a **lasting Attention** (`SetLasting`) until the first command; the
-  trusted mode is a lasting Attention while it is on. `writes:` stays `None` – R2 sets it where the plan executes.
+  trusted mode is a lasting Attention while it is on. `writes:` stays `None` – R2 sets it where the plan executes. A run the
+  engine left (`Abandoned`, 4.1, since 12.8) ends as an Attention ("stopped after … but did not end; the window goes on in a new
+  session") with a line in the scrollback that says the variables, functions and modules of earlier commands are gone; when the
+  new runspace is constrained because a lockdown came meanwhile, the line of the trusted mode's end follows and the title, the
+  summary and the switch change with it.
 - `PowerShellInputModel`: the buffer, the caret, the history (a list in memory with Up/Down and Ctrl+R incremental search),
   the completion state (matches, selection, the span to replace) and the "Enter runs or inserts a line" decision
   (`IsComplete`).
@@ -515,9 +532,12 @@ This is the plan of the parts; the files that exist are in the records of 12.1-1
 - **`PowerShellSessionTests`** – a script runs and its output streams as text ending with the end item; variables stay between
   runs; one table header from the engine's formatting; object mode; a terminating error is `Failed`, a non-terminating one
   `Completed` with errors; the next run can start at once; a second run while one is active is refused; a spinning script is
-  stopped (`StopAsync`, and the cancellation token, no sleep); a command that waits on `StopToken` ends at Stop; a stop the
-  pipeline does not obey ends the enumeration after the grace period (a `FakeTimeProvider`, no real wait); dispose stops a
-  run and throws on later runs; two sessions share no runspace; `OutputWidth` decides the wrapping.
+  stopped (`StopAsync`, and the cancellation token, no sleep); a command that waits on `StopToken` ends at Stop; a run whose
+  pipeline does not obey Stop is left after the grace period (a `FakeTimeProvider`, no real wait): it ends `Abandoned`, the
+  next command runs at once in a new runspace with its own host and the window's commands, without the old variables and
+  functions, in the trusted mode when it was on and constrained when a lockdown came meanwhile; the window's commands run on
+  one background thread, also after a left run; dispose stops a run and throws on later runs, and during a run that ignores
+  Stop it returns after the grace period; two sessions share no runspace; `OutputWidth` decides the wrapping.
 - **`LanguageModeTests`** – ConstrainedLanguage by default and the language-mode error for a .NET call; no way of the window runs
   code in another language mode (4.7); the program's commands work in it; the switch to FullLanguage and a command typed after
   the switch back; refused under a fake lockdown (at the start and when it appears later); `Audit` does not block; refused while
@@ -543,7 +563,10 @@ This is the plan of the parts; the files that exist are in the records of 12.1-1
 - **`RegexLimitTests`** – the process limits every regular expression without a limit of its own (4.2); a match that backtracks for
   hours ends as an error of its statement after 2 s, for each way of the language (`-match`, `-replace`, `-split`,
   `switch -regex`, `Select-String`, `[regex]::IsMatch`, `[regex]::new`), and the next command runs; a script catches the error;
-  Stop during such matches ends the command itself (a fake clock that nobody advances: the grace period never passes).
+  Stop during such matches ends the command itself (a fake clock that nobody advances: the grace period never passes); a
+  `[regex]` with a limit of its own (`[timespan]::FromHours(1)` through `[regex]::new` and `[regex]::Matches`,
+  `[regex]::InfiniteMatchTimeout`) outlasts Stop and is left, and the next command runs in a new runspace; a child process whose
+  window left a match that never ends still exits (`left-run` of the probe program).
 - **`InputGuardTests`** – what `InputGuard` refuses and what it must not (the call operator, strings, `&&`, `> $null`, `2>&1`).
 - **`EnvironmentTests`** – the variables of 4.2 are set and visible to a script; no `PSHost.*` pipe exists (Windows
   `\\.\pipe\`, Unix the temp folder).
@@ -671,7 +694,7 @@ runs as `script | Out-Default`, error stream merged, in the global scope of the 
 into items of a bounded channel (4096), `PumpAsync` hands them to the UI thread in batches, and `PowerShellOutputDocument` keeps the last 20,000 lines
 and finds the distinguished names. `Out-AdmGrid`, `Open-AdmObject` and `Export-AdmList` call back into the window through `IAdmWindowServices` (an adapter over
 `PowerShellWindowActions`) on the pipeline thread and wait there. Stop (button, Ctrl+C, closing the window, the token) goes the other way:
-`BeginStop` -> `StopProcessing` -> the stop token -> the LDAP request, with a 5 s grace period after which the window gives up waiting. Section 4.10
+`PowerShell.Stop` -> `StopProcessing` -> the stop token -> the LDAP request, with a 5 s grace period after which the session leaves the command and goes on in a new runspace. Section 4.10
 has the picture.
 
 **Decisions that bind R2 and R3** (each is detailed in the part that made it):
@@ -771,10 +794,6 @@ the published-app smoke test that starts the engine and the two CI steps that ch
 - "N objects" in the status line (an engine count), `LockedOut` with the domain's lockout duration, members by primary group in `Get-AdmGroupMember`;
 - the completion list is not announced to a screen reader; `Out-AdmGrid` has no `-PassThru` / `-Wait`; whether the grid should become a tab of the main window;
 - the Windows checks listed above (policies under a real GPO, WDAC, the `NUL` cache path);
-- a run the window gave up on (12.7): the status line says *stopped*, the session stays busy until the thread returns, and the
-  next command fails with the engine's English "A command is already running in this window." The window could say instead that
-  the command still runs and that a new window has its own session (a state on the end item or a check of `IsRunning` after it,
-  with its strings).
 
 **Questions that remain for the owner.**
 
@@ -1329,7 +1348,7 @@ became of it:
   run reached the test's 20 s stop and the grace period); it keeps the seven ways in the default mode and `-match` in the trusted
   mode (each case takes 2 s), with the limit itself and a script that catches the error: 11 tests. Left: a
   `[regex]` made with a longer limit of its own (allowed in ConstrainedLanguage) and the trusted mode's .NET code can still hold the
-  thread (4.1); the window does not say so yet (open point in 12.0).
+  thread (4.1); the window did not say so yet (open point in 12.0 then; the session leaves such a run since 12.8).
 - **(g) Plain-text secrets in the history.** `ShouldRemember` kept `$h = @{ Password = 'x' }; Set-Thing @h`, `-Passphrase`, `-pwd`,
   `-pass`, `-Key` with a literal and `Reset-AdmPassword user 'x'`; the audit (PS-13) had added the assignments. Fixed in 4.9
   (hashtable keys, assignment targets, more names, abbreviations, positional literals to a command named after a secret);
@@ -1359,3 +1378,20 @@ again. What it found, and what became of it:
   lines were remembered before (the 17th, `$x = $password = 'x'`, was already caught through the inner assignment and stays as a
   guard); 8 ordinary lines near the new rules (a parenthesized user name, a sum of numbers, `-Path ('C:\dane')`, `-P 'x'`, a value
   joined with a variable) stay remembered.
+- **(h) A regular expression with a time limit of its own held the window past Stop.** In the default mode,
+  `[regex]::new('^(a+)+$', 'None', [timespan]::FromHours(1)).IsMatch('aaaa…a!')` (36 a's) - and the same through
+  `[regex]::Matches(…, [timespan]::FromHours(1))` and `[regex]::InfiniteMatchTimeout` - ignored the 2 s limit of 12.7, which binds
+  only a regular expression without a limit of its own: after Stop and the grace period the session stayed busy for good ("A
+  command is already running in this window") and the thread kept a core busy for an hour, or forever. Nothing in the language
+  mode can refuse a .NET argument, so the session now leaves such a run (4.1): the run ends `Abandoned`, the next command runs at
+  once in a new runspace, and the window says that the variables and functions of the old one are gone (6). Found while fixing
+  it: the engine's pipeline thread and the thread of `BeginStop` are foreground threads, so a left thread that never returns kept
+  the process alive after `Main` returned (observed in a child process); the set-up makes the pipeline thread a background thread
+  and the window stops a pipeline on a background thread of its own. `RegexLimitTests`: the red team's three scripts (with 26 a's,
+  about 5 s of backtracking, so that the test run does not keep a core busy for an hour) failed before ("the window is still busy
+  with the match it gave up on"), the process-exit test failed before both thread changes and with either one alone (the child
+  did not end in 60 s); `PowerShellSessionTests` keeps the left run (the old variables and functions gone, the window's commands
+  working, a new host), the trusted mode kept and given up under a new lockdown, dispose during such a run, and the background
+  thread; `PowerShellWindowRunTests` the attention, the line in the scrollback in both languages and the trusted mode ended under
+  a lockdown (each failed before the view model knew the new state). Left: the thread of a left run still uses its core until it
+  returns, and trusted-mode .NET code that never returns holds whatever it holds.

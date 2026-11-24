@@ -199,34 +199,191 @@ public sealed class PowerShellSessionTests
         Assert.Equal(PowerShellRunState.Stopped, TestSessions.End(items).State);
     }
 
+    /// <summary>
+    /// A command stuck in .NET code that ignores Stop is left after the grace period: the run ends as
+    /// <see cref="PowerShellRunState.Abandoned"/> and the session is idle at once, in a new runspace without the old one's variables,
+    /// functions and language mode changes of the script. Before the second red team of R1 the session stayed busy for good.
+    /// </summary>
     [Fact]
-    public async Task A_stop_that_the_pipeline_does_not_obey_ends_the_enumeration_after_the_grace_period()
+    public async Task A_stop_that_the_pipeline_does_not_obey_leaves_the_run_after_the_grace_period_and_the_next_command_runs_in_a_new_runspace()
     {
         var time = new FakeTimeProvider();
         TestCommands.Release.Reset();
-        await using var session = await TestSessions.CreateAsync(time: time, extra: TestCommands.All);
+        var context = new FakeWindowContext();
+        await using var session = await TestSessions.CreateAsync(context, time: time, extra: TestCommands.All);
+        await TestSessions.RunAsync(session, "$before = 'kept'; function Get-Before { 'kept' }");
+        Assert.Equal("False\nkept\n", TestSessions.Text(await TestSessions.RunAsync(session, "$null -eq $before; Get-Before")));
+        var oldHost = TestSessions.Text(await TestSessions.RunAsync(session, "$Host.InstanceId"));
         var items = new List<PowerShellOutputItem>();
         try
         {
-            await foreach (var item in session.RunAsync("Block-AdmTest", TestContext.Current.CancellationToken))
+            await foreach (var item in session.RunAsync("Block-AdmTest; 'after'", TestContext.Current.CancellationToken))
             {
                 items.Add(item);
                 if (item is PowerShellTextItem { Text: "blocking\n" })
                 {
                     var stopping = session.StopAsync();
+                    await Task.Delay(TimeSpan.FromMilliseconds(200), TestContext.Current.CancellationToken);
                     Assert.False(stopping.IsCompleted);
+                    Assert.True(session.IsRunning);
                     time.Advance(TimeSpan.FromSeconds(5));
                     await stopping;
+                    Assert.False(session.IsRunning);
                 }
             }
 
-            Assert.Equal(PowerShellRunState.Stopped, TestSessions.End(items).State);
-            Assert.True(session.IsRunning);
+            Assert.Equal(new PowerShellRunEndItem(PowerShellRunState.Abandoned, HadErrors: false), TestSessions.End(items));
+            Assert.DoesNotContain("after", TestSessions.Text(items), StringComparison.Ordinal);
+            Assert.Equal(PowerShellLanguageMode.Constrained, session.LanguageMode);
+
+            // The new runspace has its own host and the window's commands still find their window.
+            var next = await TestSessions.RunAsync(session, "$null -eq $before; Test-AdmContext");
+            Assert.Equal("True\n" + context.Session.Info.DomainDnsName + "\nFalse\n", TestSessions.Text(next));
+            Assert.Equal(new PowerShellRunEndItem(PowerShellRunState.Completed, HadErrors: false), TestSessions.End(next));
+            Assert.Contains("Get-Before", TestSessions.Text(await TestSessions.RunAsync(session, "Get-Before"), PowerShellStream.Error), StringComparison.Ordinal);
+            Assert.NotEqual(oldHost, TestSessions.Text(await TestSessions.RunAsync(session, "$Host.InstanceId")));
         }
         finally
         {
             TestCommands.Release.Set();
         }
+
+        // The left thread returns: its pipeline ends in the old runspace, and the session goes on.
+        await Task.Delay(TimeSpan.FromMilliseconds(500), TestContext.Current.CancellationToken);
+        Assert.Equal("next\n", TestSessions.Text(await TestSessions.RunAsync(session, "'next'")));
+    }
+
+    /// <summary>
+    /// Every command of the window runs on the runspace's own thread, and it is a background thread: a left run's thread that never
+    /// returns must not keep the program's process alive (<c>RegexLimitTests</c> proves the exit in a child process). Also in a runspace
+    /// the session made after it left a run.
+    /// </summary>
+    [Fact]
+    public async Task The_commands_of_the_window_run_on_one_background_thread_also_after_a_left_run()
+    {
+        var time = new FakeTimeProvider();
+        TestCommands.Release.Reset();
+        await using var session = await TestSessions.CreateAsync(time: time, extra: TestCommands.All);
+        await session.SetLanguageModeAsync(PowerShellLanguageMode.Full, TestContext.Current.CancellationToken);
+        const string Thread = "[System.Threading.Thread]::CurrentThread.IsBackground; [System.Threading.Thread]::CurrentThread.ManagedThreadId";
+        var first = TestSessions.Text(await TestSessions.RunAsync(session, Thread));
+        var second = TestSessions.Text(await TestSessions.RunAsync(session, Thread));
+        try
+        {
+            await LeaveABlockedRunAsync(session, time);
+        }
+        finally
+        {
+            TestCommands.Release.Set();
+        }
+
+        var after = TestSessions.Text(await TestSessions.RunAsync(session, Thread));
+        Assert.StartsWith("True\n", first, StringComparison.Ordinal);
+        Assert.Equal(first, second);
+        Assert.StartsWith("True\n", after, StringComparison.Ordinal);
+        Assert.NotEqual(first, after);
+    }
+
+    /// <summary>The new runspace keeps the language mode the operator chose: the trusted mode stays on, the window's toggle still tells the truth.</summary>
+    [Fact]
+    public async Task A_left_run_of_the_trusted_mode_goes_on_in_a_trusted_runspace()
+    {
+        var time = new FakeTimeProvider();
+        TestCommands.Release.Reset();
+        await using var session = await TestSessions.CreateAsync(time: time, extra: TestCommands.All);
+        await session.SetLanguageModeAsync(PowerShellLanguageMode.Full, TestContext.Current.CancellationToken);
+        try
+        {
+            Assert.Equal(PowerShellRunState.Abandoned, TestSessions.End(await LeaveABlockedRunAsync(session, time)).State);
+        }
+        finally
+        {
+            TestCommands.Release.Set();
+        }
+
+        Assert.Equal(PowerShellLanguageMode.Full, session.LanguageMode);
+        Assert.Equal("FullLanguage\n", TestSessions.Text(await TestSessions.RunAsync(session, "$ExecutionContext.SessionState.LanguageMode")));
+    }
+
+    /// <summary>A lockdown enforced since the trusted mode was turned on wins: the new runspace is constrained, and the session says so.</summary>
+    [Fact]
+    public async Task A_left_run_of_the_trusted_mode_goes_on_constrained_when_a_lockdown_is_now_enforced()
+    {
+        var time = new FakeTimeProvider();
+        var probe = new FakeLockdownProbe();
+        TestCommands.Release.Reset();
+        await using var session = await TestSessions.CreateAsync(probe: probe, time: time, extra: TestCommands.All);
+        await session.SetLanguageModeAsync(PowerShellLanguageMode.Full, TestContext.Current.CancellationToken);
+        probe.State = PowerShellLockdownState.Enforce;
+        try
+        {
+            Assert.Equal(PowerShellRunState.Abandoned, TestSessions.End(await LeaveABlockedRunAsync(session, time)).State);
+        }
+        finally
+        {
+            TestCommands.Release.Set();
+        }
+
+        Assert.Equal(PowerShellLanguageMode.Constrained, session.LanguageMode);
+        Assert.Equal(PowerShellTrustedModeBlock.SystemLockdown, session.TrustedModeBlock);
+        Assert.Equal("ConstrainedLanguage\n", TestSessions.Text(await TestSessions.RunAsync(session, "$ExecutionContext.SessionState.LanguageMode")));
+    }
+
+    /// <summary>Closing the window during a command that ignores Stop: dispose gives up after the grace period, makes no new runspace and returns.</summary>
+    [Fact]
+    public async Task Disposing_the_session_during_a_run_that_ignores_stop_leaves_the_run_and_returns_after_the_grace_period()
+    {
+        var time = new FakeTimeProvider();
+        TestCommands.Release.Reset();
+        var session = await TestSessions.CreateAsync(time: time, extra: TestCommands.All);
+        try
+        {
+            await using var run = session.RunAsync("Block-AdmTest", TestContext.Current.CancellationToken).GetAsyncEnumerator(TestContext.Current.CancellationToken);
+            Assert.True(await run.MoveNextAsync());
+
+            var disposing = session.DisposeAsync().AsTask();
+            await Task.Delay(TimeSpan.FromMilliseconds(200), TestContext.Current.CancellationToken);
+            Assert.False(disposing.IsCompleted);
+            time.Advance(TimeSpan.FromSeconds(5));
+            await disposing.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+
+            var last = run.Current;
+            while (await run.MoveNextAsync())
+            {
+                last = run.Current;
+            }
+
+            Assert.Equal(PowerShellRunState.Abandoned, Assert.IsType<PowerShellRunEndItem>(last).State);
+            Assert.False(session.IsRunning);
+            await Assert.ThrowsAsync<ObjectDisposedException>(async () =>
+            {
+                await foreach (var unused in session.RunAsync("1", TestContext.Current.CancellationToken))
+                {
+                }
+            });
+        }
+        finally
+        {
+            TestCommands.Release.Set();
+        }
+    }
+
+    /// <summary>Runs <c>Block-AdmTest</c>, presses Stop and lets the grace period pass; the items of the run.</summary>
+    private static async Task<List<PowerShellOutputItem>> LeaveABlockedRunAsync(PowerShellSession session, FakeTimeProvider time)
+    {
+        var items = new List<PowerShellOutputItem>();
+        await foreach (var item in session.RunAsync("Block-AdmTest", TestContext.Current.CancellationToken))
+        {
+            items.Add(item);
+            if (item is PowerShellTextItem { Text: "blocking\n" })
+            {
+                var stopping = session.StopAsync();
+                time.Advance(TimeSpan.FromSeconds(5));
+                await stopping.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+            }
+        }
+
+        return items;
     }
 
     [Fact]
