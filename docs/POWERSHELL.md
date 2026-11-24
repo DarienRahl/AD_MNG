@@ -385,24 +385,31 @@ tych zasad i ich nie omija.
 ani plik `powershell.config.json`, PowerShell 7 i tak zapisuje w tym samym dzienniku zdarzeń polecenie, które uznaje za
 podejrzane, jako ostrzeżenie (zdarzenie 4104). Podejrzane jest dla niego polecenie, które:
 
-- zawiera słowo z jego wbudowanej listy – `Add-Type`, `EncodedCommand`, `GetMethod`, `NonPublic`, `Bypass` i ponad sto innych,
-  także wewnątrz dłuższego słowa, a więc i `Properties`, które jest w parametrze `-Properties` poleceń odczytu AD Managera
-  (`Get-AdmUser jan -Properties mail` trafia do dziennika, `Get-AdmUser jan` nie). PowerShell patrzy tylko na litery i łączniki:
-  pięć słów listy z cyfrą (`FromBase64String`, `kernel32` i trzy inne) nigdy się nie liczy, a ostatnie litery polecenia liczą
-  się nawet ze spacjami, kropkami, cudzysłowami albo cyframi między nimi – `Get-AdmUser 'grace mit'` kończy się na *Emit*,
-  `Get-AdmUser by.pass` na *Bypass*, a `Get-AdmUser marshall` na *Marshal*, więc każde z nich trafia do dziennika, albo
+- zawiera słowo z jego wbudowanej listy – `Add-Type`, `EncodedCommand`, `GetMethod`, `NonPublic`, `Bypass` i ponad sto innych
+  (`SuspiciousContentChecker` w pliku `engine/runtime/CompiledScriptBlock.cs` źródeł PowerShell) – także wewnątrz dłuższego
+  słowa, a więc i `Properties`, które jest w parametrze `-Properties` poleceń odczytu AD Managera
+  (`Get-AdmUser jan -Properties mail` trafia do dziennika, `Get-AdmUser jan` nie), i także wewnątrz wpisanej nazwy:
+  `Get-AdmUser jmarshall` zawiera *Marshal*, a `Get-AdmUser emitter` – *Emit*, więc oba trafiają do dziennika. PowerShell
+  czyta tylko litery i łączniki, więc pięć słów listy z cyfrą (`FromBase64String`, `kernel32` i trzy inne) nigdy się nie
+  liczy. Słowa szuka wewnątrz każdego ciągu liter i łączników, a na końcu polecenia (i bloku w nawiasach klamrowych, gdy ten
+  blok się wykonuje) czyta jeszcze raz ostatnie litery, pomijając spacje, kropki, cudzysłowy albo cyfry między nimi:
+  `Get-AdmUser 'grace mit'` kończy się na *Emit*, a `Get-AdmUser by.pass` na *Bypass*, więc i one trafiają do dziennika, albo
 - ma jedną z konstrukcji, które PowerShell oznacza już przy analizie polecenia: właściwość albo metodę o nazwie, która nie jest
   wpisana wprost (`$u.$a`, `$u.('mail')`, `$u."$nazwa"` – więc także odczyt atrybutów po nazwie ze zmiennej, np.
   `foreach ($a in 'mail', 'department') { $u.$a }`), składową statyczną czegoś innego niż typ w nawiasach kwadratowych (`$t::Now`;
   `[datetime]::Now` nie) albo sam typ `[type]`.
 
 Treści innych poleceń – np. `$u.mail`, `$u.'mail'`, `Get-AdmUser jan | Select-Object -Property mail` – nie zapisuje. Tak działa sam
-silnik w każdym PowerShell 7 – w `pwsh.exe`, w edytorze, w tym oknie – i AD Manager tego nie zmienia: zespół bezpieczeństwa widzi z
-okna to samo, co ze zwykłego pwsh 7 na tym samym komputerze, z dwiema różnicami. Ustawienie rejestrowania w pliku
-`powershell.config.json` samego zainstalowanego PowerShell 7 (w jego folderze, np. `C:\Program Files\PowerShell\7`) obowiązuje tylko
-`pwsh.exe`, bo AD Manager czyta zamiast niego plik obok `AdMng.exe`; a Twój własny `powershell.config.json`, który włącza
-transkrypcję albo rejestrowanie modułów (zdarzenie 4103), działa w `pwsh.exe`, ale nie w oknie, bo plik obok `AdMng.exe` wyłącza
-oba (niżej; zasada grupy włącza je w obu). Dziennik istnieje tam, gdzie zarejestrowano dostawcę zdarzeń
+silnik w każdym PowerShell 7 – w `pwsh.exe`, w edytorze, w tym oknie – i AD Manager tego nie zmienia: w rejestrowaniu bloków
+skryptów, transkrypcji i rejestrowaniu modułów zespół bezpieczeństwa widzi z okna to samo, co ze zwykłego pwsh 7 na tym samym
+komputerze, z dwiema różnicami. Ustawienie rejestrowania w pliku `powershell.config.json` samego zainstalowanego PowerShell 7 (w
+jego folderze, np. `C:\Program Files\PowerShell\7`) obowiązuje tylko `pwsh.exe`, bo AD Manager czyta zamiast niego plik obok
+`AdMng.exe`; a Twój własny `powershell.config.json`, który włącza transkrypcję albo rejestrowanie modułów (zdarzenie 4103),
+działa w `pwsh.exe`, ale nie w oknie, bo plik obok `AdMng.exe` wyłącza oba (niżej; zasada grupy włącza je w obu). Poza tym
+`pwsh.exe` zapisuje w tym samym dzienniku własne zdarzenia, których okno nigdy nie zapisuje: 40961 i 40962, gdy jego konsola się
+uruchamia i jest gotowa do wpisywania, oraz 53504, gdy otwiera potok, przez który inny proces podłącza się do niego poleceniem
+`Enter-PSHostProcess`. AD Manager nie ma konsoli PowerShell i ten potok wyłącza, więc reguła, która szuka tych zdarzeń, znajdzie
+`pwsh.exe`, a AD Managera nigdy. Dziennik istnieje tam, gdzie zarejestrowano dostawcę zdarzeń
 PowerShell 7: robi to instalator MSI PowerShell 7 (opcja *Register Windows Event Logging Manifest*, domyślnie zaznaczona) albo
 skrypt `RegisterManifest.ps1` z folderu PowerShell 7 uruchomiony jako administrator; pakiety zip i MSIX (Microsoft Store) go nie
 rejestrują, a AD Manager niczego nie rejestruje. Gdzie go nie zarejestrowano, zdarzenie nie trafia do żadnego dziennika. Zasada,

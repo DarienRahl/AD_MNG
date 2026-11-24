@@ -169,14 +169,18 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
   `System.Management.Automation.dll`). Odpowiedzią są podpisany `AdMng.exe` (faza 7, certyfikat z P2) i informacja dla
   zespołu bezpieczeństwa; dokumentacja dla nich jest częścią R1. AMSI sprawdza każdy blok skryptu, a rejestrowanie bloków
   skryptów i transkrypcja z GPO obejmują okno – dlatego notatka przed pierwszym poleceniem (punkt 7). O rejestrowaniu bloków
-  skryptów decydują Windows i zasady grupy, nie program (D-B): zespół bezpieczeństwa widzi w *PowerShellCore/Operational* to
-  samo co przy zwykłym pwsh 7 – każdy blok skryptu przy włączonej zasadzie, żaden przy wyłączonej, a bez zasady te, które silnik
-  uznaje za podejrzane (ostrzeżenie 4104; `-Properties` poleceń odczytu okna zawiera jedno ze słów silnika, a odczyt
-  właściwości po nazwie ze zmiennej, np. `$u.$a`, silnik oznacza już przy analizie polecenia), o ile zarejestrowano dostawcę
-  zdarzeń PowerShell 7. Dwie różnice: ustawienie rejestrowania w pliku `powershell.config.json` w folderze zainstalowanego
-  PowerShell 7 obowiązuje tylko `pwsh.exe`, bo silnik okna czyta plik obok `AdMng.exe`; a własny `powershell.config.json`
-  użytkownika, który włącza transkrypcję albo rejestrowanie modułów (zdarzenie 4103), działa w `pwsh.exe`, ale nie w oknie, bo
-  plik obok `AdMng.exe` wyłącza oba (GPO włącza je w obu).
+  skryptów decydują Windows i zasady grupy, nie program (D-B): w rejestrowaniu bloków skryptów, transkrypcji i rejestrowaniu
+  modułów zespół bezpieczeństwa widzi z okna to samo co przy zwykłym pwsh 7 – w *PowerShellCore/Operational* każdy blok skryptu
+  przy włączonej zasadzie, żaden przy wyłączonej, a bez zasady te, które silnik uznaje za podejrzane (ostrzeżenie 4104;
+  `-Properties` poleceń odczytu okna zawiera jedno ze słów silnika, a odczyt właściwości po nazwie ze zmiennej, np. `$u.$a`,
+  silnik oznacza już przy analizie polecenia), o ile zarejestrowano dostawcę zdarzeń PowerShell 7. Dwie różnice: ustawienie
+  rejestrowania w pliku `powershell.config.json` w folderze zainstalowanego PowerShell 7 obowiązuje tylko `pwsh.exe`, bo silnik
+  okna czyta plik obok `AdMng.exe`; a własny `powershell.config.json` użytkownika, który włącza transkrypcję albo rejestrowanie
+  modułów (zdarzenie 4103), działa w `pwsh.exe`, ale nie w oknie, bo plik obok `AdMng.exe` wyłącza oba (GPO włącza je w obu). Ze
+  zdarzeń, które `pwsh.exe` zapisuje w tym dzienniku o sobie, okno nie zapisuje żadnego: 40961 i 40962 pochodzą z jego hosta
+  konsoli (uruchamianie, gotowość do wpisywania), którego program nie uruchamia, a 53504 z nazwanego potoku silnika dla
+  `Enter-PSHostProcess`, który program wyłącza (`POWERSHELL_DIAGNOSTICS_OPTOUT=1`, punkt 8); reguła, która ich szuka, widzi
+  `pwsh.exe`, a `AdMng.exe` nigdy.
 - **Granica bezpieczeństwa.** ConstrainedLanguage, lista dozwolonych poleceń, pusta lista modułów i odrzucanie plików skryptów
   chronią przed pomyłką, a nie przed złośliwym operatorem; jedyną granicą są prawa konta w AD. Zmiany wykonane z pominięciem planu nie
   mają audytu ani cofnięcia w programie, ale Watchdog widzi je jak każdą zmianę w AD.

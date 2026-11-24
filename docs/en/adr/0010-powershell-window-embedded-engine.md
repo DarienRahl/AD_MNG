@@ -167,14 +167,18 @@ the Watchdog package.
   for `System.Management.Automation.dll`). The answers are the signed `AdMng.exe` (phase 7, certificate from P2) and
   information for the security team; documentation for them is part of R1. AMSI checks every script block, and script
   block logging and transcription from GPOs cover the window – hence the note before the first command (item 7). Script block
-  logging is Windows' and Group Policy's, not the program's (D-B): the security team sees in *PowerShellCore/Operational* what it
-  sees of a plain pwsh 7 – every script block with the policy on, none with it set to off, and without a policy the ones the
-  engine finds suspicious (a warning 4104; `-Properties` of the window's read commands is one of the engine's words, and the
-  engine marks reading a property by a name in a variable, e.g. `$u.$a`, when it parses the command), where the PowerShell 7
-  event provider is registered. Two differences: a logging setting in the `powershell.config.json` in the folder of an
-  installed PowerShell 7 applies to `pwsh.exe` only, because the window's engine reads the file beside `AdMng.exe`; and a
-  user's own `powershell.config.json` that turns on transcription or module logging (event 4103) works in `pwsh.exe` but not in
-  the window, because the file beside `AdMng.exe` turns both off (a GPO turns them on in both).
+  logging is Windows' and Group Policy's, not the program's (D-B): in script block logging, transcription and module logging the
+  security team sees of the window what it sees of a plain pwsh 7 – in *PowerShellCore/Operational* every script block with the
+  policy on, none with it set to off, and without a policy the ones the engine finds suspicious (a warning 4104; `-Properties`
+  of the window's read commands is one of the engine's words, and the engine marks reading a property by a name in a variable,
+  e.g. `$u.$a`, when it parses the command), where the PowerShell 7 event provider is registered. Two differences: a logging
+  setting in the `powershell.config.json` in the folder of an installed PowerShell 7 applies to `pwsh.exe` only, because the
+  window's engine reads the file beside `AdMng.exe`; and a user's own `powershell.config.json` that turns on transcription or
+  module logging (event 4103) works in `pwsh.exe` but not in the window, because the file beside `AdMng.exe` turns both off (a
+  GPO turns them on in both). Of the events `pwsh.exe` writes about itself to that log the window writes none: 40961 and 40962
+  come from its console host (starting, ready for input), which the program does not run, and 53504 from the engine's named
+  pipe for `Enter-PSHostProcess`, which the program switches off (`POWERSHELL_DIAGNOSTICS_OPTOUT=1`, item 8); a rule that looks
+  for them sees `pwsh.exe` and never `AdMng.exe`.
 - **The security boundary.** ConstrainedLanguage, the allow-list of commands, the empty module list and the refusal of
   script files protect against mistakes, not against a malicious operator; the only boundary is the account's rights in AD. Changes made
   around the plan have no audit and no rollback in the program, but the Watchdog sees them like any other change in AD.
