@@ -21,6 +21,9 @@ internal sealed class SynchronousUiDispatcher : IUiDispatcher
 
     public int InvokeCount { get; private set; }
 
+    /// <summary>How many of <see cref="InvokeCount"/> asked for <see cref="UiDispatchPriority.Background"/>.</summary>
+    public int BackgroundInvokeCount { get; private set; }
+
     public bool CheckAccess() => _gate.IsHeldByCurrentThread;
 
     public Task InvokeAsync(Action action)
@@ -28,6 +31,22 @@ internal sealed class SynchronousUiDispatcher : IUiDispatcher
         lock (_gate)
         {
             InvokeCount++;
+            action();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task InvokeAsync(Action action, UiDispatchPriority priority)
+    {
+        lock (_gate)
+        {
+            InvokeCount++;
+            if (priority == UiDispatchPriority.Background)
+            {
+                BackgroundInvokeCount++;
+            }
+
             action();
         }
 

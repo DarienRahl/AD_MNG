@@ -173,6 +173,62 @@ public sealed class PowerShellWindowRunTests
     }
 
     [Fact]
+    public async Task TheResults_GoToTheUiThreadBelowItsInput_SoAFloodLeavesTheKeyboardAndStopFree()
+    {
+        // Audit W-03: at the dispatcher's normal priority a command that writes without a pause kept an operation of the window
+        // queued above the keyboard and the mouse at all times, so Stop could not be pressed.
+        var harness = await PowerShellHarness.CreateAsync();
+        using var window = await harness.OpenAsync();
+        harness.Session.Queue([.. Enumerable.Range(1, 3_000).Select(i => (PowerShellOutputItem)Text($"Line {i}\n"))]);
+        var dispatcher = harness.Directory.Dispatcher;
+        var invokesBefore = dispatcher.InvokeCount;
+        var backgroundBefore = dispatcher.BackgroundInvokeCount;
+
+        await PowerShellHarness.RunAsync(window, "1..3000");
+
+        Assert.Equal("Line 3000", window.Output.Lines[^1].Text);
+        var handOvers = dispatcher.BackgroundInvokeCount - backgroundBefore;
+        Assert.True(handOvers >= 2, $"the stream was handed over {handOvers} times below input");
+
+        // What else went to the UI thread at the normal priority is the window's own (the end of the run), not the stream.
+        Assert.InRange(dispatcher.InvokeCount - invokesBefore - handOvers, 0, 2);
+    }
+
+    [Fact]
+    public async Task ACommandThatWritesALineEveryMoment_IsHandedOverAtMostOncePerInterval_NotOncePerLine()
+    {
+        // Audit W-03: a partial step went at once whenever the next line was not there yet, so a command that writes a line every
+        // millisecond made one hand-over (and one layout of the window) per line.
+        var harness = await PowerShellHarness.CreateAsync();
+        using var window = await harness.OpenAsync();
+        harness.Session.Queue(_ => Trickle(300));
+        var dispatcher = harness.Directory.Dispatcher;
+        var before = dispatcher.InvokeCount;
+        var backgroundBefore = dispatcher.BackgroundInvokeCount;
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+
+        await PowerShellHarness.RunAsync(window, "trickle");
+
+        // The first step goes at once, every other one at least an interval after the one before, the last with the end of the run.
+        var most = (int)(clock.Elapsed / PowerShellWindowViewModel.HandOverInterval) + 2;
+        var handOvers = dispatcher.BackgroundInvokeCount - backgroundBefore;
+        Assert.Equal("Line 300", window.Output.Lines[^1].Text);
+        Assert.InRange(handOvers, 1, most);
+        Assert.True(dispatcher.InvokeCount - before <= most + 2, $"{dispatcher.InvokeCount - before} hand-overs in {clock.ElapsedMilliseconds} ms; at most {most} expected");
+
+        static async IAsyncEnumerable<PowerShellOutputItem> Trickle(int count)
+        {
+            for (var i = 1; i <= count; i++)
+            {
+                await Task.Delay(1).ConfigureAwait(false);
+                yield return Text($"Line {i}\n");
+            }
+
+            yield return FakePowerShellSession.End();
+        }
+    }
+
+    [Fact]
     public async Task ALineIsShown_AsSoonAsItWasWritten_WhileTheCommandStillRuns()
     {
         var harness = await PowerShellHarness.CreateAsync();

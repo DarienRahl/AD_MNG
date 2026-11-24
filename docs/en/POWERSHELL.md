@@ -187,7 +187,10 @@ name is not a link, and neither is a name the formatting may have broken: one th
 at the end of the line, and one that starts an indented continuation line – each would open another object or none.
 
 **Many results.** The results arrive as they are read: 100,000 objects do not block the window, and **Stop** (or **Ctrl+C**)
-ends the read at the domain controller. `Select-Object -First 50` stops the read after 50 objects. The output area keeps the
+ends the read at the domain controller. The window takes the output in steps, at most one every 40 ms, and only after the
+keyboard, the mouse and the drawing of the window, so even a command that writes without a pause (`while ($true) { 'x' }`)
+leaves Stop and Ctrl+C working (an automated test on Windows floods the window and presses Ctrl+C; nobody has tried it on a
+screen yet). `Select-Object -First 50` stops the read after 50 objects. The output area keeps the
 last 20,000 lines, and a line holds at most 8,000 characters – a longer text goes on in the next line (also progress written dot
 by dot with `Write-Host -NoNewline`, which does not slow the window down).
 

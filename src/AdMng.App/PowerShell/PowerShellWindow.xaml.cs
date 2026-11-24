@@ -20,6 +20,7 @@ public partial class PowerShellWindow : Window, IDialogResultWindow
 {
     private readonly WindowViewModelLifecycle _lifecycle;
     private bool _following = true;
+    private bool _scrollPending;
     private double _characterWidth;
 
     public PowerShellWindow(PowerShellWindowViewModel viewModel)
@@ -60,6 +61,9 @@ public partial class PowerShellWindow : Window, IDialogResultWindow
 
     internal ListBox Output => OutputList;
 
+    /// <summary>How many scroll requests the window queued (a test checks that a burst of changes queues one).</summary>
+    internal int ScrollRequests { get; private set; }
+
     // ---- The scrollback ----------------------------------------------------------------------------------------------
 
     /// <summary>The columns the output has: the engine formats tables for this width (the glyph column, the padding and a scroll bar are not text).</summary>
@@ -87,20 +91,27 @@ public partial class PowerShellWindow : Window, IDialogResultWindow
 
     private void OnLinesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (_following && OutputList.Items.Count > 0)
+        if (!_following || _scrollPending)
         {
-            // After the layout: the new lines have a place by then. The list may be empty by then - Ctrl+L, or Clear-Host at the end of a
-            // command (audit PS-12 made cls clear the window) - and Items[^1] of an empty list would throw on the UI thread.
-            Dispatcher.InvokeAsync(
-                () =>
-                {
-                    if (OutputList.Items.Count > 0)
-                    {
-                        OutputList.ScrollIntoView(OutputList.Items[^1]);
-                    }
-                },
-                System.Windows.Threading.DispatcherPriority.Background);
+            return;
         }
+
+        // One request at a time, after the layout: the new lines have a place by then (audit W-03: one queued closure per change made a
+        // flood queue a scroll per line). The list may be empty by then - Ctrl+L, or Clear-Host at the end of a command - so the last item
+        // is looked up when the request runs (audit W-05: Items[^1] of an empty list threw on the UI thread).
+        _scrollPending = true;
+        ScrollRequests++;
+        Dispatcher.InvokeAsync(
+            () =>
+            {
+                _scrollPending = false;
+                var count = OutputList.Items.Count;
+                if (_following && count > 0)
+                {
+                    OutputList.ScrollIntoView(OutputList.Items[count - 1]);
+                }
+            },
+            System.Windows.Threading.DispatcherPriority.Background);
     }
 
     private void OnOutputScrolled(object sender, ScrollChangedEventArgs e)

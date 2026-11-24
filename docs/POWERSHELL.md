@@ -189,7 +189,10 @@ nie jest odnośnikiem, tak samo jak nazwa, którą formatowanie mogło złamać:
 na końcu wiersza i zaczynająca wcięty wiersz kontynuacji – każda z nich otworzyłaby inny obiekt albo żaden.
 
 **Wiele wyników.** Wyniki przychodzą w miarę czytania: 100 000 obiektów nie blokuje okna, a **Zatrzymaj** (albo **Ctrl+C**)
-kończy odczyt na kontrolerze domeny. `Select-Object -First 50` kończy odczyt po 50 obiektach. Obszar wyników zachowuje ostatnie
+kończy odczyt na kontrolerze domeny. Okno przyjmuje wyniki porcjami, najwyżej jedną co 40 ms, i dopiero po klawiaturze, myszy
+i rysowaniu okna, więc nawet polecenie, które pisze bez przerwy (`while ($true) { 'x' }`), nie odbiera działania przyciskowi
+Zatrzymaj ani Ctrl+C (test automatyczny na Windows zalewa okno wynikami i naciska Ctrl+C; nikt jeszcze nie sprawdził tego na
+ekranie). `Select-Object -First 50` kończy odczyt po 50 obiektach. Obszar wyników zachowuje ostatnie
 20 000 wierszy, a wiersz ma najwyżej 8000 znaków – dłuższy tekst ciągnie się w następnym wierszu (także postęp pisany kropka po
 kropce przez `Write-Host -NoNewline`, który nie spowalnia okna).
 

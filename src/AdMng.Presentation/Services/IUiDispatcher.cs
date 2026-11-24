@@ -12,6 +12,24 @@ public interface IUiDispatcher
 
     /// <summary>Runs <paramref name="action"/> on the UI thread; the task completes after it ran.</summary>
     Task InvokeAsync(Action action);
+
+    /// <summary>
+    /// Runs <paramref name="action"/> on the UI thread at <paramref name="priority"/>; the task completes after it ran. A stream that
+    /// hands the UI thread its results as fast as they come uses <see cref="UiDispatchPriority.Background"/>, so that the keyboard, the
+    /// mouse and the drawing of the window go first (audit W-03). An implementation without priorities runs it as
+    /// <see cref="InvokeAsync(Action)"/> does.
+    /// </summary>
+    Task InvokeAsync(Action action, UiDispatchPriority priority) => InvokeAsync(action);
+}
+
+/// <summary>How urgent a piece of work handed to the UI thread is.</summary>
+public enum UiDispatchPriority
+{
+    /// <summary>As <see cref="IUiDispatcher.InvokeAsync(Action)"/>: before input (WPF <c>DispatcherPriority.Normal</c>).</summary>
+    Normal = 0,
+
+    /// <summary>After input and drawing (WPF <c>DispatcherPriority.Background</c>): work that must never keep the operator from Stop.</summary>
+    Background = 1,
 }
 
 /// <summary>Helpers for <see cref="IUiDispatcher"/>.</summary>

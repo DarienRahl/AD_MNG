@@ -2,6 +2,7 @@ using System.Security;
 using AdMng.Core.PowerShell;
 using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
+using AdMng.Presentation.Services;
 using CommunityToolkit.Mvvm.Input;
 
 namespace AdMng.Presentation.PowerShell;
@@ -9,8 +10,14 @@ namespace AdMng.Presentation.PowerShell;
 // Running a command: the operation on the status line, the stream of the engine's items, the questions of the command, Stop.
 public sealed partial class PowerShellWindowViewModel
 {
-    /// <summary>How many items are shown to the window at once: a result of 100,000 objects is shown in steps, never in one freeze.</summary>
-    internal const int BatchSize = 500;
+    /// <summary>The most items one hand-over shows the window: a result of 100,000 objects is shown in steps, never in one freeze.</summary>
+    internal const int BatchSize = 2_000;
+
+    /// <summary>
+    /// The least time between the end of one hand-over of the stream to the UI thread and the next (audit W-03): a command that writes
+    /// without a pause becomes one step per interval, and the UI thread has that time for the keyboard, the mouse and the drawing.
+    /// </summary>
+    internal static readonly TimeSpan HandOverInterval = TimeSpan.FromMilliseconds(40);
 
     /// <summary>The longest first line of an error that goes into the status line.</summary>
     private const int ErrorReasonLength = 240;
@@ -179,22 +186,48 @@ public sealed partial class PowerShellWindowViewModel
     // ---- The stream of the engine -------------------------------------------------------------------------------
 
     /// <summary>
-    /// Reads the engine's items off the UI thread and hands them over in steps: whatever is ready when the next item would have to be
-    /// waited for goes at once - so a line of output appears as soon as it was written - and a burst goes in batches of
-    /// <see cref="BatchSize"/>. Each step waits until the UI thread has taken it, so a command that writes faster than the window
-    /// can show is held back (the engine's own channel is bounded too) instead of piling up.
+    /// Reads the engine's items off the UI thread and hands them over in steps, below the UI thread's input (audit W-03:
+    /// <see cref="UiDispatchPriority.Background"/> - at the normal priority a command that writes without a pause kept a step queued
+    /// above the keyboard and the mouse, and Stop could not be pressed). The first item after a quiet moment goes at once, so a line
+    /// appears as soon as it was written; after a step, what follows is gathered for at least <see cref="HandOverInterval"/> (or until
+    /// <see cref="BatchSize"/> items), so a flood is one step per interval, not one per line. Each step waits until the UI thread has
+    /// taken it, so a command that writes faster than the window can show is held back (the engine's own channel is bounded too)
+    /// instead of piling up.
     /// </summary>
     private async Task PumpAsync(IPowerShellSession session, string script, CancellationToken stop)
     {
         var batch = new List<PowerShellOutputItem>();
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var lastHandOver = TimeSpan.MinValue;
         await using var items = session.RunAsync(script, stop).GetAsyncEnumerator(CancellationToken.None);
         while (true)
         {
             var next = items.MoveNextAsync();
-            if (!next.IsCompleted && batch.Count > 0)
+            if (batch.Count > 0 && (batch.Count >= BatchSize || !next.IsCompleted))
             {
-                await Services.Dispatcher.InvokeAsync(ApplyTo(batch)).ConfigureAwait(false);
-                batch = [];
+                var wait = lastHandOver == TimeSpan.MinValue ? TimeSpan.Zero : HandOverInterval - (clock.Elapsed - lastHandOver);
+                if (wait > TimeSpan.Zero)
+                {
+                    if (batch.Count >= BatchSize)
+                    {
+                        // A full step waits out the interval; the engine waits for the pump meanwhile.
+                        await Task.Delay(wait, CancellationToken.None).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        // Gather what comes within the interval; a step goes when it ends or the step is full.
+                        var pending = next.AsTask();
+                        await Task.WhenAny(pending, Task.Delay(wait, CancellationToken.None)).ConfigureAwait(false);
+                        next = new ValueTask<bool>(pending);
+                    }
+                }
+
+                if (batch.Count >= BatchSize || !next.IsCompleted)
+                {
+                    await Services.Dispatcher.InvokeAsync(ApplyTo(batch), UiDispatchPriority.Background).ConfigureAwait(false);
+                    lastHandOver = clock.Elapsed;
+                    batch = [];
+                }
             }
 
             if (!await next.ConfigureAwait(false))
@@ -203,16 +236,11 @@ public sealed partial class PowerShellWindowViewModel
             }
 
             batch.Add(items.Current);
-            if (batch.Count >= BatchSize)
-            {
-                await Services.Dispatcher.InvokeAsync(ApplyTo(batch)).ConfigureAwait(false);
-                batch = [];
-            }
         }
 
         if (batch.Count > 0)
         {
-            await Services.Dispatcher.InvokeAsync(ApplyTo(batch)).ConfigureAwait(false);
+            await Services.Dispatcher.InvokeAsync(ApplyTo(batch), UiDispatchPriority.Background).ConfigureAwait(false);
         }
     }
 

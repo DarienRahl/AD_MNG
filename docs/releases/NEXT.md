@@ -79,7 +79,9 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   (`Where-Object`, `Select-Object`, `Sort-Object`… działają) i domyślnie są jedną tabelą także wtedy, gdy są różnych rodzajów
   (członkowie grupy, wyniki wyszukiwania), z wartościami dekodowanymi tak jak w oknach programu, a hasła i
   klucze, których edytor atrybutów nie pokazuje, są zamaskowane. Wyniki są czytane strumieniem – 100 000 obiektów nie blokuje
-  okna, a **Stop** (przycisk albo Ctrl+C) przerywa odczyt na kontrolerze domeny. Błędy i ostrzeżenia poleceń są w języku
+  okna, a **Stop** (przycisk albo Ctrl+C) przerywa odczyt na kontrolerze domeny. Okno przyjmuje wyniki porcjami, najwyżej jedną
+  co 40 ms, i dopiero po klawiaturze, myszy i rysowaniu, więc polecenie, które pisze bez przerwy (`while ($true) { 'x' }`), nie
+  odbiera działania przyciskowi **Stop** ani Ctrl+C. Błędy i ostrzeżenia poleceń są w języku
   interfejsu (pomoc `Get-Help` i komunikaty samego silnika PowerShell są po angielsku), a odczyt, którego kontroler domeny nie
   wykonał (przekroczony czas, odmowa dostępu), jest jednym błędem tej przyczyny, nie także „nie znaleziono”. Okno zachowuje ostatnie 20 000 wierszy po
   najwyżej 8000 znaków (dłuższy tekst ciągnie się w następnym wierszu), a postęp pisany kropka po kropce
@@ -224,7 +226,8 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   o zamknięcie okna go uwzględnia. Zamknięcie okna przez zamknięcie okna, do którego należy, albo przez zamknięcie programu nie
   zadaje pytania samo: pyta okno główne.
 - Okno PowerShell (R1) sprawdzono testami automatycznymi: silnik, polecenia i model okna na Linuksie i Windows oraz prawdziwe
-  okno z prawdziwym silnikiem nad sztuczną domeną na Windows; nikt nie oglądał go jeszcze na ekranie. To, że wyjście programów
+  okno z prawdziwym silnikiem nad sztuczną domeną na Windows; nikt nie oglądał go jeszcze na ekranie – także tego, że zalane
+  wynikami okno przyjmuje kliknięcie **Stop** (sprawdza to test automatyczny, który zalewa okno i naciska Ctrl+C). To, że wyjście programów
   konsolowych (`whoami`, `nltest`) trafia do okna, sprawdzono na Linuksie i testem z `cmd.exe` na Windows, ale nie w uruchomionym
   `AdMng.exe`. Wygląd kolorowanego tekstu
   (tekst w polu jest przezroczysty, kolory rysuje warstwa pod nim), listy uzupełnień pod kursorem, odnośników do nazw i okna siatki

@@ -328,6 +328,69 @@ public sealed class PowerShellWindowUiTests
     });
 
     [Fact]
+    public Task AFloodOfOutput_LeavesTheKeyboardFree_AndCtrlCOfInputPriorityIsTakenAtOnce() => WpfTestHost.RunAsync(async () =>
+    {
+        // Audit W-03 (by reasoning; this test is the first run of it on a dispatcher): the steps of the stream went to the UI thread at
+        // the normal priority, so a command that writes without a pause always had a step queued above the keyboard and the mouse.
+        var (context, _, _, window) = await PowerShellUiSupport.OpenAsync();
+        await using var _c = context;
+        var vm = window.ViewModel;
+        window.EditorControl.Box.Text = "while ($true) { 'x' * 40 }";
+        var running = vm.RunCommand.ExecuteAsync(null);
+        await UiWait.UntilAsync(() => vm.Output.OutputLinesWritten > 5_000, "the flood reached the window");
+
+        // What a key press is to the dispatcher: an operation of input priority. It is taken while the flood goes on.
+        var posted = System.Diagnostics.Stopwatch.StartNew();
+        TimeSpan? taken = null;
+        var stopped = false;
+        var press = window.Dispatcher.InvokeAsync(
+            () =>
+            {
+                taken = posted.Elapsed;
+                stopped = window.EditorControl.HandleKey(Key.C, ModifierKeys.Control);
+            },
+            System.Windows.Threading.DispatcherPriority.Input);
+        await press.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        Assert.True(stopped);
+        Assert.True(taken < TimeSpan.FromSeconds(1), $"Ctrl+C was taken after {taken?.TotalMilliseconds:N0} ms of the flood");
+
+        await running.WaitAsync(TimeSpan.FromSeconds(30));
+        await UiWait.UntilAsync(() => !vm.IsRunning && window.PageStatus.Kind != PageStatusKind.Working, "the flood stopped");
+        Assert.Equal(PageStatusKind.Attention, window.PageStatus.Kind);
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task ABurstOfChangesQueuesOneScroll_AndAClearBeforeItRunsIsNoError() => WpfTestHost.RunAsync(async () =>
+    {
+        // Audit W-05: every change of the output queued a scroll that read the last line when it ran, so Ctrl+L between the change and
+        // the scroll threw on the UI thread, once per queued scroll.
+        var (context, _, _, window) = await PowerShellUiSupport.OpenAsync();
+        await using var _c = context;
+        var output = window.ViewModel.Output;
+        await PowerShellUiSupport.RunAsync(window, "1..50");
+        window.Output.ScrollIntoView(window.Output.Items[^1]);
+        await UiTestSupport.WaitForIdleAsync();
+        var before = window.ScrollRequests;
+
+        // In one turn of the dispatcher: lines arrive three times, then Ctrl+L empties the list before the queued scroll runs.
+        output.AddLine(PowerShellLineKind.Information, "one");
+        output.AddLine(PowerShellLineKind.Information, "two");
+        output.AddLine(PowerShellLineKind.Information, "three");
+        Assert.Equal(before + 1, window.ScrollRequests);
+        Assert.True(window.EditorControl.HandleKey(Key.L, ModifierKeys.Control));
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Empty(output.Lines);
+
+        // The request ran: the next change queues a new one, and it scrolls to the new line.
+        output.AddLine(PowerShellLineKind.Information, "four");
+        Assert.Equal(before + 2, window.ScrollRequests);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal("four", Assert.Single(output.Lines).Text);
+        context.AssertHealthy();
+    });
+
+    [Fact]
     public Task ACommandThatFails_SaysSoWithTheGlyphOfAnError_AndTheLineSaysItToo() => WpfTestHost.RunAsync(async () =>
     {
         var (context, _, _, window) = await PowerShellUiSupport.OpenAsync();
