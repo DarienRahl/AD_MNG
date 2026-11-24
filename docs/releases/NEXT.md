@@ -76,7 +76,8 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   dla członków zagnieżdżonych – wynik zawiera też same grupy zagnieżdżone, tak jak lista *Wszystkie (zagnieżdżone)*;
   `-ExcludeGroups` je pomija), `Search-AdmObject` (wartości są zawsze dosłowne, więc `Łukasz (Kraków)*` znajduje tylko to, co
   napisano), `Get-AdmVersion`, `Out-AdmGrid`, `Open-AdmObject` i `Export-AdmList`. Wyniki są zwykłymi obiektami PowerShella
-  (`Where-Object`, `Select-Object`, `Sort-Object`… działają), z wartościami dekodowanymi tak jak w oknach programu, a hasła i
+  (`Where-Object`, `Select-Object`, `Sort-Object`… działają) i domyślnie są jedną tabelą także wtedy, gdy są różnych rodzajów
+  (członkowie grupy, wyniki wyszukiwania), z wartościami dekodowanymi tak jak w oknach programu, a hasła i
   klucze, których edytor atrybutów nie pokazuje, są zamaskowane. Wyniki są czytane strumieniem – 100 000 obiektów nie blokuje
   okna, a **Stop** (przycisk albo Ctrl+C) przerywa odczyt na kontrolerze domeny. Okno zachowuje ostatnie 20 000 wierszy po
   najwyżej 8000 znaków (dłuższy tekst ciągnie się w następnym wierszu), a postęp pisany kropka po kropce

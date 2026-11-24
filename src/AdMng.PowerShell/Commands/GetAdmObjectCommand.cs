@@ -7,8 +7,8 @@ namespace AdMng.PowerShell.Commands;
 
 /// <summary>
 /// <c>Get-AdmObject</c>: one object of the domain by its identity, or the objects a ready LDAP filter finds. Read-only, through
-/// the window's directory only. The objects are <c>AdMng.User</c>, <c>AdMng.Group</c>, <c>AdMng.Computer</c> or <c>AdMng.Object</c>
-/// by what they are, each with <c>DistinguishedName</c>.
+/// the window's directory only. The objects are typed <c>AdMng.Object</c> first (one table for every kind), then
+/// <c>AdMng.User</c>, <c>AdMng.Group</c> or <c>AdMng.Computer</c> by what they are, each with <c>DistinguishedName</c>.
 /// </summary>
 [Cmdlet(VerbsCommon.Get, "AdmObject", DefaultParameterSetName = IdentitySet)]
 [OutputType(typeof(PSObject))]

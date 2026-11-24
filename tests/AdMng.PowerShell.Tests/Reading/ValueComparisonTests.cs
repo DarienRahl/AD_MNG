@@ -45,7 +45,7 @@ public sealed class ValueComparisonTests
         foreach (var obj in expected)
         {
             var actual = byDn[obj.DistinguishedName.ToUpperInvariant()];
-            kinds.Add(actual.TypeNames[0]);
+            kinds.Add(actual.TypeNames.Count > 1 ? actual.TypeNames[1] : actual.TypeNames[0]);
             foreach (var (name, values) in obj.Attributes)
             {
                 var property = actual.Properties[name];

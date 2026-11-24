@@ -20,13 +20,17 @@ internal enum AdmObjectType
 /// </summary>
 internal sealed partial class AdmProjection
 {
-    private AdmProjection(IReadOnlyList<string> defaults, IReadOnlyList<string> requested, IReadOnlyList<string> explicitNames, bool all)
+    private AdmProjection(AdmObjectType type, IReadOnlyList<string> defaults, IReadOnlyList<string> requested, IReadOnlyList<string> explicitNames, bool all)
     {
+        Type = type;
         Defaults = defaults;
         Request = requested;
         Explicit = explicitNames;
         All = all;
     }
+
+    /// <summary>The kind of object the command returns: its type name comes first on every object (audit ps-commands-2).</summary>
+    public AdmObjectType Type { get; }
 
     /// <summary>The attributes of the command's type, present as properties when the object has a value.</summary>
     public IReadOnlyList<string> Defaults { get; }
@@ -126,7 +130,7 @@ internal sealed partial class AdmProjection
             request.Insert(0, "*");
         }
 
-        return new AdmProjection(defaults, request, requested, all);
+        return new AdmProjection(type, defaults, request, requested, all);
     }
 
     private static string Canonical(string name, ISchemaCatalog schema) => schema.FindAttribute(name)?.LdapName ?? name;

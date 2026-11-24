@@ -162,6 +162,44 @@ public sealed class ErrorsDisplayAndCompletionTests
         Assert.DoesNotContain('…', users + groups + objects);
     }
 
+    /// <summary>
+    /// Audit ps-commands-2: each object had its kind's type name first, and the engine formats the first object's kind as a table and
+    /// every object of another kind as a list block - Get-AdmGroupMember -Recursive printed a table of users and an 11-line list per
+    /// group, and a managed service account broke the table of Get-AdmComputer. A command whose results are mixed shows one table.
+    /// </summary>
+    [Theory]
+    [InlineData("Get-AdmGroupMember '{0}' -Recursive")]
+    [InlineData("Search-AdmObject -Name 'G' -Match StartsWith")]
+    [InlineData("Get-AdmObject -LdapFilter '(|(objectClass=user)(objectClass=group)(objectClass=organizationalUnit))'")]
+    [InlineData("Get-AdmComputer")]
+    public async Task Mixed_results_are_one_table_with_one_header_and_no_list_blocks(string script)
+    {
+        await using var harness = await ReadHarness.CreateAsync((builder, _) => builder.AddServiceAccount("svc-sql"));
+        harness.Session.OutputWidth = 200;
+
+        var text = TestSessions.Text(await TestSessions.RunAsync(harness.Session, string.Format(System.Globalization.CultureInfo.InvariantCulture, script, harness.Company.GroupAll)));
+
+        var headers = text.Split('\n').Count(line => line.TrimStart().StartsWith("ObjectKind", StringComparison.Ordinal) || line.TrimStart().StartsWith("Name ", StringComparison.Ordinal));
+        Assert.True(headers == 1, text);
+        Assert.DoesNotMatch(@"(?m)^\s*DistinguishedName\s+:", text);
+        Assert.DoesNotMatch(@"(?m)^\s*ObjectKind\s+:", text);
+    }
+
+    [Fact]
+    public async Task The_objects_keep_the_type_name_of_their_kind_behind_the_one_of_the_command()
+    {
+        await using var harness = await ReadHarness.CreateAsync((builder, _) => builder.AddServiceAccount("svc-sql"));
+
+        var members = await harness.RunAsync($"Get-AdmGroupMember '{harness.Company.GroupAll}' -Recursive");
+        var computers = await harness.RunAsync("Get-AdmComputer");
+
+        Assert.All(members.Objects, member => Assert.Equal("AdMng.Object", member.TypeNames[0]));
+        Assert.Contains(members.Objects, member => member.TypeNames.Contains("AdMng.User"));
+        Assert.Contains(members.Objects, member => member.TypeNames.Contains("AdMng.Group"));
+        Assert.All(computers.Objects, computer => Assert.Equal("AdMng.Computer", computer.TypeNames[0]));
+        Assert.Contains(computers.Objects, computer => (string?)computer.Properties["ObjectKind"].Value == "GroupManagedServiceAccount");
+    }
+
     [Fact]
     public async Task At_the_default_width_a_usual_distinguished_name_is_whole_and_a_long_one_is_cut_with_an_ellipsis_not_wrapped()
     {

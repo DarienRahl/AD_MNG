@@ -173,7 +173,11 @@ grupy mają `GroupScope`, `GroupCategory` i `GroupTypeFlags`. Dalej są atrybuty
   BitLockera), są tu pokazane także – **nie czytaj ich w oknie, gdy zasady grupy rejestrują polecenia i wyniki**
   (rozdział 8).
 
-**Tabela i nazwa wyróżniająca.** Domyślne tabele kończą się kolumną `DistinguishedName`, która dostaje resztę wiersza. Nazwę
+**Tabela i nazwa wyróżniająca.** Każde polecenie pokazuje swoje wyniki jedną tabelą: `Get-AdmUser`, `Get-AdmGroup` i
+`Get-AdmComputer` – tabelą swojego rodzaju (`Get-AdmComputer` także dla konta usługi zarządzanego, którego `ObjectKind` mówi, czym
+jest), a polecenia, które zwracają obiekty różnych rodzajów (`Get-AdmObject`, `Get-AdmGroupMember`, `Search-AdmObject`) – tabelą
+`ObjectKind`, `Name`, `DistinguishedName` dla wszystkich. Domyślne tabele kończą się kolumną `DistinguishedName`, która dostaje
+resztę wiersza. Nazwę
 dłuższą niż wiersz silnik ucina znakiem `…`. Szersze okno albo `Select-Object -ExpandProperty DistinguishedName` pokazują ją
 w całości w jednym wierszu; *Format-List* też pokazuje ją całą, ale łamie ją na szerokości okna w dowolnym miejscu. Nazwa, która
 w wynikach jest cała, jest **odnośnikiem**: kliknij ją, aby otworzyć obiekt w programie (*Otwórz w programie*), prawym

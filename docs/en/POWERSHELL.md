@@ -172,7 +172,10 @@ attributes under their LDAP names (`sAMAccountName`, `mail`, `memberOf`). `Get-M
   recovery password) are shown here too – **do not read them in a window while Group Policy records commands and results**
   (chapter 8).
 
-**The table and the distinguished name.** The default tables end with the `DistinguishedName` column, which gets the rest
+**The table and the distinguished name.** Every command shows its results as one table: `Get-AdmUser`, `Get-AdmGroup` and
+`Get-AdmComputer` the table of their kind (`Get-AdmComputer` also for a managed service account, whose `ObjectKind` says what it
+is), and the commands that return objects of different kinds (`Get-AdmObject`, `Get-AdmGroupMember`, `Search-AdmObject`) the
+table `ObjectKind`, `Name`, `DistinguishedName` for all of them. The default tables end with the `DistinguishedName` column, which gets the rest
 of the line. A name longer than the line is cut by the engine with `…`. A wider window or `Select-Object -ExpandProperty
 DistinguishedName` show it whole in one line; *Format-List* shows it whole too, but breaks it at the width of the window at any
 character. A name that is whole in the output is a **link**: click it to open the object in the program (*Open in the

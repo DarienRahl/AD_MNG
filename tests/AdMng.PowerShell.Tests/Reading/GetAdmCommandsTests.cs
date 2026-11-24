@@ -165,7 +165,8 @@ public sealed class GetAdmCommandsTests
         Assert.Contains("AdMng.Object", organizationalUnit.TypeNames);
         Assert.Equal("OrganizationalUnit", organizationalUnit.Properties["ObjectKind"].Value);
         Assert.Equal("IT", organizationalUnit.Properties["Name"].Value);
-        Assert.Equal(["AdMng.Group", "AdMng.Object"], byGuid.TypeNames.ToArray());
+        // Get-AdmObject returns objects of every kind: one type name first for all of them, the kind's behind it (audit ps-commands-2).
+        Assert.Equal(["AdMng.Object", "AdMng.Group"], byGuid.TypeNames.ToArray());
         Assert.True(SameDn(group, (string)byGuid.Properties["DistinguishedName"].Value!));
         Assert.True(SameDn(group, (string)bySam.Properties["DistinguishedName"].Value!));
         Assert.Equal("Global", bySam.Properties["GroupScope"].Value);

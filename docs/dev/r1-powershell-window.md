@@ -1105,7 +1105,12 @@ help in `Help/AdMng.PowerShell.dll-Help.xml`, and in Core `LdapFilter.Pattern` a
     group `Name GroupScope GroupCategory DistinguishedName`, object `ObjectKind Name DistinguishedName` – with the other columns of a fixed width, so that
     the DN gets the rest of the line and is the **last** column (the window makes DNs links). At the default width of 120 a usual DN (up to about 70
     characters) is whole; a longer one is **cut with `…`** by the engine's table (a window that is wider, or `Format-List`, shows it whole). The DN finder of
-    part 3 must not take the text before a `…` for a DN (the prefix of a DN is often another valid DN).
+    part 3 must not take the text before a `…` for a DN (the prefix of a DN is often another valid DN). The engine formats the first object's first
+    type name as a table and every object whose first type name differs as a list block, so every object carries its command's type name first
+    (audit ps-commands-2: `Get-AdmGroupMember -Recursive` was a table of users and an 11-line list per group, a managed service account broke the
+    table of `Get-AdmComputer`): the commands of mixed kinds (`Get-AdmObject`, `Get-AdmGroupMember`, `Search-AdmObject`) put `AdMng.Object` first
+    and the kind's name behind it, `Get-AdmUser`/`-Group`/`-Computer` their own (a gMSA from `Get-AdmComputer` is `AdMng.Computer`, its
+    `ObjectKind` says what it is).
 11. *The host removes the ANSI sequences of the engine's formatting* (a defect of part 1, found by reading the output of these commands): PowerShell 7.2+
     decorates table headers, list labels and errors with `ESC[32;1m…` and leaves it to the host; `WindowHostUserInterface` now passes every text through
     `PSHostUserInterface.GetOutputString(text, supportsVirtualTerminal: false)`. Without it the window would have shown the escape characters as
