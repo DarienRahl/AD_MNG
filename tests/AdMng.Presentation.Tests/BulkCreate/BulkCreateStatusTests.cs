@@ -228,6 +228,66 @@ public sealed class BulkCreateStatusTests
     }
 
     [Fact]
+    public async Task StopAndClose_DuringTheFirstAccount_TheConnectionSaysTheCreationWasStopped_AndHowManyAccountsItDid()
+    {
+        // The window's line says the outcome of the whole creation - the first account and the others it never started - and the
+        // connection, which says it once the window closed, says the same: not what the first account alone did.
+        using var wizard = await B4Wizard.CreateAsync();
+        wizard.Use(wizard.OperatorInput(new BulkAccountOptions { PasswordMode = InitialPasswordMode.None, Enabled = false }));
+        await wizard.EnterCheckAsync();
+        await wizard.Editor.PreviewCommand.ExecuteAsync(null);
+        Assert.True(wizard.Editor.IsPreviewStep, wizard.Editor.Error);
+        var harness = wizard.Harness;
+        var window = new TestWindowHost(wizard.Editor);
+        harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
+        harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.StopAndClose);
+        using var held = new SemaphoreSlim(0);
+        using var release = new ManualResetEventSlim();
+        var creates = 0;
+        harness.Session.BeforeOperation = operation =>
+        {
+            if (operation.Kind == FakeOperationKind.Add && Interlocked.Increment(ref creates) == 1)
+            {
+                held.Release();
+                release.Wait(TestContext.Current.CancellationToken);
+            }
+        };
+        var toastedAfterTheClose = new List<bool>();
+        harness.Notifications.OnShow = (_, _) => toastedAfterTheClose.Add(window.IsClosed);
+        Task execution;
+        Task<bool> closing;
+        try
+        {
+            execution = wizard.Editor.ExecuteCommand.ExecuteAsync(null);
+            Assert.True(await held.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+            Assert.Equal(BulkExecutionPart.FirstAccount, wizard.Editor.BulkCreate!.ExecutingPart);
+            harness.Notifications.Clear();
+            closing = window.CloseByTitleBarAsync();
+            Assert.False(Assert.Single(harness.Dialogs.CloseQuestions).CanContinue);
+            Assert.False(closing.IsCompleted);
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        Assert.True(await closing.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+        await execution.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        harness.Session.BeforeOperation = null;
+
+        Assert.True(window.IsClosed);
+        Assert.Equal(1, creates);
+        var toast = Assert.Single(harness.Notifications.Items);
+        Assert.Equal(NotificationSeverity.Warning, toast.Severity);
+        Assert.StartsWith(
+            "Wykonywanie „Utworzenie kont (5) w jednostce „Nowi pracownicy”” w domenie contoso.test zatrzymano: wykonano 1 z 5 obiektów, niepowodzenia: 0",
+            toast.Message,
+            StringComparison.Ordinal);
+        Assert.Equal([true], toastedAfterTheClose);
+        Assert.Empty(harness.Dialogs.Errors);
+    }
+
+    [Fact]
     public async Task WithGeneratedInitialPasswords_TheCreationNeverContinuesInTheBackground()
     {
         using var wizard = await B4Wizard.CreateAsync();

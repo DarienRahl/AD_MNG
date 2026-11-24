@@ -379,6 +379,51 @@ public class ChangePipelineTests
     }
 
     [Fact]
+    public async Task ARunWhoseWindowClosesAfterIt_IsReportedAsTheLineSaidIt_ForAResultThatIsMoreThanTheActivityDid()
+    {
+        // A plan the window executes in parts (the bulk creation wizard: the first account, then the others): the line says the
+        // whole result - here the first object done, the second never started because of a Stop - and so does the connection,
+        // not what the last activity alone did.
+        var harness = await TestHarness.ConnectedAsync();
+        var (running, execution) = await StartFollowedAsync(harness, [Lukasz]);
+        execution.ReportByConnection();
+        harness.Executor.Gate!.SetResult();
+        var part = await running;
+        var whole = RecordingChangePlanner.DefaultPlan(new BatchRequest([Lukasz, Ewa], [new SetAccountEnabledOperation(false)]) { Title = "Disable accounts" });
+        var notStarted = new ObjectResult(whole.Objects[1], ObjectResultStatus.Cancelled, [], Ewa, TestHarness.Now, TestHarness.Now);
+        execution.Complete(part with { Plan = whole, Objects = [.. part.Objects, notStarted], WasCancelled = true });
+        execution.Dispose();
+
+        execution.WindowClosed();
+        var toast = Assert.Single(harness.Notifications.Items);
+        Assert.Equal(NotificationSeverity.Warning, toast.Severity);
+        Assert.Equal("Executing “Disable accounts” in contoso.test was stopped: 1 of 2 objects done, failed: 0.", toast.Message);
+        Assert.Empty(harness.Dialogs.Errors);
+    }
+
+    [Fact]
+    public async Task ARunWhoseWindowClosesAfterIt_AndWhoseNextPartCouldNotStart_IsReportedAsAFailureAsAWhole()
+    {
+        // The first part ended well, the next one could not start (the session ended): the line says the failure, and so does the
+        // connection - not the success of the first part.
+        var harness = await TestHarness.ConnectedAsync();
+        var (running, execution) = await StartFollowedAsync(harness, [Lukasz]);
+        execution.ReportByConnection();
+        harness.Executor.Gate!.SetResult();
+        await running;
+        var reason = harness.Localizer[Presentation.Localization.L.WindowSession.Ended];
+        execution.Fail(reason);
+        execution.Dispose();
+
+        execution.WindowClosed();
+        var (title, message) = Assert.Single(harness.Dialogs.Errors);
+        Assert.Equal("Disable accounts", title);
+        Assert.StartsWith("Could not execute “Disable accounts” in contoso.test: ", message, StringComparison.Ordinal);
+        Assert.Contains(reason.TrimEnd('.'), message, StringComparison.Ordinal);
+        Assert.Empty(harness.Notifications.Items);
+    }
+
+    [Fact]
     public async Task TheReportOfARunWhoseWindowCloses_IsAskedForAfterTheWindowClosed_OnTheRealUiThread()
     {
         // One UI thread, one queue - like WPF. Stop and close of a run that fails: the window closes after the end, and only then

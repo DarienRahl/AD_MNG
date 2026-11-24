@@ -310,13 +310,13 @@ public sealed class ChangeCoordinator : IChangeCoordinator
         }
         catch (Exception ex)
         {
-            ReportWithoutWindow(activity, () => Describe(title, ConfirmationText.Domain(session), null, ex));
+            ReportWithoutWindow(activity, title, ConfirmationText.Domain(session), null, ex);
             throw;
         }
 
         _changes.Publish(DirectoryChanges.FromResult(result));
         _history?.Record(result, title, session.Schema, session.Info.DomainDnsName);
-        ReportWithoutWindow(activity, () => Describe(title, ConfirmationText.Domain(session), result, null));
+        ReportWithoutWindow(activity, title, ConfirmationText.Domain(session), result, null);
         return result;
     }
 
@@ -326,9 +326,10 @@ public sealed class ChangeCoordinator : IChangeCoordinator
     /// closes before its line said it (<see cref="ExecutionStatus.WindowClosed"/>). A run no window followed is its caller's
     /// (<see cref="ApplyAsync"/>, the property sheet...), and one stopped because its connection window closes is not said at
     /// all. The window state is decided once, atomically against <see cref="ExecutionStatus.LeaveWindow"/>, so exactly one side
-    /// reports.
+    /// reports. The kept report can be made again from what the window's line says (<see cref="ExecutionStatus.Complete"/>,
+    /// <see cref="ExecutionStatus.Fail"/>): for a plan the window executes in parts that is more than this activity did.
     /// </summary>
-    private void ReportWithoutWindow(ActivityViewModel activity, Func<Action> describe)
+    private void ReportWithoutWindow(ActivityViewModel activity, string title, string domain, BatchResult? result, Exception? failure)
     {
         if (activity.IsReportSuppressed)
         {
@@ -337,12 +338,23 @@ public sealed class ChangeCoordinator : IChangeCoordinator
 
         if (!activity.TryReturnToWindow())
         {
-            ReportLater(describe());
+            ReportLater(Describe(title, domain, result, failure));
         }
         else if (activity.HasReturnedToWindow)
         {
-            var report = describe();
-            activity.KeepReport(() => ReportLater(report));
+            var report = Describe(title, domain, result, failure);
+            activity.KeepReport(
+                () => ReportLater(report),
+                whole =>
+                {
+                    var again = Describe(title, domain, whole, null);
+                    return () => ReportLater(again);
+                },
+                reason =>
+                {
+                    var again = DescribeFailure(title, domain, reason);
+                    return () => ReportLater(again);
+                });
         }
     }
 
@@ -369,8 +381,7 @@ public sealed class ChangeCoordinator : IChangeCoordinator
                 return () => _notifications.Show(NotificationSeverity.Warning, stopped);
             }
 
-            var failedAsAWhole = PageStatusText.Failure(ExecutionOutcome.FailedLead(_localizer, title, domain), _errors.Translate(failure));
-            return () => _dialogs.ShowErrorAsync(title, failedAsAWhole).Forget();
+            return DescribeFailure(title, domain, _errors.Translate(failure));
         }
 
         var outcome = ExecutionOutcome.Of(_localizer, title, domain, result!);
@@ -398,6 +409,13 @@ public sealed class ChangeCoordinator : IChangeCoordinator
         text.AppendLine().AppendLine().Append(_localizer[L.ChangeStatus.SessionLogNext]);
         var failures = text.ToString();
         return () => _dialogs.ShowErrorAsync(title, failures).Forget();
+    }
+
+    /// <summary>A failure as a whole, as the window's line says it: a dialog with the reason (not awaited).</summary>
+    private Action DescribeFailure(string title, string domain, string reason)
+    {
+        var failedAsAWhole = PageStatusText.Failure(ExecutionOutcome.FailedLead(_localizer, title, domain), reason);
+        return () => _dialogs.ShowErrorAsync(title, failedAsAWhole).Forget();
     }
 
     private static ChangeOutcome OutcomeOf(BatchResult result) => result.FailedCount == 0

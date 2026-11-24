@@ -214,7 +214,10 @@ internal readonly record struct ActivityOutcome(int Executed, int Succeeded, int
 /// <para>A result that went back to its window also leaves the report the connection would make here
 /// (<see cref="KeepReport"/>): the window closes before its line said it when the close question was open or the window
 /// closes right after the run, and then the window hands it on once it closed. Only the texts are kept - never the result
-/// with its plan - and the window drops them when its line said the result.</para>
+/// with its plan - and the window drops them when its line said the result. The window's line says how its whole execution
+/// ended, which for a plan executed in parts (the bulk creation wizard: the first account, then the others) is more than this
+/// activity did: the kept report is then made again from what the line says (<see cref="ReportInsteadOf"/>,
+/// <see cref="ReportFailureInstead"/>).</para>
 /// </remarks>
 public sealed partial class ActivityViewModel : ObservableObject, IBackgroundWork
 {
@@ -252,7 +255,7 @@ public sealed partial class ActivityViewModel : ObservableObject, IBackgroundWor
 
     private int _window;
     private volatile bool _reportSuppressed;
-    private Action? _report;
+    private KeptReport? _report;
 
     /// <summary>True while a window follows this activity in its status line (until it left it or its result came back).</summary>
     internal bool HasWindow => Volatile.Read(ref _window) == Followed;
@@ -308,10 +311,49 @@ public sealed partial class ActivityViewModel : ObservableObject, IBackgroundWor
     /// the UI thread - kept for the window its result went back to, which hands it on if it closes before its line said it.
     /// Set by the coordinator; the closure holds texts only, never the result.
     /// </summary>
-    internal void KeepReport(Action report) => Volatile.Write(ref _report, report);
+    /// <param name="report">The report of this activity's own result or failure.</param>
+    /// <param name="ofResult">Makes the report of another result (texts only); null: the report is never made again.</param>
+    /// <param name="ofFailure">Makes the report of a failure as a whole from its localized reason; null: never made again.</param>
+    internal void KeepReport(Action report, Func<BatchResult, Action>? ofResult = null, Func<string, Action>? ofFailure = null) =>
+        Volatile.Write(ref _report, new KeptReport(report, ofResult, ofFailure));
 
     /// <summary>The kept report, taken once: null when there is none or it was taken (handed on, or dropped by the window).</summary>
-    internal Action? TakeReport() => Interlocked.Exchange(ref _report, null);
+    internal Action? TakeReport() => Interlocked.Exchange(ref _report, null)?.Say;
+
+    /// <summary>
+    /// The window's line said that its execution ended with <paramref name="result"/> - for a plan executed in parts more than
+    /// this activity did: a kept report is made again from it, so that the connection says what the line said. Nothing when no
+    /// report is kept (it was handed on or dropped).
+    /// </summary>
+    internal void ReportInsteadOf(BatchResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        Replace(kept => kept.OfResult?.Invoke(result));
+    }
+
+    /// <summary>
+    /// The window's line said that its execution failed as a whole, with <paramref name="reason"/> (the next part of the bulk
+    /// creation wizard could not start): a kept report is made again from it. Nothing when no report is kept.
+    /// </summary>
+    internal void ReportFailureInstead(string reason)
+    {
+        ArgumentNullException.ThrowIfNull(reason);
+        Replace(kept => kept.OfFailure?.Invoke(reason));
+    }
+
+    private void Replace(Func<KeptReport, Action?> make)
+    {
+        if (Volatile.Read(ref _report) is not { } kept || make(kept) is not { } again)
+        {
+            return;
+        }
+
+        // Taken meanwhile (the window closed on another thread): it stays taken.
+        Interlocked.CompareExchange(ref _report, kept with { Say = again }, kept);
+    }
+
+    /// <summary>A kept report and how to make it again (<see cref="KeepReport"/>).</summary>
+    private sealed record KeptReport(Action Say, Func<BatchResult, Action>? OfResult, Func<string, Action>? OfFailure);
 
     /// <inheritdoc />
     public void StopBecauseTheConnectionCloses()

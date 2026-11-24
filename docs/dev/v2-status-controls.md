@@ -131,8 +131,9 @@ things. The test for the first two: *is this the answer to something the operato
    still working - and a read says nothing. A window that executes a plan through `ExecutionStatus` gets the three answers of D-A by
    itself: it only returns on `execution.LeftWindow` after its await (the run left with the window), and calls
    `execution.StaysWithWindow(L.CloseWork.NoBackground…)` when its result must stay with the window (generated passwords, a caller
-   that reads the result) - and `WindowNotifies = true` when it shows the outcome in a toast of its own (then the connection does not say
-   it again when the window closes right after the run). Its progress is on the taskbar button of the window like every other (a part done through
+   that reads the result) - `WindowNotifies = true` when a toast of its own is the whole report (a success; then the connection does not
+   say it again when the window closes right after the run), and `execution.NotifyWhileOpen(...)` for a toast meant for an open window
+   only (the batch editor's counts: held while a close looks at the run, said if the window stays, left to the connection if it closes). Its progress is on the taskbar button of the window like every other (a part done through
    `PageProgress.Of(done, total)` in `Report`), with nothing to wire.
 4. **A state that lasts is computed in one method.** "Could not be read", "was deleted", "is out of date", "the session of this window ended"
    are true for as long as the page shows what it shows. A cancelled or failed read that leaves the content empty or stale is

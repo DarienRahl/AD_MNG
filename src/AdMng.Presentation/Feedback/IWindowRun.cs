@@ -58,7 +58,10 @@ public interface IWindowRun
     /// </summary>
     void ReportByConnection();
 
-    /// <summary>The close did not happen: the window says the result in its line itself, and nothing is kept for the connection.</summary>
+    /// <summary>
+    /// The close did not happen: the window says the result in its line itself - and in the notification of its own that it held
+    /// while the close was decided (<c>ExecutionStatus.NotifyWhileOpen</c>) -, and nothing is kept for the connection.
+    /// </summary>
     void WindowStays();
 
     /// <summary>

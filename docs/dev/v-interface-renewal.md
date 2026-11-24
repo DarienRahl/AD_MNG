@@ -5352,9 +5352,14 @@ unchanged: the execution was always an activity of the connection that the windo
   `WindowViewModelBase.Dispose` calls - after the host closed the window - for the runs its close looked at (`RunningWork.ConfirmCloseAsync`
   `reportOnClose`), and drops it when the window stays or its line said the result before any close (`ExecutionStatus.Dispose`,
   `WindowStays`). So the failure dialog is asked for when the window that closes is gone: the real `DialogService` owns a dialog by the
-  active window of the connection, and a dialog owned by the window that closes would close with it. A window that says the outcome in a
-  notification of its own is not reported again (`ExecutionStatus.WindowNotifies`: the batch editor always, the Recycle Bin and Reset
-  Password when they showed their success toast). The report is posted to a later turn of the UI thread (`IUiDispatcher.InvokeAsync`,
+  active window of the connection, and a dialog owned by the window that closes would close with it. The kept report says what the
+  window's line said: `ExecutionStatus.Complete` and `Fail` make it again from the window's own result or failure
+  (`ActivityViewModel.ReportInsteadOf`, `ReportFailureInstead`), which for the bulk creation wizard - the first account, then the others -
+  is more than the last activity did. A window whose success toast is its whole report is not reported again
+  (`ExecutionStatus.WindowNotifies`: the Recycle Bin and Reset Password when they showed it). The batch editor's toast of its results
+  ("Succeeded: n, failed: f, skipped: s") says neither a stop nor a reason, so it is meant for an open window only
+  (`ExecutionStatus.NotifyWhileOpen`): said at once when no close looks at the run, held while one does - said if the window stays, left
+  out when it closes, and the connection reports. The report is posted to a later turn of the UI thread (`IUiDispatcher.InvokeAsync`,
   `.Forget()`) and the dialog is not awaited: the real `DialogService` shows a dialog inline on the UI thread, which would hold the
   execution - and a window waiting for it - until the operator answered (`TheReportNeverHoldsTheExecution` uses a dialog double that
   blocks like the real one and a dispatcher that runs work in a later turn). An object changed only in part counts as changed
@@ -5442,6 +5447,16 @@ unchanged: the execution was always an activity of the connection that the windo
   refuses its close without a word while an owned window finishes, and its question no longer repeats the owned windows' reasons.
   Mutants that survived the first build (the canary loop's disposal check, `ApplyAsync`'s failure as a whole after the connection
   window's stop, a part followed after the run left) are now caught.
+- *Third round.* The batch editor set `WindowNotifies` for every run, so a window closed after *Stop and close* (or a *Stop* that came
+  first, or a result that came back under the question) dropped the connection's report: its own toast counted only what ran
+  ("Succeeded: 1, failed: 0, skipped: 0" for a run of five stopped after the first; the objects the Stop kept from running are
+  cancelled, not skipped), never said that the run was stopped, gave no reasons for failures, and a failure as a whole was said nowhere.
+  The editor now reports like every other window (`NotifyWhileOpen` above), and the kept report is made again from the window's result,
+  so that the wizard stopped during its first account is "stopped: 1 of 5 objects done", not the first account's "executed". Tests:
+  `BatchEditorStatusTests` (five objects stopped, a failing object in progress, a failure as a whole after *Stop and close* and after a
+  *Stop* in the line - the hook `B2Harness.BeforeExecution` -, a result under the question with *Don't close* and with *Stop and close*),
+  `BulkCreateStatusTests.StopAndClose_DuringTheFirstAccount_…`, `ExecutionStatusTests.NotifyWhileOpen_…`, `ChangePipelineTests`
+  (the report of a larger result and of a later failure).
 
 ### V3 – Page skeleton: header, toolbar card, list toolbar (L)
 

@@ -52,7 +52,8 @@ internal sealed class B2Harness
         Planner = new ChangePlanner(templates, new PasswordGenerator(), Time);
         Executor = new BatchExecutor(AuditLog, Time);
         PowerShell = new PowerShellHistory(new PowerShellExporter());
-        Coordinator = new ChangeCoordinator(Sessions, Planner, Executor, Dialogs, Notifications, Settings, Activities, Changes, Errors, Localizer, Dispatcher, PowerShell);
+        Coordinator = new ChangeCoordinator(
+            Sessions, Planner, new HookedExecutor(this), Dialogs, Notifications, Settings, Activities, Changes, Errors, Localizer, Dispatcher, PowerShell);
         Services = new DialogServices(Sessions, Localizer, Dispatcher, Settings, Errors, Changes, Time, Dialogs, Files, Clipboard, Notifications, Coordinator, Activities, Lists, Regional);
         var csv = new CsvCodec();
         Engines = new BatchEngines(Planner, new CsvImportPlanner(Time), new RollbackPlanner(), new PowerShellExporter(), csv, templates, new BatchReportExporter(csv),
@@ -107,6 +108,13 @@ internal sealed class B2Harness
     public ChangePlanner Planner { get; }
 
     public BatchExecutor Executor { get; }
+
+    /// <summary>
+    /// Runs before every execution of a plan through <see cref="Coordinator"/>, on the thread of the activity (null: none): a
+    /// test holds an execution there - the real executor has not started yet, so it ignores a Stop - or makes it fail as a whole
+    /// by throwing, which the real executor does only for a plan of another domain controller or a failing SYSVOL write.
+    /// </summary>
+    public Action<CancellationToken>? BeforeExecution { get; set; }
 
     public PowerShellHistory PowerShell { get; }
 
@@ -222,6 +230,17 @@ internal sealed class B2Harness
         catch (InvalidOperationException)
         {
             return false;
+        }
+    }
+
+    /// <summary>The real executor of the harness behind <see cref="BeforeExecution"/>.</summary>
+    private sealed class HookedExecutor(B2Harness harness) : IBatchExecutor
+    {
+        public Task<BatchResult> ExecuteAsync(
+            IDirectorySession session, ChangePlan plan, BatchOptions? options, IProgress<BatchProgress>? progress, CancellationToken cancellationToken)
+        {
+            harness.BeforeExecution?.Invoke(cancellationToken);
+            return harness.Executor.ExecuteAsync(session, plan, options, progress, cancellationToken);
         }
     }
 

@@ -484,6 +484,76 @@ public class ExecutionStatusTests
     }
 
     [Fact]
+    public async Task NotifyWhileOpen_SaysItNow_WhenNoCloseLooksAtTheRun()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var status = new PageStatusHolder(harness.Localizer, harness.Dispatcher);
+        using var execution = ExecutionStatus.Begin(status, harness.Localizer, "Disable accounts", "contoso.test", 3);
+        var said = 0;
+
+        execution.NotifyWhileOpen(() => said++);
+
+        Assert.Equal(1, said);
+        execution.WindowStays();
+        execution.WindowClosed();
+        Assert.Equal(1, said);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NotifyWhileOpen_WhileACloseLooksAtTheRun_IsHeld_SaidWhenTheWindowStays_DroppedWhenItCloses(bool stays)
+    {
+        // The close question is open (or the window closes right after the run): whether the window's line goes with it is not
+        // known yet. The window that stays says its notification; the one that closes leaves the outcome to the connection.
+        var harness = await B2Harness.CreateAsync();
+        var status = new PageStatusHolder(harness.Localizer, harness.Dispatcher);
+        var execution = ExecutionStatus.Begin(status, harness.Localizer, "Disable accounts", "contoso.test", 3);
+        var said = 0;
+        execution.WindowMayClose();
+
+        execution.NotifyWhileOpen(() => said++);
+        execution.Dispose();
+        Assert.Equal(0, said);
+
+        if (stays)
+        {
+            execution.WindowStays();
+        }
+        else
+        {
+            execution.ReportByConnection();
+            execution.WindowClosed();
+        }
+
+        Assert.Equal(stays ? 1 : 0, said);
+        execution.WindowStays();
+        execution.WindowClosed();
+        Assert.Equal(stays ? 1 : 0, said);
+    }
+
+    [Fact]
+    public async Task NotifyWhileOpen_OfARunThatLeftTheWindow_IsNeverSaid()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var status = new PageStatusHolder(harness.Localizer, harness.Dispatcher);
+        using var execution = ExecutionStatus.Begin(status, harness.Localizer, "Disable accounts", "contoso.test", 3);
+        var work = new Work();
+        var (activity, run) = harness.Activities.Start("Disable accounts", 3, work.RunAsync);
+        await work.Started;
+        execution.Follow(activity);
+        Assert.True(execution.LeaveWindow());
+        var said = 0;
+
+        execution.NotifyWhileOpen(() => said++);
+        execution.WindowStays();
+
+        Assert.Equal(0, said);
+        work.End(Result());
+        await run;
+    }
+
+    [Fact]
     public async Task StaysWithWindow_SetsMustStayReason_InTheLanguageOfTheMoment()
     {
         var harness = await B2Harness.CreateAsync();

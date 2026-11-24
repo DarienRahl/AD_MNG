@@ -466,7 +466,10 @@ connection's coordinator says how it ended - a notification, or a dialog with th
 run ended (*Stop and close*, a *Stop* that came first, a result that came back under the question) hands on the report the
 coordinator kept with the activity once the window has closed (`WindowViewModelBase.Dispose`): `DialogService` owns a dialog by
 the active window of the connection, so a failure dialog asked for while the closing window was still there would be owned by
-it - and close with it. The connection window hands nothing on: its close ends the connection. A run never outlives its connection: the
+it - and close with it. That report says what the window's line said: it is made again from the window's own result, which for
+the bulk creation wizard (the first account, then the others) is more than the last activity did. A window whose toast of its own
+is meant for an open window only (the batch editor's results) holds it while a close looks at the run: it is said if the window
+stays and left out if it closes, so the outcome is said once. The connection window hands nothing on: its close ends the connection. A run never outlives its connection: the
 connection window asks about it and waits for it (3.4), *Disconnect* and *Change domain controller* stop it as any
 activity, and `CloseEntryAsync` keeps its bounded cancel only for what is left after the question.
 

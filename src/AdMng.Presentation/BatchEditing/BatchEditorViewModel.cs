@@ -611,10 +611,8 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase, IHasPage
     {
         Error = null;
 
-        // First the operation, then the step: the line goes from the summary of the preview straight to "working". The window
-        // says the outcome in a notification too (ShowResults): a Stop and close needs no report of the connection.
+        // First the operation, then the step: the line goes from the summary of the preview straight to "working".
         using var execution = ExecutionStatus.Begin(Status, Localizer, title, ConfirmationDomain, total);
-        execution.WindowNotifies = true;
         execution.StaysWithWindow(StayReason());
         _executing = true;
         Step = BatchEditorStep.Executing;
@@ -660,6 +658,12 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase, IHasPage
         }
 
         ShowResults(result);
+
+        // The window says the outcome in a notification of the main window too, for which it finished elsewhere - while it stays
+        // open. A window that closes right after the run (Stop and close, a Stop pressed before the close, a result that came back
+        // under the close question) takes its line with it: the connection says how the run ended then - that it was stopped and
+        // how far it got, the failed objects with their reasons -, and this notification, which says neither, is left out.
+        execution.NotifyWhileOpen(ResultsNotification(result));
         var (next, action) = AfterExecution(result);
         execution.Complete(result, next, action);
     }
@@ -1192,8 +1196,15 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase, IHasPage
         ApplyResultFilter();
         ResultSummary = Localizer.Format(L.Batch.ResultSummary, shown.SucceededCount, shown.FailedCount, shown.SkippedCount);
         Step = BatchEditorStep.Results;
+    }
+
+    /// <summary>The notification of the results of an execution (texts only - it may be held until a close is decided).</summary>
+    private Action ResultsNotification(BatchResult result)
+    {
         var severity = result.FailedCount > 0 || result.WasCutShort ? NotificationSeverity.Warning : NotificationSeverity.Success;
-        Services.Notifications.Show(severity, Localizer.Format(L.Batch.ExecutedNotification, ChangeTitle, ResultSummary));
+        var message = Localizer.Format(L.Batch.ExecutedNotification, ChangeTitle, ResultSummary);
+        var notifications = Services.Notifications;
+        return () => notifications.Show(severity, message);
     }
 
     private ChangePlan IncludedPlan(ChangePlan plan) =>

@@ -28,7 +28,10 @@ namespace AdMng.Presentation.Changes;
 /// why (<see cref="StaysWithWindow"/>): the generated passwords, the caller that waits for the result, the first account
 /// of the bulk wizard. A window that closes after the run ended - Stop and close, a Stop that came first, a result that came
 /// back under the question - hands the connection's report of it on once it closed (<see cref="WindowClosed"/>): its line,
-/// which said the result, goes with it.</para>
+/// which said the result, goes with it. That report says what the line said: it is made again from the window's result
+/// (<see cref="Complete"/>) or failure (<see cref="Fail"/>), which for a plan executed in parts - the bulk creation wizard's
+/// first account, then the others - is more than the last activity did. A window that also says the outcome in a notification
+/// of its own while it is open (the batch editor) leaves that to <see cref="NotifyWhileOpen"/>, so that it is said once.</para>
 /// <para>Stop <b>finishes the object in progress</b> (V2b-5b, the executor's rule): nothing new is started, but the
 /// objects that ran when it came get all their changes. The stopped result therefore says how many objects are done
 /// and that the ones that ran were finished (<see cref="BatchResult.FinishedAfterStopCount"/>) - never "half done".</para>
@@ -63,6 +66,9 @@ public sealed class ExecutionStatus : IWindowRun, IDisposable
     private bool _closePending;
     private bool _reportByConnection;
     private bool _disposed;
+
+    // The window's own notification of the outcome, held while a close looks at the run (NotifyWhileOpen).
+    private Action? _heldNotification;
 
     private ExecutionStatus(PageStatusHolder status, ILocalizer localizer, string title, string domain, int total)
     {
@@ -101,10 +107,36 @@ public sealed class ExecutionStatus : IWindowRun, IDisposable
     public bool ReportsByConnection => _left || _reportByConnection;
 
     /// <summary>
-    /// The window said the outcome itself outside its line, in a notification of the main window - the batch editor always,
-    /// the Recycle Bin and Reset Password when they showed theirs: the connection says nothing more when the window closes.
+    /// The window said the outcome itself outside its line, in a notification of the main window that is its whole report -
+    /// the Recycle Bin and Reset Password when they showed their success toast: the connection says nothing more when the
+    /// window closes.
     /// </summary>
     public bool WindowNotifies { get; set; }
+
+    /// <summary>
+    /// The window's own notification of how the run ended - the batch editor's toast of its results -, meant for a window that
+    /// stays open. Said now when no close of the window looks at the run. While one does (the close question is open, or the
+    /// window closes right after the run) it is held: said when the window stays after all (<see cref="WindowStays"/>), dropped
+    /// when it closes (<see cref="WindowClosed"/>) - the connection says how the run ended then, that it was stopped and how far
+    /// it got, and the failed objects with their reasons. Never said for a run that left the window.
+    /// </summary>
+    /// <param name="notify">Shows the notification; it holds texts only.</param>
+    public void NotifyWhileOpen(Action notify)
+    {
+        ArgumentNullException.ThrowIfNull(notify);
+        if (_left)
+        {
+            return;
+        }
+
+        if (_closePending)
+        {
+            _heldNotification = notify;
+            return;
+        }
+
+        notify();
+    }
 
     /// <summary>
     /// The run must stay with its window, and why - a key of <c>L.CloseWork.NoBackground…</c> - or null when it may continue
@@ -192,6 +224,8 @@ public sealed class ExecutionStatus : IWindowRun, IDisposable
             return;
         }
 
+        // What the connection says should the window close before the line said it: the same result as the line.
+        _last?.ReportInsteadOf(result);
         var outcome = ExecutionOutcome.Of(_localizer, _title, _domain, result, next);
         switch (outcome.Kind)
         {
@@ -212,8 +246,10 @@ public sealed class ExecutionStatus : IWindowRun, IDisposable
     /// <param name="code">The result code of the failure.</param>
     public void Fail(string reason, ResultCode code = default)
     {
+        ArgumentNullException.ThrowIfNull(reason);
         if (!_left)
         {
+            _last?.ReportFailureInstead(reason);
             _scope.CompleteError(
                 PageStatusText.Failure(ExecutionOutcome.FailedLead(_localizer, _title, _domain), reason, null, code),
                 new PageStatusLog(L.ChangeStatus.ExecuteFailed).WithCode(code));
@@ -271,6 +307,11 @@ public sealed class ExecutionStatus : IWindowRun, IDisposable
             // The window's code said the result in the line already: nothing is kept for the connection.
             _last?.TakeReport();
         }
+
+        // The window stays open: it says the outcome as it does when nothing asked about it.
+        var held = _heldNotification;
+        _heldNotification = null;
+        held?.Invoke();
     }
 
     /// <inheritdoc />
@@ -284,6 +325,7 @@ public sealed class ExecutionStatus : IWindowRun, IDisposable
         var hand = !_left && !WindowNotifies;
         _closePending = false;
         _reportByConnection = false;
+        _heldNotification = null;
         var report = _last?.TakeReport();
         if (hand)
         {
