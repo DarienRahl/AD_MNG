@@ -19,6 +19,9 @@ public sealed partial class PowerShellWindowViewModel
     private string? _firstError;
     private PowerShellRunEndItem? _end;
 
+    /// <summary>The pending question came while the operator was typing the next command (audit W-09): an empty answer to a choice asks once more.</summary>
+    private bool _questionWipedDraft;
+
     /// <summary>The count of lines written when the running command last cleared the window (<c>Clear-Host</c>): its result counts what is left.</summary>
     private long _linesAtClear = -1;
 
@@ -388,6 +391,8 @@ public sealed partial class PowerShellWindowViewModel
             Output.AddLine(PowerShellLineKind.Prompt, ChoiceMenu(item));
         }
 
+        // What the operator typed ahead as the next command is kept by the editor and comes back after the question (audit W-09).
+        _questionWipedDraft = !Input.IsAnswering && !Input.IsBlank;
         Input.SetMode(item.Kind == PowerShellPromptKind.Secret ? PowerShellInputMode.Secret : PowerShellInputMode.Answer);
         _scope?.Report(Localizer[L.PowerShellStatus.Waiting], PageProgress.Indeterminate, new PageStatusLog(L.PowerShellStatus.Waiting));
 
@@ -409,14 +414,23 @@ public sealed partial class PowerShellWindowViewModel
         switch (item.Kind)
         {
             case PowerShellPromptKind.Secret:
-                // The echo has no answer in it: a secret is only ever in the SecureString that goes to the command.
-                Output.AddLine(PowerShellLineKind.Prompt, item.Label ?? string.Empty);
-                item.RespondSecret(ToSecureString(text));
-                break;
+                // A secret comes from the view's password box as a SecureString (AnswerSecret); it is never text of the editor (audit W-08).
+                return;
             case PowerShellPromptKind.Choice:
                 if (text == "?")
                 {
                     ShowChoiceHelp(item);
+                    Input.Clear();
+                    return;
+                }
+
+                if (text.Trim().Length == 0 && _questionWipedDraft)
+                {
+                    // The question took the place of the command being typed: this Enter was most likely meant for that command, not
+                    // for the default choice (audit W-09). Asked once more; an empty answer now takes the default.
+                    _questionWipedDraft = false;
+                    Output.AddLine(PowerShellLineKind.Prompt, Localizer[L.PowerShell.PromptTypeAhead]);
+                    Output.AddLine(PowerShellLineKind.Prompt, ChoiceMenu(item));
                     Input.Clear();
                     return;
                 }
@@ -441,9 +455,31 @@ public sealed partial class PowerShellWindowViewModel
         EndPrompt(answered: true);
     }
 
-    /// <summary>The question is over (answered, or the command ended): the editor takes commands again.</summary>
+    /// <summary>
+    /// Enter at a secret question: the view hands over a copy of what its password box holds (audit W-08: the secret went through the
+    /// editor's text, a string per key, and stayed in the hidden box). The window takes ownership: it goes to the command, read-only,
+    /// and the echo has the question's label only. Without a secret question pending it is disposed.
+    /// </summary>
+    [RelayCommand]
+    private void AnswerSecret(SecureString? secret)
+    {
+        if (IsDisposed || PendingPrompt is not { Item: { Kind: PowerShellPromptKind.Secret } item })
+        {
+            secret?.Dispose();
+            return;
+        }
+
+        var answer = secret ?? new SecureString();
+        answer.MakeReadOnly();
+        Output.AddLine(PowerShellLineKind.Prompt, item.Label ?? string.Empty);
+        item.RespondSecret(answer);
+        EndPrompt(answered: true);
+    }
+
+    /// <summary>The question is over (answered, or the command ended): the editor takes commands again, with what was typed ahead.</summary>
     private void EndPrompt(bool answered)
     {
+        _questionWipedDraft = false;
         if (PendingPrompt is null)
         {
             return;
@@ -509,15 +545,4 @@ public sealed partial class PowerShellWindowViewModel
     /// <summary>The label without the '&amp;'.</summary>
     internal static string ChoiceText(string label) => label.Replace("&", string.Empty, StringComparison.Ordinal);
 
-    private static SecureString ToSecureString(string text)
-    {
-        var secret = new SecureString();
-        foreach (var character in text)
-        {
-            secret.AppendChar(character);
-        }
-
-        secret.MakeReadOnly();
-        return secret;
-    }
 }

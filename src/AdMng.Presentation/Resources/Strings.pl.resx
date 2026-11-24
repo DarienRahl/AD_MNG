@@ -25683,6 +25683,9 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="PowerShell.Prompt.Help" xml:space="preserve">
     <value>Pomoc</value>
   </data>
+  <data name="PowerShell.Prompt.TypeAhead" xml:space="preserve">
+    <value>Pytanie przyszło w trakcie pisania następnego polecenia; wpisany tekst wróci po odpowiedzi. Wpisz odpowiedź albo naciśnij Enter jeszcze raz, aby wybrać odpowiedź domyślną.</value>
+  </data>
   <data name="PowerShell.Prompt.Default" xml:space="preserve">
     <value>(domyślnie: "{0}")</value>
   </data>

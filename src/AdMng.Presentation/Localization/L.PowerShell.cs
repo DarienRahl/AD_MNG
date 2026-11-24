@@ -56,6 +56,9 @@ public static partial class L
 
         public const string PromptHelp = "PowerShell.Prompt.Help";
 
+        /// <summary>A choice prompt that came while the next command was being typed got an empty answer: asked once more (audit W-09).</summary>
+        public const string PromptTypeAhead = "PowerShell.Prompt.TypeAhead";
+
         /// <summary>{0} = the choice that is taken by an empty answer.</summary>
         public const string PromptDefault = "PowerShell.Prompt.Default";
 

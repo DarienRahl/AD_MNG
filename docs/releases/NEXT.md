@@ -92,7 +92,10 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   historię, **Esc** zamyka listę, **Ctrl+L** czyści okno – tak samo `cls` (`Clear-Host`) w poleceniu, w miejscu, w którym stoi.
   `exit` kończy polecenie tam, gdzie stoi, a okno mówi to z kodem wyjścia i zostaje otwarte. O parametr obowiązkowy, który
   przyjmuje listę (np. `-Identity`), okno pyta element po elemencie (`Identity[0]`, `Identity[1]`…) aż do pustej odpowiedzi,
-  jak konsola PowerShella – odpowiedź nie jest dzielona na przecinkach, więc nazwa wyróżniająca jest jedną tożsamością. Historia jest tylko w pamięci okna; wiersz z hasłem jawnym
+  jak konsola PowerShella – odpowiedź nie jest dzielona na przecinkach, więc nazwa wyróżniająca jest jedną tożsamością. Pytanie,
+  które przyjdzie w trakcie pisania następnego polecenia, nie kasuje wpisanego tekstu (wraca po odpowiedzi), a pierwsze puste
+  Enter po takim pytaniu z wyborem pyta jeszcze raz zamiast wybrać odpowiedź domyślną. Hasło z pola hasła trafia do polecenia
+  wprost jako `SecureString`, a pole jest puste po odpowiedzi. Historia jest tylko w pamięci okna; wiersz z hasłem jawnym
   (`-AsPlainText`, przy `ConvertTo-SecureString` także skrócone do `-As` albo `-A`, `ConvertTo-SecureString '…'`, napis zamieniany
   na `[securestring]`, wartość wpisana wprost – także w nawiasach albo złożona z samych napisów – dla parametru, klucza tablicy
   skrótów – także przekazanej przez `@h` albo złożonego ze zmiennej, jak `"Pass$x"` – albo zmiennej o nazwie z `Password`, `Passphrase`, `Pwd`,

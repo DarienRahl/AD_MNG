@@ -235,6 +235,44 @@ public sealed class PowerShellWindowUiTests
         context.AssertHealthy();
     });
 
+    /// <summary>
+    /// Audit W-08 and W-09: the secret went through the model's text, a string per key, and stayed in the hidden password box after the
+    /// answer; text typed ahead of a question stayed in the hidden command line while the model had none. Enter in the password box now
+    /// hands over a SecureString, the box is empty after the answer, and the command line shows what was typed ahead again.
+    /// </summary>
+    [Fact]
+    public Task ASecretQuestion_TakesTheSecretFromThePasswordBoxOnly_EmptiesIt_AndTheTypedAheadTextComesBack() => WpfTestHost.RunAsync(async () =>
+    {
+        var (context, _, _, window) = await PowerShellUiSupport.OpenAsync();
+        await using var _c = context;
+        var editor = window.EditorControl;
+        var vm = window.ViewModel;
+
+        editor.Box.Text = "$s = Read-Host 'Secret' -AsSecureString; \"length=$($s.Length)\"";
+        var run = vm.RunCommand.ExecuteAsync(null);
+        await UiWait.UntilAsync(() => vm.IsRunning, "the command runs");
+        editor.Box.Text = "Get-AdmVersion";
+        await UiWait.UntilAsync(() => vm.PendingPrompt is not null, "the secret question");
+        await UiTestSupport.WaitForIdleAsync();
+
+        Assert.Equal(Visibility.Visible, editor.Secret.Visibility);
+        Assert.Equal(Visibility.Collapsed, editor.Box.Visibility);
+        editor.Secret.Password = "S3cret!";
+        Assert.Equal(string.Empty, vm.Input.Text);
+
+        Assert.True(editor.HandleKey(Key.Enter, ModifierKeys.None));
+        await run;
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+
+        Assert.Contains("length=7", PowerShellUiSupport.Lines(window));
+        Assert.DoesNotContain(PowerShellUiSupport.Lines(window), line => line.Contains("S3cret", StringComparison.Ordinal));
+        Assert.Equal(string.Empty, editor.Secret.Password);
+        Assert.Equal(Visibility.Collapsed, editor.Secret.Visibility);
+        Assert.Equal("Get-AdmVersion", editor.Box.Text);
+        Assert.Equal("Get-AdmVersion", vm.Input.Text);
+        context.AssertHealthy();
+    });
+
     [Fact]
     public Task CtrlC_WithoutASelection_StopsTheCommand_AndCtrlL_ClearsTheWindow() => WpfTestHost.RunAsync(async () =>
     {

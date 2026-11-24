@@ -117,7 +117,8 @@
                              Model="{Binding Input}"
                              Prompt="{Binding InputPrompt, Mode=OneWay}"
                              StopCommand="{Binding StopCommand}"
-                             SubmitCommand="{Binding SubmitCommand}" />
+                             SubmitCommand="{Binding SubmitCommand}"
+                             SubmitSecretCommand="{Binding AnswerSecretCommand}" />
 
         <DockPanel Grid.Row="2" Margin="0,8,0,0" LastChildFill="False">
           <c:ActionButton x:Name="RunButton"

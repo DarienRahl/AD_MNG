@@ -307,7 +307,10 @@ the window, in its place among the results (`whoami /groups` at the end of a com
 The commands that ask for something – `Read-Host`, a mandatory parameter, `-Confirm` – ask in the window, and *Stop* cancels the
 question. A mandatory parameter that takes a list (such as `-Identity`) is asked for element by element, as the PowerShell console
 asks (`Identity[0]`, `Identity[1]`, …), until you answer with an empty line. An answer is not split at commas, so a distinguished
-name is one identity.
+name is one identity. A question that comes while you are already typing the next command does not wipe it: what you typed comes
+back to the command line after the answer. The first empty **Enter** after such a question with choices (`-Confirm`, for example)
+does not take the default answer – the window asks once more, since that Enter was most likely meant for the command. A password
+from the password box goes to the command at once as a `SecureString`; the box is empty after the answer.
 
 **The trusted mode (FullLanguage)** is a switch under the command line:
 

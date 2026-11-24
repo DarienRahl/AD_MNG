@@ -610,13 +610,27 @@ public sealed class PowerShellWindowRunTests
 
         await UntilAsync(window, () => window.PendingPrompt is not null).WaitAsync(Limit, Ct);
         Assert.True(window.Input.IsSecret);
+
+        // Audit W-08: the secret never becomes text of the editor's model (it was a string per key); Enter in the password box hands
+        // over a SecureString, and Submit alone answers nothing.
         PowerShellHarness.Type(window, "S3cret!");
+        Assert.Equal(string.Empty, window.Input.Text);
         Assert.Empty(window.Input.Spans);
         window.SubmitCommand.Execute(null);
+        Assert.NotNull(window.PendingPrompt);
+        Assert.False(prompt.IsAnswered);
+        using var typed = new System.Security.SecureString();
+        foreach (var character in "S3cret!")
+        {
+            typed.AppendChar(character);
+        }
+
+        window.AnswerSecretCommand.Execute(typed.Copy());
         await run.WaitAsync(Limit, Ct);
 
         var secure = Assert.IsType<System.Security.SecureString>(answer);
         Assert.Equal(7, secure.Length);
+        Assert.True(secure.IsReadOnly());
         Assert.DoesNotContain(window.Output.Lines, line => line.Text.Contains("S3cret", StringComparison.Ordinal));
         Assert.DoesNotContain(window.History.Entries, entry => entry.Contains("S3cret", StringComparison.Ordinal));
         Assert.DoesNotContain("S3cret", window.Status.Current.Message, StringComparison.Ordinal);
@@ -680,6 +694,76 @@ public sealed class PowerShellWindowRunTests
         await run.WaitAsync(Limit, Ct);
 
         Assert.Equal(1, answer);
+    }
+
+    /// <summary>
+    /// Audit W-09: a question that arrives while the operator types the next command took the typed text away, and the Enter meant for
+    /// that command answered the question with its default (Yes of a -Confirm). The text comes back after the question, and an empty
+    /// answer right after such a question asks once more.
+    /// </summary>
+    [Fact]
+    public async Task AQuestionThatComesWhileTheNextCommandIsTyped_KeepsTheText_AndItsFirstEmptyEnterAsksAgain()
+    {
+        var harness = await PowerShellHarness.CreateAsync();
+        using var window = await harness.OpenAsync();
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var prompt = new PowerShellPromptItem(PowerShellPromptKind.Choice, "Confirm", "Remove?", null, [new PowerShellChoice("&Yes", ""), new PowerShellChoice("&No", "")], defaultChoice: 0);
+        object? answer = null;
+        harness.Session.Queue(run => AskAfter(gate.Task, run, prompt, a => answer = a));
+        PowerShellHarness.Type(window, "Remove-Item x -Confirm");
+        var running = window.RunCommand.ExecuteAsync(null);
+        await UntilAsync(window, () => window.IsRunning).WaitAsync(Limit, Ct);
+
+        PowerShellHarness.Type(window, "Get-AdmUser jan.kowalski");
+        gate.SetResult();
+        await UntilAsync(window, () => window.PendingPrompt is not null).WaitAsync(Limit, Ct);
+        Assert.Equal(string.Empty, window.Input.Text);
+        Assert.Equal("Get-AdmUser jan.kowalski", window.Input.CommandDraft);
+
+        window.SubmitCommand.Execute(null);
+        Assert.False(prompt.IsAnswered);
+        Assert.Contains(
+            "The question came while you were typing the next command; what you typed comes back after the answer. Type the answer, or press Enter again for the default.",
+            window.Output.Lines.Select(line => line.Text));
+
+        window.SubmitCommand.Execute(null);
+        await running.WaitAsync(Limit, Ct);
+        Assert.Equal(0, answer);
+        Assert.Equal("Get-AdmUser jan.kowalski", window.Input.Text);
+        Assert.Equal(PowerShellInputMode.Command, window.Input.Mode);
+    }
+
+    [Fact]
+    public async Task AQuestionWithoutTypeAhead_TakesTheDefaultAtTheFirstEmptyEnter_AndAnAnswerTypedAfterTheWipeCounts()
+    {
+        var harness = await PowerShellHarness.CreateAsync();
+        using var window = await harness.OpenAsync();
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var prompt = new PowerShellPromptItem(PowerShellPromptKind.Choice, null, null, null, [new PowerShellChoice("&Yes", ""), new PowerShellChoice("&No", "")], defaultChoice: 0);
+        object? answer = null;
+        harness.Session.Queue(run => AskAfter(gate.Task, run, prompt, a => answer = a));
+        PowerShellHarness.Type(window, "x");
+        var running = window.RunCommand.ExecuteAsync(null);
+        await UntilAsync(window, () => window.IsRunning).WaitAsync(Limit, Ct);
+        PowerShellHarness.Type(window, "typed ahead");
+        gate.SetResult();
+        await UntilAsync(window, () => window.PendingPrompt is not null).WaitAsync(Limit, Ct);
+
+        PowerShellHarness.Type(window, "n");
+        window.SubmitCommand.Execute(null);
+        await running.WaitAsync(Limit, Ct);
+
+        Assert.Equal(1, answer);
+        Assert.Equal("typed ahead", window.Input.Text);
+    }
+
+    private static async IAsyncEnumerable<PowerShellOutputItem> AskAfter(Task gate, FakeRun run, PowerShellPromptItem prompt, Action<object?> answered)
+    {
+        await gate.ConfigureAwait(false);
+        await foreach (var item in Ask(run, prompt, answered, a => $"choice {a}").ConfigureAwait(false))
+        {
+            yield return item;
+        }
     }
 
     [Fact]

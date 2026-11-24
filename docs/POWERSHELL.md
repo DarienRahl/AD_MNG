@@ -305,7 +305,10 @@ PowerShell 7 – pojawia się w oknie, na swoim miejscu wśród wyników (`whoam
 Polecenia, które o coś pytają – `Read-Host`, parametr obowiązkowy, `-Confirm` – pytają w oknie, a *Zatrzymaj* anuluje pytanie.
 Parametr obowiązkowy, który przyjmuje listę (np. `-Identity`), okno – jak konsola PowerShella – pyta element po elemencie
 (`Identity[0]`, `Identity[1]`, …), aż odpowiesz pustym wierszem. Odpowiedź nie jest dzielona na przecinkach, więc nazwa
-wyróżniająca to jedna tożsamość.
+wyróżniająca to jedna tożsamość. Pytanie, które przyjdzie, gdy piszesz już następne polecenie, nie kasuje go: wpisany tekst wraca do
+wiersza poleceń po odpowiedzi. Pierwsze puste **Enter** po takim pytaniu z wyborem (np. `-Confirm`) nie wybiera odpowiedzi
+domyślnej – okno pyta jeszcze raz, bo to Enter było najpewniej przeznaczone dla polecenia. Hasło z pola hasła trafia do polecenia
+od razu jako `SecureString`; pole jest puste po odpowiedzi.
 
 **Tryb zaufany (FullLanguage)** to przełącznik pod wierszem poleceń:
 

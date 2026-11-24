@@ -25683,6 +25683,9 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="PowerShell.Prompt.Help" xml:space="preserve">
     <value>Help</value>
   </data>
+  <data name="PowerShell.Prompt.TypeAhead" xml:space="preserve">
+    <value>The question came while you were typing the next command; what you typed comes back after the answer. Type the answer, or press Enter again for the default.</value>
+  </data>
   <data name="PowerShell.Prompt.Default" xml:space="preserve">
     <value>(default is "{0}")</value>
   </data>

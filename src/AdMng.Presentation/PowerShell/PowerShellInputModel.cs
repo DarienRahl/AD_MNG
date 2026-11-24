@@ -52,6 +52,9 @@ public sealed partial class PowerShellInputModel : ObservableObject
 
     private readonly Func<IPowerShellSession?> _session;
     private readonly Func<bool>? _canComplete;
+
+    // What the operator typed as the next command when a question of the running command came (audit W-09).
+    private (string Text, int Caret)? _commandDraft;
     private CancellationTokenSource? _completion;
     private CancellationTokenSource? _highlight;
     private int _replaceIndex;
@@ -131,6 +134,12 @@ public sealed partial class PowerShellInputModel : ObservableObject
     /// </summary>
     public void SetText(string? text, int caretIndex)
     {
+        if (IsSecret)
+        {
+            // A secret never becomes text of the model (audit W-08): the view hands it over as a SecureString on Enter.
+            return;
+        }
+
         text ??= string.Empty;
         if (text == Text)
         {
@@ -191,7 +200,11 @@ public sealed partial class PowerShellInputModel : ObservableObject
         SetTextCore(string.Empty, 0);
     }
 
-    /// <summary>The editor takes the answer to a question of the command (plain or secret), or goes back to commands. The text starts empty.</summary>
+    /// <summary>
+    /// The editor takes the answer to a question of the command (plain or secret), or goes back to commands. An answer starts empty;
+    /// what the operator had typed ahead as the next command is kept and comes back with the command mode (audit W-09: the question
+    /// wiped it).
+    /// </summary>
     public void SetMode(PowerShellInputMode mode)
     {
         if (Mode == mode)
@@ -202,11 +215,25 @@ public sealed partial class PowerShellInputModel : ObservableObject
         CloseCompletion();
         CancelSearch();
         History.ResetNavigation();
+        var (text, caret) = (string.Empty, 0);
+        if (Mode == PowerShellInputMode.Command)
+        {
+            _commandDraft = (Text, CaretIndex);
+        }
+        else if (mode == PowerShellInputMode.Command && _commandDraft is { } draft)
+        {
+            (text, caret) = draft;
+            _commandDraft = null;
+        }
+
         Mode = mode;
         OnPropertyChanged(nameof(IsSecret));
         OnPropertyChanged(nameof(IsAnswering));
-        SetTextCore(string.Empty, 0);
+        SetTextCore(text, caret);
     }
+
+    /// <summary>The text typed as the next command when a question came; it comes back when the question is over.</summary>
+    public string CommandDraft => _commandDraft?.Text ?? string.Empty;
 
     // ---- Up and Down -------------------------------------------------------------------------------------------
 
