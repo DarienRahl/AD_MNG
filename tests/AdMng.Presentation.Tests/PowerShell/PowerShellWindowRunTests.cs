@@ -494,6 +494,34 @@ public sealed class PowerShellWindowRunTests
         Assert.Equal(PageStatusKind.Done, window.Status.Current.Kind);
     }
 
+    /// <summary>
+    /// Audit PS-07: the window made up a "finished" (or "stopped") end for an engine that ended a run without its end item, which
+    /// hid the engine losing it. Such an end is an error of the window now, and the next command runs.
+    /// </summary>
+    [Fact]
+    public async Task AnEngineThatEndsARunWithoutItsEndItem_IsAnErrorOnTheLine_NotAFinishedCommand()
+    {
+        var harness = await PowerShellHarness.CreateAsync();
+        using var window = await harness.OpenAsync();
+        harness.Session.Queue(_ => Without(Text("x\n")));
+
+        await PowerShellHarness.RunAsync(window, "x");
+
+        Assert.Equal(PageStatusKind.Error, window.Status.Current.Kind);
+        Assert.StartsWith("The command could not be started: Unexpected error: ", window.Status.Current.Message, StringComparison.Ordinal);
+        Assert.False(window.IsRunning);
+
+        harness.Session.Queue(Text("ok\n"));
+        await PowerShellHarness.RunAsync(window, "y");
+        Assert.Equal(PageStatusKind.Done, window.Status.Current.Kind);
+
+        static async IAsyncEnumerable<PowerShellOutputItem> Without(PowerShellOutputItem item)
+        {
+            yield return item;
+            await Task.CompletedTask.ConfigureAwait(false);
+        }
+    }
+
     [Fact]
     public async Task Progress_IsOnTheLine_WithThePartDone_AndTheLineGoesBackToRunningWhenItIsCompleted()
     {

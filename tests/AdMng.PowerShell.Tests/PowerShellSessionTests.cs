@@ -162,6 +162,40 @@ public sealed class PowerShellSessionTests
         Assert.False(session.IsRunning);
     }
 
+    /// <summary>
+    /// Audit PS-07: a script that floods a consumer that fell behind fills the channel; a stop then dropped the end item (posted
+    /// through the path that drops an item once the run is stopped) and the enumeration ended with text.
+    /// </summary>
+    [Fact]
+    public async Task A_flood_stopped_while_the_consumer_is_behind_still_ends_with_the_end_item()
+    {
+        await using var session = await TestSessions.CreateAsync();
+        var items = new List<PowerShellOutputItem>();
+        await using var run = session.RunAsync("while ($true) { 'x' }", TestContext.Current.CancellationToken).GetAsyncEnumerator(TestContext.Current.CancellationToken);
+
+        Assert.True(await run.MoveNextAsync());
+        items.Add(run.Current);
+
+        // The consumer stays away until the producer waits for room in the full channel.
+        var deadline = DateTime.UtcNow.AddSeconds(20);
+        while (session.BufferedItemCount < PowerShellSession.ChannelCapacity && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(20, TestContext.Current.CancellationToken);
+        }
+
+        Assert.Equal(PowerShellSession.ChannelCapacity, session.BufferedItemCount);
+        await session.StopAsync();
+        while (await run.MoveNextAsync())
+        {
+            items.Add(run.Current);
+        }
+
+        var end = Assert.IsType<PowerShellRunEndItem>(items[^1]);
+        Assert.Equal(PowerShellRunState.Stopped, end.State);
+        Assert.Single(items.OfType<PowerShellRunEndItem>());
+        Assert.False(session.IsRunning);
+    }
+
     [Fact]
     public async Task Cancelling_the_token_stops_the_pipeline_and_the_enumeration_still_ends_with_the_end_item()
     {

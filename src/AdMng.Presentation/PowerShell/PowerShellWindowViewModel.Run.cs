@@ -87,15 +87,16 @@ public sealed partial class PowerShellWindowViewModel
             await Task.Run(() => PumpAsync(session, script, scope.Token), CancellationToken.None).ConfigureAwait(true);
             if (!IsDisposed)
             {
-                Finish(scope, started, linesBefore, modeBefore);
+                // The engine always ends a run with its end item (audit PS-07: a flood that was stopped lost it, and a default here hid it).
+                Finish(scope, started, linesBefore, modeBefore, _end ?? throw new InvalidOperationException("The PowerShell engine ended the command without saying how it ended."));
             }
         }
         catch (OperationCanceledException) when (scope.Token.IsCancellationRequested)
         {
-            // An engine that ends a stopped run by throwing is a stopped run too.
+            // An engine that ends a stopped run by throwing (the stop came while the command waited to start) is a stopped run too.
             if (!IsDisposed)
             {
-                Finish(scope, started, linesBefore, modeBefore);
+                Finish(scope, started, linesBefore, modeBefore, _end ?? new PowerShellRunEndItem(PowerShellRunState.Stopped, _firstError is not null));
             }
         }
         catch (PowerShellSessionUnavailableException ex) when (!IsDisposed)
@@ -289,10 +290,9 @@ public sealed partial class PowerShellWindowViewModel
     /// in the scrollback: the window goes on in a new session without the variables of the old one - and constrained when a lockdown
     /// came into force meanwhile.
     /// </summary>
-    private void Finish(OperationScope scope, DateTimeOffset started, long linesBefore, PowerShellLanguageMode modeBefore)
+    private void Finish(OperationScope scope, DateTimeOffset started, long linesBefore, PowerShellLanguageMode modeBefore, PowerShellRunEndItem end)
     {
         Output.EndRun();
-        var end = _end ?? new PowerShellRunEndItem(scope.Token.IsCancellationRequested ? PowerShellRunState.Stopped : PowerShellRunState.Completed, _firstError is not null);
         var elapsed = Services.Time.GetUtcNow() - started;
         var time = Localizer.Format(L.PowerShellStatus.Seconds, Math.Max(0, elapsed.TotalSeconds).ToString("0.0", Localizer.Culture));
         var lines = Output.OutputLinesWritten - Math.Max(linesBefore, _linesAtClear);

@@ -70,13 +70,18 @@ internal static class PowerShellWindowTestSupport
         await Task.CompletedTask.ConfigureAwait(false);
     }
 
-    /// <summary>A run that takes <paramref name="time"/> on the clock of the test and then writes <paramref name="items"/>.</summary>
+    /// <summary>A run that takes <paramref name="time"/> on the clock of the test, then writes <paramref name="items"/> and ends like the engine, with its end item.</summary>
     public static async IAsyncEnumerable<PowerShellOutputItem> TakesTime(AdMng.Testing.ManualTimeProvider clock, TimeSpan time, params PowerShellOutputItem[] items)
     {
         clock.Advance(time);
         foreach (var item in items)
         {
             yield return item;
+        }
+
+        if (items.Length == 0 || items[^1] is not PowerShellRunEndItem)
+        {
+            yield return FakePowerShellSession.End();
         }
 
         await Task.CompletedTask.ConfigureAwait(false);

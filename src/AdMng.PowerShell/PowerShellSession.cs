@@ -26,7 +26,8 @@ namespace AdMng.PowerShell;
 /// </summary>
 public sealed class PowerShellSession : IPowerShellSession
 {
-    private const int ChannelCapacity = 4096;
+    /// <summary>The most items the output channel of a run holds before the pipeline waits for the window.</summary>
+    internal const int ChannelCapacity = 4096;
 
     private const int RunActive = 0;
     private const int RunFinished = 1;
@@ -114,6 +115,18 @@ public sealed class PowerShellSession : IPowerShellSession
             lock (_sync)
             {
                 return _running;
+            }
+        }
+    }
+
+    /// <summary>For tests: how many items of the active run wait in its channel for the consumer (0 when no run is active).</summary>
+    internal int BufferedItemCount
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _run?.Channel.Reader.Count ?? 0;
             }
         }
     }
@@ -686,6 +699,8 @@ public sealed class PowerShellSession : IPowerShellSession
                 {
                     if (Volatile.Read(ref run.State) != RunLeft)
                     {
+                        // The end item is not in the channel (audit PS-07): a stopped run whose consumer fell behind dropped it there.
+                        yield return run.End ?? throw new InvalidOperationException("The run ended without its end item.");
                         yield break;
                     }
 
@@ -838,7 +853,10 @@ public sealed class PowerShellSession : IPowerShellSession
 
         run.Ps.Dispose();
         _gate.Release();
-        run.Sink.Post(new PowerShellRunEndItem(state, hadErrors, exitCode));
+
+        // The end item is kept on the run, never posted: a post drops an item when the channel is full and the run was stopped, the
+        // case Stop exists for (a flood). The consumer yields it after the channel's last item (audit PS-07).
+        run.End = new PowerShellRunEndItem(state, hadErrors, exitCode);
 
         // Idle first: a consumer that sees the channel end must also see the run as finished.
         run.Idle.TrySetResult();
@@ -985,6 +1003,15 @@ public sealed class PowerShellSession : IPowerShellSession
 
         /// <summary>Set (to 1) by the first stop request.</summary>
         public int StopRequested;
+
+        /// <summary>How the run ended: set by <see cref="FinishRun"/> before the channel completes, yielded after its last item.</summary>
+        public PowerShellRunEndItem? End
+        {
+            get => Volatile.Read(ref _end);
+            set => Volatile.Write(ref _end, value);
+        }
+
+        private PowerShellRunEndItem? _end;
 
         /// <summary><see cref="RunActive"/>, then <see cref="RunFinished"/> (the pipeline ended) or <see cref="RunLeft"/> (the session left it), whichever comes first.</summary>
         public int State;
