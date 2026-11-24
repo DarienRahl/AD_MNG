@@ -29,16 +29,49 @@ public sealed class InputGuardTests
         Assert.Equal(expected, InputGuard.Refusal(script));
     }
 
-    /// <summary>A line the parser gives up on (no syntax tree, "ScriptTooComplicated") is refused, not passed - the guard could not look into it.</summary>
+    /// <summary>
+    /// A line nested deeper than the window accepts is refused, whether the parser gave up on it ("ScriptTooComplicated", no tree - it
+    /// depends on the stack it parses on) or made a tree: 200 levels (parsed on the caller's thread), 5 000 and 20 000 (on the parser's
+    /// own thread).
+    /// </summary>
     [Theory]
-    [InlineData("(", ")")]
-    [InlineData("$(", ")")]
-    [InlineData("{", "}")]
-    public void A_line_the_parser_gives_up_on_is_refused(string open, string close)
+    [InlineData("(", ")", 200)]
+    [InlineData("$(", ")", 200)]
+    [InlineData("{", "}", 200)]
+    [InlineData("@(", ")", 200)]
+    [InlineData("(", ")", 5000)]
+    [InlineData("$(", ")", 5000)]
+    [InlineData("{", "}", 5000)]
+    [InlineData("(", ")", 20000)]
+    [InlineData("$(", ")", 20000)]
+    [InlineData("{", "}", 20000)]
+    public void A_line_nested_too_deeply_is_refused(string open, string close, int levels)
     {
-        var script = "$x = " + string.Concat(Enumerable.Repeat(open, 20000)) + "1" + string.Concat(Enumerable.Repeat(close, 20000));
+        var script = "$x = " + string.Concat(Enumerable.Repeat(open, levels)) + "1" + string.Concat(Enumerable.Repeat(close, levels));
 
         Assert.Equal(InputGuard.TooComplexMessage, InputGuard.Refusal(script));
+    }
+
+    /// <summary>
+    /// The limits of <see cref="Input.InputParser"/>: a tree deeper than its maximum is refused (a deeper one ends the engine's compiler or
+    /// the walks over it with a stack overflow), a text longer than its maximum is refused unparsed; just below both a command passes, also
+    /// one long enough to be parsed on the parser's own thread.
+    /// </summary>
+    [Fact]
+    public void A_text_past_the_parsers_limits_is_refused_and_one_below_them_passes()
+    {
+        static string Sum(int terms) => "$x = 1" + string.Concat(Enumerable.Repeat("+1", terms));
+        var lines = string.Join("\n", Enumerable.Repeat("Get-AdmUser -Identity jkowalski -Properties mail, department | Select-Object Name", 300));
+
+        Assert.Null(InputGuard.Refusal(Sum(Input.InputParser.MaxDepth - 10)));
+        Assert.Equal(InputGuard.TooComplexMessage, InputGuard.Refusal(Sum(Input.InputParser.MaxDepth)));
+        Assert.Equal(InputGuard.TooComplexMessage, InputGuard.Refusal("$x = " + new string('(', 200) + "1" + new string(')', 200)));
+        Assert.True(lines.Length > Input.InputParser.InlineLength);
+        Assert.Null(InputGuard.Refusal(lines));
+        Assert.Null(InputGuard.Refusal("'" + new string('a', Input.InputParser.MaxLength - 2) + "'"));
+        Assert.Equal(InputGuard.TooComplexMessage, InputGuard.Refusal("'" + new string('a', Input.InputParser.MaxLength - 1) + "'"));
+        Assert.Equal(InputGuard.TooComplexMessage, InputGuard.Refusal(lines + "\n'x' > out.txt" + new string(' ', Input.InputParser.MaxLength)));
+        Assert.Contains($"more than {Input.InputParser.MaxLength} characters", InputGuard.TooComplexMessage, StringComparison.Ordinal);
     }
 
     [Theory]

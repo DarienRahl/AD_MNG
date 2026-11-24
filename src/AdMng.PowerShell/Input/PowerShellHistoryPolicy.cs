@@ -28,7 +28,8 @@ public static class PowerShellHistoryPolicy
     private static readonly string[] NamingVerbs = ["Get", "Find", "Search", "Show"];
 
     /// <summary>
-    /// False for an empty line, for input that is still incomplete, and for a line with a plain-text secret: the
+    /// False for an empty line, for input that is still incomplete, for a text too long or nested too deeply to parse safely
+    /// (<see cref="InputParser"/>; the guard refuses it), and for a line with a plain-text secret: the
     /// <c>-AsPlainText</c> parameter (also its prefixes of three letters or more); a literal given to a parameter, a hashtable key
     /// (an inline or splatted hashtable) or assigned to a variable, property or index whose name is a secret's name
     /// (<c>Password</c>, <c>Passphrase</c>, <c>Pwd</c>, <c>Secret</c>, <c>Token</c>, <c>ApiKey</c>, <c>PrivateKey</c> anywhere in
@@ -48,15 +49,15 @@ public static class PowerShellHistoryPolicy
             return false;
         }
 
-        PowerShellEnvironment.Apply();
-        var ast = Parser.ParseInput(line, out var tokens, out var errors);
-        if (ast is null || errors.Any(error => error.IncompleteInput))
+        // A line too long or too deep to walk safely, or one the parser gave up on, is not remembered (InputParser; the guard refuses it).
+        var parsed = InputParser.Parse(line);
+        if (parsed.Ast is not { } ast || parsed.Errors.Any(error => error.IncompleteInput))
         {
             return false;
         }
 
         // Tokens survive a parse error, so the plain-text parameter is found in a broken line as well.
-        if (tokens.Any(IsPlainTextParameter))
+        if (parsed.Tokens.Any(IsPlainTextParameter))
         {
             return false;
         }

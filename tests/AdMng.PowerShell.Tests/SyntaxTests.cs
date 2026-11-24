@@ -46,6 +46,24 @@ public sealed class SyntaxTests
         Assert.Equal(spans.OrderBy(s => s.Start).ToList(), spans);
     }
 
+    /// <summary>
+    /// A text longer than the parser's limit is not parsed (InputParser): no highlighting, and complete, so that Enter runs it and the guard
+    /// says why it is refused. A long text below the limit is parsed on the parser's own thread and highlighted like a short one.
+    /// </summary>
+    [Fact]
+    public void A_text_past_the_length_limit_is_complete_and_not_highlighted_and_a_long_one_below_it_is()
+    {
+        var tooLong = "'" + new string('a', InputParser.MaxLength) + "'";
+        var line = "Get-AdmUser -Identity jkowalski | Select-Object Name";
+        var lines = string.Join("\n", Enumerable.Repeat(line, 200));
+
+        Assert.Empty(PowerShellSyntax.Tokenize(tooLong));
+        Assert.True(PowerShellSyntax.IsComplete(tooLong));
+        Assert.True(lines.Length > InputParser.InlineLength);
+        Assert.Equal(200 * PowerShellSyntax.Tokenize(line).Count, PowerShellSyntax.Tokenize(lines).Count);
+        Assert.False(PowerShellSyntax.IsComplete(lines + " | ForEach-Object {"));
+    }
+
     [Fact]
     public void Tokenizing_an_incomplete_or_broken_input_does_not_throw()
     {

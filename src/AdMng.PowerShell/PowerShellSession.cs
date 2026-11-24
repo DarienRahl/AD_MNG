@@ -455,6 +455,12 @@ public sealed class PowerShellSession : IPowerShellSession
 
     private static PowerShellCompletionResult Complete(Runspace runspace, string input, int cursorIndex)
     {
+        // The engine's completion parses the whole input on this thread: nothing is completed in a text too long or too deep to walk.
+        if (InputParser.Parse(input).Ast is null)
+        {
+            return PowerShellCompletionResult.Empty;
+        }
+
         using var ps = SmaPowerShell.Create();
         ps.Runspace = runspace;
         var result = CommandCompletion.CompleteInput(input, Math.Clamp(cursorIndex, 0, input.Length), options: null, ps);

@@ -507,10 +507,11 @@ public sealed class EscapeTests : IDisposable
     }
 
     /// <summary>
-    /// The third red team of R1 (goal h): at about 4 500 nested parentheses the parser gives up ("ScriptTooComplicated") and returns no
-    /// syntax tree. The guard dereferenced it, so the run threw a NullReferenceException after the session had counted itself as running,
-    /// and every later command of the window was refused with "A command is already running in this window" - Stop could not help, as no
-    /// pipeline had started. The line is refused now, and the window runs the next command.
+    /// The third red team of R1 (goal h): where the parser gives up on 5 000 nested parentheses ("ScriptTooComplicated", from about 4 500
+    /// in a Debug build here) it returns no syntax tree. The guard dereferenced it, so the run threw a NullReferenceException after the
+    /// session had counted itself as running, and every later command of the window was refused with "A command is already running in this
+    /// window" - Stop could not help, as no pipeline had started. Where it parses (the Release build of CI), the line ran. The line is
+    /// refused now on every machine (InputParser's depth limit), and the window runs the next command.
     /// </summary>
     [Theory]
     [MemberData(nameof(BothModes))]
@@ -531,6 +532,52 @@ public sealed class EscapeTests : IDisposable
         Assert.False(session.ShouldRemember(script));
         Assert.NotEmpty(session.Tokenize(script));
         Assert.Equal(PowerShellCompletionResult.Empty, await session.CompleteAsync(script, script.Length, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    /// Found while reproducing the line above: a chain of operators is parsed in a loop, but every walk over its tree afterwards recurses
+    /// once per operator, and a .NET stack overflow ends the process - on a workstation with every window of the program. Each case runs in
+    /// a child process from a thread with 1 MB of stack (the window's UI thread on Windows): <c>$x = 1+1+…</c> with 12 000 terms ended the
+    /// engine's compiler when it ran, with 40 000 terms the parse of the end-of-input check, and <c>$password = 'x'+'x'+…</c> with 4 000
+    /// terms the history filter. Each is refused now and the window runs the next command; the same lines 400 terms long still run.
+    /// </summary>
+    [Fact]
+    public async Task A_chain_of_operators_too_deep_to_walk_is_refused_and_does_not_end_the_process()
+    {
+        string[] refused = ["sum-12000", "sum-40000", "secret-4000"];
+        string[] kept = ["sum-400", "secret-400"];
+        var folders = refused.Concat(kept).ToDictionary(name => name, _ => new TempFolder());
+        try
+        {
+            var results = await Task.WhenAll(folders.Select(async pair => (Name: pair.Key, Result: await ChildProcess.RunAsync("deep-input:" + pair.Key, pair.Value.Home, pair.Value.ReportPath))));
+
+            foreach (var (name, result) in results)
+            {
+                Assert.True(result.ExitCode == 0, $"{name} ended the process ({result.ExitCode}):\n{result.Report}\n{result.Output[..Math.Min(result.Output.Length, 2000)]}");
+                Assert.EndsWith("next=Completed: alive\ndone\n", result.Report, StringComparison.Ordinal);
+            }
+
+            foreach (var (name, result) in results.Where(r => refused.Contains(r.Name)))
+            {
+                Assert.Equal(
+                    $"{name}\ncomplete=True\nremember=False\nhighlighted=True\ncompletions=0\nrun=Failed: {InputGuard.TooComplexMessage}\nnext=Completed: alive\ndone\n",
+                    result.Report);
+            }
+
+            var sum = results.Single(r => r.Name == "sum-400").Result.Report;
+            var secret = results.Single(r => r.Name == "secret-400").Result.Report;
+            Assert.Contains("remember=True\n", sum, StringComparison.Ordinal);
+            Assert.Contains("run=Completed: sum 401\n", sum, StringComparison.Ordinal);
+            Assert.Contains("remember=False\n", secret, StringComparison.Ordinal);
+            Assert.Contains("run=Completed: 401\n", secret, StringComparison.Ordinal);
+        }
+        finally
+        {
+            foreach (var folder in folders.Values)
+            {
+                folder.Dispose();
+            }
+        }
     }
 
     private static string ParallelJobScript(string file) =>

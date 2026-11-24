@@ -9,13 +9,15 @@ namespace AdMng.PowerShell.Input;
 /// </summary>
 public static class PowerShellSyntax
 {
-    /// <summary>Spans of the input with their kind, in order, from <c>Parser.ParseInput</c>'s tokens. Whitespace and brackets are not listed.</summary>
+    /// <summary>
+    /// Spans of the input with their kind, in order, from the parser's tokens (<see cref="InputParser"/>). Whitespace and brackets are
+    /// not listed; a text too long to parse has none.
+    /// </summary>
     public static IReadOnlyList<PowerShellSyntaxSpan> Tokenize(string input)
     {
         ArgumentNullException.ThrowIfNull(input);
-        PowerShellEnvironment.Apply();
-        Parser.ParseInput(input, out var tokens, out _);
-        var spans = new List<PowerShellSyntaxSpan>(tokens.Length);
+        var tokens = InputParser.Parse(input).Tokens;
+        var spans = new List<PowerShellSyntaxSpan>(tokens.Count);
         foreach (var token in tokens)
         {
             var kind = KindOf(token);
@@ -32,14 +34,12 @@ public static class PowerShellSyntax
     /// <summary>
     /// False when the parser stops at the end of the input because something is still open: a quote, a bracket, a script
     /// block, a here-string, a trailing pipe. Enter then inserts a line instead of running. Syntax errors elsewhere do not
-    /// count: such a line is complete and fails when it runs.
+    /// count: such a line is complete and fails when it runs; so is a text too long or too deep to parse, which the guard refuses.
     /// </summary>
     public static bool IsComplete(string input)
     {
         ArgumentNullException.ThrowIfNull(input);
-        PowerShellEnvironment.Apply();
-        Parser.ParseInput(input, out _, out var errors);
-        return !errors.Any(error => error.IncompleteInput);
+        return !InputParser.Parse(input).Errors.Any(error => error.IncompleteInput);
     }
 
     private static PowerShellSyntaxKind KindOf(Token token)

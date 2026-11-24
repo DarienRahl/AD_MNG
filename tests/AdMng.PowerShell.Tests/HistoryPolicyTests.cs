@@ -107,13 +107,25 @@ public sealed class HistoryPolicyTests
         Assert.False(PowerShellHistoryPolicy.ShouldRemember(line), line);
     }
 
-    /// <summary>The third red team of R1: a line the parser gives up on (no syntax tree) threw out of the filter; it is not remembered.</summary>
+    /// <summary>
+    /// The third red team of R1: 5 000 nested parentheses threw out of the filter where the parser gave up on them (no syntax tree); on the
+    /// Release build of CI it made a tree and the line was remembered. It is not remembered, either way.
+    /// </summary>
     [Fact]
-    public void A_line_the_parser_gives_up_on_is_not_remembered()
+    public void The_red_teams_deeply_nested_line_is_not_remembered()
     {
         var line = "$x = " + new string('(', 5000) + "1" + new string(')', 5000);
 
         Assert.False(PowerShellHistoryPolicy.ShouldRemember(line));
+    }
+
+    /// <summary>A line past the parser's limits (InputParser) is not remembered: the guard refuses it, and it could not be looked into.</summary>
+    [Fact]
+    public void A_line_past_the_parsers_limits_is_not_remembered()
+    {
+        Assert.True(PowerShellHistoryPolicy.ShouldRemember("$x = 1" + string.Concat(Enumerable.Repeat("+1", InputParser.MaxDepth - 10))));
+        Assert.False(PowerShellHistoryPolicy.ShouldRemember("$x = 1" + string.Concat(Enumerable.Repeat("+1", InputParser.MaxDepth))));
+        Assert.False(PowerShellHistoryPolicy.ShouldRemember("'" + new string('a', InputParser.MaxLength) + "'"));
     }
 
     /// <summary>What the wider rules must not catch: attribute names with "pwd" as values, -PassThru, a hashtable or an assignment without a secret.</summary>

@@ -15,7 +15,9 @@ namespace AdMng.PowerShell.Probe;
 /// history policy, then a measurement), <c>control</c> (an ordinary runspace of the SDK: the parent expects it to leave
 /// telemetry.uuid), <c>cache-control</c> and <c>cache-window</c> (the module analysis cache, about 40 s each), <c>left-run</c> (a
 /// run the session left: the process still ends), <c>leftover-callback</c> and <c>leftover-callback-control</c> (a script block
-/// that trusted-mode code left behind runs after its window closed: the process survives it, the control crashes).
+/// that trusted-mode code left behind runs after its window closed: the process survives it, the control crashes), <c>deep-input:&lt;case&gt;</c>
+/// (a line nested deeper than the engine can walk, checked, highlighted, completed and run from a thread with the stack of the window's UI
+/// thread: the process survives it and the window runs the next command).
 /// </summary>
 internal static class Program
 {
@@ -23,7 +25,7 @@ internal static class Program
     {
         if (args.Length != 2)
         {
-            await Console.Error.WriteLineAsync("usage: probe <files|control|cache-control|cache-window|left-run|leftover-callback|leftover-callback-control> <report file>");
+            await Console.Error.WriteLineAsync("usage: probe <files|control|cache-control|cache-window|left-run|leftover-callback|leftover-callback-control|deep-input:<case>> <report file>");
             return 2;
         }
 
@@ -55,6 +57,9 @@ internal static class Program
                     break;
                 case "leftover-callback-control":
                     await File.WriteAllTextAsync(report, await LeftoverCallbackAsync(contained: false));
+                    break;
+                case var deep when deep.StartsWith("deep-input:", StringComparison.Ordinal):
+                    DeepInput(deep["deep-input:".Length..], report);
                     break;
                 default:
                     await Console.Error.WriteLineAsync("unknown mode " + args[0]);
@@ -192,6 +197,103 @@ internal static class Program
 
         await Task.Delay(TimeSpan.FromSeconds(4));
         return "survived\ndone\n";
+    }
+
+    /// <summary>
+    /// The lines of the third red team of R1 (goal h) and its neighbours. A chain of operators is parsed without the parser's own
+    /// recursion guard, but every walk over its syntax tree afterwards recurses once per operator: about 16 000 terms ended a parse on a
+    /// 1 MB stack, about 9 300 ended the engine's compiler when the command ran, about 3 000 ended the history filter on a secret's
+    /// name. A .NET stack overflow cannot be caught - it ends the process, on a workstation with every window of the program.
+    /// </summary>
+    private static string DeepLine(string name) => name switch
+    {
+        "sum-12000" => "$x = 1" + string.Concat(Enumerable.Repeat("+1", 12_000)) + "; 'sum ' + $x",
+        "sum-40000" => "$x = 1" + string.Concat(Enumerable.Repeat("+1", 40_000)) + "; 'sum ' + $x",
+        "secret-4000" => "$password = 'x'" + string.Concat(Enumerable.Repeat("+'x'", 4_000)),
+        "sum-400" => "$x = 1" + string.Concat(Enumerable.Repeat("+1", 400)) + "; 'sum ' + $x",
+        "secret-400" => "$password = 'x'" + string.Concat(Enumerable.Repeat("+'x'", 400)) + "; $password.Length",
+        _ => throw new ArgumentException("unknown case " + name, nameof(name)),
+    };
+
+    /// <summary>
+    /// Asks the session everything the window asks about a line - complete, remember, highlight, complete at the end, run - from a thread
+    /// with 1 MB of stack (the default of a thread on Windows, the window's UI thread among them), then runs <c>'alive'</c>. Each answer
+    /// is written to the report as soon as it is known, so a crash shows how far the case got.
+    /// </summary>
+    private static void DeepInput(string name, string report)
+    {
+        var line = DeepLine(name);
+        File.WriteAllText(report, name + "\n");
+        Exception? failure = null;
+        var thread = new Thread(
+            () =>
+            {
+                try
+                {
+                    DeepInputOnThread(line, report);
+                }
+                catch (Exception ex)
+                {
+                    failure = ex;
+                }
+            },
+            1024 * 1024);
+        thread.Start();
+        thread.Join();
+        if (failure is not null)
+        {
+            throw new InvalidOperationException("The deep input case failed.", failure);
+        }
+
+        File.AppendAllText(report, "done\n");
+    }
+
+    private static void DeepInputOnThread(string line, string report)
+    {
+        void Write(string text) => File.AppendAllText(report, text + "\n");
+        var session = CreateAsync().GetAwaiter().GetResult();
+        try
+        {
+            Write("complete=" + session.IsInputComplete(line));
+            Write("remember=" + session.ShouldRemember(line));
+            Write("highlighted=" + (session.Tokenize(line).Count > 0));
+            Write("completions=" + session.CompleteAsync(line, line.Length, CancellationToken.None).AsTask().GetAwaiter().GetResult().Matches.Count);
+            Write("run=" + Collect(session, line));
+            Write("next=" + Collect(session, "'alive'"));
+        }
+        finally
+        {
+            session.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    /// <summary>The run's first line of output or error and its end, e.g. <c>Failed: The command is too long…</c>.</summary>
+    private static string Collect(PowerShellSession session, string script)
+    {
+        var first = string.Empty;
+        var end = "none";
+        var items = session.RunAsync(script, CancellationToken.None).GetAsyncEnumerator(CancellationToken.None);
+        try
+        {
+            while (items.MoveNextAsync().AsTask().GetAwaiter().GetResult())
+            {
+                switch (items.Current)
+                {
+                    case PowerShellTextItem text when first.Length == 0:
+                        first = text.Text.Split('\n')[0];
+                        break;
+                    case PowerShellRunEndItem runEnd:
+                        end = runEnd.State.ToString();
+                        break;
+                }
+            }
+        }
+        finally
+        {
+            items.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+
+        return end + ": " + first;
     }
 
     private static Task<PowerShellSession> CreateAsync() =>

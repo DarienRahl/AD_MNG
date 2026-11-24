@@ -1,4 +1,5 @@
 using System.Management.Automation.Language;
+using AdMng.PowerShell.Input;
 
 namespace AdMng.PowerShell.Guards;
 
@@ -11,7 +12,8 @@ namespace AdMng.PowerShell.Guards;
 /// blocks are searched too. Text cannot become code past this check: there is no Invoke-Expression and no <c>function:</c> drive, and a
 /// string does not convert to a script block in ConstrainedLanguage. Besides, a typed <c>ForEach-Object -Parallel</c> (or <c>-AsJob</c>
 /// and the other parallel parameters) gets a message saying why: the window's ForEach-Object has no such parameter, so this is only
-/// the explanation, not the protection (a splatted one fails in parameter binding).
+/// the explanation, not the protection (a splatted one fails in parameter binding). A text too long or nested too deeply to walk safely
+/// (<see cref="InputParser"/>) is refused as a whole: the guard could not look into it, and the engine's compiler would end the process.
 /// </summary>
 internal static class InputGuard
 {
@@ -28,16 +30,15 @@ internal static class InputGuard
         "Redirecting output to a file ('>', '>>') is not available in the AD Manager PowerShell window: it writes a file only through Export-AdmList or Start-Transcript -Path ('> $null' still discards output). Nothing of the command was run.";
 
     internal const string TooComplexMessage =
-        "The command is nested too deeply for the PowerShell parser, so the AD Manager PowerShell window cannot check it. Nothing of the command was run.";
+        "The command is too long (more than 262144 characters) or nested too deeply (parentheses or script blocks within one another, or a chain of hundreds of operators) for the AD Manager PowerShell window: the PowerShell engine could end the whole program on it. Nothing of the command was run.";
 
     /// <summary>The message refusing <paramref name="script"/>, or null when nothing in it is refused.</summary>
     public static string? Refusal(string script)
     {
         ArgumentNullException.ThrowIfNull(script);
-        var ast = Parser.ParseInput(script, out _, out _);
-        if (ast is null)
+        if (InputParser.Parse(script).Ast is not { } ast)
         {
-            // The parser gave up (about 4 500 nested parentheses: "ScriptTooComplicated") and there is nothing to look into.
+            // Too long or too deep to walk safely (InputParser), or the parser gave up ("ScriptTooComplicated"): the engine never sees it.
             return TooComplexMessage;
         }
 
