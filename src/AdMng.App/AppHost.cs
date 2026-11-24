@@ -246,7 +246,7 @@ public static class AppHost
         // policies of the workstation (both application-wide and stateless), and the actions of the window's three commands, which use
         // the dialogs and files of the connection window they belong to (scoped). The window is opened through ToolWindows. ----
         services.AddSingleton<IPowerShellSessionFactory, PowerShellSessionFactory>();
-        services.AddSingleton<IPowerShellPolicySource, WindowsPowerShellPolicySource>();
+        services.AddSingleton<IPowerShellPolicySource>(_ => new WindowsPowerShellPolicySource());
         services.AddWindow<PowerShellWindowViewModel, PowerShellWindow>();
         services.AddWindow<PowerShellGridViewModel, PowerShellGridWindow>();
         services.AddScoped<IPowerShellWindowActions>(sp => new PowerShellWindowActions(sp.GetRequiredService<DialogServices>(), sp.GetRequiredService<ICsvCodec>()));

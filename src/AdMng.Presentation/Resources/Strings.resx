@@ -25770,6 +25770,15 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="PowerShell.Status.PolicyUnreadableNext" xml:space="preserve">
     <value>Whether commands and results are recorded is unknown.</value>
   </data>
+  <data name="PowerShell.Status.PolicyKeyUnreadable" xml:space="preserve">
+    <value>The registry key {0} cannot be read</value>
+  </data>
+  <data name="PowerShell.Status.PolicyFileUnreadable" xml:space="preserve">
+    <value>The file {0} cannot be read</value>
+  </data>
+  <data name="PowerShell.Status.PolicySwitchUnreadable" xml:space="preserve">
+    <value>The value UseWindowsPowerShellPolicySetting of the registry key {0} is not a REG_DWORD number</value>
+  </data>
   <data name="PowerShell.Editor.Name" xml:space="preserve">
     <value>Command line</value>
   </data>

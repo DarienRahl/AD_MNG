@@ -44,7 +44,8 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
     private PowerShellPolicies _policies = PowerShellPolicies.None;
     private PowerShellPolicyNote? _policyNote;
     private bool _policiesUnreadable;
-    private string? _policiesError;
+    /// <summary>Why the policies could not be read; translated whenever the line is built, so it follows the language (audit W-01).</summary>
+    private Exception? _policiesFailure;
 
     /// <summary>The build has no engine (no session factory): the window says so and what helps, not "open it again".</summary>
     private bool _noEngine;
@@ -264,7 +265,7 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             _policiesUnreadable = true;
-            _policiesError = ex.Message;
+            _policiesFailure = ex;
         }
     }
 
@@ -336,7 +337,7 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
         if (_policiesUnreadable)
         {
             notes.Add((
-                PageStatusText.Failure(Localizer[L.PowerShellStatus.PolicyUnreadable], _policiesError, Localizer[L.PowerShellStatus.PolicyUnreadableNext]),
+                PageStatusText.Failure(Localizer[L.PowerShellStatus.PolicyUnreadable], _policiesFailure is null ? null : Errors.Translate(_policiesFailure), Localizer[L.PowerShellStatus.PolicyUnreadableNext]),
                 new PageStatusLog(L.PowerShellStatus.PolicyUnreadable)));
         }
 

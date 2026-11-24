@@ -1337,8 +1337,12 @@ a window) and `WindowsPowerShellPolicySource` (the registry and the two config f
    writes - `PowerShellRulesTests` pins it).
 10. *`PowerShellWindowActions` is a Presentation class* (the open question 3 of part 3): the actions need no WPF, so they are tested on Linux; the host registers it scoped (`AppHost`) because it needs the connection's dialogs
     and files. The factory adapts it to the engine's `IAdmWindowServices`.
-11. *The policies of the workstation* are read by `WindowsPowerShellPolicySource` through the keys of `PowerShellPolicyKeys`: only reads (`RegistryKey.OpenSubKey(writable: false)`), an absent key is "not set", a key that cannot be read is an
-    exception that the window says it could not tell (never "nothing is recorded"), strings are not expanded. The all-users file is in `PowerShellEnvironment.EngineHome` (`$PSHOME`), the user's in `Documents\PowerShell`.
+11. *The policies of the workstation* are read by `WindowsPowerShellPolicySource` through the keys of `PowerShellPolicyKeys`: only reads (`RegistryKey.OpenSubKey(writable: false)`), an absent key or value is "not set", a key that cannot be read is an
+    exception that the window says it could not tell (never "nothing is recorded"), strings are not expanded. After the audit (W-01): the values are read with `GetValue(name, null, DoNotExpandEnvironmentNames)` and
+    returned as the registry holds them - the first source asked `GetValueKind` first, which throws `IOException` for an absent value, so every workstation with a PowerShell 7 policy key would have
+    shown "could not be read"; the CI runner has no such key and the UI tests replace the source, so no test ran it. The roots and the two files are injectable, and
+    `WindowsPowerShellPolicySourceTests` (UI test project, Windows CI) writes a throwaway `HKCU\Software\AdMng.Tests-<guid>` (a key without the value, other types, `REG_EXPAND_SZ`, the module names, scenario C of W-02)
+    and deletes it. A failure is `PowerShellPolicyUnreadableException` (the key or the file), which the error translator says in the window's language. The all-users file is in `PowerShellEnvironment.EngineHome` (`$PSHOME`), the user's in `Documents\PowerShell`.
     `powershell.config.json` ships beside the program (`CopyToPublishDirectory`): it turns off the three logs that a user's file could switch on, and the Windows PowerShell compatibility layer.
 12. *Shortcut and menu.* `tools.powershell`, `Ctrl+Shift+P`, category Tools; the menu entry is in the Tools menu before the session log; a test asserts that no other descriptor uses the shortcut (and `Key="P"` is in no XAML).
 

@@ -332,13 +332,41 @@ public sealed class PowerShellWindowStatusTests
     public async Task APolicyThatCannotBeRead_IsSaid_BecauseItIsNotKnownWhetherAnythingIsRecorded()
     {
         var harness = await PowerShellHarness.CreateAsync();
-        harness.Policies.Failure = new UnauthorizedAccessException("Access to the registry key is denied.");
+        harness.Policies.Failure = new InvalidOperationException("The lockdown probe failed.");
         using var window = await harness.OpenAsync();
 
         Assert.True(window.IsReady);
         Assert.Equal(PageStatusKind.Attention, window.Status.Current.Kind);
         Assert.Equal(
-            "The PowerShell policies of this workstation could not be read: Access to the registry key is denied. Whether commands and results are recorded is unknown.",
+            "The PowerShell policies of this workstation could not be read: Unexpected error: The lockdown probe failed. Whether commands and results are recorded is unknown.",
+            window.Status.Current.Message);
+    }
+
+    [Theory]
+    [InlineData(PowerShellPolicyPlace.Registry, @"HKLM\Software\Policies\Microsoft\PowerShellCore\Transcription",
+        "The registry key HKLM\\Software\\Policies\\Microsoft\\PowerShellCore\\Transcription cannot be read",
+        "nie można odczytać klucza rejestru HKLM\\Software\\Policies\\Microsoft\\PowerShellCore\\Transcription")]
+    [InlineData(PowerShellPolicyPlace.ConfigFile, @"C:\Users\jan\Documents\PowerShell\powershell.config.json",
+        "The file C:\\Users\\jan\\Documents\\PowerShell\\powershell.config.json cannot be read",
+        "nie można odczytać pliku C:\\Users\\jan\\Documents\\PowerShell\\powershell.config.json")]
+    [InlineData(PowerShellPolicyPlace.SwitchValue, @"HKCU\Software\Policies\Microsoft\PowerShellCore",
+        "The value UseWindowsPowerShellPolicySetting of the registry key HKCU\\Software\\Policies\\Microsoft\\PowerShellCore is not a REG_DWORD number",
+        "wartość UseWindowsPowerShellPolicySetting klucza rejestru HKCU\\Software\\Policies\\Microsoft\\PowerShellCore nie jest liczbą REG_DWORD")]
+    public async Task APolicyThatCannotBeRead_NamesTheKeyOrTheFile_InTheLanguageOfTheWindow(PowerShellPolicyPlace place, string location, string english, string polish)
+    {
+        // Audit W-01: the reason was the exception's English message, also in the Polish window.
+        var harness = await PowerShellHarness.CreateAsync();
+        harness.Policies.Failure = new PowerShellPolicyUnreadableException(place, location, new UnauthorizedAccessException("Access is denied."));
+        using var window = await harness.OpenAsync();
+
+        Assert.Equal(
+            $"The PowerShell policies of this workstation could not be read: {english}. Whether commands and results are recorded is unknown.",
+            window.Status.Current.Message);
+
+        harness.Directory.Localizer.SetCulture(Polish);
+
+        Assert.Equal(
+            $"Nie można odczytać zasad PowerShell tego komputera: {char.ToUpperInvariant(polish[0])}{polish[1..]}. Nie wiadomo, czy polecenia i wyniki są rejestrowane.",
             window.Status.Current.Message);
     }
 

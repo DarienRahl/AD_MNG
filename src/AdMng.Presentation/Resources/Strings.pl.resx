@@ -25770,6 +25770,15 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="PowerShell.Status.PolicyUnreadableNext" xml:space="preserve">
     <value>Nie wiadomo, czy polecenia i wyniki są rejestrowane.</value>
   </data>
+  <data name="PowerShell.Status.PolicyKeyUnreadable" xml:space="preserve">
+    <value>Nie można odczytać klucza rejestru {0}</value>
+  </data>
+  <data name="PowerShell.Status.PolicyFileUnreadable" xml:space="preserve">
+    <value>Nie można odczytać pliku {0}</value>
+  </data>
+  <data name="PowerShell.Status.PolicySwitchUnreadable" xml:space="preserve">
+    <value>Wartość UseWindowsPowerShellPolicySetting klucza rejestru {0} nie jest liczbą REG_DWORD</value>
+  </data>
   <data name="PowerShell.Editor.Name" xml:space="preserve">
     <value>Wiersz poleceń</value>
   </data>

@@ -223,6 +223,15 @@ public static partial class L
         public const string PolicyUnreadable = "PowerShell.Status.PolicyUnreadable";
 
         public const string PolicyUnreadableNext = "PowerShell.Status.PolicyUnreadableNext";
+
+        /// <summary>The reason of <see cref="PolicyUnreadable"/>: a registry key that cannot be opened ({0} = HKLM\… or HKCU\…; audit W-01).</summary>
+        public const string PolicyKeyUnreadable = "PowerShell.Status.PolicyKeyUnreadable";
+
+        /// <summary>The reason of <see cref="PolicyUnreadable"/>: a powershell.config.json that cannot be read ({0} = its path).</summary>
+        public const string PolicyFileUnreadable = "PowerShell.Status.PolicyFileUnreadable";
+
+        /// <summary>The reason of <see cref="PolicyUnreadable"/>: a UseWindowsPowerShellPolicySetting that is no REG_DWORD ({0} = its key).</summary>
+        public const string PolicySwitchUnreadable = "PowerShell.Status.PolicySwitchUnreadable";
     }
 
     /// <summary>
