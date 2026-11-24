@@ -372,14 +372,24 @@ tych zasad i ich nie omija.
 
 **Co okno robi w tej sprawie:**
 
-- przy otwarciu odczytuje zasady – PowerShell Core (`HKLM` i `HKCU`, `Software\Policies\Microsoft\PowerShellCore`), zasady
-  Windows PowerShell, gdy włączono *Use Windows PowerShell Policy setting*, i oba pliki `powershell.config.json` (silnika, obok
-  `AdMng.exe`, oraz Twój, w *Dokumenty\PowerShell*) – oraz stan blokady systemowej;
+- przy otwarciu odczytuje zasady według reguł kodu samego silnika, każdą z nich – transkrypcję, rejestrowanie bloków skryptów,
+  rejestrowanie modułów i zasady wykonywania – osobno: najpierw zasady komputera (`HKLM`), potem zasady użytkownika (`HKCU`)
+  PowerShell 7 (`Software\Policies\Microsoft\PowerShellCore` i jego klucze `Transcription`, `ScriptBlockLogging`,
+  `ModuleLogging`). Zasadę, w której zaznaczono *Use Windows PowerShell Policy setting*, odczytuje zamiast tego z klucza Windows
+  PowerShell tej samej gałęzi rejestru (`Software\Policies\Microsoft\Windows\PowerShell`); to zaznaczenie jest ustawieniem
+  każdej zasady z osobna, nie wszystkich naraz. O całej zasadzie decyduje pierwsza gałąź, która ustawia cokolwiek z tej zasady.
+  Dopiero zasada, której nie ustawiają żadne zasady grupy, pochodzi z dwóch plików `powershell.config.json` (silnika, obok
+  `AdMng.exe`, potem Twojego, w *Dokumenty\PowerShell*). Okno odczytuje też stan blokady systemowej;
 - zanim uruchomisz pierwsze polecenie, mówi wprost, co jest rejestrowane i gdzie, np. *Transkrypcja jest włączona (zasady
   komputera): polecenia wykonywane w tym oknie i ich wyniki, także dane z katalogu, są zapisywane w D:\PSLogs.* Uwaga jest w
   wierszu stanu (dopóki wynik polecenia jej nie przykrywa), w układzie pod nim i w pierwszych wierszach wyników; trwa do
   zamknięcia okna;
-- gdy zasad nie da się odczytać, mówi o tym: *Nie wiadomo, czy polecenia i wyniki są rejestrowane.* Brak wiedzy to też uwaga.
+- gdy zasad nie da się odczytać, mówi o tym i podaje klucz albo plik: *Nie wiadomo, czy polecenia i wyniki są rejestrowane.*
+  Brak wiedzy to też uwaga.
+
+Sam PowerShell odczytuje każdą z tych zasad raz na jedno uruchomienie AD Managera, wtedy, gdy pierwszy raz jej potrzebuje: zasada
+zmieniona w czasie pracy programu obowiązuje silnik dopiero po ponownym uruchomieniu AD Managera, a uwaga okna otwartego w tym
+czasie mówi już o nowym stanie.
 
 **Co z tym zrobić:** jeśli włączono transkrypcję albo rejestrowanie bloków skryptów, nie oglądaj w oknie wrażliwych atrybutów
 (haseł LAPS, haseł odzyskiwania BitLockera) i nie wpisuj hasła do polecenia. Zapytaj zespół bezpieczeństwa, dokąd trafiają
@@ -460,7 +470,7 @@ musi potwierdzić:
   jasnym, ciemnym i wysokiego kontrastu, przy skalowaniu 125 %–200 % oraz listę uzupełnień przy krawędzi ekranu;
 - czytnik ekranu (Narrator, NVDA) z oknem: lista uzupełnień nie jest ogłaszana;
 - zasady okna pod **prawdziwymi zasadami grupy** (transkrypcja, rejestrowanie bloków skryptów, rejestrowanie modułów; klucze
-  pochodzą z kodu samego silnika i z udokumentowanych szablonów) oraz silnik pod **WDAC / AppLocker**;
+  i reguły, który z nich wygrywa, pochodzą z kodu samego silnika i z udokumentowanych szablonów) oraz silnik pod **WDAC / AppLocker**;
 - polecenia na **prawdziwym Windows Server AD** (testy przeszły nad sztucznym katalogiem i kontrolerem Samba).
 
 Scenariusze pilotażu są w [PILOTAZ.md, rozdział 3.7](PILOTAZ.md#37-okno-powershell-r1).

@@ -109,11 +109,11 @@ the Watchdog package.
    messages use the window's colours and the status line's glyphs. `Out-AdmGrid` sends the objects to the program's object
    list grid: the objects become rows, the columns come from their properties, and the grid's sorting, filters, copying and
    CSV export work. Nothing is written anywhere unless the operator exports.
-7. **PowerShell policies from GPOs (D7).** When the window opens it reads the PowerShell policies: PowerShell Core
-   (`HKLM`/`HKCU\Software\Policies\Microsoft\PowerShellCore`) and Windows PowerShell
-   (`Software\Policies\Microsoft\Windows\PowerShell`, when `UseWindowsPowerShellPolicySetting` is on) – transcription
-   (`EnableTranscripting`, `OutputDirectory`), script block logging, module logging and `ExecutionPolicy` – and the
-   lockdown state. A lasting note (the status line's Attention) before the first command says plainly what is logged where
+7. **PowerShell policies from GPOs (D7).** When the window opens it reads the PowerShell policies by the engine's own
+   rules: PowerShell Core (`HKLM`/`HKCU\Software\Policies\Microsoft\PowerShellCore`) and, for a policy whose own
+   `UseWindowsPowerShellPolicySetting` is on, Windows PowerShell (`Software\Policies\Microsoft\Windows\PowerShell`) –
+   transcription (`EnableTranscripting`, `OutputDirectory`), script block logging, module logging and `ExecutionPolicy`,
+   each from the first hive that sets it, then the `powershell.config.json` files – and the lockdown state. A lasting note (the status line's Attention) before the first command says plainly what is logged where
    ("transcription is on by policy: commands and results are written by Windows to <directory>"). The program does not try
    to get around any policy. The registry reader sits behind an interface (the Windows implementation in `AdMng.App`, a
    fake in tests).

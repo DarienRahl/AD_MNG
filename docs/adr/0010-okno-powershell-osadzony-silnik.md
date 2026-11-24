@@ -108,10 +108,11 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
    szczegółowe mają kolory okna i znaczki linii stanu. `Out-AdmGrid` wysyła obiekty do siatki list programu: obiekty stają
    się wierszami, kolumny wynikają z ich właściwości, a sortowanie, filtry, kopiowanie i eksport CSV siatki działają.
    Nic nie jest nigdzie zapisywane, dopóki operator nie wyeksportuje.
-7. **Zasady PowerShell z GPO (D7).** Przy otwarciu okno odczytuje zasady PowerShell: PowerShell Core
-   (`HKLM`/`HKCU\Software\Policies\Microsoft\PowerShellCore`) i Windows PowerShell
-   (`Software\Policies\Microsoft\Windows\PowerShell`, gdy włączono `UseWindowsPowerShellPolicySetting`) – transkrypcję
-   (`EnableTranscripting`, `OutputDirectory`), rejestrowanie bloków skryptów, rejestrowanie modułów i `ExecutionPolicy` –
+7. **Zasady PowerShell z GPO (D7).** Przy otwarciu okno odczytuje zasady PowerShell według reguł samego silnika:
+   PowerShell Core (`HKLM`/`HKCU\Software\Policies\Microsoft\PowerShellCore`) oraz, dla zasady, w której własnym kluczu
+   włączono `UseWindowsPowerShellPolicySetting`, Windows PowerShell (`Software\Policies\Microsoft\Windows\PowerShell`) –
+   transkrypcję (`EnableTranscripting`, `OutputDirectory`), rejestrowanie bloków skryptów, rejestrowanie modułów
+   i `ExecutionPolicy`, każdą z pierwszej gałęzi rejestru, która ją ustawia, potem z plików `powershell.config.json` –
    oraz stan blokady systemu. Trwała notatka (Uwaga linii stanu) przed pierwszym poleceniem mówi wprost, co i gdzie jest
    zapisywane („transkrypcja jest włączona zasadą: polecenia i wyniki zapisuje Windows w <katalog>”). Program nie próbuje
    obejść żadnej zasady. Czytnik rejestru stoi za interfejsem (implementacja Windows w `AdMng.App`, atrapa w testach).

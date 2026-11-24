@@ -25,7 +25,7 @@ The owner's decisions D1–D9 (the full text and the reasons are in ADR-0010):
 | D4 names | Prefix `Adm`: `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`, `Get-AdmGroupMember` (`-Recursive`), `Search-AdmObject`, `Out-AdmGrid`, `Open-AdmObject`, `Export-AdmList` (+ `Get-AdmVersion`). Shortcut **Ctrl+Shift+P** (grep of `KeyBinding`, `InputBindings`, the command descriptors of `ShellViewModel.Palette.cs` and the docs found no use of it); menu *Tools → PowerShell…*; a command palette entry. |
 | D5 line editor | Own WPF control, no new dependency; completion through `CommandCompletion.CompleteInput` plus parameter completers (attribute names from the session's in-memory schema, DNs from what the session knows – no directory read per keystroke); highlighting from `Parser.ParseInput` tokens; Shift+Enter inserts a line, Enter runs a complete command, Ctrl+C / Stop cancels; history in the window's memory only (Up/Down, Ctrl+R); a line with a plain-text password is not remembered; no file system completion. |
 | D6 output | Ordinary PowerShell objects; the window renders them with the engine's own formatting as text with clickable DNs; errors, warnings and verbose messages in the window's colours with the status line's glyphs; `Out-AdmGrid` sends the objects to the program's object list grid; nothing is written unless the operator exports. |
-| D7 policies | When the window opens it reads the PowerShell policies from the registry (PowerShell Core, and Windows PowerShell when `UseWindowsPowerShellPolicySetting` is on: transcription, script block logging, module logging, execution policy) and the lockdown state; a lasting note (the status line's Attention) before the first command says what is logged where; the program does not try to get around any policy; the registry reader is behind an interface. |
+| D7 policies | When the window opens it reads the PowerShell policies from the registry (PowerShell Core, and Windows PowerShell for a policy whose own `UseWindowsPowerShellPolicySetting` is on: transcription, script block logging, module logging, execution policy) and the lockdown state; a lasting note (the status line's Attention) before the first command says what is logged where; the program does not try to get around any policy; the registry reader is behind an interface. |
 | D8 nothing on disk | Memory only; the engine's environment is set before its first use (section 4.2); a "no files" test; in ConstrainedLanguage no script reaches the window's session or credentials (4.3; in the trusted mode .NET reflection can); `LdapFilter` and `DistinguishedName`; one DC; async with the pipeline's token. |
 | D9 writes | None. A test asserts that the registered AD Manager commands are exactly the read commands (section 4.8). |
 
@@ -742,7 +742,7 @@ The criteria about writes and RSAT in the README (the change plan, translated RS
 What was open when the design was written and what became of it (the state at the end of R1, with the owner's questions, is in 12.0):
 
 - Whether the engine reads `PowerShellPolicies` from `powershell.config.json` on Windows next to the registry policies, and where `$PSHOME` is in the single-file layout: `$PSHOME` is the program folder (the smoke test in Windows CI
-  shows it); the JSON policies on Windows and the Windows PowerShell keys while `UseWindowsPowerShellPolicySetting` is on are **still unconfirmed** on a machine with such a policy (the reader reports what it finds).
+  shows it); which policies the engine takes, and from where, was settled after the audit from its decompiled code (W-02: per policy and per hive, the switch in each policy's own key, the JSON policies after every hive - `PowerShellPolicyReader` mirrors it); a comparison with what the engine records under a real GPO is **still to be made** on such a machine.
 - `NUL\ModuleAnalysisCache` as the analysis cache path on Windows: the opt-in proof was run on Linux only; **still unconfirmed on Windows**.
 - The stage S readiness item for the policies and the language mode: **not built**; the reader and the note are ready to be reused.
 - The two R3 questions of the README ("To be agreed with the team"): the list of translated RSAT commands and the window's credentials for the `ActiveDirectory` module - **open**.
@@ -855,8 +855,8 @@ the published-app smoke test that starts the engine and the two CI steps that ch
 - *Nobody has seen the window.* The coloured layer under the transparent box (alignment with the caret), the selection and caret in every theme, High Contrast (the colours collapse to the text colour), the
   completion popup near the edge of the screen, 125-200 % scaling, the narrow widths of the grid window, the width of the output in characters with a scroll bar, a screen reader (the completion list is not announced).
   The UI tests drive the real window over the real engine and a fake directory and found one binding error; a person has not looked.
-- *Policies under a real GPO.* The registry keys come from the engine's own metadata and the documented templates, and the reader's rules are tested on Linux; whether the engine reads the Windows PowerShell keys instead of or besides the
-  PowerShell 7 ones while `UseWindowsPowerShellPolicySetting` is on, and whether it reads the JSON policies on Windows at all, is not confirmed. The worst case is a note about a setting the engine ignores, never a missing note.
+- *Policies under a real GPO.* The registry keys and the rules come from the engine's decompiled code (`Utils.GetPolicySetting`, audit W-02) and the documented templates, and the reader's rules are tested on Linux;
+  the Windows source is tested against a throwaway key of the current user (`WindowsPowerShellPolicySourceTests`, Windows CI). Whether the note matches what the engine records under a real GPO has not been seen.
 - *WDAC / AppLocker.* The lockdown probe is `SystemPolicy.GetSystemLockdownPolicy()` and its mapping is tested with a fake; the engine under a real lockdown has not been run.
 - *`PSModuleAnalysisCachePath` = `NUL\ModuleAnalysisCache` on Windows.* The opt-in 40 s proof (`ADMNG_POWERSHELL_SLOW_TESTS=1`) was run on Linux only; auto-loading is off, which stops the cache being written by discovery, and the path is the second line of defence.
 - *A real Windows Server AD.* The commands ran over `FakeDirectorySession` and the Samba lab; the lab has no Windows-only behaviour (a hidden attribute, ranged retrieval differences, the DC's computed `msDS-User-Account-Control-Computed`).
@@ -1200,26 +1200,36 @@ DC's computed flag is used when it is returned) - still open (12.0). (4) `Get-Ad
 
 | What | Where | Value |
 |---|---|---|
-| The switch "Use Windows PowerShell Policy setting" | `HKLM` or `HKCU`, `Software\Policies\Microsoft\PowerShellCore` | `UseWindowsPowerShellPolicySetting` `REG_DWORD`, non-zero = on |
-| Execution policy | the root key (`PowerShellCore`, or `Software\Policies\Microsoft\Windows\PowerShell` while the switch is on) | `EnableScripts` `REG_DWORD` (0 = scripts off), `ExecutionPolicy` `REG_SZ` |
-| Transcription | `<root>\Transcription` | `EnableTranscripting` `REG_DWORD`, `EnableInvocationHeader` `REG_DWORD`, `OutputDirectory` `REG_SZ` |
-| Script block logging | `<root>\ScriptBlockLogging` | `EnableScriptBlockLogging` `REG_DWORD`, `EnableScriptBlockInvocationLogging` `REG_DWORD` |
-| Module logging | `<root>\ModuleLogging` | `EnableModuleLogging` `REG_DWORD`; the modules are the value **names** under `<root>\ModuleLogging\ModuleNames` |
-| The config files | `ReadConfigFile(Computer)`: `powershell.config.json` in the folder of `System.Management.Automation.dll` (the engine's all-users file, the one the publish places); `ReadConfigFile(User)`: `<Documents>\PowerShell\powershell.config.json` | the text, or `null`; the reader parses `PowerShellPolicies` (`ScriptExecution`, `Transcription`, `ScriptBlockLogging`, `ModuleLogging` with the value names above; booleans or numbers) |
-| The lockdown | `GetLockdownState()` | `SystemPolicy.GetSystemLockdownPolicy()` mapped to `PowerShellLockdownState` (the engine's `SystemPolicyLockdownProbe` already does it) |
+| What | The policy's own PowerShell 7 key (`HKLM`, then `HKCU`) | Read instead while its `UseWindowsPowerShellPolicySetting` is non-zero | Values |
+|---|---|---|---|
+| Execution policy | `Software\Policies\Microsoft\PowerShellCore` | `Software\Policies\Microsoft\Windows\PowerShell` | `EnableScripts` `REG_DWORD` 0/1 (0 = scripts off), `ExecutionPolicy` `REG_SZ` |
+| Transcription | `…\PowerShellCore\Transcription` | `…\Windows\PowerShell\Transcription` | `EnableTranscripting` 0/1, `EnableInvocationHeader` 0/1, `OutputDirectory` `REG_SZ` |
+| Script block logging | `…\PowerShellCore\ScriptBlockLogging` | `…\Windows\PowerShell\ScriptBlockLogging` | `EnableScriptBlockLogging` 0/1, `EnableScriptBlockInvocationLogging` 0/1 |
+| Module logging | `…\PowerShellCore\ModuleLogging` | `…\Windows\PowerShell\ModuleLogging` | `EnableModuleLogging` 0/1; `ModuleNames`: a `REG_MULTI_SZ` / `REG_SZ` value of that name, else the value **names** of the sub key `ModuleNames` |
+| The config files | `ReadConfigFile(Computer)`: `powershell.config.json` in the folder of `System.Management.Automation.dll` (the engine's all-users file, the one the publish places); `ReadConfigFile(User)`: `<Documents>\PowerShell\powershell.config.json` | – | the text, or `null`; the reader converts `PowerShellPolicies` as the engine's Newtonsoft.Json does (sections `ScriptExecution`, `Transcription`, `ScriptBlockLogging`, `ModuleLogging` with the value names above, and the three the window does not show) |
+| The lockdown | `GetLockdownState()` | – | `SystemPolicy.GetSystemLockdownPolicy()` mapped to `PowerShellLockdownState` (the engine's `SystemPolicyLockdownProbe` already does it) |
 
-   The source returns `null` / an empty list for an absent key, absent value or a value of another type, and throws for a real failure (the window then says it could not tell). The names were taken from
-   what `System.Management.Automation.dll` 7.6.10 reads (the paths `Software\Policies\Microsoft\PowerShellCore\…` and `…\Windows\PowerShell\…` and the property names of its policy classes were found in its metadata).
+   The switch is a value **of each policy's own key in each hive** - the execution policy's is in the root key, transcription's in `PowerShellCore\Transcription` - not one switch of all of them
+   (audit W-02: the first reader read it once, from the root key of either hive, and swapped every policy of both hives). The rules, from the decompiled `Utils.GetPolicySettingFromGPOImpl` and
+   `TrySetPolicySettingsFromRegistryKey` of `System.Management.Automation.dll` 7.6.10 (`PowerShellPolicyReader`, tested by `PowerShellPolicyEngineRulesTests` and `PowerShellPolicyReaderTests`):
+   per policy and per hive in the order `HKLM`, `HKCU`; a non-zero `UseWindowsPowerShellPolicySetting` (any `REG_DWORD`; another type makes the engine's cast fail, so the window says it
+   could not tell) reads the Windows PowerShell key of that policy instead, and an absent Windows PowerShell key sets nothing in that hive; a switch value counts only as the `REG_DWORD` 0 or 1, a text as a
+   `REG_SZ` / `REG_EXPAND_SZ` (shown unexpanded); the **first hive whose key sets any value of the policy decides the whole policy**; only then the all-users file, then the user's - the first file
+   that has the section decides it (also an empty one), and a file whose `PowerShellPolicies` the engine cannot convert as a whole sets nothing. The execution policy is the engine's machine policy
+   (`HKLM`, then the all-users file) before its user policy (`HKCU`, then the user's file), and a place that sets neither `EnableScripts` 0 nor 1 with a name defines none. The engine reads each policy
+   once per process (its caches are static), the window when it opens. The source (`IPowerShellPolicySource`) returns raw values - `null` for an absent key or value - and throws
+   `PowerShellPolicyUnreadableException` for a real failure; which type is a setting is the reader's rule.
 
 **Decisions of part 3 that the later parts follow** (each with its reason):
 
 1. *The policy types and the reader are in Presentation, not Core.* The plan put a snapshot in Core; nothing outside the window uses it (the engine learns the lockdown from its own probe), so
    Core would only carry types for the view model. `IPowerShellPolicyReader` is what the window depends on (a fake in the tests); `PowerShellPolicyReader` over `IPowerShellPolicySource` holds every rule, so the
    Windows part is only the raw reads.
-2. *The order the reader takes* (what the engine does, as far as it could be seen): `HKLM` then `HKCU` of the PowerShell 7 key; with the switch on in either hive the Windows PowerShell keys **stand in** for them; then the all-users config
-   file, then the user's. For each of the four settings the **first place that sets it decides**, also when it sets it off (that is how a policy, or the file AD Manager ships next to the engine, turns off what a user's file turned on).
-   *Not verified:* whether the engine reads the Windows PowerShell keys instead of, or besides, the PowerShell 7 ones while the switch is on, and whether it reads the JSON policies on Windows at all. The reader reports what it finds; the worst case is a note about a
-   setting the engine ignores - never a missing note for one it applies.
+2. *The order the reader takes* is the engine's (corrected after the audit, W-02; the rules are under the table above): per policy, `HKLM` then `HKCU` of the policy's own key, the Windows
+   PowerShell key of that policy instead while its switch is on, the first hive that sets any value of the policy deciding the whole policy; then the all-users config file, then the user's. A policy
+   set off decides too (that is how a policy, or the file AD Manager ships next to the engine, turns off what a user's file turned on). The first reader modelled the switch as one value of the
+   root key that swapped every policy of both hives, and took the hives value by value; its tests pinned that model, so they passed. The decompiled engine settled it; a run under a real GPO
+   (pilot) is still to compare the note with what the engine records.
 3. *The note is plain and says where* (D7): one sentence per recording policy - transcription (where the files go, "Documents folder of your account" when no directory is named), script block logging (the PowerShell Core event log), module logging (the modules) - each with its origin
    ("computer policy", "user policy of Windows PowerShell", "your powershell.config.json"…), then "AD Manager does not change these policies and does not get around them." Execution policy and a lockdown record nothing and make no note (the lockdown is the reason of the disabled switch and a line of the scrollback).
    The log copy is the key and a mask of what is on (1 transcription, 2 script block logging, 4 module logging) - never the directory or the modules.
@@ -1241,7 +1251,7 @@ DC's computed flag is used when it is returned) - still open (12.0). (4) `Get-Ad
 13. *`PowerShellGridTable` is in Core* (the engine builds it, the window shows it): cells are text (`null` = no value), the column names are unique ignoring case, rows have one cell per column, the DN column is named; its `ToString()` shows only the counts. `IPowerShellWindowActions` is in Presentation (the engine reaches it through part 4's adapter).
 14. *`PowerShellSessionRequest` carries the window's `IDirectorySession`* - the factory builds the read-only context from it (D8, rule 4); the request's `ToString()` names nothing.
 
-**Tests.** `AdMng.Presentation.Tests` (Linux, 220 new): `PowerShellPolicyReaderTests` (every combination: each hive, the switch in either hive, the Windows PowerShell keys, both config files, precedence, off beats on, comments and case in the file, a file that is not usable, the lockdown),
+**Tests.** `AdMng.Presentation.Tests` (Linux, 220 new): `PowerShellPolicyReaderTests` (each hive, the switch of each policy, the Windows PowerShell keys, both config files, precedence, off beats on, comments and case in the file, a file that is not usable, the lockdown; after the audit with `PowerShellPolicyEngineRulesTests`, the engine's rules and the auditor's scenarios A-D),
 `PowerShellPolicyNoteTests` (each setting, several, both languages, the log copy), `PowerShellWindowRunTests` (the echo, streaming and the status sequence with and without Stop, in both languages, a result of 100,000 lines, a line shown as soon as it is written, errors, a failed command, progress,
 the close question with No and Yes, disposal during a run, the questions of a command, the history rules, Enter, the width), `PowerShellWindowStatusTests` (title, summary, starting, a failed or missing engine, a disconnected window, the end of the session, every combination of the notes, the trusted mode with its
 confirmation, a lockdown from the session or the policies, a refusal by the engine), `PowerShellInputModelTests`, `PowerShellInputHistoryTests`, `PowerShellOutputDocumentTests`, `PowerShellDnLinkFinderTests`, `PowerShellWindowActionsTests` (the contract through a fake, the actions of a host that gave none; the table itself is `AdMng.Core.Tests` `PowerShellGridTableTests`),
@@ -1254,7 +1264,7 @@ arrive as the items the fake streams (part 1 tests them against the real host); 
 
 **Open questions for the next parts, and what became of them.**
 1. *"N objects" in the status line* needs a count from the engine (`PowerShellRunEndItem` has none); the line says lines of output meanwhile. A proposal: the engine counts what reaches `Out-Default`, or the commands report what they wrote through the context.
-2. *`UseWindowsPowerShellPolicySetting`:* where the switch lives (read from the `PowerShellCore` key of either hive here) and whether the Windows PowerShell keys replace or add to the PowerShell 7 ones is to be confirmed on a machine with such a GPO (part 4's Windows run can read what the engine reports for the same keys).
+2. *`UseWindowsPowerShellPolicySetting`:* answered from the decompiled engine after the audit (W-02): a value of each policy's own key in each hive, and the Windows PowerShell key of that policy replaces the PowerShell 7 one of the same hive. A comparison under a real GPO is a pilot item.
 3. *The default actions in Presentation:* `IPowerShellWindowActions` is only a contract; the logic that does not need WPF - the GUID lookup of `Open-AdmObject`, *Save As* and the CSV file of `Export-AdmList` - could be a Presentation class with a Linux test (it needs one new member, "show a table in the grid", from the host); part 4 decides - decided: `PowerShellWindowActions` is a Presentation class (12.4 decision 10).
 4. *Where the policy note lives:* as the lasting state of the status line it is covered by every command's result until the result is closed (V2 behaviour). If the owner prefers it always visible, it is `PolicyNoteText` - a note (`Ad.Note.Attention`) in the window's layout costs the view one line, and the view model needs nothing - part 4 built that note in the layout (12.4 decision 6).
 5. *The stage S readiness item* can reuse `PowerShellPolicyReader` and `PowerShellPolicyNotes` as they are.

@@ -145,7 +145,10 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   także na wyjście błędów, jest w oknie (wcześniej program na końcu polecenia pisał poza nie, do niewidocznej konsoli).
 - **Zasady PowerShella tego komputera.** Przy otwarciu okno czyta zasady grupy PowerShella (transkrypcję, rejestrowanie bloków
   skryptów i modułów) oraz oba pliki `powershell.config.json` i, zanim uruchomisz pierwsze polecenie, mówi stałą uwagą, co jest
-  gdzie zapisywane („transkrypcja jest włączona zasadą komputera: polecenia i wyniki zapisuje Windows w …”). Program niczego
+  gdzie zapisywane („transkrypcja jest włączona zasadą komputera: polecenia i wyniki zapisuje Windows w …”). Czyta je według
+  reguł samego silnika: każdą zasadę osobno, najpierw z zasad komputera, potem użytkownika, a zasadę z zaznaczonym *Use Windows
+  PowerShell Policy setting* – z klucza Windows PowerShell; pliki liczą się dopiero wtedy, gdy zasady grupy jej nie ustawiają.
+  Gdy klucza albo pliku nie da się odczytać, uwaga mówi który i że nie wiadomo, czy polecenia są rejestrowane. Program niczego
   nie zmienia i niczego nie obchodzi; plik `powershell.config.json` obok `AdMng.exe` wyłącza tylko to, co włączył plik
   użytkownika (zasada komputera ma pierwszeństwo przed nim). Wyniki pokazują te same sekrety, które pokazuje Edytor atrybutów
   (np. hasło LAPS jawnym tekstem), więc przy włączonej transkrypcji trafią one do transkrypcji – uwaga o zasadach mówi to z

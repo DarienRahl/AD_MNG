@@ -374,14 +374,24 @@ these policies and does not get around them.
 
 **What the window does about it:**
 
-- when it opens, it reads the policies – PowerShell Core (`HKLM` and `HKCU`, `Software\Policies\Microsoft\PowerShellCore`), the
-  Windows PowerShell ones when *Use Windows PowerShell Policy setting* is on, and the two `powershell.config.json` files (the
-  engine's, beside `AdMng.exe`, and yours, in *Documents\PowerShell*) – and the system lockdown state;
+- when it opens, it reads the policies by the rules of the engine's own code, each of transcription, script block logging,
+  module logging and the execution policy on its own: first the computer policy (`HKLM`), then the user policy (`HKCU`) of
+  PowerShell 7 (`Software\Policies\Microsoft\PowerShellCore` and its keys `Transcription`, `ScriptBlockLogging`,
+  `ModuleLogging`). A policy whose *Use Windows PowerShell Policy setting* is ticked is read from the Windows PowerShell key of the
+  same hive instead (`Software\Policies\Microsoft\Windows\PowerShell`); the tick is a setting of each policy, not of all of them.
+  The first hive that sets anything of a policy decides the whole policy. Only a policy that no Group Policy sets comes from the
+  two `powershell.config.json` files (the engine's, beside `AdMng.exe`, then yours, in *Documents\PowerShell*). The window also
+  reads the system lockdown state;
 - before you run the first command it says plainly what is recorded where, for example *Transcription is on (computer
   policy): the commands you run here and their results, which can include directory data, are written to D:\PSLogs.*
   The note is in the status line (while no command's result covers it), in the layout under it, and in the first lines of the
   output; it stays until the window closes;
-- when the policies cannot be read, it says so: *Whether commands and results are recorded is unknown.* Not knowing is a note too.
+- when the policies cannot be read, it says so and names the key or the file: *Whether commands and results are recorded is
+  unknown.* Not knowing is a note too.
+
+PowerShell itself reads each of these policies once per run of AD Manager, the first time it needs it: a policy that changes
+while the program runs applies to the engine after AD Manager is restarted, while the note of a window opened meanwhile already
+says the new state.
 
 **What to do about it:** if transcription or script block logging is on, do not look at sensitive attributes in the window
 (LAPS passwords, BitLocker recovery passwords) and do not type a password into a command. Ask the security team where the
@@ -462,7 +472,7 @@ pilot on Windows has to confirm:
   selection in light, dark and High Contrast themes, at 125 %–200 % scaling, and the completion list near the edge of the screen;
 - a screen reader (Narrator, NVDA) with the window: the list of completions is not announced;
 - the policies of the window under a **real Group Policy** (transcription, script block logging, module logging; the keys
-  come from the engine's own code and the documented templates) and the engine under **WDAC / AppLocker**;
+  and the rules of which one wins come from the engine's own code and the documented templates) and the engine under **WDAC / AppLocker**;
 - the commands against a **real Windows Server AD** (the tests ran over a fake directory and a Samba domain controller).
 
 The scenarios for the pilot are in [PILOT.md, chapter 3.7](PILOT.md#37-powershell-window-r1).

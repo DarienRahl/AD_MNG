@@ -21,22 +21,16 @@ public sealed class WindowsPowerShellPolicySource : IPowerShellPolicySource
     public const string ConfigFileName = "powershell.config.json";
 
     /// <inheritdoc />
-    public int? GetDword(PowerShellPolicyScope scope, string subKey, string valueName) =>
-        Read(scope, subKey, key => key.GetValueKind(valueName) == RegistryValueKind.DWord && key.GetValue(valueName) is int value ? value : (int?)null, defaultValue: null);
+    /// <remarks>
+    /// <c>GetValue</c> with a default, never <c>GetValueKind</c>: the latter throws for a value that is absent (audit W-01), and an absent
+    /// value is the common case - a policy key holds only the values its Group Policy setting wrote.
+    /// </remarks>
+    public object? GetValue(PowerShellPolicyScope scope, string subKey, string valueName) =>
+        Read(scope, subKey, key => key.GetValue(valueName, null, RegistryValueOptions.DoNotExpandEnvironmentNames));
 
     /// <inheritdoc />
-    public string? GetString(PowerShellPolicyScope scope, string subKey, string valueName) =>
-        Read(
-            scope,
-            subKey,
-            key => key.GetValueKind(valueName) is RegistryValueKind.String or RegistryValueKind.ExpandString
-                ? key.GetValue(valueName, null, RegistryValueOptions.DoNotExpandEnvironmentNames) as string
-                : null,
-            defaultValue: null);
-
-    /// <inheritdoc />
-    public IReadOnlyList<string> GetValueNames(PowerShellPolicyScope scope, string subKey) =>
-        Read<IReadOnlyList<string>>(scope, subKey, key => key.GetValueNames(), defaultValue: []);
+    public IReadOnlyList<string>? GetValueNames(PowerShellPolicyScope scope, string subKey) =>
+        Read<IReadOnlyList<string>?>(scope, subKey, key => key.GetValueNames());
 
     /// <inheritdoc />
     public string? ReadConfigFile(PowerShellPolicyScope scope)
@@ -50,24 +44,25 @@ public sealed class WindowsPowerShellPolicySource : IPowerShellPolicySource
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
         {
-            throw new InvalidOperationException($"The file {ConfigFileName} of the {(scope == PowerShellPolicyScope.Computer ? "program" : "user")} could not be read.", ex);
+            throw new PowerShellPolicyUnreadableException(PowerShellPolicyPlace.ConfigFile, path, ex);
         }
     }
 
     /// <inheritdoc />
     public PowerShellLockdownState GetLockdownState() => SystemPolicyLockdownProbe.Instance.Probe();
 
-    private static T Read<T>(PowerShellPolicyScope scope, string subKey, Func<RegistryKey, T> read, T defaultValue)
+    private static T? Read<T>(PowerShellPolicyScope scope, string subKey, Func<RegistryKey, T> read)
     {
         try
         {
             using var key = (scope == PowerShellPolicyScope.Computer ? Registry.LocalMachine : Registry.CurrentUser).OpenSubKey(subKey, writable: false);
-            return key is null ? defaultValue : read(key);
+            return key is null ? default : read(key);
         }
-        catch (Exception ex) when (ex is SecurityException or UnauthorizedAccessException or IOException or ArgumentException or InvalidOperationException)
+        catch (Exception ex) when (ex is SecurityException or UnauthorizedAccessException or IOException)
         {
             // The one thing this class must not do is turn "I could not look" into "nothing is recorded".
-            throw new InvalidOperationException($"The registry key {(scope == PowerShellPolicyScope.Computer ? "HKLM" : "HKCU")}\\{subKey} could not be read.", ex);
+            throw new PowerShellPolicyUnreadableException(
+                PowerShellPolicyPlace.Registry, (scope == PowerShellPolicyScope.Computer ? "HKLM" : "HKCU") + "\\" + subKey, ex);
         }
     }
 }

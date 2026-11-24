@@ -6,7 +6,8 @@ namespace AdMng.Presentation.Tests.PowerShell;
 /// <summary>
 /// The rules of <see cref="PowerShellPolicyReader"/> (track R, decision D7): which key wins, when the Windows PowerShell
 /// policies count, how a config file is read and that a policy that sets "off" is a decision too. The registry and the
-/// files are in memory, so every combination runs here.
+/// files are in memory, so every combination runs here; the rules taken from the engine's code are in
+/// <see cref="PowerShellPolicyEngineRulesTests"/>.
 /// </summary>
 public sealed class PowerShellPolicyReaderTests
 {
@@ -28,7 +29,6 @@ public sealed class PowerShellPolicyReaderTests
         Assert.Equal(PowerShellModuleLoggingPolicy.NotSet.Enabled, policies.ModuleLogging.Enabled);
         Assert.Null(policies.ModuleLogging.Origin);
         Assert.Null(policies.ExecutionPolicy.Policy);
-        Assert.False(policies.UseWindowsPowerShellPolicy);
         Assert.Equal(PowerShellLockdownState.None, policies.Lockdown);
     }
 
@@ -145,9 +145,9 @@ public sealed class PowerShellPolicyReaderTests
 
     [Theory]
     [InlineData(0, null, "Restricted")]
+    [InlineData(0, "AllSigned", "Restricted")]
     [InlineData(1, "AllSigned", "AllSigned")]
-    [InlineData(1, null, null)]
-    public void TheExecutionPolicy_ScriptsOffIsRestricted(int enableScripts, string? name, string? expected)
+    public void TheExecutionPolicy_ScriptsOffIsRestricted(int enableScripts, string? name, string expected)
     {
         var source = new FakePowerShellPolicySource().SetDword(Computer, PowerShellPolicyKeys.CoreRoot, PowerShellPolicyKeys.EnableScripts, enableScripts);
         if (name is not null)
@@ -158,52 +158,102 @@ public sealed class PowerShellPolicyReaderTests
         var execution = Read(source).ExecutionPolicy;
 
         Assert.Equal(expected, execution.Policy);
-        Assert.NotNull(execution.Origin);
+        Assert.Equal(new PowerShellPolicyOrigin(PowerShellPolicyStore.PowerShellCore, Computer), execution.Origin);
         Assert.False(Read(source).IsRecording);
     }
 
     [Fact]
-    public void TheWindowsPowerShellPolicies_AreIgnored_WhileTheSwitchIsOff()
+    public void ScriptsOnWithoutAPolicyName_DefinesNoExecutionPolicy()
+    {
+        // The engine's GetGroupPolicyValue returns the policy's name, which is none: no execution policy of this scope.
+        var source = new FakePowerShellPolicySource().SetDword(Computer, PowerShellPolicyKeys.CoreRoot, PowerShellPolicyKeys.EnableScripts, 1);
+
+        Assert.Equal(PowerShellExecutionPolicyPolicy.NotSet, Read(source).ExecutionPolicy);
+    }
+
+    [Fact]
+    public void TheWindowsPowerShellPolicies_AreNotRead_WhileNoSwitchIsOn()
     {
         var source = new FakePowerShellPolicySource()
             .Windows(Computer, PowerShellPolicyKeys.TranscriptionKey, PowerShellPolicyKeys.EnableTranscripting, 1);
 
         var policies = Read(source);
 
-        Assert.False(policies.UseWindowsPowerShellPolicy);
         Assert.False(policies.Transcription.Enabled);
         Assert.DoesNotContain(source.Calls, call => call.Contains(PowerShellPolicyKeys.WindowsRoot, StringComparison.Ordinal));
     }
 
     [Theory]
-    [InlineData(PowerShellPolicyScope.Computer)]
-    [InlineData(PowerShellPolicyScope.User)]
-    public void TheWindowsPowerShellPolicies_StandInForTheOtherOnes_WhileTheSwitchIsOn_InEitherHive(PowerShellPolicyScope switchHive)
+    [InlineData(1)]
+    [InlineData(5)]
+    public void AnyNumberButZero_TurnsTheSwitchOn(int value)
     {
+        // The engine compares the value with 0; it is no 0/1 switch of a policy class.
         var source = new FakePowerShellPolicySource()
-            .SetDword(switchHive, PowerShellPolicyKeys.CoreRoot, PowerShellPolicyKeys.UseWindowsPowerShellPolicy, 1)
-            .Windows(User, PowerShellPolicyKeys.ScriptBlockLoggingKey, PowerShellPolicyKeys.EnableScriptBlockLogging, 1)
-            .Core(Computer, PowerShellPolicyKeys.TranscriptionKey, PowerShellPolicyKeys.EnableTranscripting, 1);
+            .Core(User, PowerShellPolicyKeys.ScriptBlockLoggingKey, PowerShellPolicyKeys.UseWindowsPowerShellPolicy, value)
+            .Windows(User, PowerShellPolicyKeys.ScriptBlockLoggingKey, PowerShellPolicyKeys.EnableScriptBlockLogging, 1);
 
-        var policies = Read(source);
+        var logging = Read(source).ScriptBlockLogging;
 
-        Assert.True(policies.UseWindowsPowerShellPolicy);
-        Assert.Equal(new PowerShellPolicyOrigin(PowerShellPolicyStore.WindowsPowerShell, User), policies.ScriptBlockLogging.Origin);
-        Assert.True(policies.ScriptBlockLogging.Enabled);
-
-        // The PowerShell 7 key is not consulted any more: its transcription is not what applies.
-        Assert.False(policies.Transcription.Enabled);
+        Assert.True(logging.Enabled);
+        Assert.Equal(new PowerShellPolicyOrigin(PowerShellPolicyStore.WindowsPowerShell, User), logging.Origin);
     }
 
     [Fact]
     public void TheSwitchOffByTheValueZero_IsOff()
     {
         var source = new FakePowerShellPolicySource()
-            .SetDword(Computer, PowerShellPolicyKeys.CoreRoot, PowerShellPolicyKeys.UseWindowsPowerShellPolicy, 0)
+            .Core(Computer, PowerShellPolicyKeys.TranscriptionKey, PowerShellPolicyKeys.UseWindowsPowerShellPolicy, 0)
             .Windows(Computer, PowerShellPolicyKeys.TranscriptionKey, PowerShellPolicyKeys.EnableTranscripting, 1);
 
-        Assert.False(Read(source).UseWindowsPowerShellPolicy);
         Assert.False(Read(source).Transcription.Enabled);
+        Assert.Null(Read(source).Transcription.Origin);
+    }
+
+    [Theory]
+    [InlineData("1")]
+    [InlineData(1L)]
+    public void ASwitchOfAnotherType_IsNotKnown_SoTheReadFails(object value)
+    {
+        // The engine casts the value to an int: a REG_SZ or a REG_QWORD makes it fail, so what it records cannot be said.
+        var source = new FakePowerShellPolicySource().Core(Computer, PowerShellPolicyKeys.TranscriptionKey, PowerShellPolicyKeys.UseWindowsPowerShellPolicy, value);
+
+        var ex = Assert.Throws<PowerShellPolicyUnreadableException>(() => Read(source));
+
+        Assert.Equal(PowerShellPolicyPlace.SwitchValue, ex.Place);
+        Assert.Equal(@"HKLM\Software\Policies\Microsoft\PowerShellCore\Transcription", ex.Location);
+    }
+
+    [Fact]
+    public void ModuleNames_AlsoAMultiStringOrAStringValue_ButAValueOfAnotherTypeHidesTheSubKey()
+    {
+        var multi = new FakePowerShellPolicySource()
+            .Core(Computer, PowerShellPolicyKeys.ModuleLoggingKey, PowerShellPolicyKeys.EnableModuleLogging, 1)
+            .Core(Computer, PowerShellPolicyKeys.ModuleLoggingKey, PowerShellPolicyKeys.ModuleNamesKey, new[] { "ActiveDirectory", "AdMng" });
+        var single = new FakePowerShellPolicySource()
+            .Core(Computer, PowerShellPolicyKeys.ModuleLoggingKey, PowerShellPolicyKeys.EnableModuleLogging, 1)
+            .Core(Computer, PowerShellPolicyKeys.ModuleLoggingKey, PowerShellPolicyKeys.ModuleNamesKey, "*");
+        var number = new FakePowerShellPolicySource()
+            .Core(Computer, PowerShellPolicyKeys.ModuleLoggingKey, PowerShellPolicyKeys.EnableModuleLogging, 1)
+            .Core(Computer, PowerShellPolicyKeys.ModuleLoggingKey, PowerShellPolicyKeys.ModuleNamesKey, 7)
+            .SetNames(Computer, PowerShellPolicyKeys.CoreRoot + @"\ModuleLogging\ModuleNames", "ActiveDirectory");
+
+        Assert.Equal(["ActiveDirectory", "AdMng"], Read(multi).ModuleLogging.ModuleNames);
+        Assert.Equal(["*"], Read(single).ModuleLogging.ModuleNames);
+        Assert.Empty(Read(number).ModuleLogging.ModuleNames);
+    }
+
+    [Fact]
+    public void AnEmptyKeyOfModuleNames_IsAValueOfThePolicy_SoItsHiveDecides()
+    {
+        var source = new FakePowerShellPolicySource()
+            .SetNames(Computer, PowerShellPolicyKeys.CoreRoot + @"\ModuleLogging\ModuleNames")
+            .Core(User, PowerShellPolicyKeys.ModuleLoggingKey, PowerShellPolicyKeys.EnableModuleLogging, 1);
+
+        var logging = Read(source).ModuleLogging;
+
+        Assert.False(logging.Enabled);
+        Assert.Equal(Computer, logging.Origin!.Value.Scope);
     }
 
     [Fact]
@@ -276,19 +326,6 @@ public sealed class PowerShellPolicyReaderTests
         Assert.Null(policies.Transcription.Origin);
     }
 
-    [Theory]
-    [InlineData("true", true)]
-    [InlineData("1", true)]
-    [InlineData("\"1\"", true)]
-    [InlineData("false", false)]
-    [InlineData("0", false)]
-    public void ASwitchInAFile_IsABooleanOrANumber(string value, bool expected)
-    {
-        var source = new FakePowerShellPolicySource().SetFile(User, $$"""{ "PowerShellPolicies": { "ScriptBlockLogging": { "EnableScriptBlockLogging": {{value}} } } }""");
-
-        Assert.Equal(expected, Read(source).ScriptBlockLogging.Enabled);
-    }
-
     [Fact]
     public async Task ReadAsync_ReadsOffTheCallersThread_AndPassesTheFailureOn()
     {
@@ -317,14 +354,20 @@ public sealed class PowerShellPolicyReaderTests
     [Fact]
     public void TheReader_ReadsOnlyTheKeysOfTheDocumentation()
     {
-        var source = new FakePowerShellPolicySource();
+        var source = new FakePowerShellPolicySource()
+            .Core(Computer, PowerShellPolicyKeys.TranscriptionKey, PowerShellPolicyKeys.UseWindowsPowerShellPolicy, 1);
 
         Read(source);
 
-        // Every key it asks the registry for is under one of the two policy roots (the Windows PowerShell root only with the switch on).
+        // Every key it asks the registry for is a key of a policy, under one of the two roots; the Windows PowerShell keys only for the
+        // policy whose switch is on (here: the transcription of HKLM).
         var keys = source.Calls.Where(call => !call.StartsWith("file", StringComparison.Ordinal) && call != "lockdown").ToList();
         Assert.NotEmpty(keys);
-        Assert.All(keys, call => Assert.Contains(PowerShellPolicyKeys.CoreRoot, call, StringComparison.Ordinal));
+        Assert.All(keys, call => Assert.True(
+            call.Contains(PowerShellPolicyKeys.CoreRoot, StringComparison.Ordinal) || call.Contains(PowerShellPolicyKeys.WindowsRoot, StringComparison.Ordinal), call));
+        var windows = keys.Where(call => call.Contains(PowerShellPolicyKeys.WindowsRoot, StringComparison.Ordinal)).ToList();
+        Assert.NotEmpty(windows);
+        Assert.All(windows, call => Assert.StartsWith(@"value Computer Software\Policies\Microsoft\Windows\PowerShell\Transcription ", call, StringComparison.Ordinal));
         Assert.Contains("file Computer", source.Calls);
         Assert.Contains("file User", source.Calls);
     }
