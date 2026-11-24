@@ -36,7 +36,7 @@ From top to bottom the window has:
 - the **status line**: what the window is doing (*Running the command…*, *The command finished: 12 lines of output in the
   window, 0.8 s*, *The command was stopped after 3 s*) with **Stop**; errors and warnings have an icon, not only a colour,
   and a screen reader hears *Error:*, *Warning:* or *Note:* before such a line of the output;
-- **notes that last** – what Group Policy records (chapter 8), *Trusted mode is on* (chapter 7), and *The oldest N lines
+- **notes that last** – what Group Policy or your own `powershell.config.json` records (chapter 8), *Trusted mode is on* (chapter 7), and *The oldest N lines
   were removed from this window* (the window keeps the last 20,000 lines);
 - the **output area**: the commands you ran and what they wrote, with errors and warnings in the window's colours;
 - the **command line** with *Run* (while a command runs it is *Stop*), *Clear* and the *Trusted mode (FullLanguage)* switch.
@@ -263,7 +263,7 @@ that says so, and redirection to a file (`>`, `>>`, `2>`) is refused before the 
   recognise every password: a value without a parameter name for another command, a password inside a longer text, a switch of a
   console program outside these names or a name outside the list (a Polish one, for example: `$haslo = 'literal'` is
   remembered). The line you typed also stays in the output area until you clear it or close the window – with a password the
-  filter recognised replaced by `***` (the command runs with the password as typed) – and Group Policy may record it (chapter 8),
+  filter recognised replaced by `***` (the command runs with the password as typed) – and Group Policy or PowerShell itself may record it (chapter 8),
   so do not type a password into a command at all. A
   password asked for by `Read-Host -AsSecureString` or a mandatory parameter is typed into a password box and never shown.
 - **The program writes nothing else.** PSReadLine is not loaded (no history file), no profile is run (`$PROFILE` is never
@@ -382,6 +382,17 @@ commands you run here **and their results** – that is, directory data – to t
 logging writes the text of the commands to the Windows event log (*PowerShellCore/Operational*). AD Manager does not change
 these policies and does not get around them.
 
+**Without a policy, PowerShell still logs some commands.** When neither Group Policy nor a `powershell.config.json` sets script
+block logging, PowerShell 7 writes a command it finds suspicious to the same event log anyway, as a warning (event 4104): one
+that contains a word of its built-in list – `Add-Type`, `FromBase64String`, `GetMethod`, `NonPublic`, `Bypass` and over a hundred
+more, also inside a longer word, so also `Properties`, which is in `-Properties` of AD Manager's read commands
+(`Get-AdmUser jan -Properties mail` is logged, `Get-AdmUser jan` is not). Other commands are not written. That is the engine's
+own behaviour in every PowerShell 7 – `pwsh.exe`, an editor, this window – and AD Manager leaves it as it is: the security team
+sees of the window what it sees of a plain pwsh 7 on the same computer. The log exists where PowerShell 7's event provider is
+registered (by the PowerShell 7 installer or `RegisterManifest.ps1`; AD Manager registers nothing); where it is not, the event
+reaches no log. A policy that turns script block logging **off** (*Disabled* in Group Policy) stops this too. The window's note
+says what the policies record and does not mention this default.
+
 **What the window does about it:**
 
 - when it opens, it reads the policies by the rules of the engine's own code, each of transcription, script block logging,
@@ -392,7 +403,7 @@ these policies and does not get around them.
   The first hive that sets anything of a policy decides the whole policy. Only a policy that no Group Policy sets comes from the
   two `powershell.config.json` files (the engine's, beside `AdMng.exe`, then yours, in *Documents\PowerShell*). The window also
   reads the system lockdown state;
-- before you run the first command it says plainly what is recorded where, for example *Transcription is on (computer
+- before you run the first command it says plainly what the policies record where, for example *Transcription is on (computer
   policy): the commands you run here and their results, which can include directory data, are written to D:\PSLogs.*
   The note is in the status line (while no command's result covers it), in the layout under it, and in the first lines of the
   output; it stays until the window closes;
@@ -404,10 +415,12 @@ while the program runs applies to the engine after AD Manager is restarted, whil
 says the new state.
 
 **What to do about it:** if transcription or script block logging is on, do not look at sensitive attributes in the window
-(LAPS passwords, BitLocker recovery passwords) and do not type a password into a command. Ask the security team where the
-transcripts go and who can read them – they hold the same data the window shows. A `powershell.config.json` that AD Manager
-ships beside `AdMng.exe` turns off the transcription and logging that **your own** `powershell.config.json` turned on; it cannot
-turn off a computer policy, and the note then says that the policy is on. Security systems (EDR) may report *a PowerShell engine
+(LAPS passwords, BitLocker recovery passwords). Do not type a password into a command at all – even without a policy PowerShell
+may log the command (above). Ask the security team where the transcripts go and who can read them – they hold the same data the
+window shows. A `powershell.config.json` that AD Manager ships beside `AdMng.exe` turns off the transcription and the module
+logging that **your own** `powershell.config.json` turned on; it cannot turn off a computer policy, and the note then says that
+the policy is on. Script block logging it does not set: there your own file counts, as in a plain pwsh (the note then says
+*your powershell.config.json*), and a Group Policy wins over it. Security systems (EDR) may report *a PowerShell engine
 in a process other than `powershell.exe`* – the process is `AdMng.exe` – and the two `__PSScriptPolicyTest_` files it writes
 into `%TEMP%` and deletes at once (chapter 6), as every PowerShell does; tell the security team (SOC) in advance.
 
@@ -468,7 +481,7 @@ The editor colours the command as you type it: commands, parameters, variables, 
 | *… is not available in the AD Manager PowerShell window* / *The term '…' is not recognized* | The window has a fixed list of commands (chapter 7). The message says what to use instead – for a file, `Export-AdmList` or `Start-Transcript -Path` (chapter 5). |
 | The distinguished names end with `…` | Use `Format-List`, a wider window, or `Select-Object -ExpandProperty DistinguishedName`. |
 | The trusted mode switch is disabled | Its tool tip says why: a command is running, PowerShell is starting, is turning the trusted mode off or could not be started, this installation has no engine, the session of the connection ended, or the system enforces ConstrainedLanguage (WDAC, AppLocker). |
-| A note says transcription or logging is on | Chapter 8. It is a Group Policy setting of this computer or account, not of AD Manager. |
+| A note says transcription or logging is on | Chapter 8. It is a Group Policy setting of this computer or account (script block logging: or of your own `powershell.config.json`), not of AD Manager. |
 | *There are no objects to show: no grid was opened* | The pipeline of `Out-AdmGrid` was empty. |
 | *The file … exists. Nothing was written; use -Force* / *No file was chosen: nothing was written.* | `Export-AdmList` replaces a file only with `-Force`, and writes nothing without a path or a file chosen in *Save As*. |
 | `Get-Help` shows no examples | The file `AdMng.PowerShell.dll-Help.xml` beside `AdMng.exe` was removed. Restore it from the package. |
@@ -484,7 +497,9 @@ pilot on Windows has to confirm:
 - a screen reader (Narrator, NVDA) with the window: the list of completions is not announced (a line of an error, a warning or
   the note is named with its kind first – the names are tested, not yet heard);
 - the policies of the window under a **real Group Policy** (transcription, script block logging, module logging; the keys
-  and the rules of which one wins come from the engine's own code and the documented templates) and the engine under **WDAC / AppLocker**;
+  and the rules of which one wins come from the engine's own code and the documented templates), the engine's own warning 4104 for a
+  suspicious command without such a policy (shown by a test of the engine, not yet seen in a Windows event log), and the engine under
+  **WDAC / AppLocker**;
 - the commands against a **real Windows Server AD** (the tests ran over a fake directory and a Samba domain controller).
 
 The scenarios for the pilot are in [PILOT.md, chapter 3.7](PILOT.md#37-powershell-window-r1).

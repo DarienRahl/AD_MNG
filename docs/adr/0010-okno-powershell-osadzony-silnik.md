@@ -117,7 +117,10 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
    i `ExecutionPolicy`, każdą z pierwszej gałęzi rejestru, która ją ustawia, potem z plików `powershell.config.json` –
    oraz stan blokady systemu. Trwała notatka (Uwaga linii stanu) przed pierwszym poleceniem mówi wprost, co i gdzie jest
    zapisywane („transkrypcja jest włączona zasadą: polecenia i wyniki zapisuje Windows w <katalog>”). Program nie próbuje
-   obejść żadnej zasady. Czytnik rejestru stoi za interfejsem (implementacja Windows w `AdMng.App`, atrapa w testach).
+   obejść żadnej zasady i sam nie ustawia rejestrowania bloków skryptów (D-B po audycie, PS-04): gdy nie ustawia go żadna zasada
+   ani plik, silnik zapisuje w swoim dzienniku zdarzeń bloki skryptów, które uznaje za podejrzane, jako ostrzeżenie (zdarzenie
+   4104), jak w każdym PowerShell 7 – notatka mówi, co rejestrują zasady, a o tym domyślnym zachowaniu silnika nie wspomina;
+   opisuje je przewodnik. Czytnik rejestru stoi za interfejsem (implementacja Windows w `AdMng.App`, atrapa w testach).
 8. **Nic na dysku, hasła, jeden DC, interfejs nie blokuje (D8).** Zawartość okna, wyniki i historia żyją tylko w pamięci
    (zasada 1). Środowisko silnika ustawiamy **przed** jego pierwszym użyciem: `POWERSHELL_TELEMETRY_OPTOUT=1`,
    `POWERSHELL_DIAGNOSTICS_OPTOUT=1`, `POWERSHELL_UPDATECHECK=Off`, wyłączone automatyczne ładowanie modułów i pamięć
@@ -165,7 +168,11 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
 - **EDR i SOC.** Systemy EDR mogą zgłaszać „silnik PowerShell w procesie innym niż `powershell.exe`” (np. reguła Sigma dla
   `System.Management.Automation.dll`). Odpowiedzią są podpisany `AdMng.exe` (faza 7, certyfikat z P2) i informacja dla
   zespołu bezpieczeństwa; dokumentacja dla nich jest częścią R1. AMSI sprawdza każdy blok skryptu, a rejestrowanie bloków
-  skryptów i transkrypcja z GPO obejmują okno – dlatego notatka przed pierwszym poleceniem (punkt 7).
+  skryptów i transkrypcja z GPO obejmują okno – dlatego notatka przed pierwszym poleceniem (punkt 7). O rejestrowaniu bloków
+  skryptów decydują Windows i zasady grupy, nie program (D-B): zespół bezpieczeństwa widzi w *PowerShellCore/Operational* to
+  samo co przy zwykłym pwsh 7 – każdy blok skryptu przy włączonej zasadzie, żaden przy wyłączonej, a bez zasady te, które silnik
+  uznaje za podejrzane (ostrzeżenie 4104; `-Properties` poleceń odczytu okna zawiera jedno ze słów silnika), o ile zarejestrowano
+  dostawcę zdarzeń PowerShell 7.
 - **Granica bezpieczeństwa.** ConstrainedLanguage, lista dozwolonych poleceń, pusta lista modułów i odrzucanie plików skryptów
   chronią przed pomyłką, a nie przed złośliwym operatorem; jedyną granicą są prawa konta w AD. Zmiany wykonane z pominięciem planu nie
   mają audytu ani cofnięcia w programie, ale Watchdog widzi je jak każdą zmianę w AD.
@@ -179,7 +186,7 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
   poza interfejsem.
 - **Dalsze etapy.** R2 doda polecenia zapisu przez plan zmian (okno ma na to miejsce) bez zmiany tej decyzji; R3 doda moduły
   RSAT przez listę modułów z punktu 2. Plik `powershell.config.json` obok `AdMng.exe` (wyłączenie transkrypcji i
-  rejestrowania ustawionych w plikach użytkownika) jest częścią układu publikacji (rozdział „Układ publikacji”).
+  rejestrowania modułów ustawionych w plikach użytkownika) jest częścią układu publikacji (rozdział „Układ publikacji”).
 
 ## Układ publikacji
 
@@ -196,11 +203,13 @@ Wynik części 4 R1, sprawdzony w CI na Windows (krok „Smoke test published ap
   `build.manifest(.sig)`, manifesty modułów (`runtimes/*/lib/net10.0/Modules`; nic ich nie ładuje – domyślny stan sesji wiąże polecenia
   bezpośrednio; archiwum wydania bierze tylko pliki z głównego folderu publikacji, więc nie ma ich wcale, a przepływ wydania
   uruchamia test dymny na rozpakowanym archiwum), pomoc poleceń (`AdMng.PowerShell.dll-Help.xml`, wskazywana przez `AppContext.BaseDirectory`, bo w jednym pliku
-  `Assembly.Location` jest pusty) i **`powershell.config.json`**: wyłącza transkrypcję, rejestrowanie bloków skryptów i modułów oraz
-  warstwę zgodności z Windows PowerShell 5.1. Silnik czyta go z `$PSHOME`, a ustawienie w nim wygrywa z tym samym ustawieniem w pliku
+  `Assembly.Location` jest pusty) i **`powershell.config.json`**: wyłącza transkrypcję, rejestrowanie modułów oraz warstwę
+  zgodności z Windows PowerShell 5.1. Silnik czyta go z `$PSHOME`, a ustawienie w nim wygrywa z tym samym ustawieniem w pliku
   użytkownika (sprawdzone na Linuksie w części 1 i testem dymnym opublikowanego pliku, który sprawdza też, że `$PSHOME` to folder
-  `AdMng.exe`); zasady komputera (GPO) mają pierwszeństwo przed oboma, a okno mówi o nich przed
-  pierwszym poleceniem.
+  `AdMng.exe`); zasady komputera (GPO) mają pierwszeństwo przed oboma, a okno mówi o nich przed pierwszym poleceniem.
+  Rejestrowania bloków skryptów plik nie ustawia (D-B po audycie, PS-04; wcześniej je wyłączał, co wyciszało też własne
+  rejestrowanie podejrzanych bloków skryptów przez silnik): decydują o nim zasady grupy, potem własny plik użytkownika, jak
+  w zwykłym pwsh (`EngineBoundaryTests`, `ScriptBlockLoggingTests`).
 - **Rozmiar** (MB = 10^6 bajtów; to samo polecenie publikacji co w CI, `-r win-x64 --self-contained -p:PublishSingleFile=true`,
   uruchomione na Linuksie dla commitu 0.16.0 i dla czoła R1; CI wypisuje te same 173,5 jako „MB”, a to MiB). `AdMng.exe` (jeden
   plik, bez kompresji): 143,5 MB bez silnika, 181,9 MB z silnikiem, czyli **+38,4 MB**; cały folder publikacji 164,7 MB →

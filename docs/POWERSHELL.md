@@ -36,7 +36,7 @@ Od góry okno ma:
 - **wiersz stanu**: co okno robi (*Wykonywanie polecenia…*, *Polecenie zakończyło się: 12 wierszy danych wyjściowych w oknie,
   0,8 s*, *Polecenie zatrzymano po 3 s*) z przyciskiem **Zatrzymaj**; błędy i ostrzeżenia mają ikonę, nie tylko kolor,
   a czytnik ekranu słyszy przed takim wierszem wyników *Błąd:*, *Ostrzeżenie:* albo *Uwaga:*;
-- **uwagi, które trwają** – co rejestrują zasady grupy (rozdział 8), *Tryb zaufany jest włączony* (rozdział 7) i *Najstarsze
+- **uwagi, które trwają** – co rejestrują zasady grupy albo Twój `powershell.config.json` (rozdział 8), *Tryb zaufany jest włączony* (rozdział 7) i *Najstarsze
   wiersze usunięto z tego okna* (okno zachowuje ostatnie 20 000 wierszy);
 - **obszar wyników**: uruchomione polecenia i to, co napisały, z błędami i ostrzeżeniami w kolorach okna;
 - **wiersz poleceń** z przyciskami *Uruchom* (gdy polecenie trwa, jest to *Zatrzymaj*), *Wyczyść* i przełącznikiem *Tryb zaufany
@@ -262,7 +262,7 @@ odrzuca wynik, a `2>&1` nadal łączy strumienie). Do CSV użyj `Export-AdmList`
   rozpozna każdego hasła: wartości bez nazwy parametru dla innego polecenia, hasła wewnątrz dłuższego tekstu, przełącznika programu
   konsolowego spoza tych nazw ani nazwy spoza listy (np. polskiej: `$haslo = 'tekst'` zostaje zapamiętany). Wpisany wiersz zostaje
   też w obszarze wyników, dopóki go nie wyczyścisz albo nie zamkniesz okna – z hasłem, które filtr rozpoznał, zastąpionym przez
-  `***` (polecenie działa z hasłem, jak je wpisano) – a zasady grupy mogą go zarejestrować (rozdział 8), więc nie wpisuj hasła do
+  `***` (polecenie działa z hasłem, jak je wpisano) – a zasady grupy albo sam PowerShell mogą go zarejestrować (rozdział 8), więc nie wpisuj hasła do
   polecenia w ogóle. Hasło, o które prosi `Read-Host -AsSecureString` albo parametr obowiązkowy, wpisuje się w polu hasła i
   nigdy nie jest pokazywane.
 - **Program nie zapisuje niczego więcej.** PSReadLine nie jest ładowany (nie ma pliku historii), żaden profil nie jest
@@ -379,6 +379,18 @@ zapisuje polecenia wykonywane tutaj **i ich wyniki** – czyli dane z katalogu �
 bloków skryptów zapisuje treść poleceń w dzienniku zdarzeń systemu Windows (*PowerShellCore/Operational*). AD Manager nie zmienia
 tych zasad i ich nie omija.
 
+**Bez zasady PowerShell i tak rejestruje niektóre polecenia.** Gdy rejestrowania bloków skryptów nie ustawiają ani zasady grupy,
+ani plik `powershell.config.json`, PowerShell 7 i tak zapisuje w tym samym dzienniku zdarzeń polecenie, które uznaje za
+podejrzane, jako ostrzeżenie (zdarzenie 4104): takie, które zawiera słowo z jego wbudowanej listy – `Add-Type`,
+`FromBase64String`, `GetMethod`, `NonPublic`, `Bypass` i ponad sto innych, także wewnątrz dłuższego słowa, a więc i `Properties`,
+które jest w parametrze `-Properties` poleceń odczytu AD Managera (`Get-AdmUser jan -Properties mail` trafia do dziennika,
+`Get-AdmUser jan` nie). Innych poleceń nie zapisuje. Tak działa sam silnik w każdym PowerShell 7 – w `pwsh.exe`, w edytorze, w tym
+oknie – i AD Manager tego nie zmienia: zespół bezpieczeństwa widzi z okna to samo, co ze zwykłego pwsh 7 na tym samym komputerze.
+Dziennik istnieje tam, gdzie zarejestrowano dostawcę zdarzeń PowerShell 7 (robi to instalator PowerShell 7 albo
+`RegisterManifest.ps1`; AD Manager niczego nie rejestruje); gdzie go nie zarejestrowano, zdarzenie nie trafia do żadnego dziennika.
+Zasada, która **wyłącza** rejestrowanie bloków skryptów (*Wyłączone* w zasadach grupy), wyłącza też to. Uwaga okna mówi, co
+rejestrują zasady, a o tym domyślnym zachowaniu nie wspomina.
+
 **Co okno robi w tej sprawie:**
 
 - przy otwarciu odczytuje zasady według reguł kodu samego silnika, każdą z nich – transkrypcję, rejestrowanie bloków skryptów,
@@ -389,7 +401,7 @@ tych zasad i ich nie omija.
   każdej zasady z osobna, nie wszystkich naraz. O całej zasadzie decyduje pierwsza gałąź, która ustawia cokolwiek z tej zasady.
   Dopiero zasada, której nie ustawiają żadne zasady grupy, pochodzi z dwóch plików `powershell.config.json` (silnika, obok
   `AdMng.exe`, potem Twojego, w *Dokumenty\PowerShell*). Okno odczytuje też stan blokady systemowej;
-- zanim uruchomisz pierwsze polecenie, mówi wprost, co jest rejestrowane i gdzie, np. *Transkrypcja jest włączona (zasady
+- zanim uruchomisz pierwsze polecenie, mówi wprost, co i gdzie rejestrują zasady, np. *Transkrypcja jest włączona (zasady
   komputera): polecenia wykonywane w tym oknie i ich wyniki, także dane z katalogu, są zapisywane w D:\PSLogs.* Uwaga jest w
   wierszu stanu (dopóki wynik polecenia jej nie przykrywa), w układzie pod nim i w pierwszych wierszach wyników; trwa do
   zamknięcia okna;
@@ -401,10 +413,12 @@ zmieniona w czasie pracy programu obowiązuje silnik dopiero po ponownym uruchom
 czasie mówi już o nowym stanie.
 
 **Co z tym zrobić:** jeśli włączono transkrypcję albo rejestrowanie bloków skryptów, nie oglądaj w oknie wrażliwych atrybutów
-(haseł LAPS, haseł odzyskiwania BitLockera) i nie wpisuj hasła do polecenia. Zapytaj zespół bezpieczeństwa, dokąd trafiają
-transkrypcje i kto może je czytać – zawierają te same dane, które pokazuje okno. Plik `powershell.config.json`, który AD Manager
-dostarcza obok `AdMng.exe`, wyłącza transkrypcję i rejestrowanie włączone w **Twoim** `powershell.config.json`; nie wyłączy zasad
-komputera, a uwaga mówi wtedy, że zasada jest włączona. Systemy bezpieczeństwa (EDR) mogą zgłaszać *silnik PowerShell w
+(haseł LAPS, haseł odzyskiwania BitLockera). Nie wpisuj hasła do polecenia w ogóle – nawet bez zasady PowerShell może zapisać
+polecenie w dzienniku (powyżej). Zapytaj zespół bezpieczeństwa, dokąd trafiają transkrypcje i kto może je czytać – zawierają te
+same dane, które pokazuje okno. Plik `powershell.config.json`, który AD Manager dostarcza obok `AdMng.exe`, wyłącza transkrypcję
+i rejestrowanie modułów włączone w **Twoim** `powershell.config.json`; nie wyłączy zasad komputera, a uwaga mówi wtedy, że zasada
+jest włączona. Rejestrowania bloków skryptów nie ustawia: tu liczy się Twój plik, jak w zwykłym pwsh (uwaga mówi wtedy *Twój plik
+powershell.config.json*), a zasady grupy mają przed nim pierwszeństwo. Systemy bezpieczeństwa (EDR) mogą zgłaszać *silnik PowerShell w
 procesie innym niż `powershell.exe`* – tym procesem jest `AdMng.exe` – oraz dwa pliki `__PSScriptPolicyTest_`, które zapisuje on
 w `%TEMP%` i od razu usuwa (rozdział 6), jak każdy PowerShell; uprzedź zespół bezpieczeństwa (SOC).
 
@@ -465,7 +479,7 @@ Edytor koloruje polecenie w trakcie pisania: polecenia, parametry, zmienne, cią
 | *… is not available in the AD Manager PowerShell window* / *The term '…' is not recognized* | Okno ma zamkniętą listę poleceń (rozdział 7). Komunikat mówi, czego użyć zamiast – do pliku `Export-AdmList` albo `Start-Transcript -Path` (rozdział 5). |
 | Nazwy wyróżniające kończą się `…` | Użyj `Format-List`, szerszego okna albo `Select-Object -ExpandProperty DistinguishedName`. |
 | Przełącznik trybu zaufanego jest wyłączony | Podpowiedź mówi, dlaczego: trwa polecenie, PowerShell się uruchamia, właśnie wyłącza tryb zaufany albo nie dał się uruchomić, w tej instalacji nie ma silnika, sesja połączenia się skończyła albo system wymusza ConstrainedLanguage (WDAC, AppLocker). |
-| Uwaga mówi, że włączono transkrypcję lub rejestrowanie | Rozdział 8. To ustawienie zasad grupy tego komputera lub konta, nie AD Managera. |
+| Uwaga mówi, że włączono transkrypcję lub rejestrowanie | Rozdział 8. To ustawienie zasad grupy tego komputera lub konta (rejestrowanie bloków skryptów: albo Twojego `powershell.config.json`), nie AD Managera. |
 | *Nie ma obiektów do pokazania: nie otwarto siatki* | Potok `Out-AdmGrid` był pusty. |
 | *Plik … istnieje. Nic nie zapisano; użyj -Force* / *Nie wybrano pliku: nic nie zapisano.* | `Export-AdmList` zastępuje plik tylko z `-Force` i nie zapisuje niczego bez ścieżki ani pliku wybranego w oknie *Zapisz jako*. |
 | `Get-Help` nie pokazuje przykładów | Usunięto plik `AdMng.PowerShell.dll-Help.xml` obok `AdMng.exe`. Przywróć go z pakietu. |
@@ -481,7 +495,9 @@ musi potwierdzić:
 - czytnik ekranu (Narrator, NVDA) z oknem: lista uzupełnień nie jest ogłaszana (wiersz błędu, ostrzeżenia albo uwagi ma nazwę
   zaczynającą się od swojego rodzaju – nazwy są sprawdzone testem, nikt ich jeszcze nie usłyszał);
 - zasady okna pod **prawdziwymi zasadami grupy** (transkrypcja, rejestrowanie bloków skryptów, rejestrowanie modułów; klucze
-  i reguły, który z nich wygrywa, pochodzą z kodu samego silnika i z udokumentowanych szablonów) oraz silnik pod **WDAC / AppLocker**;
+  i reguły, który z nich wygrywa, pochodzą z kodu samego silnika i z udokumentowanych szablonów), własne ostrzeżenie 4104 silnika dla
+  podejrzanego polecenia bez takiej zasady (pokazane testem silnika, jeszcze niewidziane w dzienniku zdarzeń Windows) oraz silnik pod
+  **WDAC / AppLocker**;
 - polecenia na **prawdziwym Windows Server AD** (testy przeszły nad sztucznym katalogiem i kontrolerem Samba).
 
 Scenariusze pilotażu są w [PILOTAZ.md, rozdział 3.7](PILOTAZ.md#37-okno-powershell-r1).

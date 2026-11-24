@@ -116,7 +116,9 @@ the Watchdog package.
    transcription (`EnableTranscripting`, `OutputDirectory`), script block logging, module logging and `ExecutionPolicy`,
    each from the first hive that sets it, then the `powershell.config.json` files – and the lockdown state. A lasting note (the status line's Attention) before the first command says plainly what is logged where
    ("transcription is on by policy: commands and results are written by Windows to <directory>"). The program does not try
-   to get around any policy. The registry reader sits behind an interface (the Windows implementation in `AdMng.App`, a
+   to get around any policy, and it does not set script block logging itself (D-B after the audit, PS-04): with no policy and
+   no file setting it, the engine writes the script blocks it finds suspicious to its event log as a warning (event 4104), as in
+   every PowerShell 7 – the note says what policies record and makes no sentence of that default; the guide does. The registry reader sits behind an interface (the Windows implementation in `AdMng.App`, a
    fake in tests).
 8. **Nothing on disk, passwords, one DC, the UI never blocks (D8).** The window's content, results and history live in
    memory only (rule 1). The engine's environment is set **before** its first use: `POWERSHELL_TELEMETRY_OPTOUT=1`,
@@ -164,7 +166,11 @@ the Watchdog package.
 - **EDR and SOC.** EDR systems may report "a PowerShell engine in a process other than `powershell.exe`" (e.g. a Sigma rule
   for `System.Management.Automation.dll`). The answers are the signed `AdMng.exe` (phase 7, certificate from P2) and
   information for the security team; documentation for them is part of R1. AMSI checks every script block, and script
-  block logging and transcription from GPOs cover the window – hence the note before the first command (item 7).
+  block logging and transcription from GPOs cover the window – hence the note before the first command (item 7). Script block
+  logging is Windows' and Group Policy's, not the program's (D-B): the security team sees in *PowerShellCore/Operational* what it
+  sees of a plain pwsh 7 – every script block with the policy on, none with it set to off, and without a policy the ones the
+  engine finds suspicious (a warning 4104; `-Properties` of the window's read commands is one of the engine's words), where the
+  PowerShell 7 event provider is registered.
 - **The security boundary.** ConstrainedLanguage, the allow-list of commands, the empty module list and the refusal of
   script files protect against mistakes, not against a malicious operator; the only boundary is the account's rights in AD. Changes made
   around the plan have no audit and no rollback in the program, but the Watchdog sees them like any other change in AD.
@@ -178,8 +184,8 @@ the Watchdog package.
   tests outside the UI.
 - **Next stages.** R2 will add the write commands through the change plan (the window has a place for it) without changing
   this decision; R3 will add the RSAT modules through the module list of item 2. A `powershell.config.json` file beside
-  `AdMng.exe` (turning off transcription and logging set in the users' files) is part of the publish layout (section "The
-  publish layout").
+  `AdMng.exe` (turning off the transcription and the module logging set in the users' files) is part of the publish layout
+  (section "The publish layout").
 
 ## The publish layout
 
@@ -200,11 +206,13 @@ The result of part 4 of R1, checked in Windows CI (the step "Smoke test publishe
   zip takes the top-level files of the publish folder only, so it has none of them, and the release workflow runs the smoke test on
   the unpacked zip), the help of
   the commands (`AdMng.PowerShell.dll-Help.xml`, found through `AppContext.BaseDirectory` because `Assembly.Location` is empty in a
-  single file) and **`powershell.config.json`**, which turns off transcription, script block logging, module logging and the
-  Windows PowerShell 5.1 compatibility layer. The engine reads it from `$PSHOME`, and a setting there wins over the same
-  setting in a user's file (checked on Linux in part 1, and by the smoke test of the published single file, which also asserts that
-  `$PSHOME` is the folder of `AdMng.exe`); the computer's policies (GPO) take precedence over both, and the window
-  says what they record before the first command.
+  single file) and **`powershell.config.json`**, which turns off transcription, module logging and the Windows PowerShell 5.1
+  compatibility layer. The engine reads it from `$PSHOME`, and a setting there wins over the same setting in a user's file
+  (checked on Linux in part 1, and by the smoke test of the published single file, which also asserts that `$PSHOME` is the
+  folder of `AdMng.exe`); the computer's policies (GPO) take precedence over both, and the window says what they record before
+  the first command. Script block logging it does not set (D-B after the audit, PS-04; until then it set it off, which also
+  silenced the engine's own logging of suspicious script blocks): Group Policy, then the user's own file decide it, as in a plain
+  pwsh (`EngineBoundaryTests`, `ScriptBlockLoggingTests`).
 - **Size** (MB = 10^6 bytes; the same publish command as CI, `-r win-x64 --self-contained -p:PublishSingleFile=true`, run on Linux for
   the commit of 0.16.0 and for the head of R1; CI prints the same 173.5 as "MB", which is MiB). `AdMng.exe` (one file, uncompressed):
   143.5 MB without the engine, 181.9 MB with it, that is **+38.4 MB**; the whole publish folder 164.7 MB → 204.3 MB (**+39.6 MB**);
