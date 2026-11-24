@@ -161,13 +161,14 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   Gdy klucza albo pliku nie da się odczytać, uwaga mówi który i że nie wiadomo, czy polecenia są rejestrowane. Program niczego
   nie zmienia i niczego nie obchodzi; plik `powershell.config.json` obok `AdMng.exe` wyłącza tylko transkrypcję i rejestrowanie
   modułów, które włączył plik użytkownika (zasada komputera ma pierwszeństwo przed nim). Rejestrowania bloków skryptów nie
-  ustawia: decydują o nim zasady grupy, potem plik użytkownika, jak w zwykłym pwsh, a gdy nic go nie ustawia, PowerShell sam
-  zapisuje polecenie, które uznaje za podejrzane – np. z `Add-Type`, z parametrem `-Properties` albo z odczytem właściwości o
-  nazwie ze zmiennej (`$u.$a`) – jako ostrzeżenie 4104 w dzienniku *PowerShellCore/Operational*, o ile na komputerze
-  zarejestrowano dostawcę zdarzeń PowerShell 7 (robi to domyślnie instalator MSI PowerShell 7 albo `RegisterManifest.ps1`
-  uruchomiony jako administrator; pakiety zip i MSIX go nie rejestrują, a bez niego nic nie trafia do żadnego dziennika). W
-  rejestrowaniu bloków skryptów zespół bezpieczeństwa widzi więc z okna to samo, co z `pwsh.exe` (poza ustawieniem rejestrowania
-  w pliku `powershell.config.json` w folderze zainstalowanego PowerShell 7, który czyta tylko `pwsh.exe`). Wyniki pokazują te same sekrety, które pokazuje Edytor atrybutów
+  ustawia: decydują o nim zasady grupy, potem plik użytkownika, a gdy jest włączone, do dziennika trafia treść każdego polecenia,
+  jak w `pwsh.exe`. Gdy nic go nie ustawia, PowerShell sam zapisuje jako ostrzeżenie 4104 w dzienniku
+  *PowerShellCore/Operational* polecenia, które jego wbudowane sprawdzenie uznaje za podejrzane (lista słów i pewne
+  konstrukcje); które, decyduje silnik, i mogą to być zwykłe polecenia, więc każdy wiersz wpisany w oknie może trafić do
+  dziennika – nie wpisuj w nim sekretu jawnym tekstem. Zdarzenia trafiają do dziennika tylko tam, gdzie zarejestrowano dostawcę
+  zdarzeń PowerShell 7 (robi to domyślnie instalator MSI PowerShell 7 albo `RegisterManifest.ps1` uruchomiony jako
+  administrator; pakiety zip i MSIX go nie rejestrują). Znane różnice wobec zwykłego `pwsh.exe` wymienia rozdział 8 instrukcji
+  okna (POWERSHELL.md). Wyniki pokazują te same sekrety, które pokazuje Edytor atrybutów
   (np. hasło LAPS jawnym tekstem), więc przy włączonej transkrypcji trafią one do transkrypcji – uwaga o zasadach mówi to z
   góry.
 - **`Out-AdmGrid`, `Open-AdmObject`, `Export-AdmList`.** `Out-AdmGrid` otwiera okno z siatką jak lista obiektów: kolumny z

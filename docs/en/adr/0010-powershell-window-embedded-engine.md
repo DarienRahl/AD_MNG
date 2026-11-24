@@ -117,9 +117,9 @@ the Watchdog package.
    each from the first hive that sets it, then the `powershell.config.json` files – and the lockdown state. A lasting note (the status line's Attention) before the first command says plainly what is logged where
    ("transcription is on by policy: commands and results are written by Windows to <directory>"). The program does not try
    to get around any policy, and it does not set script block logging itself (D-B after the audit, PS-04): with no policy and
-   no file setting it, the engine writes the script blocks it finds suspicious to its event log as a warning (event 4104), as in
-   every PowerShell 7 – the note says what policies record and makes no sentence of that default; the guide does. The registry reader sits behind an interface (the Windows implementation in `AdMng.App`, a
-   fake in tests).
+   no file setting it, PowerShell writes the script blocks its built-in check finds suspicious to its event log as a warning
+   (event 4104) – the note says what policies record and makes no sentence of that default; the guide does. The registry reader
+   sits behind an interface (the Windows implementation in `AdMng.App`, a fake in tests).
 8. **Nothing on disk, passwords, one DC, the UI never blocks (D8).** The window's content, results and history live in
    memory only (rule 1). The engine's environment is set **before** its first use: `POWERSHELL_TELEMETRY_OPTOUT=1`,
    `POWERSHELL_DIAGNOSTICS_OPTOUT=1`, `POWERSHELL_UPDATECHECK=Off`, module auto-loading off and the module analysis cache
@@ -167,18 +167,12 @@ the Watchdog package.
   for `System.Management.Automation.dll`). The answers are the signed `AdMng.exe` (phase 7, certificate from P2) and
   information for the security team; documentation for them is part of R1. AMSI checks every script block, and script
   block logging and transcription from GPOs cover the window – hence the note before the first command (item 7). Script block
-  logging is Windows' and Group Policy's, not the program's (D-B): in script block logging, transcription and module logging the
-  security team sees of the window what it sees of a plain pwsh 7 – in *PowerShellCore/Operational* every script block with the
-  policy on, none with it set to off, and without a policy the ones the engine finds suspicious (a warning 4104; `-Properties`
-  of the window's read commands is one of the engine's words, and the engine marks reading a property by a name in a variable,
-  e.g. `$u.$a`, when it parses the command), where the PowerShell 7 event provider is registered. Two differences: a logging
-  setting in the `powershell.config.json` in the folder of an installed PowerShell 7 applies to `pwsh.exe` only, because the
-  window's engine reads the file beside `AdMng.exe`; and a user's own `powershell.config.json` that turns on transcription or
-  module logging (event 4103) works in `pwsh.exe` but not in the window, because the file beside `AdMng.exe` turns both off (a
-  GPO turns them on in both). Of the events `pwsh.exe` writes about itself to that log the window writes none: 40961 and 40962
-  come from its console host (starting, ready for input), which the program does not run, and 53504 from the engine's named
-  pipe for `Enter-PSHostProcess`, which the program switches off (`POWERSHELL_DIAGNOSTICS_OPTOUT=1`, item 8); a rule that looks
-  for them sees `pwsh.exe` and never `AdMng.exe`.
+  logging is decided by Group Policy and the user's own file, not by the program (D-B): with it on, every command typed in the
+  window is logged (event 4104 in *PowerShellCore/Operational*), as in `pwsh.exe`; without it, PowerShell still logs the ones its built-in
+  check finds suspicious, as a warning 4104, and which ones is the engine's decision – it can include ordinary lines, so the
+  guide tells the operator to treat every line as possibly logged and never to type a secret in plain text. Events reach the log
+  only where the PowerShell 7 event provider is registered. The known differences from a plain `pwsh.exe` are listed in one
+  place, chapter 8 of the guide ([POWERSHELL.md](../POWERSHELL.md#8-what-group-policy-logging-does-to-the-window)).
 - **The security boundary.** ConstrainedLanguage, the allow-list of commands, the empty module list and the refusal of
   script files protect against mistakes, not against a malicious operator; the only boundary is the account's rights in AD. Changes made
   around the plan have no audit and no rollback in the program, but the Watchdog sees them like any other change in AD.
@@ -219,8 +213,8 @@ The result of part 4 of R1, checked in Windows CI (the step "Smoke test publishe
   (checked on Linux in part 1, and by the smoke test of the published single file, which also asserts that `$PSHOME` is the
   folder of `AdMng.exe`); the computer's policies (GPO) take precedence over both, and the window says what they record before
   the first command. Script block logging it does not set (D-B after the audit, PS-04; until then it set it off, which also
-  silenced the engine's own logging of suspicious script blocks): Group Policy, then the user's own file decide it, as in a plain
-  pwsh (`EngineBoundaryTests`, `ScriptBlockLoggingTests`).
+  silenced the engine's own logging of suspicious script blocks): Group Policy, then the user's own file decide it
+  (`EngineBoundaryTests`, `ScriptBlockLoggingTests`).
 - **Size** (MB = 10^6 bytes; the same publish command as CI, `-r win-x64 --self-contained -p:PublishSingleFile=true`, run on Linux for
   the commit of 0.16.0 and for the head of R1; CI prints the same 173.5 as "MB", which is MiB). `AdMng.exe` (one file, uncompressed):
   143.5 MB without the engine, 181.9 MB with it, that is **+38.4 MB**; the whole publish folder 164.7 MB → 204.3 MB (**+39.6 MB**);

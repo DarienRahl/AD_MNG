@@ -384,41 +384,34 @@ commands you run here **and their results** – that is, directory data – to t
 logging writes the text of the commands to the Windows event log (*PowerShellCore/Operational*). AD Manager does not change
 these policies and does not get around them.
 
-**Without a policy, PowerShell still logs some commands.** When neither Group Policy nor a `powershell.config.json` sets script
-block logging, PowerShell 7 writes a command it finds suspicious to the same event log anyway, as a warning (event 4104). A
-command is suspicious to it when it:
+**Script block logging is not the program's to set.** AD Manager neither turns it on nor off: Group Policy decides, and where
+no Group Policy sets it, your own `powershell.config.json` (the window's note then says so). With it on, the text of every command
+you run here is written to the event log (event 4104), as in `pwsh.exe`; a policy set to *Disabled* turns it off.
 
-- contains a word of its built-in list – `Add-Type`, `EncodedCommand`, `GetMethod`, `NonPublic`, `Bypass` and over a hundred
-  more (`SuspiciousContentChecker` in `engine/runtime/CompiledScriptBlock.cs` of PowerShell's source) – also inside a longer
-  word, so also `Properties`, which is in `-Properties` of AD Manager's read commands (`Get-AdmUser jan -Properties mail` is
-  logged, `Get-AdmUser jan` is not), and also inside a name you type: `Get-AdmUser jmarshall` holds *Marshal* and
-  `Get-AdmUser emitter` *Emit*, so both are logged. PowerShell reads only letters and hyphens, so the five words of the list
-  with a digit (`FromBase64String`, `kernel32` and three more) never count. It looks for a word inside each run of letters and
-  hyphens, and at the end of the command (and of a block in braces, when the block runs) it also reads the last letters once
-  more with the spaces, dots, quotes or digits between them left out: `Get-AdmUser 'grace mit'` ends in *Emit* and
-  `Get-AdmUser by.pass` in *Bypass*, so both are logged too, or
-- has one of the constructs PowerShell marks when it parses the command: a property or method whose name is not written out
-  (`$u.$a`, `$u.('mail')`, `$u."$name"` – so also reading attributes by a name in a variable, e.g.
-  `foreach ($a in 'mail', 'department') { $u.$a }`), a static member of something other than a type in square brackets
-  (`$t::Now`; `[datetime]::Now` is not), or the type `[type]` itself.
+**Without a policy, PowerShell still logs some commands.** PowerShell 7 has a built-in check for suspicious content – a list of
+words, such as `Add-Type`, and certain constructs – and writes a command it marks to the same log anyway, as a warning (event
+4104). Which commands it marks is the engine's decision, not AD Manager's, and they can be ordinary ones: an account name, for
+example, can contain a word of the list. So treat every line you type in the window as one that may be logged, and never type a
+secret in plain text. The window's note says what the policies and the files record; it does not mention this default of the
+engine.
 
-The text of other commands – e.g. `$u.mail`, `$u.'mail'`, `Get-AdmUser jan | Select-Object -Property mail` – is not written.
-That is the engine's own behaviour in every PowerShell 7 – `pwsh.exe`, an editor, this window – and AD Manager leaves it as it
-is: in script block logging, transcription and module logging the security team sees of the window what it sees of a plain
-pwsh 7 on the same computer, with two differences. A logging setting in the `powershell.config.json` of the installed
-PowerShell 7 itself (in its folder, e.g. `C:\Program Files\PowerShell\7`) applies to `pwsh.exe` only, because AD Manager reads
-the file beside `AdMng.exe` instead; and your own `powershell.config.json` that turns on transcription or module logging (event
-4103) works in `pwsh.exe` but not in the window, because the file beside `AdMng.exe` turns both off (below; a Group Policy turns
-them on in both). Besides, `pwsh.exe` writes events of its own to the same log that the window never writes: 40961 and 40962
-when its console starts and is ready for input, and 53504 when it opens the pipe through which another process attaches to it
-with `Enter-PSHostProcess`. AD Manager has no PowerShell console and switches that pipe off, so a rule that looks for these
-events finds `pwsh.exe` and never AD Manager. The log exists where PowerShell 7's
-event provider is registered: the MSI installer of PowerShell 7 does it (its option *Register Windows Event Logging Manifest*,
-ticked by default), or the script `RegisterManifest.ps1` from PowerShell 7's folder run as an administrator; the zip and MSIX
-(Microsoft Store) packages do not register it, and AD Manager registers nothing. Where it is not registered, the event reaches no
-log. A policy that turns script block logging **off** (*Disabled* in Group Policy) stops this too, and your own
-`powershell.config.json` that turns it **on** makes every command go there when no Group Policy sets it (the window's note then
-says so). The window's note says what the policies and the files record and does not mention this default of the engine.
+**Where the events go.** They reach the log only where the PowerShell 7 event provider is registered: the MSI installer of
+PowerShell 7 does it by default (its option *Register Windows Event Logging Manifest*), or the script `RegisterManifest.ps1` from
+PowerShell 7's folder run as an administrator; the zip and MSIX (Microsoft Store) packages do not, and AD Manager registers
+nothing. Where the provider is not registered, nothing is written.
+
+**Known differences from a plain `pwsh.exe`:**
+
+- a `powershell.config.json` in the folder of the installed PowerShell 7 itself (e.g. `C:\Program Files\PowerShell\7`) applies to
+  `pwsh.exe` only – the window reads the file beside `AdMng.exe` instead;
+- your own `powershell.config.json` that turns on transcription or module logging works in `pwsh.exe` but not in the window,
+  because the file beside `AdMng.exe` turns both off (below; a Group Policy turns them on in both);
+- module logging (event 4103) goes by module: AD Manager's commands and the window's own versions of `ForEach-Object`,
+  `New-Object`, `Tee-Object` and `Start-Transcript` belong to no module, so it does not log them as it logs the commands of a
+  module (in `pwsh.exe` these four are commands of PowerShell's modules);
+- an event that names its host (4103, for example) names *AD Manager PowerShell* and `AdMng.exe`, and the events `pwsh.exe` writes
+  about its own console (40961, 40962) and about its pipe for `Enter-PSHostProcess` (53504) never come from the window, which has
+  no console and switches that pipe off.
 
 **What the window does about it:**
 
@@ -446,8 +439,7 @@ says the new state.
 may log the command (above). Ask the security team where the transcripts go and who can read them – they hold the same data the
 window shows. A `powershell.config.json` that AD Manager ships beside `AdMng.exe` turns off the transcription and the module
 logging that **your own** `powershell.config.json` turned on; it cannot turn off a computer policy, and the note then says that
-the policy is on. Script block logging it does not set: there your own file counts, as in a plain pwsh (the note then says
-*your powershell.config.json*), and a Group Policy wins over it. Security systems (EDR) may report *a PowerShell engine
+the policy is on. Security systems (EDR) may report *a PowerShell engine
 in a process other than `powershell.exe`* – the process is `AdMng.exe` – and the two `__PSScriptPolicyTest_` files it writes
 into `%TEMP%` and deletes at once (chapter 6), as every PowerShell does; tell the security team (SOC) in advance.
 

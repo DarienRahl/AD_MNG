@@ -118,8 +118,8 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
    oraz stan blokady systemu. Trwała notatka (Uwaga linii stanu) przed pierwszym poleceniem mówi wprost, co i gdzie jest
    zapisywane („transkrypcja jest włączona zasadą: polecenia i wyniki zapisuje Windows w <katalog>”). Program nie próbuje
    obejść żadnej zasady i sam nie ustawia rejestrowania bloków skryptów (D-B po audycie, PS-04): gdy nie ustawia go żadna zasada
-   ani plik, silnik zapisuje w swoim dzienniku zdarzeń bloki skryptów, które uznaje za podejrzane, jako ostrzeżenie (zdarzenie
-   4104), jak w każdym PowerShell 7 – notatka mówi, co rejestrują zasady, a o tym domyślnym zachowaniu silnika nie wspomina;
+   ani plik, PowerShell zapisuje w swoim dzienniku zdarzeń bloki skryptów, które jego wbudowane sprawdzenie uznaje za podejrzane,
+   jako ostrzeżenie (zdarzenie 4104) – notatka mówi, co rejestrują zasady, a o tym domyślnym zachowaniu silnika nie wspomina;
    opisuje je przewodnik. Czytnik rejestru stoi za interfejsem (implementacja Windows w `AdMng.App`, atrapa w testach).
 8. **Nic na dysku, hasła, jeden DC, interfejs nie blokuje (D8).** Zawartość okna, wyniki i historia żyją tylko w pamięci
    (zasada 1). Środowisko silnika ustawiamy **przed** jego pierwszym użyciem: `POWERSHELL_TELEMETRY_OPTOUT=1`,
@@ -169,18 +169,13 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
   `System.Management.Automation.dll`). Odpowiedzią są podpisany `AdMng.exe` (faza 7, certyfikat z P2) i informacja dla
   zespołu bezpieczeństwa; dokumentacja dla nich jest częścią R1. AMSI sprawdza każdy blok skryptu, a rejestrowanie bloków
   skryptów i transkrypcja z GPO obejmują okno – dlatego notatka przed pierwszym poleceniem (punkt 7). O rejestrowaniu bloków
-  skryptów decydują Windows i zasady grupy, nie program (D-B): w rejestrowaniu bloków skryptów, transkrypcji i rejestrowaniu
-  modułów zespół bezpieczeństwa widzi z okna to samo co przy zwykłym pwsh 7 – w *PowerShellCore/Operational* każdy blok skryptu
-  przy włączonej zasadzie, żaden przy wyłączonej, a bez zasady te, które silnik uznaje za podejrzane (ostrzeżenie 4104;
-  `-Properties` poleceń odczytu okna zawiera jedno ze słów silnika, a odczyt właściwości po nazwie ze zmiennej, np. `$u.$a`,
-  silnik oznacza już przy analizie polecenia), o ile zarejestrowano dostawcę zdarzeń PowerShell 7. Dwie różnice: ustawienie
-  rejestrowania w pliku `powershell.config.json` w folderze zainstalowanego PowerShell 7 obowiązuje tylko `pwsh.exe`, bo silnik
-  okna czyta plik obok `AdMng.exe`; a własny `powershell.config.json` użytkownika, który włącza transkrypcję albo rejestrowanie
-  modułów (zdarzenie 4103), działa w `pwsh.exe`, ale nie w oknie, bo plik obok `AdMng.exe` wyłącza oba (GPO włącza je w obu). Ze
-  zdarzeń, które `pwsh.exe` zapisuje w tym dzienniku o sobie, okno nie zapisuje żadnego: 40961 i 40962 pochodzą z jego hosta
-  konsoli (uruchamianie, gotowość do wpisywania), którego program nie uruchamia, a 53504 z nazwanego potoku silnika dla
-  `Enter-PSHostProcess`, który program wyłącza (`POWERSHELL_DIAGNOSTICS_OPTOUT=1`, punkt 8); reguła, która ich szuka, widzi
-  `pwsh.exe`, a `AdMng.exe` nigdy.
+  skryptów decydują zasady grupy i własny plik użytkownika, nie program (D-B): gdy jest włączone, każde polecenie wpisane w oknie
+  trafia do dziennika (zdarzenie 4104 w *PowerShellCore/Operational*), jak w `pwsh.exe`; bez niego PowerShell i tak zapisuje jako
+  ostrzeżenie 4104 te, które jego wbudowane sprawdzenie uznaje za podejrzane, a o tym, które to są, decyduje silnik – mogą to być
+  zwykłe wiersze, więc przewodnik każe traktować każdy wiersz jak taki, który może trafić do dziennika, i nigdy nie wpisywać
+  sekretu jawnym tekstem. Zdarzenia trafiają do dziennika tylko tam, gdzie zarejestrowano dostawcę zdarzeń PowerShell 7. Znane
+  różnice wobec zwykłego `pwsh.exe` wymienia jedno miejsce, rozdział 8 przewodnika
+  ([POWERSHELL.md](../POWERSHELL.md#8-co-robi-z-oknem-rejestrowanie-z-zasad-grupy)).
 - **Granica bezpieczeństwa.** ConstrainedLanguage, lista dozwolonych poleceń, pusta lista modułów i odrzucanie plików skryptów
   chronią przed pomyłką, a nie przed złośliwym operatorem; jedyną granicą są prawa konta w AD. Zmiany wykonane z pominięciem planu nie
   mają audytu ani cofnięcia w programie, ale Watchdog widzi je jak każdą zmianę w AD.
@@ -216,8 +211,8 @@ Wynik części 4 R1, sprawdzony w CI na Windows (krok „Smoke test published ap
   użytkownika (sprawdzone na Linuksie w części 1 i testem dymnym opublikowanego pliku, który sprawdza też, że `$PSHOME` to folder
   `AdMng.exe`); zasady komputera (GPO) mają pierwszeństwo przed oboma, a okno mówi o nich przed pierwszym poleceniem.
   Rejestrowania bloków skryptów plik nie ustawia (D-B po audycie, PS-04; wcześniej je wyłączał, co wyciszało też własne
-  rejestrowanie podejrzanych bloków skryptów przez silnik): decydują o nim zasady grupy, potem własny plik użytkownika, jak
-  w zwykłym pwsh (`EngineBoundaryTests`, `ScriptBlockLoggingTests`).
+  rejestrowanie podejrzanych bloków skryptów przez silnik): decydują o nim zasady grupy, potem własny plik użytkownika
+  (`EngineBoundaryTests`, `ScriptBlockLoggingTests`).
 - **Rozmiar** (MB = 10^6 bajtów; to samo polecenie publikacji co w CI, `-r win-x64 --self-contained -p:PublishSingleFile=true`,
   uruchomione na Linuksie dla commitu 0.16.0 i dla czoła R1; CI wypisuje te same 173,5 jako „MB”, a to MiB). `AdMng.exe` (jeden
   plik, bez kompresji): 143,5 MB bez silnika, 181,9 MB z silnikiem, czyli **+38,4 MB**; cały folder publikacji 164,7 MB →
