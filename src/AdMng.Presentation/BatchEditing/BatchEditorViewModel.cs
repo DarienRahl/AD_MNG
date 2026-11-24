@@ -377,15 +377,16 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase, IHasPage
 
     protected override async Task<bool> CanCloseCoreAsync()
     {
-        // Generated passwords exist only in this window: closing without exporting them (or while they are being
-        // set) leaves the accounts with passwords nobody knows.
-        if ((HasUnsavedGeneratedPasswords || (IsExecutingStep && GeneratesPasswords))
+        // Generated passwords exist only in this window: closing without exporting them leaves the accounts with passwords
+        // nobody knows. (An execution that generates them is still running only when the close question kept it in this
+        // window and waited for its end: then its results - with the new passwords - are shown when this is asked.)
+        if (HasUnsavedGeneratedPasswords
             && !await Services.Dialogs.ConfirmAsync(WindowTitle, Localizer[L.Batch.DiscardPasswords], destructive: true).ConfigureAwait(true))
         {
             return false;
         }
 
-        // Planning is cancelled; an execution keeps running as a background activity (activity center).
+        // Planning is cancelled.
         _planning.Cancel();
         return true;
     }
@@ -610,8 +611,11 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase, IHasPage
     {
         Error = null;
 
-        // First the operation, then the step: the line goes from the summary of the preview straight to "working".
+        // First the operation, then the step: the line goes from the summary of the preview straight to "working". The window
+        // says the outcome in a notification too (ShowResults): a Stop and close needs no report of the connection.
         using var execution = ExecutionStatus.Begin(Status, Localizer, title, ConfirmationDomain, total);
+        execution.WindowNotifies = true;
+        execution.StaysWithWindow(StayReason());
         _executing = true;
         Step = BatchEditorStep.Executing;
         BatchResult result;
@@ -619,12 +623,25 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase, IHasPage
         {
             result = await execute(activity =>
             {
-                CurrentActivity = activity;
                 execution.Follow(activity);
+                if (execution.LeftWindow)
+                {
+                    // A part that starts after the window is gone (a forced close in the canary loop) is not this window's.
+                    return;
+                }
+
+                CurrentActivity = activity;
+                execution.StaysWithWindow(StayReason());
             }).ConfigureAwait(true);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
+            if (execution.LeftWindow)
+            {
+                // The window let it go on without it: the connection says how it ended.
+                return;
+            }
+
             Error = Errors.Translate(ex);
             Step = BatchEditorStep.Preview;
             execution.Fail(Error, ResultCode.Of(ex));
@@ -635,14 +652,27 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase, IHasPage
             _executing = false;
         }
 
-        // Closed while executing: the activity center reports the outcome and no results (passwords) are kept.
-        if (!IsDisposed)
+        // The window closed and let it go on to its end (D-A): the connection says how it ended, and no results - no passwords,
+        // no Retry, no Undo - are kept here.
+        if (execution.LeftWindow)
         {
-            ShowResults(result);
-            var (next, action) = AfterExecution(result);
-            execution.Complete(result, next, action);
+            return;
         }
+
+        ShowResults(result);
+        var (next, action) = AfterExecution(result);
+        execution.Complete(result, next, action);
     }
+
+    /// <summary>
+    /// Why the running execution must stay with this window (a key of <c>L.CloseWork</c>), or null when closing may let it go on
+    /// in the background: generated passwords exist only here, and the first account of the bulk wizard decides whether this
+    /// window starts the others.
+    /// </summary>
+    private string? StayReason() =>
+        GeneratesPasswords ? L.CloseWork.NoBackgroundPasswords
+        : IsCreateMode && BulkCreate!.ExecutingPart == BulkExecutionPart.FirstAccount ? L.CloseWork.NoBackgroundFirstAccount
+        : null;
 
     /// <summary>
     /// What the operator can do about the objects an execution did not change: the reasons are in the list of results
@@ -892,8 +922,8 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase, IHasPage
     {
         if (disposing)
         {
-            // What still runs here ends without a message. An execution is not cancelled by that: it keeps running as
-            // a background activity.
+            // What still runs here ends without a message. An execution is not cancelled by that: the base class let it leave
+            // the window, and the connection says how it ended.
             _planning.Cancel();
             Status.Operation?.Dispose();
             Status.Front = null;

@@ -7,6 +7,7 @@ using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
+using AdMng.Presentation.Tests.TestDoubles;
 using AdMng.Testing;
 using CommunityToolkit.Mvvm.Input;
 
@@ -693,15 +694,17 @@ public sealed class RecycleBinStatusTests
             Assert.True(RunningWork.HasRunningWrites(bin));
             harness.Dialogs.Shown.Clear();
 
-            // No: the window stays and the restore goes on.
-            harness.Dialogs.ConfirmAnswers.Enqueue(false);
+            // Don't close: the window stays and the restore goes on. The restore may go on without the window: three answers.
+            harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.KeepOpen);
             await bin.CloseCommand.ExecuteAsync(null);
-            Assert.StartsWith("confirm:", Assert.Single(harness.Dialogs.Shown), StringComparison.Ordinal);
+            Assert.StartsWith("close:", Assert.Single(harness.Dialogs.Shown), StringComparison.Ordinal);
+            Assert.True(Assert.Single(harness.Dialogs.CloseQuestions).CanContinue);
             Assert.Empty(closeRequests);
             Assert.False(bin.Status.IsCancelling);
 
-            // Yes: the restore is stopped, and the window closes only after it ended.
-            harness.Dialogs.ConfirmAnswers.Enqueue(true);
+            // Stop and close: the restore is stopped, and the window closes only after it ended.
+            harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.StopAndClose);
+            harness.Notifications.Clear();
             closing = bin.CloseCommand.ExecuteAsync(null);
             Assert.True(bin.Status.IsCancelling);
             Assert.Empty(closeRequests);
@@ -716,6 +719,68 @@ public sealed class RecycleBinStatusTests
         harness.Session.BeforeOperation = null;
         Assert.Equal([true], closeRequests);
         Assert.False(RunningWork.HasRunningWrites(bin));
+
+        // The line goes with the window: the connection says how the restore ended - once; the window's own toast is left out.
+        var toast = Assert.Single(harness.Notifications.Items);
+        Assert.Equal(NotificationSeverity.Warning, toast.Severity);
+        Assert.Equal(
+            "Executing “Restore from the AD Recycle Bin (2)” in contoso.test was stopped: 1 of 2 objects done, failed: 0, the one that ran was finished.",
+            toast.Message);
+    }
+
+    [Fact]
+    public async Task ClosingDuringTheReadAfterTheRestore_AsksNothing_AndTheWindowStaysForTheResult()
+    {
+        var harness = await B2Harness.CreateAsync();
+        await harness.Session.DeleteAsync(harness.Company.JanKowalski, subtree: false, Ct);
+        var bin = harness.Factory.CreateRecycleBin();
+        var window = new TestWindowHost(bin);
+        await bin.InitializeAsync();
+        bin.SelectedItem = bin.Items.Single(r => r.Name == "Jan Kowalski");
+        await bin.RestoreCommand.ExecuteAsync(null);
+        using var held = new SemaphoreSlim(0);
+        using var release = new ManualResetEventSlim();
+        var restored = false;
+        var hold = true;
+        harness.Session.BeforeOperation = operation =>
+        {
+            if (operation.Kind == FakeOperationKind.RestoreDeleted)
+            {
+                restored = true;
+            }
+            else if (restored && hold && operation.Kind == FakeOperationKind.Search)
+            {
+                hold = false;
+                held.Release();
+                release.Wait(HoldLimit);
+            }
+        };
+        Task restoring;
+        Task<bool> closing;
+        try
+        {
+            restoring = bin.ConfirmRestoreCommand.ExecuteAsync(null);
+            Assert.True(await held.WaitAsync(TimeSpan.FromSeconds(20), Ct));
+
+            // The restore ended and its result came back to the window, which reads the list again before it says it: nothing
+            // can be stopped or left in the background any more - no question; the close waits for the window's code.
+            closing = window.CloseByTitleBarAsync();
+            Assert.Empty(harness.Dialogs.CloseQuestions);
+            Assert.False(closing.IsCompleted);
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        await restoring.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+        harness.Session.BeforeOperation = null;
+
+        // The window stays for the result it says; closed again, it goes without a question.
+        Assert.False(await closing.WaitAsync(TimeSpan.FromSeconds(20), Ct));
+        Assert.Equal(PageStatusKind.Done, bin.Status.Current.Kind);
+        Assert.True(await window.CloseByTitleBarAsync());
+        Assert.Empty(harness.Dialogs.CloseQuestions);
     }
 
     [Fact]
@@ -734,11 +799,12 @@ public sealed class RecycleBinStatusTests
     }
 
     [Fact]
-    public async Task ClosingTheWindow_EndsWhatItSays_AndARestoreStillReportsToTheMainWindow()
+    public async Task CloseAndContinue_ClosesAtOnce_TheRestoreGoesOn_AndOnlyTheConnectionSaysHowItEnded()
     {
         var harness = await B2Harness.CreateAsync();
         await harness.Session.DeleteAsync(harness.Company.SalesOu, subtree: true, Ct);
         var bin = harness.Factory.CreateRecycleBin();
+        var window = new TestWindowHost(bin);
         await bin.InitializeAsync();
         var sales = bin.Items.Single(r => r.Name == "Sprzedaż");
         bin.SelectedItems = bin.Items.Where(r => r.Name is "Sprzedaż" or "Paweł Lewandowski").ToList();
@@ -762,10 +828,16 @@ public sealed class RecycleBinStatusTests
             restoring = bin.ConfirmRestoreCommand.ExecuteAsync(null);
             Assert.True(await held.WaitAsync(TimeSpan.FromSeconds(20), Ct));
 
-            // Closed while it restores: the line says nothing any more, the restore goes on as an activity.
-            bin.Dispose();
+            // The Close button (also Esc) asks what the title bar asks; Close and continue in the background: the window closes
+            // at once - the host disposes it - and the restore goes on as an activity of the connection.
+            harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.CloseAndContinue);
+            await bin.CloseCommand.ExecuteAsync(null);
+            Assert.True(window.IsClosed);
+            Assert.True(window.Result);
+            Assert.True(bin.IsDisposed);
             Assert.False(bin.Status.IsWorking);
             Assert.Null(bin.Status.Front);
+            Assert.True(harness.Activities.Activities is [{ IsRunning: true, IsCancelling: false }]);
         }
         finally
         {
@@ -775,10 +847,17 @@ public sealed class RecycleBinStatusTests
         await restoring.WaitAsync(TimeSpan.FromSeconds(20), Ct);
         harness.Session.BeforeOperation = null;
 
-        // The operator still learns what was not restored: as a dialog, because there is no line left.
+        // The operator still learns what was not restored: one dialog, from the connection - the domain, both objects with their
+        // reasons, and where every change is. The window that is gone said nothing.
         var (title, message) = Assert.Single(harness.Dialogs.Errors);
-        Assert.Equal("Restore", title);
-        Assert.Contains("Failed: 2, succeeded: 0.", message, StringComparison.Ordinal);
+        Assert.Equal("Restore from the AD Recycle Bin (2)", title);
+        var lines = message.Split('\n');
+        Assert.Equal("Could not execute “Restore from the AD Recycle Bin (2)” in contoso.test: nothing was changed, failed: 2.", lines[0]);
+        Assert.Equal(2, lines.Count(l => l.StartsWith("• ", StringComparison.Ordinal)));
+        Assert.Contains(lines, l => l.StartsWith("• Sprzedaż: ", StringComparison.Ordinal) && l.Length > "• Sprzedaż: ".Length);
+        Assert.Contains(lines, l => l.StartsWith("• Paweł Lewandowski: ", StringComparison.Ordinal));
+        Assert.Equal("Every change and its result are in the session log.", lines[^1]);
+        Assert.DoesNotContain(harness.Notifications.Items, n => n.Message.Contains("Restore", StringComparison.Ordinal));
         Assert.Equal(PageStatusKind.Idle, bin.Status.Current.Kind);
     }
 

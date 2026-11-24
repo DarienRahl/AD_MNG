@@ -17,6 +17,12 @@
                 Command="{Binding ConfirmCommand}"
                 Content="{Binding ConfirmText, Mode=OneTime}"
                 Style="{StaticResource Ad.DialogButton}" />
+        <Button x:Name="ContinueButton"
+                AutomationProperties.Name="{Binding ContinueText, Mode=OneTime, TargetNullValue=''}"
+                Command="{Binding ContinueCommand}"
+                Content="{Binding ContinueText, Mode=OneTime}"
+                Style="{StaticResource Ad.DialogButton}"
+                Visibility="{Binding HasContinue, Mode=OneTime, Converter={StaticResource Ad.BoolToVisibility}}" />
         <Button x:Name="CancelButton"
                 AutomationProperties.Name="{Binding CancelText, Mode=OneTime, TargetNullValue=''}"
                 Command="{Binding CancelCommand}"

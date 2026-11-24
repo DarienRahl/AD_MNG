@@ -139,6 +139,8 @@ internal sealed class ComputerAwareDialogs(ScriptedDialogService inner) : IDialo
 
     public Task<bool> ConfirmTypedAsync(string title, string message, string expectedText) => Inner.ConfirmTypedAsync(title, message, expectedText);
 
+    public Task<CloseAnswer> AskCloseAsync(string title, string message, bool canContinue) => Inner.AskCloseAsync(title, message, canContinue);
+
     public Task<string?> PickContainerAsync(IDirectorySession session, string? startDn) => Inner.PickContainerAsync(session, startDn);
 
     public Task<IReadOnlyList<string>> PickObjectsAsync(IDirectorySession session, IReadOnlyList<ObjectKind> kinds, bool multiSelect) =>

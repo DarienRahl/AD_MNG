@@ -103,6 +103,13 @@ public sealed partial class DialogService : IDialogService, IUserMessageLauncher
     public Task<bool> ConfirmTypedAsync(string title, string message, string expectedText) =>
         ShowMessageAsync(MessageDialogViewModel.TypedConfirmation(title, message, expectedText, _localizer));
 
+    /// <remarks>After <see cref="MarkClosed"/> nothing is shown and the answer is "Don't close".</remarks>
+    public async Task<CloseAnswer> AskCloseAsync(string title, string message, bool canContinue)
+    {
+        var dialog = MessageDialogViewModel.CloseQuestion(title, message, canContinue, _localizer);
+        return await ShowMessageAsync(dialog).ConfigureAwait(true) ? dialog.Answer : CloseAnswer.KeepOpen;
+    }
+
     // ---- Dialogs of this wave ---------------------------------------------------------------------------------
 
     public Task<bool> ShowSavedViewEditorAsync(SavedViewEditorViewModel editor)

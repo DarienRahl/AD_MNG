@@ -8,6 +8,7 @@ using AdMng.Presentation.Changes;
 using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.PropertySheets;
+using AdMng.Presentation.Tests.TestDoubles;
 using AdMng.Testing;
 
 namespace AdMng.Presentation.Tests.Dialogs;
@@ -351,6 +352,52 @@ public class PropertySheetStatusTests
         sheet.Status.CloseCommand.Execute(null);
         Assert.True(sheet.Status.Current.IsIdle);
         Assert.StartsWith("Read from ", sheet.Status.Current.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ClosingDuringTheSave_SaysItIsStillWorking_AndAfterTheSaveTheWindowClosesWithoutAQuestion()
+    {
+        // A save of one object cannot be stopped (D-A keeps it with the window: what follows the write - the re-read, the typed
+        // values kept on a refusal - exists only here). Closing says so; once it ended, the window closes like any other.
+        var (sheet, harness) = await OpenAsync(c => c.JanKowalski);
+        var window = new TestWindowHost(sheet);
+        Text(sheet, L.Pages.Organization, Attr.Title).Value = "Kierownik działu IT";
+        using var held = new SemaphoreSlim(0);
+        using var release = new ManualResetEventSlim();
+        var hold = 1;
+        harness.Session.BeforeOperation = operation =>
+        {
+            if (operation.IsWrite && Interlocked.Exchange(ref hold, 0) == 1)
+            {
+                held.Release();
+                release.Wait(TimeSpan.FromSeconds(60));
+            }
+        };
+        Task<bool> applying;
+        try
+        {
+            applying = sheet.ApplyChangesAsync();
+            Assert.True(await held.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+
+            Assert.False(await window.CloseByTitleBarAsync());
+            Assert.Equal(
+                "info:" + harness.Localizer.Format(L.CloseWork.Wait, "Saving the changes to “Jan Kowalski”…"),
+                Assert.Single(harness.Dialogs.Shown));
+            Assert.Empty(harness.Dialogs.CloseQuestions);
+            Assert.False(window.IsClosed);
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        Assert.True(await applying.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+        harness.Session.BeforeOperation = null;
+
+        // Saved, nothing pending: the window closes without a question.
+        harness.Dialogs.Shown.Clear();
+        Assert.True(await window.CloseByTitleBarAsync());
+        Assert.Empty(harness.Dialogs.Shown);
     }
 
     [Fact]

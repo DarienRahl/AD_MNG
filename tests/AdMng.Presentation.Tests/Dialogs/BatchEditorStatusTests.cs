@@ -12,6 +12,7 @@ using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
+using AdMng.Presentation.Tests.TestDoubles;
 using AdMng.Testing;
 
 namespace AdMng.Presentation.Tests.Dialogs;
@@ -744,9 +745,236 @@ public class BatchEditorStatusTests
         Assert.Same(editor.Status.Lasting, editor.Status.Current);
     }
 
+    // ---- Closing the window during an execution (the owner's decision D-A) -----------------------------------------
+
     [Fact]
-    public async Task ClosingTheWindow_EndsWhatItSays_ButNotTheExecution()
+    public async Task ClosingDuringAnExecution_ContinueInTheBackground_ClosesAtOnce_TheChangeIsMade_AndTheConnectionToastsIt()
     {
+        var (editor, harness) = await OpenAsync(c => [c.JanKowalski], operations: new SetAttributeOperation(Attr.Title, "Koordynator V2b"));
+        await editor.PreviewCommand.ExecuteAsync(null);
+        var window = new TestWindowHost(editor);
+        harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.CloseAndContinue);
+        using var held = new SemaphoreSlim(0);
+        using var release = new ManualResetEventSlim();
+        harness.Session.BeforeOperation = operation =>
+        {
+            if (operation.IsWrite)
+            {
+                held.Release();
+                release.Wait(TestContext.Current.CancellationToken);
+            }
+        };
+        Task execution;
+        ActivityViewModel activity;
+        try
+        {
+            execution = editor.ExecuteCommand.ExecuteAsync(null);
+            Assert.True(await held.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+            activity = editor.CurrentActivity!;
+            harness.Notifications.Clear();
+
+            // The title bar: three answers - the window closes at once, while the change is still on its way.
+            Assert.True(await window.CloseByTitleBarAsync().WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+            var question = Assert.Single(harness.Dialogs.CloseQuestions);
+            Assert.True(question.CanContinue);
+            Assert.Equal(
+                harness.Localizer.Format(L.CloseWork.Changes, "Executing “Batch edit (1 objects)” in contoso.test: 0 of 1…"),
+                question.Message);
+            Assert.True(editor.IsDisposed);
+            Assert.Equal(1, window.Disposals);
+            Assert.False(editor.Status.IsWorking);
+            Assert.True(activity.IsRunning);
+            Assert.False(activity.IsCancelling);
+            Assert.True(activity.HasLeftWindow);
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        await execution.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+        harness.Session.BeforeOperation = null;
+
+        // The change is made, and the connection says so - once, with the domain; the window keeps nothing (no results).
+        Assert.False(activity.WasCancelled);
+        Assert.Equal("Koordynator V2b", harness.Value(harness.Company.JanKowalski, Attr.Title));
+        var toast = Assert.Single(harness.Notifications.Items);
+        Assert.Equal(NotificationSeverity.Success, toast.Severity);
+        Assert.Equal("“Batch edit (1 objects)” was executed in contoso.test: 1 object changed. The report is in the list of background operations.", toast.Message);
+        Assert.Null(editor.Result);
+        Assert.Empty(harness.Dialogs.Errors);
+        Assert.Single(harness.Dialogs.Shown);
+    }
+
+    [Fact]
+    public async Task StopAndClose_FinishesTheObjectInProgress_ClosesAfterTheEnd_AndTheStopIsSaidOnce()
+    {
+        var (editor, harness) = await OpenAsync(c => [c.JanKowalski, c.LukaszWisniewski], operations: new SetAttributeOperation(Attr.Title, "Koordynator V2b"));
+        await harness.Settings.UpdateAsync(s => s.BatchMaxParallelism = 1, TestContext.Current.CancellationToken);
+        await editor.PreviewCommand.ExecuteAsync(null);
+        var window = new TestWindowHost(editor);
+        harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.StopAndClose);
+        using var held = new SemaphoreSlim(0);
+        using var release = new ManualResetEventSlim();
+        var hold = true;
+        harness.Session.BeforeOperation = operation =>
+        {
+            if (operation.IsWrite && hold)
+            {
+                hold = false;
+                held.Release();
+                release.Wait(TestContext.Current.CancellationToken);
+            }
+        };
+        Task execution;
+        Task<bool> closing;
+        ActivityViewModel activity;
+        try
+        {
+            execution = editor.ExecuteCommand.ExecuteAsync(null);
+            Assert.True(await held.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+            activity = editor.CurrentActivity!;
+            harness.Notifications.Clear();
+
+            closing = window.CloseByTitleBarAsync();
+            Assert.True(activity.IsCancelling);
+            Assert.Equal("Stopping…", editor.Status.Current.Message);
+            Assert.False(closing.IsCompleted);
+            Assert.False(window.IsClosed);
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        Assert.True(await closing.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+        await execution.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+        harness.Session.BeforeOperation = null;
+
+        // The account that was on its way was finished, the other one was not started; the window closed after the end. The
+        // stop is said once - the batch editor's own notification (its results, also of what was not changed) - and the
+        // connection adds nothing.
+        Assert.True(window.IsClosed);
+        Assert.Equal("Koordynator V2b", harness.Value(harness.Company.JanKowalski, Attr.Title));
+        Assert.NotEqual("Koordynator V2b", harness.Value(harness.Company.LukaszWisniewski, Attr.Title));
+        var toast = Assert.Single(harness.Notifications.Items);
+        Assert.Equal(NotificationSeverity.Warning, toast.Severity);
+        Assert.StartsWith("Batch edit (2 objects)", toast.Message, StringComparison.Ordinal);
+        Assert.False(activity.ReportsByConnection);
+        Assert.Single(harness.Dialogs.CloseQuestions);
+    }
+
+    [Fact]
+    public async Task WithGeneratedPasswords_NoBackground_AfterTheStopThePasswordsQuestion()
+    {
+        var (editor, harness) = await OpenAsync(
+            c => [c.JanKowalski, c.LukaszWisniewski], operations: new ResetPasswordOperation(PasswordMode.GenerateUnique, null, MustChangeAtNextLogon: true));
+        await harness.Settings.UpdateAsync(s => s.BatchMaxParallelism = 1, TestContext.Current.CancellationToken);
+        await editor.PreviewCommand.ExecuteAsync(null);
+        var window = new TestWindowHost(editor);
+        harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
+        harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.StopAndClose);
+        using var held = new SemaphoreSlim(0);
+        using var release = new ManualResetEventSlim();
+        var hold = true;
+        harness.Session.BeforeOperation = operation =>
+        {
+            if (operation.IsWrite && hold)
+            {
+                hold = false;
+                held.Release();
+                release.Wait(TestContext.Current.CancellationToken);
+            }
+        };
+        Task execution;
+        Task<bool> closing;
+        try
+        {
+            execution = editor.ExecuteCommand.ExecuteAsync(null);
+            Assert.True(await held.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+            harness.Dialogs.Shown.Clear();
+            closing = window.CloseByTitleBarAsync();
+
+            // The generated passwords exist only in this window: no background, and the question says why.
+            var question = Assert.Single(harness.Dialogs.CloseQuestions);
+            Assert.False(question.CanContinue);
+            Assert.EndsWith(
+                "\n\nIt cannot continue in the background: the generated passwords exist only in this window.", question.Message, StringComparison.Ordinal);
+            Assert.StartsWith(
+                harness.Localizer.Format(L.CloseWork.StopChanges, "Executing “Batch edit (2 objects)” in contoso.test: 0 of 2…"), question.Message, StringComparison.Ordinal);
+
+            // After the stop the results with the new password are visible, and the window asks about them first: Don't discard.
+            harness.Dialogs.ConfirmAnswers.Enqueue(false);
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        Assert.False(await closing.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+        await execution.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+        harness.Session.BeforeOperation = null;
+        Assert.False(window.IsClosed);
+        Assert.Equal(BatchEditorStep.Results, editor.Step);
+        Assert.True(editor.HasUnsavedGeneratedPasswords);
+        Assert.Equal("confirm:" + harness.Localizer[L.Batch.DiscardPasswords], harness.Dialogs.Shown[^1]);
+
+        // Closed again: nothing runs, the passwords question - and the window goes.
+        harness.Dialogs.ConfirmAnswers.Enqueue(true);
+        Assert.True(await window.CloseByTitleBarAsync());
+        Assert.Single(harness.Dialogs.CloseQuestions);
+    }
+
+    [Fact]
+    public async Task ASecondCloseRequestWhileItStops_JoinsTheFirst()
+    {
+        var (editor, harness) = await OpenAsync(c => [c.JanKowalski], operations: new SetAttributeOperation(Attr.Title, "Koordynator V2b"));
+        await editor.PreviewCommand.ExecuteAsync(null);
+        var window = new TestWindowHost(editor);
+        harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.StopAndClose);
+        using var held = new SemaphoreSlim(0);
+        using var release = new ManualResetEventSlim();
+        harness.Session.BeforeOperation = operation =>
+        {
+            if (operation.IsWrite)
+            {
+                held.Release();
+                release.Wait(TestContext.Current.CancellationToken);
+            }
+        };
+        Task execution;
+        Task<bool> first;
+        Task<bool> second;
+        try
+        {
+            execution = editor.ExecuteCommand.ExecuteAsync(null);
+            Assert.True(await held.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+
+            // The title bar, then - while the stop is awaited - the window's own close: the same close, one question, one wait.
+            first = window.CloseByTitleBarAsync();
+            second = editor.CanCloseAsync();
+            Assert.Same(second, editor.CanCloseAsync());
+            Assert.False(first.IsCompleted);
+            Assert.False(second.IsCompleted);
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        Assert.True(await first.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+        Assert.True(await second.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+        await execution.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+        harness.Session.BeforeOperation = null;
+        Assert.Single(harness.Dialogs.CloseQuestions);
+        Assert.Equal(1, window.Disposals);
+    }
+
+    [Fact]
+    public async Task AForcedCloseByTheOwner_HandsTheRunToTheConnection()
+    {
+        // The main window closes its owned windows without asking them (the questions were its own): the editor is disposed while it
+        // executes. The run leaves it - whatever would have kept it - and the connection says how it ended.
         var (editor, harness) = await OpenAsync(c => [c.JanKowalski], operations: new SetAttributeOperation(Attr.Title, "Koordynator V2b"));
         await editor.PreviewCommand.ExecuteAsync(null);
         using var held = new SemaphoreSlim(0);
@@ -766,25 +994,30 @@ public class BatchEditorStatusTests
             execution = editor.ExecuteCommand.ExecuteAsync(null);
             Assert.True(await held.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
             activity = editor.CurrentActivity!;
+            harness.Notifications.Clear();
 
             editor.Dispose();
 
-            // The window no longer says "working"; the change keeps running in the background.
             Assert.False(editor.Status.IsWorking);
             Assert.Null(editor.Status.Front);
             Assert.True(activity.IsRunning);
             Assert.False(activity.IsCancelling);
+            Assert.True(activity.HasLeftWindow);
         }
         finally
         {
             release.Set();
         }
 
-        await execution;
+        await execution.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
         harness.Session.BeforeOperation = null;
         Assert.False(activity.WasCancelled);
         Assert.Equal("Koordynator V2b", harness.Value(harness.Company.JanKowalski, Attr.Title));
         Assert.Null(editor.Result);
+        Assert.Equal(
+            "“Batch edit (1 objects)” was executed in contoso.test: 1 object changed. The report is in the list of background operations.",
+            Assert.Single(harness.Notifications.Items).Message);
+        Assert.Empty(harness.Dialogs.CloseQuestions);
     }
 
     // ---- The source of the first step: the CSV file ----------------------------------------------------------------

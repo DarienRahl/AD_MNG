@@ -5,6 +5,8 @@ using AdMng.Core.GroupPolicy;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
+using AdMng.Presentation.Services;
+using AdMng.Presentation.Tests.TestDoubles;
 
 namespace AdMng.Presentation.Tests.GroupPolicy;
 
@@ -121,14 +123,19 @@ public sealed class ChangePlanPreviewStatusTests
         var status = preview.Status.Current;
         Assert.True(result.FailedCount > 0);
 
-        // Attention when something was made, an error when nothing was - with the numbers of this result.
-        Assert.Equal(result.SucceededCount > 0 ? PageStatusKind.Attention : PageStatusKind.Error, status.Kind);
+        // Attention when something was made - also only in part: the GPO's attributes were written, its folder was not - and an
+        // error when nothing was, with the numbers of this result.
+        var partly = result.Objects.Count(o => o.Status == ObjectResultStatus.PartiallySucceeded);
+        var changed = result.SucceededCount + partly;
+        Assert.Equal(changed > 0 ? PageStatusKind.Attention : PageStatusKind.Error, status.Kind);
         Assert.Contains("“Kopia”", status.Message, StringComparison.Ordinal);
         Assert.Contains(" in contoso.test: ", status.Message, StringComparison.Ordinal);
-        Assert.Contains($"failed: {result.FailedCount}", status.Message, StringComparison.Ordinal);
+        Assert.Contains($"failed: {result.FailedCount - partly}", status.Message, StringComparison.Ordinal);
+        Assert.Equal(partly > 0, status.Message.Contains($"{partly} of them only in part", StringComparison.Ordinal));
+        Assert.DoesNotContain(changed > 0 ? "nothing was changed" : "only in part", status.Message, StringComparison.Ordinal);
         Assert.Contains("The reasons are in the list of results.", status.Message, StringComparison.Ordinal);
         Assert.Equal(
-            result.SucceededCount > 0
+            changed > 0
                 ? $"Changes.Status.ExecutedPartly ({result.SucceededCount}, {result.FailedCount})"
                 : $"Changes.Status.ExecuteFailed (0, {result.FailedCount})",
             status.Log.ToString());
@@ -175,12 +182,13 @@ public sealed class ChangePlanPreviewStatusTests
             Assert.True(await held.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
             var activity = preview.CurrentActivity!;
 
-            // While it runs: the Execute button stays (it is the Cancel now) and the window cannot be closed.
+            // While it runs: the Execute button stays (it is the Cancel now); closing the window asks (Don't close here).
             Assert.True(preview.IsExecutingStep);
             Assert.True(preview.IsExecuteStep);
             Assert.True(preview.Status.IsWorking);
-            Assert.False(preview.CloseCommand.CanExecute(null));
+            Assert.True(preview.CloseCommand.CanExecute(null));
             Assert.False(await preview.CanCloseAsync());
+            Assert.Single(h.B2.Dialogs.CloseQuestions);
             var stop = Assert.IsType<PageStatusAction>(preview.Status.Current.Action);
             Assert.Equal("Stop", stop.Label);
             Assert.Same(preview.Status.CancelCommand, stop.Command);
@@ -217,6 +225,63 @@ public sealed class ChangePlanPreviewStatusTests
             StringComparison.Ordinal);
         Assert.Equal("Changes.Status.Stopped (1, 0, 1)", stopped.Log.ToString());
         Assert.True(preview.CloseCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task ClosingDuringAnExecution_OffersStopAndDontClose_SaysTheCallerWaits_AndStopClosesAfterTheEnd()
+    {
+        var h = await GroupPolicyHarness.CreateAsync(English);
+        var plan = await CopyPlanAsync(h);
+        var preview = new ChangePlanPreviewViewModel(h.Ui, h.B2.Engines, new ChangePlanPreviewRequest(plan, "Kopia"));
+        var window = new TestWindowHost(preview);
+        using var held = new SemaphoreSlim(0);
+        using var release = new ManualResetEventSlim();
+        var hold = 1;
+        h.Session.BeforeOperation = operation =>
+        {
+            if (operation.IsWrite && Interlocked.Exchange(ref hold, 0) == 1)
+            {
+                held.Release();
+                release.Wait(TestContext.Current.CancellationToken);
+            }
+        };
+        Task execution;
+        Task closing;
+        try
+        {
+            execution = preview.ExecuteCommand.ExecuteAsync(null);
+            Assert.True(await held.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+
+            // The Close button (also Esc) asks what the title bar asks. The window this preview was opened from acts on its result
+            // the moment it closes (a GPO editor reloads or marks itself saved): no background - and the question says why.
+            h.B2.Dialogs.CloseAnswers.Enqueue(CloseAnswer.KeepOpen);
+            await preview.CloseCommand.ExecuteAsync(null);
+            var question = Assert.Single(h.B2.Dialogs.CloseQuestions);
+            Assert.False(question.CanContinue);
+            Assert.EndsWith(
+                "\n\nIt cannot continue in the background: the window this one was opened from is waiting for its result.", question.Message, StringComparison.Ordinal);
+            Assert.False(window.IsClosed);
+            Assert.False(preview.Status.IsCancelling);
+
+            // Stop and close: the object in progress is finished first; the window closes after the end.
+            h.B2.Dialogs.CloseAnswers.Enqueue(CloseAnswer.StopAndClose);
+            closing = preview.CloseCommand.ExecuteAsync(null);
+            Assert.True(preview.Status.IsCancelling);
+            Assert.False(window.IsClosed);
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        await closing.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+        await execution.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+        h.Session.BeforeOperation = null;
+
+        // The caller learns that the directory was changed: the object that ran was finished.
+        Assert.True(window.IsClosed);
+        Assert.True(preview.ChangedDirectory);
+        Assert.Equal(2, h.B2.Dialogs.CloseQuestions.Count);
     }
 
     [Fact]

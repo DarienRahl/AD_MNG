@@ -1,5 +1,4 @@
 using System.Collections;
-using System.Text;
 using AdMng.Core.Batch;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
@@ -129,7 +128,6 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase, IHasPageS
     private const int FirstBatchSize = 50;
     private const int MaxParentReads = 200;
     private const int MaxParentDepth = 16;
-    private const int MaxListedFailures = 10;
 
     /// <summary>How many different reasons of failed restores the status line says.</summary>
     private const int MaxSaidReasons = 3;
@@ -526,6 +524,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase, IHasPageS
             return;
         }
 
+        // Closing the window may let the restore go on without it (D-A): the connection then says how it ended.
         using var execution = ExecutionStatus.Begin(Status, Localizer, plan.Title, ConfirmationDomain, plan.Objects.Count);
         IsBusy = true;
         BatchResult? result = null;
@@ -541,12 +540,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase, IHasPageS
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             IsBusy = false;
-            if (IsDisposed)
-            {
-                // The window was closed meanwhile: there is no line left to say it in.
-                await Services.Dialogs.ShowErrorAsync(title, Errors.Translate(ex)).ConfigureAwait(true);
-            }
-            else
+            if (!execution.LeftWindow)
             {
                 execution.Fail(Errors.Translate(ex), ResultCode.Of(ex));
             }
@@ -554,17 +548,29 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase, IHasPageS
             return;
         }
 
-        IsBusy = false;
-        ClosePreview();
-        if (result is not null && (IsDisposed || result.FailedCount == 0))
+        if (execution.LeftWindow)
         {
-            // A restore without failures is also a toast of the main window, for which it finished elsewhere. When the
-            // window was closed meanwhile the operator must still learn what was (not) restored: toast or dialog.
-            await ReportAsync(title, result).ConfigureAwait(true);
+            // The window closed and let the restore go on: the connection said how it ended - toast or dialog.
+            return;
         }
 
-        if (IsDisposed)
+        IsBusy = false;
+        ClosePreview();
+        if (result is not null && result.FailedCount == 0 && !execution.ReportsByConnection)
         {
+            // A restore without failures is also a toast of the main window, for which it finished elsewhere. (A window that
+            // closes right after it leaves that to the connection, which says it once.)
+            ReportRestored(result);
+        }
+
+        if (execution.ReportsByConnection)
+        {
+            // The window closes once this ended: the list is not read again for it.
+            if (result is not null)
+            {
+                execution.Complete(result, AfterRestore(result));
+            }
+
             return;
         }
 
@@ -1305,30 +1311,10 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase, IHasPageS
     }
 
     /// <summary>
-    /// The outcome of a restore for the main window - a toast when nothing failed - and, when this window was closed
-    /// while it restored, the failures as a dialog (an open window says them in its status line).
+    /// The outcome of a restore without failures for the main window, as a toast (failures are said in the status line; a
+    /// restore whose window closed is reported by the connection).
     /// </summary>
-    private async Task ReportAsync(string title, BatchResult result)
-    {
-        if (result.FailedCount == 0)
-        {
-            Services.Notifications.Show(
-                result.WasCutShort ? NotificationSeverity.Warning : NotificationSeverity.Success,
-                Localizer.Format(L.RecycleBin.Restored, result.SucceededCount));
-            return;
-        }
-
-        var text = new StringBuilder();
-        text.AppendLine(Localizer.Format(L.Changes.Failed, result.FailedCount, result.SucceededCount));
-        foreach (var failed in result.Objects
-                     .Where(o => o.Status is ObjectResultStatus.Failed or ObjectResultStatus.PartiallySucceeded)
-                     .Take(MaxListedFailures))
-        {
-            var error = failed.Changes.FirstOrDefault(c => !c.Succeeded);
-            var reason = error is null ? string.Empty : Errors.TranslateFailure(error.ErrorKind, error.ErrorMessage);
-            text.Append("• ").Append(failed.Plan.DisplayName).Append(": ").AppendLine(reason);
-        }
-
-        await Services.Dialogs.ShowErrorAsync(title, text.ToString().TrimEnd()).ConfigureAwait(true);
-    }
+    private void ReportRestored(BatchResult result) => Services.Notifications.Show(
+        result.WasCutShort ? NotificationSeverity.Warning : NotificationSeverity.Success,
+        Localizer.Format(L.RecycleBin.Restored, result.SucceededCount));
 }

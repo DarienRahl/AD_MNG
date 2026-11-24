@@ -60,6 +60,9 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
     /// <summary>The DC of the session that replaced the window's session by "Change domain controller", else null.</summary>
     private string? _movedTo;
 
+    /// <summary>The close question that is open or waiting for a stop: a second close joins it (one question, one wait).</summary>
+    private Task<bool>? _closing;
+
     protected WindowViewModelBase(DialogServices services)
     {
         Services = services ?? throw new ArgumentNullException(nameof(services));
@@ -144,19 +147,37 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
 
     /// <summary>
     /// The window is about to be closed by the operator. First the one question of every window that works
-    /// (<see cref="Feedback.RunningWork"/>, track V stage V2b-5b): an operation that writes and can be stopped is asked
-    /// about - "Stop the running operation and close the window?" - and stopped on Yes, and the window closes after it
-    /// ended; one that cannot be stopped keeps the window open and says so; a read is cancelled without a question. Then
-    /// the window's own questions (<see cref="CanCloseCoreAsync"/>: unsaved changes, generated passwords).
+    /// (<see cref="Feedback.RunningWork"/>, track V stage V2b-5b and the owner's decision D-A): an operation that writes and
+    /// can be stopped is asked about - Stop and close, Close and continue in the background (the execution of a plan that
+    /// may go on without the window), Don't close - and the window closes after a stopped operation ended, or at once when the
+    /// execution left it; one that cannot be stopped keeps the window open and says so; a read is cancelled without a
+    /// question. The window's own questions (<see cref="CanCloseCoreAsync"/>: unsaved changes, generated passwords) come
+    /// with it. A second close while the first one asks or waits - the title bar, then the Close button - joins it.
     /// </summary>
-    public async Task<bool> CanCloseAsync()
+    public Task<bool> CanCloseAsync()
     {
-        if (!await Feedback.RunningWork.ConfirmCloseAsync(Services.Localizer, Services.Dialogs, WindowTitle, Feedback.RunningWork.HoldersOf(this)).ConfigureAwait(true))
+        if (_closing is { IsCompleted: false } pending)
         {
-            return false;
+            return pending;
         }
 
-        return await CanCloseCoreAsync().ConfigureAwait(true);
+        var closing = AskCloseAsync();
+        _closing = closing.IsCompleted ? null : closing;
+        return closing;
+    }
+
+    private async Task<bool> AskCloseAsync()
+    {
+        try
+        {
+            return await Feedback.RunningWork.ConfirmCloseAsync(
+                Services.Localizer, Services.Dialogs, WindowTitle, Feedback.RunningWork.HoldersOf(this), ownQuestions: CanCloseCoreAsync).ConfigureAwait(true);
+        }
+        finally
+        {
+            // Kept, or allowed: the next close asks again.
+            _closing = null;
+        }
     }
 
     /// <summary>
@@ -173,6 +194,15 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
         }
 
         IsDisposed = true;
+
+        // A close that was not asked (the owner window closed, the program ends): an execution that still runs leaves the
+        // window - whatever would have kept it - so that the connection says how it ended; nothing of the window is touched
+        // by it any more.
+        foreach (var operation in Feedback.RunningWork.RunningWrites(Feedback.RunningWork.HoldersOf(this)))
+        {
+            operation.Run?.LeaveWindow();
+        }
+
         Services.Localizer.CultureChanged -= OnLocalizerCultureChanged;
         Services.Sessions.SessionChanged -= OnSessionsChanged;
         Dispose(true);

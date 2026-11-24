@@ -898,11 +898,11 @@ public sealed class SendPageTests
         Assert.True(await entered.WaitAsync(TimeSpan.FromSeconds(10), Token));
         Assert.True(window.Send.IsSending);
 
-        scenario.Ui.ConfirmAnswers.Enqueue(false);
+        scenario.Ui.CloseAnswers.Enqueue(CloseAnswer.KeepOpen);
         Assert.False(await window.CanCloseAsync());
         Assert.True(window.Send.IsSending);
 
-        scenario.Ui.ConfirmAnswers.Enqueue(true);
+        scenario.Ui.CloseAnswers.Enqueue(CloseAnswer.StopAndClose);
         var closing = window.CanCloseAsync();
         release.Release();
         Assert.True(await closing);
@@ -914,9 +914,12 @@ public sealed class SendPageTests
 
         // The one question of every window that works (RunningWork): what runs - the text of the line - and what the stop does.
         Assert.Equal(
-            "confirm:Wysyłam wiadomości: 0 z 3…\n\nZatrzymać trwającą operację i zamknąć okno? Wiadomości, które jeszcze nie zostały wysłane, "
+            "close:Wysyłam wiadomości: 0 z 3…\n\nZatrzymać trwającą operację i zamknąć okno? Wiadomości, które jeszcze nie zostały wysłane, "
             + "nie zostaną wysłane; wiadomości przyjętych już przez serwer lub przez Outlooka nie da się wycofać.",
             scenario.Ui.Shown[^1]);
+
+        // A send is not the execution of a plan: it cannot go on without the window - two answers.
+        Assert.All(scenario.Ui.CloseQuestions, question => Assert.False(question.CanContinue));
     }
 
     /// <summary>An Outlook that has to be started whenever the window connects (<paramref name="starting"/> moves the clock).</summary>

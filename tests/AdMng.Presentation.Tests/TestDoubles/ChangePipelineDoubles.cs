@@ -81,6 +81,12 @@ internal sealed class RecordingBatchExecutor : IBatchExecutor
 
     public TaskCompletionSource? Gate { get; set; }
 
+    /// <summary>How an object ends (null: succeeded): a failed object fails its every change, one changed in part its later ones.</summary>
+    public Func<ObjectPlan, ObjectResultStatus>? StatusOf { get; set; }
+
+    /// <summary>Thrown instead of a result: the execution failed as a whole.</summary>
+    public Exception? Failure { get; set; }
+
     public async Task<BatchResult> ExecuteAsync(IDirectorySession session, ChangePlan plan, BatchOptions? options, IProgress<BatchProgress>? progress, CancellationToken cancellationToken)
     {
         _plans.Enqueue(plan);
@@ -90,6 +96,11 @@ internal sealed class RecordingBatchExecutor : IBatchExecutor
         }
 
         OnExecute?.Invoke(plan);
+        if (Failure is { } failure)
+        {
+            throw failure;
+        }
+
         var now = DateTimeOffset.UtcNow;
         var results = new List<ObjectResult>();
         var completed = 0;
@@ -110,10 +121,17 @@ internal sealed class RecordingBatchExecutor : IBatchExecutor
                 }
             }
 
-            var result = new ObjectResult(obj, ObjectResultStatus.Succeeded, [.. obj.Changes.Select(c => new ChangeResult(c, true))], finalDn, now, now);
+            var status = StatusOf?.Invoke(obj) ?? ObjectResultStatus.Succeeded;
+            var changes = obj.Changes.Select((c, i) => status switch
+            {
+                ObjectResultStatus.Failed => new ChangeResult(c, false, DirectoryErrorKind.AccessDenied, "denied"),
+                ObjectResultStatus.PartiallySucceeded when i > 0 => new ChangeResult(c, false, DirectoryErrorKind.AccessDenied, "denied"),
+                _ => new ChangeResult(c, true),
+            });
+            var result = new ObjectResult(obj, status, [.. changes], finalDn, now, now);
             results.Add(result);
             completed++;
-            progress?.Report(new BatchProgress(completed, plan.ExecutableCount, 0, result));
+            progress?.Report(new BatchProgress(completed, plan.ExecutableCount, status == ObjectResultStatus.Succeeded ? 0 : 1, result));
         }
 
         return new BatchResult(plan, results, session.Info.Server, session.Info.BoundIdentity, now, now, cancellationToken.IsCancellationRequested);
@@ -182,6 +200,27 @@ internal sealed class ScriptedDialogService : IDialogService
     {
         TypedConfirmations.Add((title, message, expectedText));
         return Task.FromResult(TypedConfirmAnswers.Count > 0 && TypedConfirmAnswers.Dequeue());
+    }
+
+    /// <summary>The answers of the close question, in order; without one the window is kept ("Don't close").</summary>
+    public Queue<CloseAnswer> CloseAnswers { get; } = new();
+
+    /// <summary>The close questions asked so far: the message and whether "Close and continue in the background" was offered.</summary>
+    public List<(string Title, string Message, bool CanContinue)> CloseQuestions { get; } = [];
+
+    /// <summary>Awaited before a close question is answered (null: answered at once) – an operator who takes a while.</summary>
+    public Func<Task>? BeforeCloseAnswer { get; set; }
+
+    public async Task<CloseAnswer> AskCloseAsync(string title, string message, bool canContinue)
+    {
+        Shown.Add($"close:{message}");
+        CloseQuestions.Add((title, message, canContinue));
+        if (BeforeCloseAnswer is { } wait)
+        {
+            await wait();
+        }
+
+        return CloseAnswers.Count > 0 ? CloseAnswers.Dequeue() : CloseAnswer.KeepOpen;
     }
 
     public Task<string?> PickContainerAsync(IDirectorySession session, string? startDn) =>

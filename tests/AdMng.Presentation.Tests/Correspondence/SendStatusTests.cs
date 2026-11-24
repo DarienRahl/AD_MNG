@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using AdMng.Core.Correspondence.Outlook;
 using AdMng.Presentation.Correspondence;
 using AdMng.Presentation.Feedback;
+using AdMng.Presentation.Services;
 using AdMng.Presentation.Tests.GroupPolicy;
 using AdMng.Testing;
 using static AdMng.Presentation.Tests.Correspondence.PageTests;
@@ -348,7 +349,7 @@ public sealed class SendStatusTests
         Assert.True(await entered.WaitAsync(TimeSpan.FromSeconds(10), Ct));
 
         // The window is closed: the run is stopped as before, and the page that is gone says nothing more.
-        scenario.Ui.ConfirmAnswers.Enqueue(true);
+        scenario.Ui.CloseAnswers.Enqueue(CloseAnswer.StopAndClose);
         var closing = window.CanCloseAsync();
         release.Release(3);
         Assert.True(await closing);

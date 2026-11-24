@@ -116,7 +116,7 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase, IH
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsPreviewStep), nameof(IsExecutingStep), nameof(IsResultsStep), nameof(IsExecuteStep), nameof(IsRollbackNoteShown))]
-    [NotifyCanExecuteChangedFor(nameof(ExecuteCommand), nameof(UndoCommand), nameof(CloseCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ExecuteCommand), nameof(UndoCommand))]
     public partial PlanPreviewStep Step { get; private set; }
 
     public bool IsPreviewStep => Step == PlanPreviewStep.Preview;
@@ -190,8 +190,6 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase, IH
     /// <summary>Something was written to the directory or SYSVOL (the caller refreshes what it shows).</summary>
     public bool ChangedDirectory => _executedAny;
 
-    protected override Task<bool> CanCloseCoreAsync() => Task.FromResult(Step != PlanPreviewStep.Executing);
-
     /// <summary>
     /// The localized text of a failed step: SYSVOL failures say whether the file changes were reverted or the GPO was left
     /// inconsistent; others go through <see cref="ErrorTranslator.TranslateFailure"/>.
@@ -246,7 +244,10 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase, IH
 
         // Executing is the operation of the window: the status line says how far the activity is, Stop - in the line
         // or on the Execute button - cancels it, and the end is the result, with the domain (design note 4.5).
+        // The window this one was opened from acts on its result the moment it closes (a GPO editor reloads or marks itself
+        // saved, the GPO views refresh): closing it during the execution cannot let the execution go on without it (D-A).
         using var execution = ExecutionStatus.Begin(Status, Localizer, ChangeTitle, ConfirmationDomain, plan.Objects.Count);
+        execution.StaysWithWindow(L.CloseWork.NoBackgroundCaller);
         Step = PlanPreviewStep.Executing;
         BatchResult result;
         try
@@ -264,9 +265,13 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase, IH
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            Error = Errors.Translate(ex);
-            Step = PlanPreviewStep.Preview;
-            execution.Fail(Error, ResultCode.Of(ex));
+            if (!execution.LeftWindow)
+            {
+                Error = Errors.Translate(ex);
+                Step = PlanPreviewStep.Preview;
+                execution.Fail(Error, ResultCode.Of(ex));
+            }
+
             return;
         }
         finally
@@ -275,21 +280,24 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase, IH
         }
 
         _executedAny |= result.Objects.Any(o => o.Changes.Any(c => c.Succeeded));
-        if (!IsDisposed)
+        if (execution.LeftWindow)
         {
-            ShowResults(result);
-
-            // What can be done about what was not made: the reasons are in the results, and Undo reverts what was made.
-            var next = result.FailedCount > 0 ? Localizer[L.ChangeStatus.ReasonsNext] : null;
-            PageStatusAction? undo = null;
-            if (CanUndo())
-            {
-                next = next is null ? Localizer[L.PlanPreviewStatus.UndoNext] : $"{next} {Localizer[L.PlanPreviewStatus.UndoNext]}";
-                undo = new PageStatusAction(Localizer[L.PlanPreview.Undo], UndoCommand);
-            }
-
-            execution.Complete(result, next, undo);
+            // Closed by force (its owner closed): the connection says how it ended.
+            return;
         }
+
+        ShowResults(result);
+
+        // What can be done about what was not made: the reasons are in the results, and Undo reverts what was made.
+        var next = result.FailedCount > 0 ? Localizer[L.ChangeStatus.ReasonsNext] : null;
+        PageStatusAction? undo = null;
+        if (CanUndo())
+        {
+            next = next is null ? Localizer[L.PlanPreviewStatus.UndoNext] : $"{next} {Localizer[L.PlanPreviewStatus.UndoNext]}";
+            undo = new PageStatusAction(Localizer[L.PlanPreview.Undo], UndoCommand);
+        }
+
+        execution.Complete(result, next, undo);
     }
 
     private bool CanExecute() => Step == PlanPreviewStep.Preview && !IsSessionEnded && _plan.ExecutableCount > 0;
@@ -340,10 +348,12 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase, IH
     private void CopyPowerShell() =>
         ClipboardCopy.Text(Services.Clipboard, Services.Notifications, PowerShellScript, Localizer[L.Batch.PowerShellCopied]);
 
-    [RelayCommand(CanExecute = nameof(CanClose))]
-    private void Close() => RequestClose(_executedAny);
-
-    private bool CanClose() => Step != PlanPreviewStep.Executing;
+    /// <summary>
+    /// Close (also Esc): the same close as the title bar's - during the execution the close question (Stop and close, Don't
+    /// close). The caller reads <see cref="ChangedDirectory"/> when the window closed.
+    /// </summary>
+    [RelayCommand]
+    private Task CloseAsync() => CloseByOperatorAsync(_executedAny);
 
     protected override void OnSessionEnded()
     {

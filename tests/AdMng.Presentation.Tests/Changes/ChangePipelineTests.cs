@@ -2,6 +2,7 @@ using AdMng.Core.Batch;
 using AdMng.Core.Directory;
 using AdMng.Core.Model;
 using AdMng.Presentation.Changes;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Tests.Lists;
 using AdMng.Presentation.Tests.TestDoubles;
@@ -201,6 +202,304 @@ public class ChangePipelineTests
         Assert.Empty(harness.Activities.Activities);
         var error = Assert.Single(harness.Dialogs.Errors);
         Assert.Equal(harness.Localizer[Presentation.Localization.L.WindowSession.Ended], error.Message);
+    }
+
+    // ---- A run whose window closed (the owner's decision D-A) -------------------------------------------------------
+
+    [Fact]
+    public async Task ARunThatLeftItsWindow_IsReportedByTheConnection_ANotificationWithTheDomain()
+    {
+        var harness = await TestHarness.ConnectedAsync();
+        var (running, execution) = await StartFollowedAsync(harness, [Lukasz, Ewa]);
+
+        Assert.True(execution.LeaveWindow());
+        harness.Executor.Gate!.SetResult();
+        var result = await running;
+
+        // What the line would have said - with the domain - as a notification of the connection.
+        Assert.Equal(2, result.SucceededCount);
+        var toast = Assert.Single(harness.Notifications.Items);
+        Assert.Equal(NotificationSeverity.Success, toast.Severity);
+        Assert.Equal("“Disable accounts” was executed in contoso.test: 2 objects changed. The report is in the list of background operations.", toast.Message);
+        Assert.Empty(harness.Dialogs.Errors);
+    }
+
+    [Fact]
+    public async Task ARunThatLeftItsWindow_AndWasStopped_IsAWarning_ThatSaysWhatWasLeft()
+    {
+        var harness = await TestHarness.ConnectedAsync();
+        var (running, execution) = await StartFollowedAsync(harness, [Lukasz, Ewa]);
+        Assert.True(execution.LeaveWindow());
+
+        // Stopped in the list of background operations before the first object: nothing was changed, nothing failed.
+        harness.Activities.Activities[0].CancelCommand.Execute(null);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running);
+
+        var toast = Assert.Single(harness.Notifications.Items);
+        Assert.Equal(NotificationSeverity.Warning, toast.Severity);
+        Assert.Equal("Executing “Disable accounts” in contoso.test was stopped.", toast.Message);
+        Assert.Empty(harness.Dialogs.Errors);
+    }
+
+    [Fact]
+    public async Task ARunThatLeftItsWindow_WithFailures_IsADialog_WithTheObjectsTheirReasonsAndTheSessionLog()
+    {
+        var harness = await TestHarness.ConnectedAsync(bulkUsers: 12);
+        harness.Executor.StatusOf = obj => obj.DistinguishedName.Contains("OU=Masowe", StringComparison.OrdinalIgnoreCase)
+            ? ObjectResultStatus.Failed
+            : ObjectResultStatus.Succeeded;
+        var bulk = Enumerable.Range(1, 12).Select(i => $"CN=Masowy {i:D4},OU=Masowe,DC=contoso,DC=test").ToList();
+        var (running, execution) = await StartFollowedAsync(harness, [Lukasz, .. bulk]);
+        Assert.True(execution.LeaveWindow());
+        harness.Executor.Gate!.SetResult();
+        await running;
+
+        // The lead with the numbers, ten objects with their reasons, how many more, and where every change is.
+        Assert.Empty(harness.Notifications.Items);
+        var (title, message) = Assert.Single(harness.Dialogs.Errors);
+        Assert.Equal("Disable accounts", title);
+        var lines = message.Split('\n');
+        Assert.Equal("“Disable accounts” was executed only in part in contoso.test: 1 object changed, failed: 12.", lines[0]);
+        Assert.Equal(string.Empty, lines[1]);
+        Assert.Equal(10, lines.Count(l => l.StartsWith("• Masowy ", StringComparison.Ordinal)));
+        Assert.All(lines.Where(l => l.StartsWith("• ", StringComparison.Ordinal)), l => Assert.EndsWith(": " + harness.Errors.TranslateFailure(Core.Directory.DirectoryErrorKind.AccessDenied, "denied"), l, StringComparison.Ordinal));
+        Assert.Contains("…and 2 more.", lines);
+        Assert.Equal("Every change and its result are in the session log.", lines[^1]);
+        Assert.Equal(string.Empty, lines[^2]);
+    }
+
+    [Fact]
+    public async Task ARunThatLeftItsWindow_AndFailedAsAWhole_IsADialog_WithTheReason()
+    {
+        var harness = await TestHarness.ConnectedAsync();
+        harness.Executor.Failure = new Core.Directory.DirectoryException(Core.Directory.DirectoryErrorKind.ServerUnavailable, "down");
+        var (running, execution) = await StartFollowedAsync(harness, [Lukasz]);
+        Assert.True(execution.LeaveWindow());
+        harness.Executor.Gate!.SetResult();
+        await Assert.ThrowsAsync<Core.Directory.DirectoryException>(() => running);
+
+        var (title, message) = Assert.Single(harness.Dialogs.Errors);
+        Assert.Equal("Disable accounts", title);
+        Assert.StartsWith("Could not execute “Disable accounts” in contoso.test: ", message, StringComparison.Ordinal);
+        Assert.Contains(harness.Errors.Translate(harness.Executor.Failure).TrimEnd('.'), message, StringComparison.Ordinal);
+        Assert.Empty(harness.Notifications.Items);
+    }
+
+    [Fact]
+    public async Task ARunThatStayedInItsWindow_IsNotReported()
+    {
+        var harness = await TestHarness.ConnectedAsync();
+        var (running, execution) = await StartFollowedAsync(harness, [Lukasz]);
+        harness.Executor.Gate!.SetResult();
+        await running;
+
+        // The window says it - in its line.
+        Assert.Empty(harness.Notifications.Items);
+        Assert.Empty(harness.Dialogs.Errors);
+        Assert.True(execution.CanLeave is false);
+        execution.Dispose();
+    }
+
+    [Fact]
+    public async Task ReportByConnection_ReportsWhileTheWindowFollows()
+    {
+        var harness = await TestHarness.ConnectedAsync();
+        var (running, execution) = await StartFollowedAsync(harness, [Lukasz]);
+
+        // Stop and close: the window closes right after the run, its line with it.
+        execution.ReportByConnection();
+        harness.Executor.Gate!.SetResult();
+        var result = await running;
+        execution.Complete(result);
+
+        Assert.False(execution.LeftWindow);
+        var toast = Assert.Single(harness.Notifications.Items);
+        Assert.Equal("“Disable accounts” was executed in contoso.test: 1 object changed. The report is in the list of background operations.", toast.Message);
+        execution.Dispose();
+    }
+
+    [Fact]
+    public async Task TheReportNeverHoldsTheExecution()
+    {
+        // The real dialog service shows a dialog inline when it is asked on the UI thread (a nested message loop): a report made
+        // in the coordinator's continuation would hold the execution - and the window that waits for it - until the operator
+        // answered. The coordinator posts it to a later turn of the UI thread instead.
+        var harness = await TestHarness.ConnectedAsync();
+        var later = new LaterUiDispatcher();
+        using var dialogs = new InlineErrorDialogs(harness.Dialogs);
+        var coordinator = new ChangeCoordinator(
+            harness.Sessions, harness.Planner, harness.Executor, dialogs, harness.Notifications, harness.Settings, harness.Activities, harness.Changes,
+            harness.Errors, harness.Localizer, later);
+        harness.Executor.StatusOf = _ => ObjectResultStatus.Failed;
+        harness.Executor.Gate = new TaskCompletionSource();
+        var status = new PageStatusHolder(harness.Localizer, harness.Dispatcher);
+        var execution = ExecutionStatus.Begin(status, harness.Localizer, "Disable accounts", "contoso.test", 1);
+        var plan = RecordingChangePlanner.DefaultPlan(new BatchRequest([Lukasz], [new SetAccountEnabledOperation(false)]) { Title = "Disable accounts" });
+        var running = coordinator.ExecutePlanAsync(plan, "Disable accounts", harness.Sessions.Current!, execution.Follow, TestContext.Current.CancellationToken);
+        Assert.True(execution.LeaveWindow());
+        harness.Executor.Gate.SetResult();
+
+        // The execution ends - nothing was shown yet; the report waits for its turn.
+        await running.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        Assert.Equal(1, later.Pending);
+        Assert.False(dialogs.IsShowing);
+
+        // Its turn: the dialog is open (and blocks that turn, as the real one does) - the execution had ended before.
+        var turn = Task.Run(later.RunPending, TestContext.Current.CancellationToken);
+        await dialogs.Shown.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        Assert.True(running.IsCompletedSuccessfully);
+        dialogs.Release();
+        await turn.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        Assert.StartsWith("Could not execute “Disable accounts” in contoso.test: nothing was changed, failed: 1.", Assert.Single(harness.Dialogs.Errors).Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AChangeStoppedBecauseItsConnectionWindowCloses_IsNotReported()
+    {
+        var harness = await TestHarness.ConnectedAsync();
+        harness.Executor.StatusOf = _ => ObjectResultStatus.Failed;
+        harness.Executor.OnExecute = _ => harness.Activities.Activities[0].StopBecauseTheConnectionCloses();
+
+        var outcome = await harness.Coordinator.ApplyAsync(new ChangeRequest([Ewa], [new UnlockAccountOperation()], "Unlock"), TestContext.Current.CancellationToken);
+
+        // Nothing is shown over a window that goes: no failure dialog, no toast. The outcome is still the true one.
+        Assert.Equal(ChangeOutcome.Failed, outcome);
+        Assert.Empty(harness.Dialogs.Errors);
+        Assert.Empty(harness.Notifications.Items);
+    }
+
+    /// <summary>A plan of <paramref name="dns"/> whose execution a window follows; the executor waits for the test's gate.</summary>
+    private static async Task<(Task<BatchResult> Running, ExecutionStatus Execution)> StartFollowedAsync(TestHarness harness, IReadOnlyList<string> dns)
+    {
+        await Task.CompletedTask;
+        harness.Executor.Gate ??= new TaskCompletionSource();
+        var status = new PageStatusHolder(harness.Localizer, harness.Dispatcher);
+        var execution = ExecutionStatus.Begin(status, harness.Localizer, "Disable accounts", "contoso.test", dns.Count);
+        var plan = RecordingChangePlanner.DefaultPlan(new BatchRequest(dns, [new SetAccountEnabledOperation(false)]) { Title = "Disable accounts" });
+        var running = harness.Coordinator.ExecutePlanAsync(plan, "Disable accounts", harness.Sessions.Current!, execution.Follow, TestContext.Current.CancellationToken);
+        Assert.True(execution.CanLeave);
+        return (running, execution);
+    }
+
+    /// <summary>The UI thread of the real program: work handed to it runs in a later turn, never inside the caller.</summary>
+    private sealed class LaterUiDispatcher : IUiDispatcher
+    {
+        private readonly Lock _gate = new();
+        private readonly List<Action> _pending = [];
+
+        public int Pending
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _pending.Count;
+                }
+            }
+        }
+
+        public bool CheckAccess() => false;
+
+        public Task InvokeAsync(Action action)
+        {
+            lock (_gate)
+            {
+                _pending.Add(action);
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public void RunPending()
+        {
+            List<Action> due;
+            lock (_gate)
+            {
+                due = [.. _pending];
+                _pending.Clear();
+            }
+
+            foreach (var action in due)
+            {
+                action();
+            }
+        }
+    }
+
+    /// <summary>An error dialog shown the way the real one is on the UI thread: the call returns when the operator closed it.</summary>
+    private sealed class InlineErrorDialogs(ScriptedDialogService inner) : IDialogService, IDisposable
+    {
+        private readonly ManualResetEventSlim _closed = new();
+        private readonly TaskCompletionSource _shown = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task Shown => _shown.Task;
+
+        public bool IsShowing => _shown.Task.IsCompleted && !_closed.IsSet;
+
+        public void Release() => _closed.Set();
+
+        public void Dispose() => _closed.Dispose();
+
+        public Task ShowErrorAsync(string title, string message)
+        {
+            _ = inner.ShowErrorAsync(title, message);
+            _shown.TrySetResult();
+            _closed.Wait(TimeSpan.FromSeconds(30));
+            return Task.CompletedTask;
+        }
+
+        public Task ShowInfoAsync(string title, string message) => inner.ShowInfoAsync(title, message);
+
+        public Task<bool> ConfirmAsync(string title, string message, bool destructive) => inner.ConfirmAsync(title, message, destructive);
+
+        public Task<bool> ConfirmTypedAsync(string title, string message, string expectedText) => inner.ConfirmTypedAsync(title, message, expectedText);
+
+        public Task<CloseAnswer> AskCloseAsync(string title, string message, bool canContinue) => inner.AskCloseAsync(title, message, canContinue);
+
+        public Task<string?> PickContainerAsync(Core.Directory.IDirectorySession session, string? startDn) => inner.PickContainerAsync(session, startDn);
+
+        public Task<IReadOnlyList<string>> PickObjectsAsync(Core.Directory.IDirectorySession session, IReadOnlyList<ObjectKind> kinds, bool multiSelect) =>
+            inner.PickObjectsAsync(session, kinds, multiSelect);
+
+        public Task ShowPropertiesAsync(string distinguishedName) => inner.ShowPropertiesAsync(distinguishedName);
+
+        public Task ShowBatchEditorAsync(BatchEditorRequest request) => inner.ShowBatchEditorAsync(request);
+
+        public Task ShowResetPasswordAsync(IReadOnlyList<string> distinguishedNames) => inner.ShowResetPasswordAsync(distinguishedNames);
+
+        public Task<string?> ShowNewObjectAsync(ObjectKind kind, string parentDn) => inner.ShowNewObjectAsync(kind, parentDn);
+
+        public Task ShowFindAsync(string? startDn) => inner.ShowFindAsync(startDn);
+
+        public Task ShowSessionLogAsync() => inner.ShowSessionLogAsync();
+
+        public Task ShowPowerShellAsync() => inner.ShowPowerShellAsync();
+
+        public Task ShowPowerShellGridAsync(Core.PowerShell.PowerShellGridTable table) => inner.ShowPowerShellGridAsync(table);
+
+        public Task ShowProblemReportAsync() => inner.ShowProblemReportAsync();
+
+        public Task ShowRecycleBinAsync(Guid? select = null) => inner.ShowRecycleBinAsync(select);
+
+        public Task ShowAccountReviewAsync() => inner.ShowAccountReviewAsync();
+
+        public Task ShowSettingsAsync() => inner.ShowSettingsAsync();
+
+        public Task ShowConnectAsync() => inner.ShowConnectAsync();
+
+        public Task<bool> ShowChangeDomainControllerAsync() => inner.ShowChangeDomainControllerAsync();
+
+        public Task<bool> ShowSavedViewEditorAsync(Presentation.Views.SavedViewEditorViewModel editor) => inner.ShowSavedViewEditorAsync(editor);
+
+        public Task<bool> ShowFilterEditorAsync(Presentation.Filters.FilterEditorViewModel editor) => inner.ShowFilterEditorAsync(editor);
+
+        public Task ShowSavedFiltersAsync() => inner.ShowSavedFiltersAsync();
+
+        public Task<bool> ShowColumnChooserAsync(Presentation.Lists.ColumnChooserViewModel chooser) => inner.ShowColumnChooserAsync(chooser);
+
+        public Task<bool> ShowLogonHoursAsync(Presentation.Dialogs.LogonHoursViewModel editor) => inner.ShowLogonHoursAsync(editor);
+
+        public Task<bool> ShowWatchdogCertificateTrustAsync(Presentation.Watchdog.WatchdogCertificateTrustViewModel dialog) => inner.ShowWatchdogCertificateTrustAsync(dialog);
     }
 
     [Fact]

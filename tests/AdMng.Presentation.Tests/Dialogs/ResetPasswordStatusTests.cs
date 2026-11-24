@@ -6,6 +6,8 @@ using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
+using AdMng.Presentation.Services;
+using AdMng.Presentation.Tests.TestDoubles;
 using AdMng.Testing;
 using CommunityToolkit.Mvvm.Input;
 
@@ -500,11 +502,12 @@ public sealed class ResetPasswordStatusTests
     }
 
     [Fact]
-    public async Task ClosingWhilePasswordsAreReset_AsksFirst_YesStopsAndClosesAfterTheEnd_NoKeepsTheWindow()
+    public async Task ClosingWhileGeneratedPasswordsAreReset_TwoAnswers_StopClosesAfterTheEnd_DontCloseKeepsTheWindow()
     {
         var harness = await B2Harness.CreateAsync();
         await harness.Settings.UpdateAsync(s => s.BatchMaxParallelism = 1, Ct);
-        using var dialog = harness.Factory.CreateResetPassword([harness.Company.JanKowalski, harness.Company.LukaszWisniewski]);
+        var dialog = harness.Factory.CreateResetPassword([harness.Company.JanKowalski, harness.Company.LukaszWisniewski]);
+        var window = new TestWindowHost(dialog);
         await dialog.InitializeAsync();
         harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
 
@@ -528,22 +531,26 @@ public sealed class ResetPasswordStatusTests
             await B2Harness.WaitUntilAsync(() => harness.Activities.Activities is [{ IsRunning: true }]);
             Assert.True(dialog.Status.Operation is { Writes: OperationWrites.Changes, CanCancel: true });
 
-            // The operator closes the window during the reset and says No: the window stays and nothing is stopped.
+            // The operator closes the window during the reset: several accounts get generated passwords, which exist only in this
+            // window - no background, and the question says why. Don't close: the window stays and nothing is stopped.
             harness.Dialogs.Shown.Clear();
-            harness.Dialogs.ConfirmAnswers.Enqueue(false);
-            Assert.False(await dialog.CanCloseAsync());
+            harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.KeepOpen);
+            Assert.False(await window.CloseByTitleBarAsync());
             Assert.Equal(
-                "confirm:Executing “Reset Password” in contoso.test: 0 of 2…\n\nStop the running operation and close the window? Nothing new is started, "
-                + "the object that is being changed is finished first (none is left half done), and the objects not reached stay unchanged.",
+                "close:Executing “Reset Password” in contoso.test: 0 of 2…\n\nStop the running operation and close the window? Nothing new is started, "
+                + "the object that is being changed is finished first (none is left half done), and the objects not reached stay unchanged.\n\n"
+                + "It cannot continue in the background: the generated passwords exist only in this window.",
                 Assert.Single(harness.Dialogs.Shown));
+            Assert.False(Assert.Single(harness.Dialogs.CloseQuestions).CanContinue);
             Assert.False(dialog.Status.IsCancelling);
             Assert.True(dialog.IsBusy);
 
-            // Yes: the holder's own Stop - the line says "Stopping…" - and the window waits for the end of the object in progress.
-            // (The passwords were generated: the window's own question about them follows the end, answered Yes here.)
+            // Stop and close, through the Cancel button (also Esc): the holder's own Stop - "Stopping…" - and the window waits for
+            // the end of the object in progress. Then the window's own question about the passwords nobody took, answered Yes.
+            Assert.True(dialog.CancelCommand.CanExecute(null));
+            harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.StopAndClose);
             harness.Dialogs.ConfirmAnswers.Enqueue(true);
-            harness.Dialogs.ConfirmAnswers.Enqueue(true);
-            closing = dialog.CanCloseAsync();
+            closing = dialog.CancelCommand.ExecuteAsync(null).ContinueWith(_ => window.IsClosed, TaskScheduler.Default);
             await B2Harness.WaitUntilAsync(() => dialog.Status.IsCancelling);
             Assert.Equal("Stopping…", dialog.Status.Current.Message);
             Assert.False(closing.IsCompleted);
@@ -558,14 +565,154 @@ public sealed class ResetPasswordStatusTests
         harness.Session.BeforeOperation = null;
 
         // Closed after the end: the account that was on its way is complete, the other one was not started - and only then the
-        // window's own question, about the generated passwords nobody took, was asked.
+        // window's own question, about the generated passwords nobody took, was asked. The connection reports nothing: the run
+        // stayed with its window.
         Assert.Equal(3, harness.Dialogs.Shown.Count);
-        Assert.StartsWith("confirm:", harness.Dialogs.Shown[2], StringComparison.Ordinal);
-        Assert.DoesNotContain("Stop the running operation", harness.Dialogs.Shown[2], StringComparison.Ordinal);
-        Assert.False(dialog.IsBusy);
+        Assert.Equal("confirm:" + harness.Localizer[L.Batch.DiscardPasswords], harness.Dialogs.Shown[2]);
         Assert.Single(harness.Session.PasswordResets);
         Assert.DoesNotContain(harness.Session.Writes, w => w.DistinguishedName == harness.Company.LukaszWisniewski);
-        Assert.Equal(PageStatusKind.Attention, dialog.Status.Current.Kind);
+        Assert.DoesNotContain(harness.Notifications.Items, n => n.Message.Contains("contoso.test", StringComparison.Ordinal));
+        Assert.Equal(1, window.Disposals);
+    }
+
+    [Fact]
+    public async Task ATypedPassword_ContinueInTheBackground_ClosesAtOnce_AndTheConnectionSaysHowItEnded()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var dialog = harness.Factory.CreateResetPassword([harness.Company.ZanetaSzymanska]);
+        var window = new TestWindowHost(dialog);
+        await dialog.InitializeAsync();
+        dialog.PasswordInput = new TestPasswordInput(Typed);
+        dialog.ConfirmPasswordInput = new TestPasswordInput(Typed);
+        using var held = new SemaphoreSlim(0);
+        using var release = new ManualResetEventSlim();
+        var hold = 1;
+        harness.Session.BeforeOperation = operation =>
+        {
+            if (operation.Kind == FakeOperationKind.ResetPassword && Interlocked.Exchange(ref hold, 0) == 1)
+            {
+                held.Release();
+                release.Wait(HoldLimit);
+            }
+        };
+        Task resetting;
+        try
+        {
+            resetting = dialog.ResetCommand.ExecuteAsync(null);
+            Assert.True(await held.WaitAsync(Limit, Ct));
+            harness.Notifications.Clear();
+
+            // A typed password exists outside this window: the reset may go on without it. The Cancel button asks, and the
+            // window closes at once.
+            harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.CloseAndContinue);
+            await dialog.CancelCommand.ExecuteAsync(null);
+            Assert.True(Assert.Single(harness.Dialogs.CloseQuestions).CanContinue);
+            Assert.True(window.IsClosed);
+            Assert.True(harness.Activities.Activities is [{ IsRunning: true, IsCancelling: false }]);
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        await resetting.WaitAsync(Limit, Ct);
+        harness.Session.BeforeOperation = null;
+        Assert.Single(harness.Session.PasswordResets);
+        Assert.Equal(
+            "“Reset Password” was executed in contoso.test: 1 object changed. The report is in the list of background operations.",
+            Assert.Single(harness.Notifications.Items).Message);
+        Assert.Empty(dialog.Results);
+    }
+
+    [Fact]
+    public async Task ATypedPassword_StopAndClose_TheConnectionSaysHowItEnded_BecauseTheLineGoesWithTheWindow()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var dialog = harness.Factory.CreateResetPassword([harness.Company.ZanetaSzymanska]);
+        var window = new TestWindowHost(dialog);
+        await dialog.InitializeAsync();
+        dialog.PasswordInput = new TestPasswordInput(Typed);
+        dialog.ConfirmPasswordInput = new TestPasswordInput(Typed);
+        using var held = new SemaphoreSlim(0);
+        using var release = new ManualResetEventSlim();
+        var hold = 1;
+        harness.Session.BeforeOperation = operation =>
+        {
+            if (operation.Kind == FakeOperationKind.ResetPassword && Interlocked.Exchange(ref hold, 0) == 1)
+            {
+                held.Release();
+                release.Wait(HoldLimit);
+            }
+        };
+        Task resetting;
+        Task<bool> closing;
+        try
+        {
+            resetting = dialog.ResetCommand.ExecuteAsync(null);
+            Assert.True(await held.WaitAsync(Limit, Ct));
+            harness.Notifications.Clear();
+            harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.StopAndClose);
+            closing = window.CloseByTitleBarAsync();
+            Assert.False(closing.IsCompleted);
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        Assert.True(await closing.WaitAsync(Limit, Ct));
+        await resetting.WaitAsync(Limit, Ct);
+        harness.Session.BeforeOperation = null;
+
+        // The one account was on its way: it was finished, and the plan was executed - said once, by the connection.
+        Assert.Single(harness.Session.PasswordResets);
+        Assert.Equal(
+            "“Reset Password” was executed in contoso.test: 1 object changed. The report is in the list of background operations.",
+            Assert.Single(harness.Notifications.Items).Message);
+    }
+
+    [Fact]
+    public async Task ClosingDuringTheCheck_ClosesWithoutAQuestion_AndResetsNothing()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var dialog = harness.Factory.CreateResetPassword([harness.Company.ZanetaSzymanska]);
+        var window = new TestWindowHost(dialog);
+        await dialog.InitializeAsync();
+        dialog.PasswordInput = new TestPasswordInput(Typed);
+        dialog.ConfirmPasswordInput = new TestPasswordInput(Typed);
+        using var held = new SemaphoreSlim(0);
+        using var release = new ManualResetEventSlim();
+        var hold = 1;
+        harness.Session.BeforeOperation = _ =>
+        {
+            if (Interlocked.Exchange(ref hold, 0) == 1)
+            {
+                held.Release();
+                release.Wait(HoldLimit);
+            }
+        };
+        Task resetting;
+        try
+        {
+            resetting = dialog.ResetCommand.ExecuteAsync(null);
+            Assert.True(await held.WaitAsync(Limit, Ct));
+            Assert.True(dialog.IsBusy);
+
+            // The check is a read: the window closes at once, without a question - it used to refuse silently while busy.
+            Assert.True(await window.CloseByTitleBarAsync());
+            Assert.Empty(harness.Dialogs.Shown);
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        await resetting.WaitAsync(Limit, Ct);
+        harness.Session.BeforeOperation = null;
+
+        // Nothing is executed for a window that is gone.
+        Assert.Empty(harness.Session.PasswordResets);
+        Assert.Empty(harness.Activities.Activities);
     }
 
     [Fact]

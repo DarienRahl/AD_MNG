@@ -151,10 +151,11 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Running batches would be interrupted, a send, a save or an update that runs in a tab or in a window of this one would be
+        // Running batches would be cut off, a send, a save or an update that runs in a tab or in a window of this one would be
         // cut off, generated passwords that were not exported would be lost with the batch editors (owned windows close without
-        // asking), and a tab's unsaved changes (the Watchdog configuration) would be discarded: cancel this close and ask first. The question (a modal dialog) and the second Close() must run after
-        // this event: WPF throws when Close() is called while the window is closing.
+        // asking), and a tab's unsaved changes (the Watchdog configuration) would be discarded: cancel this close and ask first.
+        // The question (a modal dialog) and the second Close() must run after this event: WPF throws when Close() is called
+        // while the window is closing.
         e.Cancel = true;
         if (!_confirmingClose)
         {
@@ -183,10 +184,11 @@ public partial class MainWindow : Window
         {
             // Only this connection window closes: the questions name its domain (title, dialog header and sentence).
             var title = _localizer.Format(L.Connections.CloseWindowTitle, Domain);
+            // One question for everything that works in the tabs, in the windows this one owns and in the background of the
+            // connection (the owner's decision D-A): closing this window ends the connection, so nothing can go on without it -
+            // Stop and close waits until the objects in progress are finished.
             if (!_closed
-                && await RunningWork.ConfirmCloseAsync(_localizer, _dialogs, title, RunningWork.HoldersOf(WorkViewModels())).ConfigureAwait(true)
-                && (!Shell.Activities.HasRunning
-                    || await _dialogs.ConfirmAsync(title, _localizer.Format(L.Shell.CloseWindowWhileRunning, Domain), destructive: true).ConfigureAwait(true))
+                && await RunningWork.ConfirmCloseAsync(_localizer, _dialogs, title, RunningWork.HoldersOf(WorkViewModels()), Shell.Activities).ConfigureAwait(true)
                 && (!_tools.HasUnsavedGeneratedPasswords
                     || await _dialogs.ConfirmAsync(title, _localizer[L.Batch.DiscardPasswords], destructive: true).ConfigureAwait(true))
                 && !_closed

@@ -98,7 +98,6 @@ public static partial class L
         public const string WindowTitleConnection = "Shell.WindowTitleConnection";
 
         /// <summary>{0} = domain: closing one connection window while its background operations run.</summary>
-        public const string CloseWindowWhileRunning = "Shell.CloseWindowWhileRunning";
         public const string MenuFile = "Shell.MenuFile";
         public const string MenuAction = "Shell.MenuAction";
         public const string MenuView = "Shell.MenuView";

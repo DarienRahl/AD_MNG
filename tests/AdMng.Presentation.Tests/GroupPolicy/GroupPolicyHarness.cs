@@ -37,7 +37,7 @@ internal sealed class GroupPolicyHarness
         Sample = b2.Builder.AddGroupPolicyManagementSample(b2.Company, Sysvol);
         Executor = new BatchExecutor(b2.AuditLog, b2.Time, null, Sysvol);
         Coordinator = new ChangeCoordinator(b2.Sessions, b2.Planner, Executor, b2.Dialogs, b2.Notifications, b2.Settings, b2.Activities, b2.Changes, b2.Errors,
-            b2.Localizer, b2.PowerShell);
+            b2.Localizer, b2.Dispatcher, b2.PowerShell);
         // The status lines of the documents write their log copies to the logger of the list services.
         var lists = statusLog is null
             ? b2.Lists

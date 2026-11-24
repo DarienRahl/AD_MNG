@@ -52,7 +52,7 @@ internal sealed class B2Harness
         Planner = new ChangePlanner(templates, new PasswordGenerator(), Time);
         Executor = new BatchExecutor(AuditLog, Time);
         PowerShell = new PowerShellHistory(new PowerShellExporter());
-        Coordinator = new ChangeCoordinator(Sessions, Planner, Executor, Dialogs, Notifications, Settings, Activities, Changes, Errors, Localizer, PowerShell);
+        Coordinator = new ChangeCoordinator(Sessions, Planner, Executor, Dialogs, Notifications, Settings, Activities, Changes, Errors, Localizer, Dispatcher, PowerShell);
         Services = new DialogServices(Sessions, Localizer, Dispatcher, Settings, Errors, Changes, Time, Dialogs, Files, Clipboard, Notifications, Coordinator, Activities, Lists, Regional);
         var csv = new CsvCodec();
         Engines = new BatchEngines(Planner, new CsvImportPlanner(Time), new RollbackPlanner(), new PowerShellExporter(), csv, templates, new BatchReportExporter(csv),

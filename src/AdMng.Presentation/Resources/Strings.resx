@@ -1247,7 +1247,7 @@ Profile: {2}</value>
     <value>The session stays connected to {0}.</value>
   </data>
   <data name="ChangeDc.RunningOperations" xml:space="preserve">
-    <value>Background operations are still running. They will be cancelled when the session moves to the other domain controller. Continue?</value>
+    <value>Background operations are still running. They will be stopped before the session moves to the other domain controller: nothing new is started and the objects being changed are finished first. Continue?</value>
   </data>
   <data name="ChangeDc.ProfileNotSaved" xml:space="preserve">
     <value>The domain controller was changed, but the connection profile could not be saved: {0}</value>
@@ -1786,9 +1786,6 @@ Profile: {2}</value>
   <data name="Shell.BoundAs" xml:space="preserve">
     <value>Signed in as: {0}</value>
   </data>
-  <data name="Shell.CloseWindowWhileRunning" xml:space="preserve">
-    <value>Background operations in the window of {0} are still running. Close the window anyway? Running operations will be interrupted.</value>
-  </data>
   <data name="Shell.CommandPalettePlaceholder" xml:space="preserve">
     <value>Type a command…</value>
   </data>
@@ -1802,7 +1799,7 @@ Profile: {2}</value>
     <value>Details</value>
   </data>
   <data name="Shell.DisconnectWhileRunning" xml:space="preserve">
-    <value>Background operations in {0} are still running. Disconnect anyway? Running operations will be interrupted.</value>
+    <value>Background operations in {0} are still running. Stop them and disconnect? Nothing new is started and the objects being changed are finished first; the disconnect waits until they have ended.</value>
   </data>
   <data name="Shell.WindowTitleConnection" xml:space="preserve">
     <value>{0} – {1} – {2}</value>
@@ -24417,6 +24414,12 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="Changes.Status.ReasonsNext" xml:space="preserve">
     <value>The reasons are in the list of results.</value>
   </data>
+  <data name="Changes.Status.CountsPartly" xml:space="preserve">
+    <value>{0} changed, {1:N0} of them only in part, failed: {2:N0}</value>
+  </data>
+  <data name="Changes.Status.SessionLogNext" xml:space="preserve">
+    <value>Every change and its result are in the session log.</value>
+  </data>
   <data name="Batch.Status.ReadingTargets" xml:space="preserve">
     <value>Reading the selected objects ({0:N0})…</value>
   </data>
@@ -25572,6 +25575,33 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   </data>
   <data name="CloseWork.Wait" xml:space="preserve">
     <value>{0}&#10;&#10;This operation cannot be stopped once it has started. Wait until it ends, then close the window.</value>
+  </data>
+  <data name="CloseWork.Changes" xml:space="preserve">
+    <value>{0}&#10;&#10;The window is executing changes.&#10;Stop and close: nothing new is started, the object being changed is finished first (none is left half done), the objects not reached stay unchanged, and the window closes when the execution has ended.&#10;Close and continue in the background: the window closes now and the execution goes on to its end. Its progress is in the list of background operations, its outcome is shown in a notification (failures in a dialog with their reasons), and every change goes to the session log.</value>
+  </data>
+  <data name="CloseWork.StopAndClose" xml:space="preserve">
+    <value>Stop and close</value>
+  </data>
+  <data name="CloseWork.CloseAndContinue" xml:space="preserve">
+    <value>Close and continue in the background</value>
+  </data>
+  <data name="CloseWork.KeepOpen" xml:space="preserve">
+    <value>Don't close</value>
+  </data>
+  <data name="CloseWork.NoBackground.Passwords" xml:space="preserve">
+    <value>It cannot continue in the background: the generated passwords exist only in this window.</value>
+  </data>
+  <data name="CloseWork.NoBackground.Caller" xml:space="preserve">
+    <value>It cannot continue in the background: the window this one was opened from is waiting for its result.</value>
+  </data>
+  <data name="CloseWork.NoBackground.FirstAccount" xml:space="preserve">
+    <value>It can continue in the background once the first account has been created: this window starts creating the other accounts.</value>
+  </data>
+  <data name="CloseWork.NoBackground.Connection" xml:space="preserve">
+    <value>Closing this window ends its connection, so nothing can continue in the background.</value>
+  </data>
+  <data name="CloseWork.BackgroundLine" xml:space="preserve">
+    <value>In the background: “{0}”, {1}</value>
   </data>
   <!-- V interface renewal (V2): end -->
   <!-- R1 PowerShell window: begin -->

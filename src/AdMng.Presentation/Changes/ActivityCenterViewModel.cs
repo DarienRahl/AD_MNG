@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using AdMng.Core.Batch;
 using AdMng.Presentation.Errors;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Session;
@@ -23,7 +24,11 @@ public readonly record struct ActivityRun(ActivityViewModel Activity, Task<Batch
 /// cancel, so the operator keeps working while a large batch runs. Activities keep only what they display (title,
 /// counters, error) - never the <see cref="BatchResult"/> - and finished ones are dropped when the session changes.
 /// </summary>
-public sealed partial class ActivityCenterViewModel : ObservableObject, IDisposable
+/// <remarks>
+/// It is also the work of the connection that no window follows (<see cref="IConnectionWork"/>, the owner's decision D-A):
+/// the connection window lists those activities in its close question and stops them before it closes.
+/// </remarks>
+public sealed partial class ActivityCenterViewModel : ObservableObject, IDisposable, IConnectionWork
 {
     private readonly IUiDispatcher _dispatcher;
     private readonly ILocalizer _localizer;
@@ -71,6 +76,15 @@ public sealed partial class ActivityCenterViewModel : ObservableObject, IDisposa
 
     /// <summary>Status bar text, e.g. "2 operations running".</summary>
     public string Summary => RunningCount == 0 ? string.Empty : _localizer.Format(L.Activity.Running, RunningCount);
+
+    /// <summary>
+    /// The running activities that no window follows: runs whose window closed with "Close and continue in the background",
+    /// changes of simple actions, computer account resets. The executions a window follows are that window's to ask about.
+    /// </summary>
+    public IReadOnlyList<IBackgroundWork> RunningInBackground => [.. Activities.Where(a => a.IsRunning && !a.HasWindow)];
+
+    /// <summary>The UI thread: the coordinator says how a run without its window ended in a later turn of it.</summary>
+    internal IUiDispatcher Dispatcher => _dispatcher;
 
     /// <summary>
     /// Starts a background batch execution. Must be called on the UI thread. The result is handed to the caller only
@@ -192,8 +206,24 @@ internal readonly record struct ActivityOutcome(int Executed, int Succeeded, int
 }
 
 /// <summary>One background operation.</summary>
-public sealed partial class ActivityViewModel : ObservableObject
+/// <remarks>
+/// <para><b>Its window</b> (the owner's decision D-A): an execution started by a window that follows it in its status line
+/// (<c>ExecutionStatus</c>) is <em>followed</em>; when it ends, its result goes back to that window, which says how it ended.
+/// A window that closes with "Close and continue in the background" lets the activity <em>leave</em> it: the coordinator
+/// then says how it ended (a notification, or a dialog with the failures). The two moments - the window leaves, the result
+/// comes back - may meet on different threads (the tests), so the state changes atomically and exactly one side wins. An
+/// activity that no window ever followed (a simple action, a property sheet, a computer account reset) is its caller's,
+/// which says how it ended itself.</para>
+/// </remarks>
+public sealed partial class ActivityViewModel : ObservableObject, IBackgroundWork
 {
+    // The window state: nobody followed it (its caller reports), a window follows it, it left its window (the connection
+    // reports), its result went back to the window that follows it.
+    private const int NoWindow = 0;
+    private const int Followed = 1;
+    private const int Left = 2;
+    private const int Returned = 3;
+
     private readonly CancellationTokenSource _cancellation = new();
     private readonly TaskCompletionSource _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly ILocalizer _localizer;
@@ -218,6 +248,78 @@ public sealed partial class ActivityViewModel : ObservableObject
     public Task Completion => _completion.Task;
 
     internal CancellationToken CancellationToken => _cancellation.Token;
+
+    private int _window;
+    private volatile bool _reportsByConnection;
+    private volatile bool _reportSuppressed;
+
+    /// <summary>True while a window follows this activity in its status line (until it left it or its result came back).</summary>
+    internal bool HasWindow => Volatile.Read(ref _window) == Followed;
+
+    /// <summary>True once the window that followed it closed and let it go on: the connection says how it ended.</summary>
+    internal bool HasLeftWindow => Volatile.Read(ref _window) == Left;
+
+    /// <summary>True once its result went back to the window that followed it.</summary>
+    internal bool HasReturnedToWindow => Volatile.Read(ref _window) == Returned;
+
+    /// <summary>
+    /// The window that closed after this run (Stop and close) asked the connection to say how it ended too - its line goes
+    /// with the window.
+    /// </summary>
+    internal bool ReportsByConnection => _reportsByConnection;
+
+    /// <summary>
+    /// Its connection closes: how it ended is not reported in a notification or a dialog (the activity list and the session
+    /// log go with the connection window). Set by <see cref="StopBecauseTheConnectionCloses"/>.
+    /// </summary>
+    internal bool IsReportSuppressed => _reportSuppressed;
+
+    /// <summary>One line of the close question of the connection window (<see cref="IBackgroundWork"/>).</summary>
+    string IBackgroundWork.Line => _localizer.Format(L.CloseWork.BackgroundLine, Title, StatusText);
+
+    /// <summary>True once Stop was asked for (<see cref="IBackgroundWork"/>).</summary>
+    bool IBackgroundWork.IsStopping => IsCancelling || _cancellation.IsCancellationRequested;
+
+    /// <summary>Completes when the activity ended (<see cref="IBackgroundWork"/>).</summary>
+    Task IBackgroundWork.Ended => Completion;
+
+    /// <summary>A window follows this activity from now on (a second call, or one after it left or came back, changes nothing).</summary>
+    internal void AttachWindow() => Interlocked.CompareExchange(ref _window, Followed, NoWindow);
+
+    /// <summary>
+    /// The window that follows it lets it go on without the window. False when its result already went back to the window
+    /// (or no window followed it); true when it left (also when it had left before).
+    /// </summary>
+    internal bool TryLeaveWindow()
+    {
+        var previous = Interlocked.CompareExchange(ref _window, Left, Followed);
+        return previous is Followed or Left;
+    }
+
+    /// <summary>
+    /// A part of a run whose window is gone (the next account of the bulk wizard after a forced close): it starts without
+    /// a window, and the connection says how it ended.
+    /// </summary>
+    internal void MarkLeftWithoutWindow() => Interlocked.CompareExchange(ref _window, Left, NoWindow);
+
+    /// <summary>
+    /// Its result goes back to its caller: true when the caller's code says how it ended - the window that follows it, or
+    /// the caller of a run no window followed - and false when it left its window (the connection says it).
+    /// </summary>
+    internal bool TryReturnToWindow() => Interlocked.CompareExchange(ref _window, Returned, Followed) != Left;
+
+    /// <summary>The connection says how it ended too (<see cref="ReportsByConnection"/>).</summary>
+    internal void MarkReportsByConnection() => _reportsByConnection = true;
+
+    /// <inheritdoc />
+    public void StopBecauseTheConnectionCloses()
+    {
+        _reportSuppressed = true;
+        if (CancelCommand.CanExecute(null))
+        {
+            CancelCommand.Execute(null);
+        }
+    }
 
     [ObservableProperty]
     public partial int Completed { get; private set; }
