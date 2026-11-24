@@ -838,7 +838,7 @@ has the picture.
 |---|---|
 | Commands in the catalog | 10: 6 `Get-` (`Get-AdmVersion` among them), `Search-`, `Out-`, `Open-`, `Export-`; no write verb |
 | Strings | 92 keys in each of `Strings.resx` and `Strings.pl.resx`: 75 `PowerShell.*`, 16 `PowerShellGrid.*`, 1 `Commands.PowerShell`; 91 constants in `L.PowerShell.cs` |
-| Engine tests (`AdMng.PowerShell.Tests`, Linux and Windows) | 239 at the end of R1: 237 passed, 2 skipped by design on each platform (Linux: the Windows-only execution-policy test and the opt-in 40 s cache proof; Windows: the Unix-only positive control and the same opt-in proof). 373 after the repair of 12.6: on Linux 370 passed and 3 skipped (the two above and the Windows-only authorization-manager test). 426 after 12.7 (+11 `RegexLimitTests`, +41 `HistoryPolicyTests` cases, +1 `EscapeTests`): on Linux 423 passed, the same 3 skipped. 461 after 12.8 (+25 `HistoryPolicyTests` cases, +4 `RegexLimitTests`, +4 `PowerShellSessionTests`, +2 `EscapeTests`): on Linux 458 passed, the same 3 skipped. 497 after 12.9 (+21 `HistoryPolicyTests` cases, +11 `InputGuardTests`, +3 `EscapeTests`, +1 `SyntaxTests`): on Linux 494 passed, the same 3 skipped |
+| Engine tests (`AdMng.PowerShell.Tests`, Linux and Windows) | 239 at the end of R1: 237 passed, 2 skipped by design on each platform (Linux: the Windows-only execution-policy test and the opt-in 40 s cache proof; Windows: the Unix-only positive control and the same opt-in proof). 373 after the repair of 12.6: on Linux 370 passed and 3 skipped (the two above and the Windows-only authorization-manager test). 426 after 12.7 (+11 `RegexLimitTests`, +41 `HistoryPolicyTests` cases, +1 `EscapeTests`): on Linux 423 passed, the same 3 skipped. 461 after 12.8 (+25 `HistoryPolicyTests` cases, +4 `RegexLimitTests`, +4 `PowerShellSessionTests`, +2 `EscapeTests`): on Linux 458 passed, the same 3 skipped. 497 after 12.9 (+21 `HistoryPolicyTests` cases, +11 `InputGuardTests`, +3 `EscapeTests`, +1 `SyntaxTests`): on Linux 494 passed, the same 3 skipped. 523 after 12.10. 611 after 12.11 (+45 `HistoryPolicyTests` cases, +8 `HostRoutingTests`, +7 `CommandTextTests`, +6 `PowerShellSessionTests`, +3 `CompletionTests`, the rest in the read and window command tests): on Linux 608 passed, the same 3 skipped |
 | Presentation tests (Linux) | 253 in `AdMng.Presentation.Tests.PowerShell` (one of them is part 5's test that the window's first lines name the guide), +1 in `ShellViewModelTests`; the project has 3,920. 256 after 12.8 (+3 `PowerShellWindowRunTests`: a run the engine left); the project has 3,952 |
 | Core tests (Linux) | 8 of `PowerShellGridTableTests`, 10 cases of `LdapFilter.Pattern` / `EqualBinary`; the project has 5,544 |
 | Lab tests against Samba | 5 (`PowerShellReadLabTests`), skipped without `ADMNG_TEST_LDAP_*`, run by the CI lab job |
@@ -1596,3 +1596,38 @@ Audit findings PS-02 (high), W-10 and the session's part of PS-12, each reproduc
   reason of the switch in six states, the start failure and the build without the engine before and after a switch to Polish, the
   clear and the exit line in the window's tests. Not seen on Windows: the switching state and the clear in the real window (the UI
   tests run there; the smoke test counts the window's own `Clear-Host`).
+
+### 12.11 After the audit of R1 - the defects of the engine, the window and the commands
+
+The remaining findings of the engine (PS-05, PS-06, PS-07, PS-09, PS-10, PS-13), of the window (W-04, W-06, W-08, W-09), of the
+commands (ps-commands-1 to -4 and -6 to -10) and TI-3, each reproduced before the change with the test that now pins it (the engine
+runs on Linux; the WPF part only compiles here):
+
+- **Engine.** A mandatory parameter that takes an array is asked for element by element, so a DN is one identity (PS-05, 4.3). The
+  pipeline is `script | Write-AdmWindowOutput | Out-Default` with the script's own error merge, so a console program at the end of a
+  command writes into the window, its error output too (PS-06, 4.4; proven with `/bin/echo` and `/bin/sh`, the same tests use
+  `cmd.exe /c` on Windows). The end item is kept on the run and yielded after the channel's last item (PS-07, 4.4); the channel is
+  bounded by 1,048,576 characters of text besides its 4096 items (PS-09, 4.4). A completion is stopped after 5 s, on Stop and by its
+  token, and left like a run when it cannot be stopped (PS-10, 4.1, 4.9). The history filter also refuses a literal that reaches a
+  secret through a variable of the line, a credential built from a literal and the passwords of console programs, and the echo of
+  a command masks every such literal with `***` (PS-13, 4.9; `IPowerShellSession.HideSecrets`).
+- **Window.** A growing line keeps a list and a `StringBuilder`, joins pieces of one colour, changes once per batch and ends at
+  8,000 characters (W-04, 6). A DN the formatting may have wrapped is no link: at the end of a full-width line, before a comma at the
+  end of a line, at the start of an indented line (W-06, 6; the document gets the session's width). A secret is never text of the
+  editor's model: the password box hands a `SecureString` to `AnswerSecretCommand` and is cleared on every change of mode (W-08). A
+  question keeps the command typed ahead and gives it back; the first empty answer to a choice asked over such text asks again
+  (W-09). The view model no longer makes up an end item (PS-07).
+- **Commands.** A failed read by identity is one error, not also "not found" (ps-commands-1). Every object carries its command's type
+  name first, so mixed results are one table (ps-commands-2, 12.2 decision 10). A cell shows three levels of lists (ps-commands-3: an
+  array that contains itself ended the program), and a null element is an empty row (-6). The "shown once" error is shown once per
+  command (-7). The messages of the commands are a resx pair of the engine (`Resources/CommandStrings(.pl).resx`, `AdmText`, the
+  culture of the session's host); the help, the engine's messages and the window's refusals of the session stay English (-8). The
+  converter and the member lookup use the program's rules (`AttributeValueRules`, `DistinguishedNameBatch`,
+  `DistinguishedName.KeyOf`) instead of copies (-9). Export-AdmList checks its path, `-Force` and `-Delimiter` before the pipeline is
+  read (-10). Columns with secrets - the clear-text LAPS password, a BitLocker recovery password, what the schema marks confidential -
+  leave the window by Export-AdmList and the grid's export only after the list export's question, and the grid's copy leaves them
+  out (-4). A stopped export of the grid ends its write between two rows, deletes the part written and says so (TI-3; the one
+  `File.Delete` the window's rule test allows).
+- **Not seen on Windows.** The capture of a console program's output in AdMng.exe (the engine still allocates its hidden console),
+  the password box and the type-ahead in the real window (a UI test covers them on Windows CI), the Polish satellite of the engine's
+  resources in the single-file program.
