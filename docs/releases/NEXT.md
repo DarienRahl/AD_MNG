@@ -142,6 +142,9 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   trybu zaufanego zmienił poza sesją – wątek albo licznik czasu, który uruchomił, składowa dodana przez `Add-Member` do typu .NET
   całego procesu (np. `[string]`) – zostaje do zamknięcia programu, także w innych oknach. Blok skryptu, który zostawiony przez
   taki kod licznik czasu wywoła po zamknięciu okna, kończy się błędem, ale nie zamyka już całego programu z pozostałymi oknami.
+  Zadanie `ForEach-Object -Parallel -AsJob`, które taki kod zostawi w sesji, okno kończy razem z poleceniem bez ryzyka dla
+  programu: zatrzymane w chwili, gdy silnik otwierał jeszcze runspace dla jego zadania podrzędnego, mogło wcześniej zamknąć cały
+  program.
   Wyłączony przełącznik zawsze podaje powód: trwa polecenie, PowerShell się uruchamia, wyłącza tryb zaufany albo nie dał się
   uruchomić, sesja połączenia się skończyła albo system wymusza ConstrainedLanguage (WDAC, AppLocker) – wtedy okno w nim
   zostaje. Wydanie bez silnika PowerShella mówi, żeby użyć standardowego pakietu, a powód, dla którego PowerShella nie można

@@ -13,5 +13,9 @@
     <ProjectReference Include="..\..\src\AdMng.PowerShell\AdMng.PowerShell.csproj" />
     <ProjectReference Include="..\AdMng.Testing\AdMng.Testing.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- parallel-job-children: a session clock that the probe moves on. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
   <Import Project="..\..\src\AdMng.PowerShell\PowerShellEngineConsumer.props" />
 </Project>

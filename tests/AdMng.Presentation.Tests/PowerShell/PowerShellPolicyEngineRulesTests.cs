@@ -57,7 +57,7 @@ public sealed class PowerShellPolicyEngineRulesTests
 
         // D-B: no policy and no file sets it - the engine's default, which still logs the script blocks it finds suspicious
         // (ScriptBlockLoggingTests). The window shows no note then: the note says what the policies record and makes no sentence
-        // of that default (docs/dev/r1-powershell-window.md 12.12); the guide, chapter 8, says it.
+        // of that default (docs/dev/r1-powershell-window.md 12.13); the guide, chapter 8, says it.
         Assert.Equal(PowerShellScriptBlockLoggingPolicy.NotSet, policies.ScriptBlockLogging);
         Assert.Null(PowerShellPolicyNotes.For(policies, new ResxLocalizer(CultureInfo.GetCultureInfo("en-US"))));
     }

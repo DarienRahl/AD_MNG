@@ -1,3 +1,6 @@
+using System.Diagnostics;
+using System.Management.Automation;
+using System.Text.RegularExpressions;
 using AdMng.Core.PowerShell;
 using AdMng.PowerShell.Guards;
 using AdMng.Testing;
@@ -127,6 +130,109 @@ public sealed class EscapeTests : IDisposable
         await Task.Delay(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
 
         Assert.False(File.Exists(file), "The job kept running after the window's session was disposed.");
+    }
+
+    /// <summary>
+    /// CI run 45315307313 (the test run's "catastrophic failure": a NullReferenceException in <c>InitialSessionState.BindRunspace</c> on a
+    /// pool thread, in 2 of 49 runs of this suite under load): the window ended a job like the two above while PowerShell was still
+    /// opening the runspace of its child - on a pool thread of the engine's own, where nothing catches an exception - and stopping and
+    /// disposing the job closed that runspace under it, which ends the process; on the workstation every window of the program. In a child
+    /// process set up as the program is, the probe holds the runspace at that point (<c>ParallelRunspaceGate</c>: marked Opened, its state
+    /// not bound yet) while the window ends the job - when its command ends, and when the window closes while its command waits. The window
+    /// leaves the job alone until its child runs, the process survives, and the job still ends without writing.
+    /// </summary>
+    [Fact]
+    public async Task A_job_whose_runspace_is_still_opening_is_ended_without_ending_the_process()
+    {
+        using var folder = new TempFolder();
+
+        var result = await ChildProcess.RunAsync("parallel-job-open", folder.Home, folder.ReportPath);
+
+        Assert.True(result.ExitCode == 0, "The process ended:\n" + result.Output + "\n" + result.Report);
+        foreach (var name in new[] { "command-ended", "window-closed" })
+        {
+            Assert.Contains(name + " while-opening=Running\n", result.Report, StringComparison.Ordinal);
+            Assert.Contains(name + " ended=True\n" + name + " written=False\n", result.Report, StringComparison.Ordinal);
+        }
+
+        Assert.EndsWith("survived\ndone\n", result.Report, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The race above with several children, where a wait for a quiet moment is not enough (round 2 of CI run 45315307313): the engine's
+    /// work item opens the runspace of a later child while an earlier one runs, and a child that ends frees its place, after which the
+    /// work item opens the next runspace - also at the moment the window stops the job. In a child process set up as the program, with a
+    /// session clock that has always run on: the gate holds the second child's runspace when the command ends (<c>later-child</c>), and
+    /// with a throttle limit of 1 the first child ends by itself as the window stops the job, the gate held ready for the second child's
+    /// runspace (<c>child-ends-at-stop</c>). The window stops the job only once the work item has handed out its last child, and lets it
+    /// start none that was still waiting: the process survives, no runspace opens during the stop, nothing is written, and the children
+    /// that had not started never do.
+    /// </summary>
+    [Fact]
+    public async Task A_job_of_several_children_is_ended_without_a_runspace_opening_under_its_stop()
+    {
+        using var folder = new TempFolder();
+
+        var result = await ChildProcess.RunAsync("parallel-job-children", folder.Home, folder.ReportPath);
+
+        Assert.True(result.ExitCode == 0, "The process ended:\n" + result.Output + "\n" + result.Report);
+
+        // Each failure shows the whole report: what the probe saw in one case explains the other.
+        void Has(string pattern) => Assert.True(Regex.IsMatch(result.Report, pattern), "Not in the report: " + pattern + "\n" + result.Report);
+        Has("(?m)^later-child while-opening=Running$");
+        Has("(?m)^child-ends-at-stop at-stop=pool closed$");
+        foreach (var name in new[] { "later-child", "child-ends-at-stop" })
+        {
+            Has("(?m)^" + name + " ended=True\n" + name + " written=False$");
+        }
+
+        // The two children that ran are stopped (Failed when the stop met the load of Start-Sleep's module); the third never started.
+        Has("(?m)^later-child children=(Stopped|Failed),(Stopped|Failed),NotStarted$");
+        Has("(?m)^child-ends-at-stop children=Completed,NotStarted,NotStarted$");
+        Has("survived\ndone\n\\z");
+    }
+
+    /// <summary>
+    /// What the window's way of ending a parallel job needs from the engine: the pool of the job, its two events and whether it is open
+    /// (<c>ParallelJobs</c>, private members of PowerShell 7.6.10). When an update of the engine changes them, this fails - without them
+    /// the window waits until every child of such a job has started before it stops the job.
+    /// </summary>
+    [Fact]
+    public void The_engine_has_what_the_window_needs_to_end_a_parallel_job() => Assert.True(ParallelJobs.PoolMembersFound);
+
+    /// <summary>
+    /// Three children, each in a runspace of its own: the job ends with its command, every child that had started is stopped, one that
+    /// had not never starts, and nothing is written.
+    /// </summary>
+    [Fact]
+    public async Task A_job_of_several_children_ends_with_its_command()
+    {
+        await using var session = await SessionAsync(PowerShellLanguageMode.Full);
+
+        var job = await StartParallelJobAsync(session, "1..3", string.Empty);
+        await WaitForAsync(() => Finished(job.JobStateInfo.State), "The job did not end: " + job.JobStateInfo.State);
+
+        Assert.True(job.JobStateInfo.State is JobState.Stopped or JobState.Failed, job.JobStateInfo.State.ToString());
+        Assert.All(job.ChildJobs, child => Assert.True(child.JobStateInfo.State is JobState.Stopped or JobState.Failed or JobState.NotStarted, child.JobStateInfo.State.ToString()));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(_folder.FullName));
+    }
+
+    /// <summary>
+    /// With a throttle limit that holds children back the window does not wait for a place to free up: the job ends with its command,
+    /// the child that ran is stopped, and the ones that waited for its place never start (the session's clock does not matter).
+    /// </summary>
+    [Fact]
+    public async Task A_throttled_job_ends_with_its_command_and_its_waiting_children_never_start()
+    {
+        await using var session = await SessionAsync(PowerShellLanguageMode.Full);
+
+        var job = await StartParallelJobAsync(session, "1..3", "-ThrottleLimit 1");
+        await WaitForAsync(() => Finished(job.JobStateInfo.State), "The job did not end: " + job.JobStateInfo.State);
+
+        Assert.True(job.JobStateInfo.State is JobState.Stopped or JobState.Failed, job.JobStateInfo.State.ToString());
+        Assert.True(job.ChildJobs[0].JobStateInfo.State is JobState.Stopped or JobState.Failed or JobState.NotStarted, job.ChildJobs[0].JobStateInfo.State.ToString());
+        Assert.Equal([JobState.NotStarted, JobState.NotStarted], job.ChildJobs.Skip(1).Select(child => child.JobStateInfo.State));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(_folder.FullName));
     }
 
     /// <summary>PS-03: <c>using module</c> loaded a script module past the Import-Module guard (out-more.txt).</summary>
@@ -388,7 +494,7 @@ public sealed class EscapeTests : IDisposable
         using var window = new TempFolder();
 
         var results = await Task.WhenAll(
-            ChildProcess.RunAsync("leftover-callback-control", control.Home, control.ReportPath),
+            ChildProcess.RunAsync("leftover-callback-control", control.Home, control.ReportPath, crashDumps: false),
             ChildProcess.RunAsync("leftover-callback", window.Home, window.ReportPath));
 
         Assert.True(results[0].ExitCode != 0, "The control survived, so the case shows nothing:\n" + results[0].Output);
@@ -397,6 +503,38 @@ public sealed class EscapeTests : IDisposable
         Assert.True(results[1].ExitCode == 0, "The process ended with the left script block:\n" + results[1].Output);
         Assert.Contains("survived\ndone", results[1].Report, StringComparison.Ordinal);
         Assert.Equal(string.Empty, string.Join('\n', window.Files()));
+    }
+
+    /// <summary>
+    /// The control above crashes on purpose, so it starts without the runtime's crash dump and crash report settings that the CI sets for
+    /// the test run (.github/workflows/ci.yml, the lab job): with them, every run left a 25 MB dump and a crash report of the probe for the
+    /// "Crash reports" step, beside - and hiding - a crash that is not meant. The probe reports the settings it got; the child that is not
+    /// meant to crash keeps them.
+    /// </summary>
+    [Fact]
+    public async Task A_child_that_is_meant_to_crash_gets_no_crash_dump_or_crash_report_settings()
+    {
+        var ci = new Dictionary<string, string?>
+        {
+            ["DOTNET_DbgEnableMiniDump"] = "1",
+            ["DOTNET_DbgMiniDumpType"] = "1",
+            ["DOTNET_DbgMiniDumpName"] = Path.Combine(_folder.FullName, "admng-crash-%p.dmp"),
+            ["DOTNET_EnableCrashReport"] = "1",
+            ["COMPlus_DbgEnableMiniDump"] = "1",
+        };
+        using var meant = new TempFolder();
+        using var kept = new TempFolder();
+
+        var results = await Task.WhenAll(
+            ChildProcess.RunAsync("environment", meant.Home, meant.ReportPath, ci, crashDumps: false),
+            ChildProcess.RunAsync("environment", kept.Home, kept.ReportPath, ci));
+
+        Assert.True(results[0].ExitCode == 0, results[0].Output);
+        Assert.Equal("done\n", results[0].Report);
+        foreach (var (name, value) in ci)
+        {
+            Assert.Contains(name + "=" + value + "\n", results[1].Report, StringComparison.Ordinal);
+        }
     }
 
     /// <summary>True only for the error of a script block called without a runspace; every other exception still ends the process.</summary>
@@ -581,8 +719,41 @@ public sealed class EscapeTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// Starts a parallel job of the trusted mode whose children sleep 30 s and then write a file each; returns the job once the command
+    /// ended. A child stops on its first error: a stop that lands while the engine still loads the module of <c>Start-Sleep</c> (the
+    /// child's first command) ends that load with a CommandNotFoundException, a statement-terminating error after which the engine would
+    /// run the next statement - the .NET write - before the stop ends the script (measured: 11 of 60 rounds of three children stopped at
+    /// once). The job script of the audit (<see cref="ParallelJobScript"/>) stops on errors for the same reason.
+    /// </summary>
+    private async Task<Job> StartParallelJobAsync(PowerShellSession session, string input, string parameters)
+    {
+        var script = input + " | & ([System.Management.Automation.CmdletInfo]::new('ForEach-Object', [Microsoft.PowerShell.Commands.ForEachObjectCommand])) "
+            + parameters + " -AsJob -Parallel { $ErrorActionPreference = 'Stop'; Start-Sleep -Seconds 30; [System.IO.File]::WriteAllText([System.IO.Path]::Combine('"
+            + _folder.FullName + "', \"job-$_.txt\"), 'job') }";
+        var items = new List<PowerShellOutputItem>();
+        await foreach (var item in session.RunObjectsAsync(script, TestContext.Current.CancellationToken))
+        {
+            items.Add(item);
+        }
+
+        return Assert.Single(items.OfType<PowerShellObjectItem>().Select(i => (i.Value as PSObject)?.BaseObject).OfType<Job>());
+    }
+
+    private static bool Finished(JobState state) => state is JobState.Completed or JobState.Failed or JobState.Stopped;
+
+    private static async Task WaitForAsync(Func<bool> done, string failure)
+    {
+        var watch = Stopwatch.StartNew();
+        while (!done())
+        {
+            Assert.True(watch.Elapsed < TimeSpan.FromSeconds(30), failure);
+            await Task.Delay(20, TestContext.Current.CancellationToken);
+        }
+    }
+
     private static string ParallelJobScript(string file) =>
-        "$null = & ([System.Management.Automation.CmdletInfo]::new('ForEach-Object', [Microsoft.PowerShell.Commands.ForEachObjectCommand])) -InputObject 1 -AsJob -Parallel { Start-Sleep -Milliseconds 1500; [System.IO.File]::WriteAllText('"
+        "$null = & ([System.Management.Automation.CmdletInfo]::new('ForEach-Object', [Microsoft.PowerShell.Commands.ForEachObjectCommand])) -InputObject 1 -AsJob -Parallel { $ErrorActionPreference = 'Stop'; Start-Sleep -Milliseconds 1500; [System.IO.File]::WriteAllText('"
         + file + "', 'job') }";
 
     private static async Task<PowerShellSession> SessionAsync(PowerShellLanguageMode mode, FakeWindowContext? context = null)
