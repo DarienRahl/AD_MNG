@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Management.Automation;
 using System.Management.Automation.Runspaces;
 using AdMng.Core.PowerShell;
 using AdMng.PowerShell.Commands;
@@ -17,7 +18,8 @@ namespace AdMng.PowerShell.Probe;
 /// run the session left: the process still ends), <c>leftover-callback</c> and <c>leftover-callback-control</c> (a script block
 /// that trusted-mode code left behind runs after its window closed: the process survives it, the control crashes), <c>deep-input:&lt;case&gt;</c>
 /// (a line nested deeper than the engine can walk, checked, highlighted, completed and run from a thread with the stack of the window's UI
-/// thread: the process survives it and the window runs the next command).
+/// thread: the process survives it and the window runs the next command), <c>parallel-job-open</c> (the window ends a parallel job of the
+/// trusted mode while the engine still opens its child's runspace: the process survives it).
 /// </summary>
 internal static class Program
 {
@@ -25,7 +27,7 @@ internal static class Program
     {
         if (args.Length != 2)
         {
-            await Console.Error.WriteLineAsync("usage: probe <files|control|cache-control|cache-window|left-run|leftover-callback|leftover-callback-control|deep-input:<case>> <report file>");
+            await Console.Error.WriteLineAsync("usage: probe <files|control|cache-control|cache-window|left-run|leftover-callback|leftover-callback-control|deep-input:<case>|parallel-job-open> <report file>");
             return 2;
         }
 
@@ -60,6 +62,9 @@ internal static class Program
                     break;
                 case var deep when deep.StartsWith("deep-input:", StringComparison.Ordinal):
                     DeepInput(deep["deep-input:".Length..], report);
+                    break;
+                case "parallel-job-open":
+                    await ParallelJobOpenAsync(report);
                     break;
                 default:
                     await Console.Error.WriteLineAsync("unknown mode " + args[0]);
@@ -197,6 +202,84 @@ internal static class Program
 
         await Task.Delay(TimeSpan.FromSeconds(4));
         return "survived\ndone\n";
+    }
+
+    /// <summary>
+    /// CI run 45315307313: a ForEach-Object -Parallel job of the trusted mode was ended by the window - when its command ended, and when
+    /// the window closed while its command waited - while the engine still opened the runspace of its child on a pool thread of its own;
+    /// closing that runspace there made <c>InitialSessionState.BindRunspace</c> fail with a NullReferenceException that nothing catches,
+    /// which ends the process (in the test run: xUnit's "catastrophic failure"). The gate holds the runspace at that point for each case:
+    /// the probe notes the job's state once the window has ended the command (and, in the second case, the session), lets the runspace
+    /// open, and notes whether the job then ended and whether it wrote its file (its script stops on its first error, as the job scripts of
+    /// EscapeTests do: a stop during the load of Start-Sleep's module would let the write run). Set up as the program is
+    /// (src/AdMng.App/ProcessStart.cs).
+    /// Each line goes to the report as soon as it is known, so a crash shows how far the probe got.
+    /// </summary>
+    private static async Task ParallelJobOpenAsync(string report)
+    {
+        PowerShellEnvironment.LimitRegularExpressions();
+        PowerShellEnvironment.ContainLeftoverScriptBlocks();
+        PowerShellEnvironment.Apply();
+        await File.WriteAllTextAsync(report, string.Empty);
+        using var gate = ParallelRunspaceGate.Install();
+        foreach (var closeWindow in new[] { false, true })
+        {
+            var name = closeWindow ? "window-closed" : "command-ended";
+            var file = Path.Combine(Environment.CurrentDirectory, name + ".txt");
+            gate.Arm();
+            var session = await CreateAsync();
+            await session.SetLanguageModeAsync(PowerShellLanguageMode.Full, CancellationToken.None);
+            var script = "$j = & ([System.Management.Automation.CmdletInfo]::new('ForEach-Object', [Microsoft.PowerShell.Commands.ForEachObjectCommand])) "
+                + "-InputObject 1 -AsJob -Parallel { $ErrorActionPreference = 'Stop'; Start-Sleep -Milliseconds 1500; [System.IO.File]::WriteAllText('" + file.Replace("'", "''", StringComparison.Ordinal) + "', 'job') }; "
+                + "[AdMng.PowerShell.Probe.ParallelRunspaceGate]::WaitHeld(); $j"
+                + (closeWindow ? "; Read-Host 'waiting'" : string.Empty);
+            Job? job = null;
+            await foreach (var item in session.RunObjectsAsync(script))
+            {
+                switch (item)
+                {
+                    case PowerShellObjectItem { Value: PSObject { BaseObject: Job started } }:
+                        job = started;
+                        break;
+                    case PowerShellPromptItem:
+                        await session.DisposeAsync();
+                        break;
+                    case PowerShellTextItem { Stream: PowerShellStream.Error } error:
+                        await File.AppendAllTextAsync(report, name + " error=" + error.Text);
+                        break;
+                }
+            }
+
+            if (job is null)
+            {
+                await File.AppendAllTextAsync(report, name + " job=none\n");
+                gate.Release();
+                await session.DisposeAsync();
+                continue;
+            }
+
+            // The window ends the job on a pool thread once the run (and, in the second case, the session) has ended.
+            var whileOpening = await WaitForJobAsync(job, state => state != JobState.Running, TimeSpan.FromSeconds(2));
+            await File.AppendAllTextAsync(report, name + " while-opening=" + whileOpening + "\n");
+            gate.Release();
+            var end = await WaitForJobAsync(job, state => state is JobState.Completed or JobState.Failed or JobState.Stopped, TimeSpan.FromSeconds(30));
+            await File.AppendAllTextAsync(report, name + " ended=" + (end is JobState.Completed or JobState.Failed or JobState.Stopped) + "\n");
+            await File.AppendAllTextAsync(report, name + " written=" + File.Exists(file) + "\n");
+            await session.DisposeAsync();
+        }
+
+        await File.AppendAllTextAsync(report, "survived\ndone\n");
+    }
+
+    private static async Task<JobState> WaitForJobAsync(Job job, Func<JobState, bool> done, TimeSpan timeout)
+    {
+        var watch = Stopwatch.StartNew();
+        while (!done(job.JobStateInfo.State) && watch.Elapsed < timeout)
+        {
+            await Task.Delay(20);
+        }
+
+        return job.JobStateInfo.State;
     }
 
     /// <summary>
