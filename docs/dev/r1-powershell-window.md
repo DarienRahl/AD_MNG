@@ -555,7 +555,13 @@ This is the plan; what was built is section 12.3 and it wins (the policy types a
   and the view rebuilt every inline per piece; a growing line now keeps a list and a `StringBuilder`, a piece of the same colours
   joins the last run, and the line tells its change once per batch - 100,000 pieces take well under 3 s), and the DN recognition: a
   `DistinguishedName` is recognised in a text run with `DistinguishedName.TryParse` over candidates found by a regular
-  expression anchored on `CN=`/`OU=`/`DC=`, and becomes a link (`OpenObjectCommand`).
+  expression anchored on `CN=`/`OU=`/`DC=`, and becomes a link (`OpenObjectCommand`). A name the formatting may have wrapped is
+  no link (audit W-06; `Format-List` breaks a value at the width at any character, and the first line then often ends in a valid
+  but cut name, `...,DC=contoso,DC=te` or `...,DC=contoso,`, while the next starts with the rest): one that ends a line as long
+  as the formatting writes (`Width` - 1; the view model gives the document the session's width at the start of a run), one
+  followed by a comma at the end of the line, and one that starts an indented line. The formats cannot keep a list value in one
+  line (the engine's list writer wraps it; a table cuts with `...`), so the guide points to `Select-Object -ExpandProperty
+  DistinguishedName`, whose strings are written unwrapped.
 - **A place for the pending plan** (R2): a `PendingPlanState` property of the view model with its own area in the window
   (collapsed, empty) so that R2 adds the panel without changing the layout.
 - the policy note: `PowerShellPolicies` from `PowerShellPolicyReader` over an `IPowerShellPolicySource` (the raw reads; the Windows implementation is in `AdMng.App`, the fake in the tests) and

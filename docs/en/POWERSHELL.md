@@ -173,10 +173,12 @@ attributes under their LDAP names (`sAMAccountName`, `mail`, `memberOf`). `Get-M
   (chapter 8).
 
 **The table and the distinguished name.** The default tables end with the `DistinguishedName` column, which gets the rest
-of the line. A name longer than the line is cut by the engine with `…` (*Format-List*, a wider window or `Select-Object
--ExpandProperty DistinguishedName` show it whole). A name that is whole in the output is a **link**: click it to open the
-object in the program (*Open in the program*), right-click for *Copy the distinguished name*; **Enter** on a selected line opens
-the first name of that line. A cut name is not a link.
+of the line. A name longer than the line is cut by the engine with `…`. A wider window or `Select-Object -ExpandProperty
+DistinguishedName` show it whole in one line; *Format-List* shows it whole too, but breaks it at the width of the window at any
+character. A name that is whole in the output is a **link**: click it to open the object in the program (*Open in the
+program*), right-click for *Copy the distinguished name*; **Enter** on a selected line opens the first name of that line. A cut
+name is not a link, and neither is a name the formatting may have broken: one that ends a line of the full width or with a comma
+at the end of the line, and one that starts an indented continuation line – each would open another object or none.
 
 **Many results.** The results arrive as they are read: 100,000 objects do not block the window, and **Stop** (or **Ctrl+C**)
 ends the read at the domain controller. `Select-Object -First 50` stops the read after 50 objects. The output area keeps the

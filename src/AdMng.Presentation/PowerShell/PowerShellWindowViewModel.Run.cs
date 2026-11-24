@@ -73,6 +73,9 @@ public sealed partial class PowerShellWindowViewModel
             session.OutputWidth = _outputWidth;
         }
 
+        // A name the engine may have wrapped at this width is no link (audit W-06).
+        Output.Width = session.OutputWidth;
+
         _firstError = null;
         _end = null;
         _linesAtClear = -1;

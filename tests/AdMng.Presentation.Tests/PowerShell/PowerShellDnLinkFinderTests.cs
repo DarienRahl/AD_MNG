@@ -68,6 +68,40 @@ public sealed class PowerShellDnLinkFinderTests
         Assert.Empty(PowerShellDnLinkFinder.Find(text));
     }
 
+    /// <summary>
+    /// Audit W-06: <c>Format-List</c> wraps a value at the width of the output at any character, and the first line then often ends in a
+    /// name that is valid but cut (<c>…,DC=contoso,DC=te</c>, <c>…,DC=contoso,</c>), while the next line starts with the rest
+    /// (<c>DC=test</c>, <c>OU=Firma,DC=contoso,DC=test</c>). None of these is a link: each would open another object or none. The lines
+    /// are those of the real engine at a width of 120 (lines of 119 characters).
+    /// </summary>
+    [Theory]
+    [InlineData("DistinguishedNameOfTheObjectInTheDirectory : CN=Małgorzata Wójcik,OU=Księgowość,OU=Pracownicy,OU=Firma,DC=contoso,DC=te")]
+    [InlineData("DistinguishedNameOfTheObjectInTheDirectoryX : CN=Małgorzata Wójcik,OU=Księgowość,OU=Pracownicy,OU=Firma,DC=contoso,DC=t")]
+    [InlineData("DistinguishedNameOfTheObjectInTheDirectoryXXXXXXXXXXX : CN=Małgorzata Wójcik,OU=Księgowość,OU=Pracownicy,OU=Firma,DC=co")]
+    [InlineData("DistinguishedNameOfTheObjectInTheDirectoryXX : CN=Małgorzata Wójcik,OU=Księgowość,OU=Pracownicy,OU=Firma,DC=contoso,")]
+    [InlineData("member : {CN=Łukasz Wiśniewski,OU=IT,OU=Pracownicy,OU=Firma,DC=contoso,")]
+    [InlineData("                                             DC=test")]
+    [InlineData("                                             st")]
+    [InlineData("         OU=Firma,DC=contoso,DC=test}")]
+    [InlineData("                                             DC=contoso,DC=test")]
+    public void ANameThatFormatListWrapped_IsNoLink(string line)
+    {
+        Assert.Empty(PowerShellDnLinkFinder.Find(line, width: 120));
+    }
+
+    [Fact]
+    public void ANameThatEndsWithTheLine_IsStillALink_WhenTheLineIsShorterThanTheWidth_AndOtherNamesOfAWrappedLineStay()
+    {
+        Assert.Equal(["CN=Jan,OU=IT,DC=contoso,DC=test"], Found("DistinguishedName : CN=Jan,OU=IT,DC=contoso,DC=test"));
+        Assert.Equal(
+            ["CN=Jan Kowalski,OU=IT,OU=Pracownicy,OU=Firma,DC=contoso,DC=test"],
+            [.. PowerShellDnLinkFinder.Find("member : {CN=Jan Kowalski,OU=IT,OU=Pracownicy,OU=Firma,DC=contoso,DC=test, CN=Łukasz Wiśniewski,OU=IT,OU=Pracownicy,OU=", width: 120).Select(span => span.DistinguishedName)]);
+        Assert.Equal(
+            ["CN=Jan Kowalski,OU=IT,DC=contoso,DC=test"],
+            [.. PowerShellDnLinkFinder.Find("member : {CN=Jan Kowalski,OU=IT,DC=contoso,DC=test, CN=Łukasz Wiśniewski,OU=IT,DC=contoso,", width: 120).Select(span => span.DistinguishedName)]);
+        Assert.Equal(["DC=contoso,DC=test"], Found("DC=contoso,DC=test"));
+    }
+
     [Theory]
     [InlineData("xCN=Jan,DC=a,DC=b")]
     [InlineData(@"C:\CN=Jan,DC=a,DC=b")]

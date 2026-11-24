@@ -83,7 +83,8 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   (`Write-Host -NoNewline`) nie spowalnia go.
 - **Co jest w oknie.** Wiersz stanu na górze mówi, co robi polecenie, i ma **Stop**; błędy i ostrzeżenia mają ikonę
   (nie tylko kolor); nazwa wyróżniająca w wyniku jest odnośnikiem (*Otwórz w programie*, prawy przycisk: *Kopiuj nazwę
-  wyróżniającą*, Enter otwiera pierwszą nazwę zaznaczonego wiersza). **Tab** uzupełnia (polecenia, parametry, zmienne, nazwy
+  wyróżniającą*, Enter otwiera pierwszą nazwę zaznaczonego wiersza) – z wyjątkiem nazwy uciętej albo takiej, którą `Format-List`
+  mógł złamać na szerokości okna, bo ta otworzyłaby inny obiekt. **Tab** uzupełnia (polecenia, parametry, zmienne, nazwy
   atrybutów ze schematu i kontenery, które okno już zna – bez odczytu z katalogu przy każdym znaku; nie ma uzupełniania nazw
   plików; uzupełnianie trwa najwyżej 5 sekund, więc zapętlona własna funkcja `TabExpansion2` nie blokuje okna), **Enter**
   uruchamia kompletne polecenie albo dodaje wiersz, gdy jest niedokończone (otwarty cudzysłów, nawias, ukośnik

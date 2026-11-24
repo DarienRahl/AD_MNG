@@ -174,10 +174,12 @@ grupy mają `GroupScope`, `GroupCategory` i `GroupTypeFlags`. Dalej są atrybuty
   (rozdział 8).
 
 **Tabela i nazwa wyróżniająca.** Domyślne tabele kończą się kolumną `DistinguishedName`, która dostaje resztę wiersza. Nazwę
-dłuższą niż wiersz silnik ucina znakiem `…` (*Format-List*, szersze okno albo `Select-Object -ExpandProperty
-DistinguishedName` pokazują ją w całości). Nazwa, która w wynikach jest cała, jest **odnośnikiem**: kliknij ją, aby otworzyć
-obiekt w programie (*Otwórz w programie*), prawym przyciskiem – *Kopiuj nazwę wyróżniającą*; **Enter** na zaznaczonym wierszu
-otwiera pierwszą nazwę tego wiersza. Ucięta nazwa nie jest odnośnikiem.
+dłuższą niż wiersz silnik ucina znakiem `…`. Szersze okno albo `Select-Object -ExpandProperty DistinguishedName` pokazują ją
+w całości w jednym wierszu; *Format-List* też pokazuje ją całą, ale łamie ją na szerokości okna w dowolnym miejscu. Nazwa, która
+w wynikach jest cała, jest **odnośnikiem**: kliknij ją, aby otworzyć obiekt w programie (*Otwórz w programie*), prawym
+przyciskiem – *Kopiuj nazwę wyróżniającą*; **Enter** na zaznaczonym wierszu otwiera pierwszą nazwę tego wiersza. Ucięta nazwa
+nie jest odnośnikiem, tak samo jak nazwa, którą formatowanie mogło złamać: kończąca wiersz o pełnej szerokości albo przecinkiem
+na końcu wiersza i zaczynająca wcięty wiersz kontynuacji – każda z nich otworzyłaby inny obiekt albo żaden.
 
 **Wiele wyników.** Wyniki przychodzą w miarę czytania: 100 000 obiektów nie blokuje okna, a **Zatrzymaj** (albo **Ctrl+C**)
 kończy odczyt na kontrolerze domeny. `Select-Object -First 50` kończy odczyt po 50 obiektach. Obszar wyników zachowuje ostatnie

@@ -179,6 +179,12 @@ public sealed class PowerShellOutputDocument : ObservableObject
     private long _dropped;
     private long _written;
 
+    /// <summary>
+    /// The width the engine formats the running command with (the window sets it with the session's): a distinguished name that may be
+    /// wrapped at it is no link (<see cref="PowerShellDnLinkFinder.Find(string?, int)"/>, audit W-06). 0 when unknown.
+    /// </summary>
+    public int Width { get; set; }
+
     /// <summary>The lines, oldest first (a list the view binds to).</summary>
     public BulkObservableCollection<PowerShellOutputLine> Lines => _lines;
 
@@ -306,7 +312,7 @@ public sealed class PowerShellOutputDocument : ObservableObject
     /// <summary>Puts a piece of text in the open line of the same stream, or starts a line.</summary>
     private void Append(PowerShellLineKind kind, PowerShellStream stream, string piece, ConsoleColor? foreground, ConsoleColor? background, bool endsLine, List<PowerShellOutputLine> added)
     {
-        var runs = RunsOf(kind, piece, foreground, background);
+        var runs = RunsOf(piece, foreground, background, Width);
         if (_open is { } open && _openStream == stream && open.Kind == kind)
         {
             if (runs.Count > 0)
@@ -357,7 +363,7 @@ public sealed class PowerShellOutputDocument : ObservableObject
         }
     }
 
-    private static List<PowerShellTextRun> RunsOf(PowerShellLineKind kind, string piece, ConsoleColor? foreground, ConsoleColor? background)
+    private static List<PowerShellTextRun> RunsOf(string piece, ConsoleColor? foreground, ConsoleColor? background, int width)
     {
         var runs = new List<PowerShellTextRun>();
         if (piece.Length == 0)
@@ -366,7 +372,7 @@ public sealed class PowerShellOutputDocument : ObservableObject
         }
 
         var position = 0;
-        foreach (var span in PowerShellDnLinkFinder.Find(piece))
+        foreach (var span in PowerShellDnLinkFinder.Find(piece, width))
         {
             if (span.Start > position)
             {

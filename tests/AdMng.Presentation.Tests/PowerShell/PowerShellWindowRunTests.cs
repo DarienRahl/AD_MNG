@@ -132,6 +132,26 @@ public sealed class PowerShellWindowRunTests
         Assert.Equal([Dn], harness.Directory.Dialogs.PropertiesShown);
     }
 
+    /// <summary>Audit W-06: a name that ends a line as wide as the engine's formatting may be cut there; the window knows the width it ran with.</summary>
+    [Fact]
+    public async Task ANameThatEndsALineAsWideAsTheFormatting_IsNoLink_ButTheSameNameInAShorterLineIs()
+    {
+        var harness = await PowerShellHarness.CreateAsync();
+        using var window = await harness.OpenAsync();
+        const string Dn = "CN=Łukasz Kowalski,OU=Sprzedaż,DC=contoso,DC=te";
+        window.SetOutputWidth(60);
+        var wrapped = new string('x', 59 - Dn.Length - 1) + " " + Dn;
+        harness.Session.Queue(Text(wrapped + "\n"), Text("st\n"), Text("short " + Dn + "\n"));
+
+        await PowerShellHarness.RunAsync(window, "Get-AdmUser Łukasz | Format-List");
+
+        Assert.Equal(59, wrapped.Length);
+        var links = window.Output.Lines.SelectMany(line => line.Runs).Where(run => run.IsLink).ToList();
+        var link = Assert.Single(links);
+        Assert.Equal(Dn, link.DistinguishedName);
+        Assert.StartsWith("short ", window.Output.Lines.Single(line => line.Runs.Any(run => run.IsLink)).Text, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task AResultOf100000Lines_ShowsTheLastOnes_InStepsOfTheWindowsOwn_AndSaysWhatWasDropped()
     {
