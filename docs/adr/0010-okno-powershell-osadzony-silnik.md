@@ -120,7 +120,12 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
    (zasada 1). Środowisko silnika ustawiamy **przed** jego pierwszym użyciem: `POWERSHELL_TELEMETRY_OPTOUT=1`,
    `POWERSHELL_DIAGNOSTICS_OPTOUT=1`, `POWERSHELL_UPDATECHECK=Off`, wyłączone automatyczne ładowanie modułów i pamięć
    podręczna analizy modułów skierowana na urządzenie puste; test „żadnych plików” uruchamia polecenia w procesie z
-   `HOME`, `LOCALAPPDATA`, `TEMP` i `XDG_*` wskazującymi pusty folder i sprawdza, że folder jest nadal pusty. W
+   `HOME`, `LOCALAPPDATA`, `TEMP` i `XDG_*` wskazującymi pusty folder i sprawdza, że folder jest nadal pusty – na Linuksie
+   obejmuje to każdy folder, którego używa silnik; na Windows silnik znajduje swoje foldery przez interfejs folderów
+   znanych, którego zmienne nie przesuwają, więc tam test porównuje też foldery PowerShella użytkownika przed i po
+   uruchomieniu. Na Windows silnik sam z siebie zapisuje dwa pliki, których nie da się wyłączyć: jego sprawdzenie
+   AppLockera zapisuje w `%TEMP%` pliki `__PSScriptPolicyTest_<losowo>.ps1` i `.psm1` (wiersz komentarza, żadnych danych
+   z katalogu) i od razu je usuwa, raz na proces; test dopuszcza dokładnie te pliki. W
    ConstrainedLanguage żaden skrypt nie dosięga sesji okna ani jej poświadczeń: nie przenosi ich żadna zmienna, parametr
    ani składowa `$Host` (polecenia AD Managera znajdują swoje okno w rejestrze silnika, według runspace'u), a w R1 nie
    powstaje żaden `PSCredential` (zasada 2); w trybie zaufanym może to zrobić odbicie .NET (punkt 3). Filtry budujemy

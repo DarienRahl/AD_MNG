@@ -268,8 +268,12 @@ that says so, and redirection to a file (`>`, `>>`, `2>`) is refused before the 
   password asked for by `Read-Host -AsSecureString` or a mandatory parameter is typed into a password box and never shown.
 - **The program writes nothing else.** PSReadLine is not loaded (no history file), no profile is run (`$PROFILE` is never
   loaded), the engine's telemetry and diagnostics channel are off, module auto-loading and the module analysis cache are
-  off, and a test checks that the engine writes no file of its own (on Windows only in the folders a variable can redirect, so
-  the settings above are what carries the proof). The program's own diagnostic log never holds a command or a value.
+  off, and a test checks that working in the window leaves no file behind: on Linux in every folder the engine uses, on Windows
+  in the temporary folder and in your PowerShell folders (*AppData*, *Documents*), compared before and after. The only files the
+  engine writes of its own accord are on Windows: to learn whether AppLocker is in force it writes two small test files,
+  `__PSScriptPolicyTest_<random>.ps1` and `.psm1` (a comment line, no directory data), into your temporary folder and deletes
+  them at once – once per run of AD Manager, when the first PowerShell window opens. The program's own diagnostic log never
+  holds a command or a value.
 
 ## 7. Language modes and the trusted mode
 
@@ -402,7 +406,8 @@ says the new state.
 transcripts go and who can read them – they hold the same data the window shows. A `powershell.config.json` that AD Manager
 ships beside `AdMng.exe` turns off the transcription and logging that **your own** `powershell.config.json` turned on; it cannot
 turn off a computer policy, and the note then says that the policy is on. Security systems (EDR) may report *a PowerShell engine
-in a process other than `powershell.exe`* – the process is `AdMng.exe`; tell the security team (SOC) in advance.
+in a process other than `powershell.exe`* – the process is `AdMng.exe` – and the two `__PSScriptPolicyTest_` files it writes
+into `%TEMP%` and deletes at once (chapter 6), as every PowerShell does; tell the security team (SOC) in advance.
 
 ## 9. What the window does not do yet
 

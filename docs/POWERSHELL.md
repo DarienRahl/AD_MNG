@@ -267,9 +267,13 @@ odrzuca wynik, a `2>&1` nadal łączy strumienie). Do CSV użyj `Export-AdmList`
   nigdy nie jest pokazywane.
 - **Program nie zapisuje niczego więcej.** PSReadLine nie jest ładowany (nie ma pliku historii), żaden profil nie jest
   uruchamiany (`$PROFILE` nigdy nie jest ładowany), telemetria i kanał diagnostyczny silnika są wyłączone, automatyczne
-  ładowanie modułów i pamięć podręczna analizy modułów są wyłączone, a test sprawdza, że silnik nie zapisuje własnych plików (na
-  Windows tylko w folderach, które da się przekierować zmienną, więc dowodem są przede wszystkim powyższe ustawienia).
-  Dziennik diagnostyczny programu nigdy nie zawiera polecenia ani wartości.
+  ładowanie modułów i pamięć podręczna analizy modułów są wyłączone, a test sprawdza, że praca w oknie nie zostawia pliku: na
+  Linuksie w każdym folderze, którego używa silnik, na Windows w folderze tymczasowym i w Twoich folderach PowerShella
+  (*AppData*, *Dokumenty*), porównanych przed i po. Jedyne pliki, które silnik zapisuje sam z siebie, są na Windows: żeby
+  sprawdzić, czy działa AppLocker, zapisuje w Twoim folderze tymczasowym dwa małe pliki testowe,
+  `__PSScriptPolicyTest_<losowo>.ps1` i `.psm1` (wiersz komentarza, żadnych danych z katalogu), i od razu je usuwa – raz na
+  jedno uruchomienie AD Managera, gdy otwiera się pierwsze okno PowerShell. Dziennik diagnostyczny programu nigdy nie zawiera
+  polecenia ani wartości.
 
 ## 7. Tryby języka i tryb zaufany
 
@@ -400,7 +404,8 @@ czasie mówi już o nowym stanie.
 transkrypcje i kto może je czytać – zawierają te same dane, które pokazuje okno. Plik `powershell.config.json`, który AD Manager
 dostarcza obok `AdMng.exe`, wyłącza transkrypcję i rejestrowanie włączone w **Twoim** `powershell.config.json`; nie wyłączy zasad
 komputera, a uwaga mówi wtedy, że zasada jest włączona. Systemy bezpieczeństwa (EDR) mogą zgłaszać *silnik PowerShell w
-procesie innym niż `powershell.exe`* – tym procesem jest `AdMng.exe`; uprzedź zespół bezpieczeństwa (SOC).
+procesie innym niż `powershell.exe`* – tym procesem jest `AdMng.exe` – oraz dwa pliki `__PSScriptPolicyTest_`, które zapisuje on
+w `%TEMP%` i od razu usuwa (rozdział 6), jak każdy PowerShell; uprzedź zespół bezpieczeństwa (SOC).
 
 ## 9. Czego okno jeszcze nie robi
 

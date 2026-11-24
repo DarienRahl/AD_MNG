@@ -121,7 +121,11 @@ the Watchdog package.
    memory only (rule 1). The engine's environment is set **before** its first use: `POWERSHELL_TELEMETRY_OPTOUT=1`,
    `POWERSHELL_DIAGNOSTICS_OPTOUT=1`, `POWERSHELL_UPDATECHECK=Off`, module auto-loading off and the module analysis cache
    pointed at a null device; a "no files" test runs commands in a process whose `HOME`, `LOCALAPPDATA`, `TEMP` and `XDG_*`
-   point at an empty folder and asserts that the folder is still empty. In ConstrainedLanguage no script reaches the
+   point at an empty folder and asserts that the folder is still empty – on Linux that covers every folder the engine uses;
+   on Windows the engine finds its folders through the known-folder API, which the variables do not move, so there the test
+   also compares the user's PowerShell folders before and after the run. On Windows the engine writes two files of its own
+   accord that cannot be turned off: its AppLocker check writes `__PSScriptPolicyTest_<random>.ps1` and `.psm1` (a comment
+   line, no directory data) into `%TEMP%` and deletes them at once, once per process; the test allows exactly these. In ConstrainedLanguage no script reaches the
    window's session or its credentials: no variable, parameter or member of `$Host` carries them (AD Manager's commands
    find their window in a registry of the engine, keyed by the runspace), and R1 creates no `PSCredential` (rule 2); in
    the trusted mode .NET reflection can (decision 3). Filters are built with `AdMng.Core.Ldap.LdapFilter` and DNs with

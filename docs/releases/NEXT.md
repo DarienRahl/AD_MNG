@@ -168,8 +168,10 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   pliku, a wiersz stanu mówi to własnymi słowami.
 - **Nic na dysku.** Wynik, historia i zawartość okna są tylko w pamięci i znikają z oknem. Silnik (PowerShell 7.6 wbudowany w
   program) ma wyłączone: telemetrię, kanał diagnostyczny, sprawdzanie aktualizacji, automatyczne ładowanie modułów i zapis
-  pamięci podręcznej analizy modułów; test „bez plików” sprawdza, że praca w oknie nie zostawia pliku. W trybie ograniczonym
-  skrypt nie dosięga sesji okna ani jej danych logowania: żadna zmienna, parametr ani `$Host` jej nie przekazuje (polecenia
+  pamięci podręcznej analizy modułów; test „bez plików” sprawdza, że praca w oknie nie zostawia pliku (na Windows także
+  w folderach PowerShella użytkownika). Na Windows silnik sam z siebie zapisuje w `%TEMP%` dwa pliki testowe
+  `__PSScriptPolicyTest_…` (sprawdzenie AppLockera, bez danych z katalogu) i od razu je usuwa – raz na uruchomienie programu;
+  uprzedź o tym zespół bezpieczeństwa. W trybie ograniczonym skrypt nie dosięga sesji okna ani jej danych logowania: żadna zmienna, parametr ani `$Host` jej nie przekazuje (polecenia
   znajdują swoje okno w tablicy silnika), a polecenia czytają przez widok tylko do odczytu tej sesji. Plik zapisują tylko
   `Export-AdmList` (lista z ochroną formuł) i `Start-Transcript -Path` (zapis sesji do pliku, który wskażesz); `Start-Transcript`
   bez ścieżki – który zapisałby polecenia i ich wyniki do pliku w folderze *Dokumenty* – oraz `Out-File`, `Set-Content`,

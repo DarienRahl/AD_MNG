@@ -986,9 +986,20 @@ The result of the last Windows run is recorded in the report of the part.
   cannot show the pipe exists in the first place – a plain runspace creates none there; the Windows run is the proof), and the
   real `SystemPolicy` probe under WDAC/AppLocker (the engine's own behaviour under lockdown is the README's "to be confirmed on
   a machine with WDAC").
-- *The "no files" test on Windows* only watches what an environment variable moves (`TEMP`, `TMP`); the engine's files there go
-  to known folders (`%LOCALAPPDATA%`), which a variable does not redirect – the Windows run is weaker than the Linux run, and
-  the settings of 4.2 (tested in `EnvironmentTests`) are what carries the proof.
+- *The "no files" test on Windows* only watched what an environment variable moves (`TEMP`, `TMP`); the engine's files there go
+  to known folders (`%LOCALAPPDATA%`), which a variable does not redirect, and its positive control was skipped - so the Windows
+  run passed whatever the engine did (audit TI-1). *After the audit:* on Windows the test also takes a snapshot (length, time
+  written) of the user's PowerShell folders found through the known-folder API - `%LOCALAPPDATA%\Microsoft\PowerShell` (the
+  engine's cache: `telemetry.uuid`, startup data), `%LOCALAPPDATA%\Microsoft\Windows\PowerShell` (the module analysis cache),
+  `%APPDATA%\Microsoft\Windows\PowerShell` (PSReadLine), `Documents\PowerShell` and `Documents\WindowsPowerShell` - before and
+  after the child run and asserts no new or changed file; a `FileSystemWatcher` on the redirected temporary folder catches a file
+  made and deleted during the run, and the only ones allowed are the two `__PSScriptPolicyTest_<random>.ps1` / `.psm1` of the
+  engine's AppLocker check (`SystemPolicy.GetAppLockerPolicy`, decompiled 7.6.10: written with a comment line and deleted at once,
+  once per process; audit W-11). The positive control runs there too: an ordinary runspace writes a file into the real cache folder
+  (and the engine's `telemetry.uuid` when the user had none), the snapshot must see it, and the test removes what the control made.
+  The collection runs alone. The Windows part has not been seen to pass yet (it runs in the Windows CI job); on Linux the watcher
+  sees only the runtime's diagnostic socket and debug pipes, gone by the end; what stays there is one empty folder, `powershell`
+  (the engine's cache folder, made at its start - a folder, no file).
 - *Whether the engine reads `PowerShellPolicies` from `powershell.config.json` on Windows* next to the registry; the D7 reader
   will read both, so the note is right either way.
 - *The single-file layout:* where `$PSHOME` points and whether the four modules are found (part 4) - settled in 12.4 decision 1: the single file runs the engine and `$PSHOME` is the program folder.
