@@ -222,12 +222,23 @@ published `AdMng.exe`.
 section: it is not the program's to decide. Until D-B it set `EnableScriptBlockLogging: false`, and what that did is in the
 engine's code (`System.Management.Automation` 7.6.10, `engine/runtime/CompiledScriptBlock.cs`):
 
-- `PerformSecurityChecks` (at compile time, top-level script blocks only) runs AMSI and then
-  `if (ScriptBlock.CheckSuspiciousContent(scriptBlockAst) != null) { HasSuspiciousContent = true; }`; the check
-  (`SuspiciousContentChecker.Match`) looks for any of 119 words in the text, case-insensitively and also inside longer
-  words - `Add-Type`, `FromBase64String`, `GetMethod`, `NonPublic`, `Marshal`, `Bypass`, `ScriptBlockLogging`, and `Properties`,
-  which `-Properties` of the window's own read commands contains;
-- `LogScriptBlockStart` calls `LogScriptBlockCreation(scriptBlock, force: HasSuspiciousContent)`;
+- `PerformSecurityChecks` runs when a script block is compiled. It returns at once only when the compiled AST is not a
+  `ScriptBlockAst` - a function definition's body - under the comment "Checks are only needed at the top level"; a nested `{ }`
+  is a `ScriptBlockAst` and is checked when it is compiled (what is recorded does not change: its text is in the text of the
+  block around it, and a mark of the parser is set on every parent). It runs AMSI and then
+  `if (ScriptBlock.CheckSuspiciousContent(scriptBlockAst) != null) { HasSuspiciousContent = true; }`. The check has two parts
+  (`CheckSuspiciousContent`): a word of `SuspiciousContentChecker.Match`, one of 119 in the text, case-insensitively and also
+  inside longer words - `Add-Type`, `FromBase64String`, `GetMethod`, `NonPublic`, `Marshal`, `Bypass`, `ScriptBlockLogging`, and
+  `Properties`, which `-Properties` of the window's own read commands contains -, **or** `scriptBlockAst.HasSuspiciousContent`,
+  which the parser sets on every parse in the default mode (`Parser.cs`: `PerformPostParseChecks`, `SemanticChecks.CheckAst`)
+  through `SemanticChecks.MarkAstParentsAsSuspicious` on the AST and all its parents: `CheckMemberAccess` (for
+  `VisitMemberExpression` and `VisitInvokeMemberExpression`) when the member is not a `ConstantExpressionAst` - `$u.$a`,
+  `$u.('mail')`, `$u."$n"`, `$u.$m()`, so an operator's `foreach ($a in 'mail', 'department') { $u.$a }` - and when a static
+  member (`::`) is taken of something that is not a `TypeExpressionAst` - `$t::Now` -, `VisitTypeExpression` and
+  `VisitConvertExpression` for the type `System.Type` itself (`[type]`, `[type]'System.String'`). `$u.mail`, `$u.'mail'` and
+  `[datetime]::Now` are not marked;
+- `LogScriptBlockStart` (when a script block starts: `CompiledScriptBlock.cs` for an invoked block, `ScriptCommandProcessor.cs`
+  for a script the window runs and `& $block`) calls `LogScriptBlockCreation(scriptBlock, force: HasSuspiciousContent)`;
 - `LogScriptBlockCreation`: `if (force || logSetting?.EnableScriptBlockLogging == true) { if (logSetting?.EnableScriptBlockLogging
   == false || scriptBlock.ScriptBlockData.IsProductCode) { SkipLogging = true; return; } … WriteScriptBlockToLog(…) }`, where
   `logSetting` is `Utils.GetPolicySetting<ScriptBlockLogging>(Utils.SystemWideThenCurrentUserConfig)`, read once per process
@@ -235,20 +246,29 @@ engine's code (`System.Management.Automation` 7.6.10, `engine/runtime/CompiledSc
   (`Utils.GetPolicySetting`), null when none sets it;
 - `WriteScriptBlockToLog` writes a suspicious block with `PSEtwLog.LogOperationalWarning` and any other with
   `LogOperationalVerbose`, both `PSEventId.ScriptBlock_Compile_Detail` - event 4104 of the PowerShell 7 provider
-  (*PowerShellCore/Operational* on Windows, where the provider is registered: by the PowerShell 7 installer or
-  `RegisterManifest.ps1`; AD Manager registers nothing).
+  (*PowerShellCore/Operational* on Windows, where the provider is registered: the MSI of PowerShell 7 runs
+  `RegisterManifest.ps1` while its property `REGISTER_MANIFEST` is 1, the default - the check box *Register Windows Event Logging
+  Manifest*, `assets/wix/Product.wxs`; the zip ships the script in `$PSHOME` without running it, and the MSIX package declares no
+  event provider, `assets/AppxManifest.xml`; the script, run elevated, registers it for any of them. AD Manager registers nothing).
 
-So when nothing sets the policy, the engine writes a suspicious script block to its log on its own, as a warning, and no
-ordinary one (a text it compiled before in the same process comes from its cache of compiled script blocks,
+So when nothing sets the policy, the engine writes a script block it marked (a word or a mark of the parser) to its log on its
+own, as a warning, and no script block it did not mark (a text it compiled before in the same process comes from its cache of compiled script blocks,
 `TryGetCachedScriptBlock`, which shares the data that says it was logged, so a line typed again is normally not logged again);
 `true` writes every script block; `false` - a Group Policy set to *Disabled*, a file - writes none, not even the
 suspicious ones. The program's old file was such a file: in the window not even `Add-Type` reached the event log unless a
 Group Policy turned the logging on. Without the section the window behaves as a plain pwsh 7 on the same workstation: Group Policy
 decides, then a user's own `powershell.config.json` (which can now turn the logging on, or off), and with neither the engine's
-default. `ScriptBlockLoggingTests` shows it with the real engine in child processes (the probe's `script-block-logging:<file>`
-mode sets the all-users file as `pwsh -SettingsFile` does, `PowerShellConfig.SetSystemConfigFilePath`, and reads the internal
-`HasLogged` / `SkipLogging` of the blocks): an empty file and the program's file both give `setting=null`, a block with
-`$properties` logged, one without skipped; a file with the old section gives `False` and skips both. The test reads internal
+default. One difference stays: a `pwsh.exe` reads the `powershell.config.json` of its own `$PSHOME` (e.g.
+`C:\Program Files\PowerShell\7`) as its all-users file, the window the program's file (`Utils.DefaultPowerShellAppBase`,
+`PSConfiguration.cs`), so a `ScriptBlockLogging` section there - or `ProtectedEventLogging`, read from the all-users file only
+(`Utils.SystemWideOnlyConfig`) - applies to `pwsh.exe` and not to the window; the file of a PowerShell 7 install sets neither.
+`ScriptBlockLoggingTests` shows it with the real engine in child processes (the probe's
+`script-block-logging:<all-users file>|<user's file>` mode sets the all-users file as `pwsh -SettingsFile` does,
+`PowerShellConfig.SetSystemConfigFilePath`, the user's file by `PowerShellConfig.perUserConfigFile`, and reads the internal
+`HasLogged` / `SkipLogging` of eight lines): an empty file and the program's file both give `setting=null`, the six marked lines
+(`$properties = …`, `$u.$a` in a `foreach`, `$u.('mail')`, `$u."$n"`, `$t::Now`, `[type]`) logged and the two others
+(`$attributes = …`; `$u.mail; $u.'mail'; [datetime]::Now`) skipped; a file with the old section gives `False` and skips all
+eight; the program's file with a user's file that says `true` gives `True` and logs all eight. The test reads internal
 members on purpose: an engine update that changes them fails it, and this paragraph is read again. The window's note says what
 the policies record (D7) and makes no sentence of the engine's default (12.12).
 
@@ -710,10 +730,12 @@ This is the plan of the parts; the files that exist are in the records of 12.1-1
   window left a match that never ends still exits (`left-run` of the probe program).
 - **`InputGuardTests`** – what `InputGuard` refuses and what it must not (the call operator, strings, `&&`, `> $null`, `2>&1`), a
   line the parser gives up on, and the limits of `InputParser` on both sides.
-- **`ScriptBlockLoggingTests`** – what the engine logs of a script block with the all-users file it is given (D-B, 4.2; child
-  processes: the probe's `script-block-logging:<file>`): with an empty file and with the program's file a block with a word of the
-  engine's list is logged and an ordinary one skipped, with a file that sets the switch off neither is; skipped when the machine
-  sets script block logging itself. `EngineBoundaryTests` pins the program's file (no `ScriptBlockLogging` section; transcription,
+- **`ScriptBlockLoggingTests`** – what the engine logs of eight lines with the all-users file and the user's file it is given
+  (D-B, 4.2; child processes: the probe's `script-block-logging:<all-users file>|<user's file>`): with an empty file and with the
+  program's file the six lines the engine marks (a word of its list, and the parser's marks: a member by a variable, an
+  expression or an expandable string, a static member through a variable, `[type]`) are logged and the two others skipped, with
+  a file that sets the switch off none is, with the program's file and a user's file that says on all are; skipped when the
+  machine sets script block logging itself. `EngineBoundaryTests` pins the program's file (no `ScriptBlockLogging` section; transcription,
   module logging and the compatibility layer off).
 - **`EnvironmentTests`** – the variables of 4.2 are set and visible to a script; no `PSHost.*` pipe exists (Windows
   `\\.\pipe\`, Unix the temp folder).
@@ -769,8 +791,9 @@ The criteria of the README that concern reads, plus the ones this design adds:
 2. A value with a parenthesis, an asterisk, a backslash or Polish characters (`Łukasz (Kraków)*`) in the `Search-AdmObject`
    parameters gives a correctly escaped filter (RFC 4515) – without extra results.
 3. After the window is closed there is no command history, transcript or result on the workstation's disk (when no GPO
-   turns on transcription or script block logging; the engine's own warnings 4104 for script blocks it finds suspicious are in
-   the event log as for every PowerShell 7, 4.2) – the **"no files" test** passes; with transcription turned on by a GPO,
+   turns on transcription or script block logging and the user's own `powershell.config.json` does not turn on script block
+   logging; the engine's own warnings 4104 for script blocks it finds suspicious are in the event log as for every PowerShell 7,
+   4.2) – the **"no files" test** passes; with transcription turned on by a GPO,
    the window warns before the first command; the password does not appear in the history.
 4. When a WDAC policy applies, the window works in ConstrainedLanguage mode and AD Manager's commands work; without it
    ConstrainedLanguage is the default and the trusted mode needs a confirmation and is shown.
@@ -1749,3 +1772,14 @@ pwsh. The transcription and the module logging stay off in the program's file (a
   logs on its own.
 - **Not seen on Windows.** The warning 4104 of a suspicious block in *PowerShellCore/Operational* on a workstation with PowerShell
   7 installed (the child-process test runs on Windows CI too, where it is skipped if the machine sets the policy itself).
+- **After the verifiers of D-B.** The first text of 4.2, the guide and the README took the engine's check for its word list
+  alone. `CheckSuspiciousContent` also returns the parser's marks (`SemanticChecks`, 4.2), so an operator who reads attributes by
+  a name in a variable (`$u.$a`) is a warning 4104 without any policy as well. `ScriptBlockLoggingTests` now runs eight lines
+  (six marked, two not) and adds a user's file that says on (every line logged); the probe sets the user's file itself, so the
+  real one of the machine never counts. The guide (chapter 8), the README and the release notes say what the engine marks; the
+  lists of what turns script block logging on name the user's own file too (the README's password warning of R2 and its
+  completion criterion, criterion 3 of section 10); "the same as `pwsh.exe`" names its one exception (a logging section in the
+  `powershell.config.json` of an installed PowerShell 7's own `$PSHOME`, which the window never reads); and where the event
+  provider comes from says which packages register it (the MSI by default, not the zip or MSIX). The note stays as it is, for
+  the reason above: a marked line is the engine's default in every PowerShell 7 process, and no string of the window says that
+  nothing is recorded.

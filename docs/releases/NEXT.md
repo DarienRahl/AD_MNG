@@ -158,7 +158,9 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   modułów, które włączył plik użytkownika (zasada komputera ma pierwszeństwo przed nim). Rejestrowania bloków skryptów nie
   ustawia: decydują o nim zasady grupy, potem plik użytkownika, jak w zwykłym pwsh, a gdy nic go nie ustawia, PowerShell sam
   zapisuje w dzienniku zdarzeń (*PowerShellCore/Operational*, ostrzeżenie 4104) polecenie, które uznaje za podejrzane – np.
-  z `Add-Type` albo z parametrem `-Properties` – więc zespół bezpieczeństwa widzi z okna to samo, co z `pwsh.exe`. Wyniki pokazują te same sekrety, które pokazuje Edytor atrybutów
+  z `Add-Type`, z parametrem `-Properties` albo z odczytem właściwości o nazwie ze zmiennej (`$u.$a`) – więc zespół
+  bezpieczeństwa widzi z okna to samo, co z `pwsh.exe` (poza ustawieniem rejestrowania w pliku `powershell.config.json` w
+  folderze zainstalowanego PowerShell 7, który czyta tylko `pwsh.exe`). Wyniki pokazują te same sekrety, które pokazuje Edytor atrybutów
   (np. hasło LAPS jawnym tekstem), więc przy włączonej transkrypcji trafią one do transkrypcji – uwaga o zasadach mówi to z
   góry.
 - **`Out-AdmGrid`, `Open-AdmObject`, `Export-AdmList`.** `Out-AdmGrid` otwiera okno z siatką jak lista obiektów: kolumny z

@@ -2663,8 +2663,9 @@ etapy</summary>
   skopiować do okna jako polecenie `…-Adm…`, np. żeby powtórzyć ją dla innych obiektów; wykonanie znów idzie przez plan.
 - **Hasła** w poleceniach zapisu tylko jako `SecureString` albo wygenerowane przez program; nigdy w historii okna,
   podglądzie, audycie ani w `ToString()` (zasada 2). Przed hasłem wpisanym zwykłym tekstem (`-AsPlainText`) program
-  ostrzega, bo rejestrowanie bloków skryptów może je zapisać w dzienniku zdarzeń (włączone przez GPO albo własne
-  rejestrowanie przez silnik polecenia, które uznaje za podejrzane). Wiersza z hasłem zwykłym tekstem
+  ostrzega, bo rejestrowanie bloków skryptów może je zapisać w dzienniku zdarzeń (włączone przez GPO albo przez własny
+  `powershell.config.json` użytkownika, albo własne rejestrowanie przez silnik polecenia, które uznaje za podejrzane).
+  Wiersza z hasłem zwykłym tekstem
   (`-AsPlainText`, `ConvertTo-SecureString '…'`, parametr z *Password* w nazwie) okno nie dodaje do historii (jak filtr
   historii PSReadLine).
 - Polecenia zapisu RSAT – zob. „Moduły RSAT”; polecenia spoza listy tłumaczonych i te, których nie da się przetłumaczyć,
@@ -2732,14 +2733,18 @@ etapy</summary>
   planu nie mają audytu ani cofnięcia w programie, ale Watchdog widzi je jak każdą zmianę w AD.
 - **Poza kontrolą programu:** GPO komputera albo użytkownika może włączyć transkrypcję PowerShell, rejestrowanie bloków
   skryptów (zdarzenie 4104 w dzienniku *PowerShellCore/Operational* – o ile zarejestrowano dostawcę zdarzeń PowerShell
-  7: instalator albo `RegisterManifest.ps1`) i rejestrowanie modułów. Transkrypcja obejmuje każdy program z silnikiem
+  7: instalator MSI PowerShell 7, który ma do tego opcję domyślnie włączoną, albo `RegisterManifest.ps1`; pakiety zip i
+  MSIX go nie rejestrują) i rejestrowanie modułów. Transkrypcja obejmuje każdy program z silnikiem
   PowerShell, więc polecenia i wyniki – czyli dane katalogu – trafią do pliku wskazanego w GPO. AD Manager nie ustawia
   rejestrowania bloków skryptów (decyzja po audycie, PS-04): decyduje o nim GPO, potem własny `powershell.config.json`
   użytkownika, jak w zwykłym pwsh, a gdy nie ustawia go żadne z nich, silnik i tak zapisuje w tym samym dzienniku polecenie,
   które uznaje za podejrzane, jako ostrzeżenie 4104 – takie ze słowem z jego wbudowanej listy (`Add-Type`,
-  `FromBase64String`, `GetMethod`…, także `Properties`, a więc `-Properties` poleceń odczytu okna); GPO, które wyłącza
-  rejestrowanie bloków skryptów, wyłącza też to. Zespół bezpieczeństwa widzi z okna to samo, co z `pwsh.exe` na tym samym
-  komputerze. PowerShell 7 czyta
+  `FromBase64String`, `GetMethod`…, także `Properties`, a więc `-Properties` poleceń odczytu okna) albo z konstrukcją,
+  którą oznacza jego parser: składową o nazwie niewpisanej wprost (`$u.$a`, `$u.('mail')` – a więc odczyt atrybutów po nazwie
+  ze zmiennej), składową statyczną czegoś innego niż typ w nawiasach kwadratowych (`$t::Now`) albo typ `[type]`; GPO, które
+  wyłącza rejestrowanie bloków skryptów, wyłącza też to. Zespół bezpieczeństwa widzi z okna to samo, co z `pwsh.exe` na tym
+  samym komputerze – poza ustawieniem rejestrowania w pliku `powershell.config.json` samego zainstalowanego PowerShell 7
+  (`C:\Program Files\PowerShell\7`), które czyta tylko `pwsh.exe`. PowerShell 7 czyta
   własne zasady (*PowerShell Core*, `HKLM`/`HKCU\Software\Policies\Microsoft\PowerShellCore`), a zasady Windows
   PowerShell tylko dla zasady, w której włączono *Use Windows PowerShell Policy setting*. Okno odczytuje je przy otwarciu
   według reguł silnika i mówi o tych zasadach wyraźnie – nie próbuje ich obejść. AMSI sprawdza każdy blok skryptu (program antywirusowy widzi
@@ -2902,9 +2907,10 @@ Właściciel rozstrzygnął te sprawy dla R1 (uzasadnienie i alternatywy:
 - Z modułem RSAT `ActiveDirectory` polecenie `Get-ADUser` bez `-Server` łączy się z DC okna, a `Set-ADUser` dodaje
   operację do planu, zamiast zapisać zmianę.
 - Po zamknięciu okna na dysku stacji nie ma historii poleceń, transkrypcji ani wyników (gdy GPO nie włącza transkrypcji
-  ani rejestrowania bloków skryptów; ostrzeżenia 4104, które silnik sam zapisuje dla polecenia uznanego za podejrzane, są
-  w dzienniku zdarzeń, jak przy każdym PowerShell 7); przy transkrypcji włączonej przez GPO okno ostrzega przed pierwszym
-  poleceniem; hasło nie pojawia się w historii ani w audycie.
+  ani rejestrowania bloków skryptów, a własny `powershell.config.json` użytkownika nie włącza rejestrowania bloków
+  skryptów; ostrzeżenia 4104, które silnik sam zapisuje dla polecenia uznanego za podejrzane, są w dzienniku zdarzeń, jak
+  przy każdym PowerShell 7); przy transkrypcji włączonej przez GPO okno ostrzega przed pierwszym poleceniem; hasło nie
+  pojawia się w historii ani w audycie.
 - Gdy obowiązuje zasada WDAC, okno pracuje w trybie ConstrainedLanguage, a polecenia AD Managera działają.
 
 </details>

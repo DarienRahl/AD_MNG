@@ -381,15 +381,27 @@ tych zasad i ich nie omija.
 
 **Bez zasady PowerShell i tak rejestruje niektóre polecenia.** Gdy rejestrowania bloków skryptów nie ustawiają ani zasady grupy,
 ani plik `powershell.config.json`, PowerShell 7 i tak zapisuje w tym samym dzienniku zdarzeń polecenie, które uznaje za
-podejrzane, jako ostrzeżenie (zdarzenie 4104): takie, które zawiera słowo z jego wbudowanej listy – `Add-Type`,
-`FromBase64String`, `GetMethod`, `NonPublic`, `Bypass` i ponad sto innych, także wewnątrz dłuższego słowa, a więc i `Properties`,
-które jest w parametrze `-Properties` poleceń odczytu AD Managera (`Get-AdmUser jan -Properties mail` trafia do dziennika,
-`Get-AdmUser jan` nie). Innych poleceń nie zapisuje. Tak działa sam silnik w każdym PowerShell 7 – w `pwsh.exe`, w edytorze, w tym
-oknie – i AD Manager tego nie zmienia: zespół bezpieczeństwa widzi z okna to samo, co ze zwykłego pwsh 7 na tym samym komputerze.
-Dziennik istnieje tam, gdzie zarejestrowano dostawcę zdarzeń PowerShell 7 (robi to instalator PowerShell 7 albo
-`RegisterManifest.ps1`; AD Manager niczego nie rejestruje); gdzie go nie zarejestrowano, zdarzenie nie trafia do żadnego dziennika.
-Zasada, która **wyłącza** rejestrowanie bloków skryptów (*Wyłączone* w zasadach grupy), wyłącza też to. Uwaga okna mówi, co
-rejestrują zasady, a o tym domyślnym zachowaniu nie wspomina.
+podejrzane, jako ostrzeżenie (zdarzenie 4104). Podejrzane jest dla niego polecenie, które:
+
+- zawiera słowo z jego wbudowanej listy – `Add-Type`, `FromBase64String`, `GetMethod`, `NonPublic`, `Bypass` i ponad sto innych,
+  także wewnątrz dłuższego słowa, a więc i `Properties`, które jest w parametrze `-Properties` poleceń odczytu AD Managera
+  (`Get-AdmUser jan -Properties mail` trafia do dziennika, `Get-AdmUser jan` nie), albo
+- ma jedną z konstrukcji, które PowerShell oznacza już przy analizie polecenia: właściwość albo metodę o nazwie, która nie jest
+  wpisana wprost (`$u.$a`, `$u.('mail')`, `$u."$nazwa"` – więc także odczyt atrybutów po nazwie ze zmiennej, np.
+  `foreach ($a in 'mail', 'department') { $u.$a }`), składową statyczną czegoś innego niż typ w nawiasach kwadratowych (`$t::Now`;
+  `[datetime]::Now` nie) albo sam typ `[type]`.
+
+Treści innych poleceń – np. `$u.mail`, `$u.'mail'`, `Get-AdmUser jan | Select-Object -Property mail` – nie zapisuje. Tak działa sam
+silnik w każdym PowerShell 7 – w `pwsh.exe`, w edytorze, w tym oknie – i AD Manager tego nie zmienia: zespół bezpieczeństwa widzi z
+okna to samo, co ze zwykłego pwsh 7 na tym samym komputerze, z jednym wyjątkiem – ustawienie rejestrowania w pliku
+`powershell.config.json` samego zainstalowanego PowerShell 7 (w jego folderze, np. `C:\Program Files\PowerShell\7`) obowiązuje tylko
+`pwsh.exe`, bo AD Manager czyta zamiast niego plik obok `AdMng.exe`. Dziennik istnieje tam, gdzie zarejestrowano dostawcę zdarzeń
+PowerShell 7: robi to instalator MSI PowerShell 7 (opcja *Register Windows Event Logging Manifest*, domyślnie zaznaczona) albo
+skrypt `RegisterManifest.ps1` z folderu PowerShell 7 uruchomiony jako administrator; pakiety zip i MSIX (Microsoft Store) go nie
+rejestrują, a AD Manager niczego nie rejestruje. Gdzie go nie zarejestrowano, zdarzenie nie trafia do żadnego dziennika. Zasada,
+która **wyłącza** rejestrowanie bloków skryptów (*Wyłączone* w zasadach grupy), wyłącza też to, a Twój własny
+`powershell.config.json`, który je **włącza**, sprawia, że trafia tam każde polecenie, o ile nie ustawiają go zasady grupy (uwaga
+okna mówi wtedy o tym). Uwaga okna mówi, co rejestrują zasady i pliki, a o tym domyślnym zachowaniu silnika nie wspomina.
 
 **Co okno robi w tej sprawie:**
 

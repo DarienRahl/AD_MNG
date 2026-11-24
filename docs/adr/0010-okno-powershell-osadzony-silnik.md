@@ -171,8 +171,10 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
   skryptów i transkrypcja z GPO obejmują okno – dlatego notatka przed pierwszym poleceniem (punkt 7). O rejestrowaniu bloków
   skryptów decydują Windows i zasady grupy, nie program (D-B): zespół bezpieczeństwa widzi w *PowerShellCore/Operational* to
   samo co przy zwykłym pwsh 7 – każdy blok skryptu przy włączonej zasadzie, żaden przy wyłączonej, a bez zasady te, które silnik
-  uznaje za podejrzane (ostrzeżenie 4104; `-Properties` poleceń odczytu okna zawiera jedno ze słów silnika), o ile zarejestrowano
-  dostawcę zdarzeń PowerShell 7.
+  uznaje za podejrzane (ostrzeżenie 4104; `-Properties` poleceń odczytu okna zawiera jedno ze słów silnika, a odczyt
+  właściwości po nazwie ze zmiennej, np. `$u.$a`, silnik oznacza już przy analizie polecenia), o ile zarejestrowano dostawcę
+  zdarzeń PowerShell 7. Jedyna różnica: ustawienie rejestrowania w pliku `powershell.config.json` w folderze zainstalowanego
+  PowerShell 7 obowiązuje tylko `pwsh.exe`, bo silnik okna czyta plik obok `AdMng.exe`.
 - **Granica bezpieczeństwa.** ConstrainedLanguage, lista dozwolonych poleceń, pusta lista modułów i odrzucanie plików skryptów
   chronią przed pomyłką, a nie przed złośliwym operatorem; jedyną granicą są prawa konta w AD. Zmiany wykonane z pominięciem planu nie
   mają audytu ani cofnięcia w programie, ale Watchdog widzi je jak każdą zmianę w AD.

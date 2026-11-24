@@ -169,8 +169,10 @@ the Watchdog package.
   block logging and transcription from GPOs cover the window – hence the note before the first command (item 7). Script block
   logging is Windows' and Group Policy's, not the program's (D-B): the security team sees in *PowerShellCore/Operational* what it
   sees of a plain pwsh 7 – every script block with the policy on, none with it set to off, and without a policy the ones the
-  engine finds suspicious (a warning 4104; `-Properties` of the window's read commands is one of the engine's words), where the
-  PowerShell 7 event provider is registered.
+  engine finds suspicious (a warning 4104; `-Properties` of the window's read commands is one of the engine's words, and the
+  engine marks reading a property by a name in a variable, e.g. `$u.$a`, when it parses the command), where the PowerShell 7
+  event provider is registered. The one difference: a logging setting in the `powershell.config.json` in the folder of an
+  installed PowerShell 7 applies to `pwsh.exe` only, because the window's engine reads the file beside `AdMng.exe`.
 - **The security boundary.** ConstrainedLanguage, the allow-list of commands, the empty module list and the refusal of
   script files protect against mistakes, not against a malicious operator; the only boundary is the account's rights in AD. Changes made
   around the plan have no audit and no rollback in the program, but the Watchdog sees them like any other change in AD.
