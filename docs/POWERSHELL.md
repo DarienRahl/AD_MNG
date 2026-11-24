@@ -223,9 +223,11 @@ odrzuca wynik, a `2>&1` nadal łączy strumienie). Do CSV użyj `Export-AdmList`
 - **Historia poleceń jest tylko w pamięci okna** – ostatnie 500 wierszy, bez powtórzeń z rzędu. **Góra** i **Dół** chodzą po
   niej (najpierw po wierszach polecenia wielowierszowego), **Ctrl+R** ją przeszukuje (*Szukanie w historii: …*; Enter bierze
   trafienie, Esc anuluje). Nie jest zapisywana i znika, gdy okno się zamyka. *Wyczyść* (Ctrl+L) czyści wyniki, nie historię.
-- **Wiersz z hasłem jawnym tekstem nie jest zapamiętywany:** z `-AsPlainText`, z `ConvertTo-SecureString 'tekst'` albo z
-  wartością wpisaną wprost dla nazwy sekretu – parametru (`-Password 'tekst'`), klucza tablicy skrótów (`@{ Password = 'tekst' }`,
-  także przekazanej przez `@h`) albo zmiennej lub właściwości (`$password = 'tekst'`, `$cred.Password = 'tekst'`). Nazwą sekretu jest nazwa, która zawiera `Password`, `Passwd`, `Passphrase`, `Pwd`, `Secret`,
+- **Wiersz z hasłem jawnym tekstem nie jest zapamiętywany:** z `-AsPlainText` (przy `ConvertTo-SecureString` także skróconym do
+  `-As` albo `-A`), z `ConvertTo-SecureString 'tekst'`, z napisem zamienianym na `[securestring]` (`[securestring]$x = 'tekst'`)
+  albo z wartością wpisaną wprost dla nazwy sekretu – parametru (`-Password 'tekst'`), klucza tablicy skrótów (`@{ Password = 'tekst' }`,
+  także przekazanej przez `@h` i klucza złożonego ze zmiennej, jak `"Pass$x"`) albo zmiennej lub właściwości (`$password = 'tekst'`,
+  `$cred.Password = 'tekst'`). Nazwą sekretu jest nazwa, która zawiera `Password`, `Passwd`, `Passphrase`, `Pwd`, `Secret`,
   `Token`, `ApiKey` lub `PrivateKey`, nazwa `Pw`, `Pin` albo `Key` w całości i skróty `-Pa`, `-Pas`, `-Pass`. Wartość w
   nawiasach albo złożona z samych napisów (`-Password ('tekst')`, `$password = 'te' + 'kst'`, `$password = $x = 'tekst'`) liczy
   się tak samo jak wpisana wprost. Nie jest zapamiętywany także
@@ -281,7 +283,9 @@ dlaczego ich nie ma i czego użyć zamiast nich: `Start-Job`, `Import-Module`, `
 `Get-Credential` (okno pracuje z poświadczeniami swojego połączenia), `Start-Process`, `Out-GridView` (użyj `Out-AdmGrid`),
 `Export-Csv`, `Export-Clixml`, `Out-File`, `Set-Content` i `Add-Content`; pozostałe są *nierozpoznane* (*not recognized*).
 `using module`, `using assembly`, `&` na końcu potoku, przekierowanie do pliku i wpisane `ForEach-Object -Parallel` są
-odrzucane, zanim ruszy cokolwiek z polecenia. Pliki skryptów (`.ps1`) się nie uruchamiają – na Windows okno odrzuca je
+odrzucane, zanim ruszy cokolwiek z polecenia. Tak samo w całości polecenie dłuższe niż 262 144 znaki albo zagnieżdżone zbyt
+głęboko – setki nawiasów lub bloków skryptu jeden w drugim albo łańcuch setek operatorów (`1+1+1+…`): silnik PowerShella mógłby na
+nim zakończyć cały program; takie polecenie nie trafia też do historii. Pliki skryptów (`.ps1`) się nie uruchamiają – na Windows okno odrzuca je
 niezależnie od polityki wykonywania. Nie ma profilu ani PSReadLine. Żadne zadanie nie trwa dłużej niż polecenie, które je
 uruchomiło: zadanie pozostawione w sesji jest zatrzymywane, gdy polecenie się kończy, po *Zatrzymaj* i przy zamknięciu okna.
 Programy konsolowe (`whoami`, `nltest`, `repadmin`) działają jak w każdej konsoli – jako osobny proces z Twoją tożsamością

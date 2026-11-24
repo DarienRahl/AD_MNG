@@ -224,9 +224,11 @@ that says so, and redirection to a file (`>`, `>>`, `2>`) is refused before the 
   **Down** walk through it (first the lines of a multi-line command), **Ctrl+R** searches it (*History search: …*; Enter takes
   the match, Esc cancels). It is not saved and is gone when the window closes. *Clear* (Ctrl+L) clears the output, not the
   history.
-- **A line with a plain-text password is not remembered:** one with `-AsPlainText`, a `ConvertTo-SecureString 'literal'`, or a
-  literal value for a secret's name – of a parameter (`-Password 'literal'`), a key of a hashtable (`@{ Password = 'literal' }`,
-  also one passed as `@h`) or a variable or property (`$password = 'literal'`, `$cred.Password = 'literal'`). A secret's name
+- **A line with a plain-text password is not remembered:** one with `-AsPlainText` (for `ConvertTo-SecureString` also
+  abbreviated to `-As` or `-A`), a `ConvertTo-SecureString 'literal'`, a literal turned into a `[securestring]`
+  (`[securestring]$x = 'literal'`), or a literal value for a secret's name – of a parameter (`-Password 'literal'`), a key of a
+  hashtable (`@{ Password = 'literal' }`, also one passed as `@h` and a key put together with a variable, such as `"Pass$x"`) or a
+  variable or property (`$password = 'literal'`, `$cred.Password = 'literal'`). A secret's name
   is one that contains `Password`, `Passwd`, `Passphrase`, `Pwd`, `Secret`, `Token`, `ApiKey` or `PrivateKey`, the whole name
   `Pw`, `Pin` or `Key`, and the abbreviations `-Pa`, `-Pas`, `-Pass`. A value in parentheses or put together from literals
   alone (`-Password ('literal')`, `$password = 'lit' + 'eral'`, `$password = $x = 'literal'`) counts the same as one typed
@@ -283,7 +285,9 @@ habit answer with a message that says why and what to use instead: `Start-Job`, 
 `Invoke-Expression`, `Get-Credential` (the window works with the credentials of its connection), `Start-Process`, `Out-GridView`
 (use `Out-AdmGrid`), `Export-Csv`, `Export-Clixml`, `Out-File`, `Set-Content` and `Add-Content`; the others are *not recognized*.
 `using module`, `using assembly`, the `&` at the end of a pipeline, redirection to a file and a typed `ForEach-Object -Parallel`
-are refused before anything of the command runs. Script files (`.ps1`) do not run – on Windows the window refuses them whatever
+are refused before anything of the command runs. So is, as a whole, a command longer than 262,144 characters or nested too
+deeply – hundreds of parentheses or script blocks within one another, or a chain of hundreds of operators (`1+1+1+…`): the
+PowerShell engine could end the whole program on it; such a command does not enter the history either. Script files (`.ps1`) do not run – on Windows the window refuses them whatever
 the execution policy says. There is no profile and no PSReadLine. No job outlives the command that started it: a job left
 behind is stopped when the command ends, on *Stop* and when the window closes. Console programs (`whoami`, `nltest`,
 `repadmin`) run as in any console, as a separate process with your own Windows identity – never with the window's

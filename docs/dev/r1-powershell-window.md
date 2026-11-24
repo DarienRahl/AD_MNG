@@ -339,7 +339,12 @@ modules; `Out-File`, `Export-Csv`, `Set-Content`, `>` and `Start-Transcript` wit
   other parallel parameters, abbreviated as far as the engine accepts) gets a message saying why; the protection is that the
   replacement has no such parameter (a splatted one fails in parameter binding). Text cannot become code past this check: there
   is no `Invoke-Expression` (in ConstrainedLanguage it would stay constrained, but it compiles text this check never saw), no
-  `function:` drive, and `[scriptblock]'text'` is refused in ConstrainedLanguage.
+  `function:` drive, and `[scriptblock]'text'` is refused in ConstrainedLanguage. A text the check cannot walk safely is refused
+  as a whole (`TooComplexMessage`, 12.9): `Input/InputParser.cs` is the one parse of what was typed (the guard, the history policy,
+  highlighting, the end-of-input check, completion); a text longer than 256 Ki characters is not parsed, one longer than 4 Ki is
+  parsed on a thread with 64 MB of stack, and a syntax tree deeper than 500 levels - or none, when the parser gave up - counts as no
+  tree. The walks over a tree recurse once per level and a .NET stack overflow ends the process: a chain of about 9 300 operators
+  ended the engine's compiler.
 - **`ScriptFileGuard`**: no script file runs. The session lists no script, so one called by name or path from the command line is
   not found; the engine's `PostCommandLookupAction` (set from C#; a constrained script cannot change it) drops a script file that a
   lookup from inside a script block or a function found; on Windows the engine asks the window's `WindowAuthorizationManager`
@@ -384,13 +389,16 @@ write verb (`Set`, `New`, `Remove`, `Move`, `Rename`, `Add`, `Enable`, `Disable`
 ### 4.9 History, syntax and completion
 
 - `PowerShellHistoryPolicy.ShouldRemember(line)` is a pure function over the parser's tokens and AST. A line is **not**
-  remembered if it is empty, still incomplete, has the `-AsPlainText` parameter (also a prefix of three letters or more), or
-  gives a literal (a constant, a string without embedded expressions, an array of these; also `-Password:'x'` and a bare word;
+  remembered if it is empty, still incomplete, too long or too deep to parse (`InputParser`, 4.6), has the `-AsPlainText`
+  parameter (also a prefix of three letters or more; of `ConvertTo-SecureString` every prefix, `-As` and `-A`, which bind to it
+  there while the secret comes through the pipeline), casts a literal to SecureString (`[securestring]'x'`) or assigns one to a
+  target typed so (`[securestring]$x = 'x'`), or gives a literal (a constant, a string without embedded expressions, an array of these; also `-Password:'x'` and a bare word;
   also a value computed from literals alone – in parentheses or a subexpression `('x')`, `$('x')`, through an operator
   `'a' + 'b'`, `-join ('a', 'b')`, a cast `[string]'x'`, or the value of a chained assignment `$password = $x = 'x'`)
   to a **secret's name**: a named parameter, a key of a hashtable (inline or splatted, `@{ Password = 'x' }`), or the target of
   an assignment (a variable without its scope or drive, `$env:ADMIN_PASSWORD`, a property `$cred.Password`, a constant index
-  `$h['ApiKey']`, through a cast `[string]$token`). A secret's name contains `Password`, `Passwd`, `Passphrase`, `Pwd`,
+  `$h['ApiKey']`, through a cast `[string]$token`); of an interpolated key, property or index (`"Pass$x"`) each literal part
+  counts as its name. A secret's name contains `Password`, `Passwd`, `Passphrase`, `Pwd`,
   `Secret`, `Token`, `ApiKey` or `PrivateKey`, is `Pw`, `Pin` or `Key` as a whole, or abbreviates `Password`/`Passphrase` with
   two letters or more (`-Pa`, `-Pas`, `-Pass` – PowerShell binds every unambiguous prefix of a parameter's name). A literal written positionally is a secret for `ConvertTo-SecureString` (or as its
   `-String`) and for a command whose noun is a secret's name (`Reset-AdmPassword user 'x'`, `Set-Secret n 'x'`) unless its verb
@@ -398,20 +406,23 @@ write verb (`Set`, `New`, `Remove`, `Move`, `Rename`, `Add`, `Enable`, `Disable`
   fine; a line with a syntax error is still checked from its tokens. The words began as PSReadLine's filter; the red team of R1
   (goal g) found that the first list kept the splatted hashtable - the usual way to pass credentials - `-Passphrase`, `-Pwd`,
   `-Pass`, `-Key` and the positional `Reset-AdmPassword user 'x'`, and the audit (PS-13) the assignments; the second red team
-  (12.8) the literal in parentheses or put together from literals, `-Pa`/`-Pas` and the chained assignment; all are refused now
+  (12.8) the literal in parentheses or put together from literals, `-Pa`/`-Pas` and the chained assignment, and the third (12.9)
+  `ConvertTo-SecureString -As`, the interpolated key `"Pass$x"` and `[securestring]$x = 'x'`; all are refused now
   (`HistoryPolicyTests`), while `-PassThru`, attribute names such as `pwdLastSet` given as values, `Get-Secret MySecret` and
   `Reset-AdmPassword -Identity x` stay remembered. What is still remembered: a secret given positionally to a command whose name
   does not say so (`Connect-Thing 'x'`), one inside a longer text, an argument of a console program (`net user jkowalski x`) and
   a name outside the lists – the guide says not to type a password into a command at all. The window's history
   lives in `AdMng.Presentation` (memory only) and asks this function through `IPowerShellSession.ShouldRemember`.
 - `PowerShellSyntax.Tokenize(input)` returns spans (`Start`, `Length`, `Kind`: command, parameter, variable, string, number,
-  operator, comment, keyword, type, member) from `Parser.ParseInput`'s tokens, in order, never empty, with whitespace,
-  brackets and bare arguments left out (kind `Other` is not listed). `IsComplete(input)` is `true` unless a parse error is of
-  the "incomplete input" kind (an open quote, bracket, script block or here-string, a trailing pipe) – it decides Enter versus a
-  new line; other syntax errors do not count (such a line runs and fails). Both are pure and need no runspace, so the editor
+  operator, comment, keyword, type, member) from the parser's tokens (`InputParser`), in order, never empty, with whitespace,
+  brackets and bare arguments left out (kind `Other` is not listed); a text too long to parse has none. `IsComplete(input)` is
+  `true` unless a parse error is of the "incomplete input" kind (an open quote, bracket, script block or here-string, a trailing
+  pipe) – it decides Enter versus a new line; other syntax errors do not count (such a line runs and fails), nor does a text too
+  long or too deep to parse (Enter runs it and the guard says why it is refused). Both are pure and need no runspace, so the editor
   may call them on every keystroke.
 - `CompleteAsync(input, cursor)` calls `CommandCompletion.CompleteInput` on the window's idle runspace and returns the
-  replacement span and the matches (text, list text, kind, tool tip). File system completion is removed in R1: matches of
+  replacement span and the matches (text, list text, kind, tool tip); a text too long or too deep to parse gets none (the engine's
+  completion would parse it again on a pool thread). File system completion is removed in R1: matches of
   kind `ProviderItem` and `ProviderContainer` are dropped (a test shows they would otherwise be offered for `Get-ChildItem /`).
   Parameter completers for AD Manager's commands (part 2) are `IArgumentCompleter`s on the parameters: they read
   `Context.Reader.Schema` (attribute names) and the DNs the session already knows, never the directory.
@@ -577,7 +588,9 @@ This is the plan of the parts; the files that exist are in the records of 12.1-1
   `ForEach-Object -MemberName` and `New-Object` keep the language mode, that the red team's trusted-mode chains (12.7) are
   refused in the default mode, and that a script block the trusted mode left behind does not end the process when it fires after
   its window closed (child processes: the probe's `leftover-callback`, and its control without the program's set-up, which crashes)
-  while only that error is contained.
+  while only that error is contained; the third red team's line nested too deeply for the parser is refused in both modes and the
+  window runs the next command, and chains of operators too deep to walk - also the deepest that fit below the length limit - are
+  refused without ending the process (child processes: the probe's `deep-input:<case>`, from a thread with 1 MB of stack, 12.9).
 - **`RegexLimitTests`** – the process limits every regular expression without a limit of its own (4.2); a match that backtracks for
   hours ends as an error of its statement after 2 s, for each way of the language (`-match`, `-replace`, `-split`,
   `switch -regex`, `Select-String`, `[regex]::IsMatch`, `[regex]::new`), and the next command runs; a script catches the error;
@@ -585,7 +598,8 @@ This is the plan of the parts; the files that exist are in the records of 12.1-1
   `[regex]` with a limit of its own (`[timespan]::FromHours(1)` through `[regex]::new` and `[regex]::Matches`,
   `[regex]::InfiniteMatchTimeout`) outlasts Stop and is left, and the next command runs in a new runspace; a child process whose
   window left a match that never ends still exits (`left-run` of the probe program).
-- **`InputGuardTests`** – what `InputGuard` refuses and what it must not (the call operator, strings, `&&`, `> $null`, `2>&1`).
+- **`InputGuardTests`** – what `InputGuard` refuses and what it must not (the call operator, strings, `&&`, `> $null`, `2>&1`), a
+  line the parser gives up on, and the limits of `InputParser` on both sides.
 - **`EnvironmentTests`** – the variables of 4.2 are set and visible to a script; no `PSHost.*` pipe exists (Windows
   `\\.\pipe\`, Unix the temp folder).
 - **`NoFilesTests`** – the **"no files" test** and the measurement: the probe program (`AdMng.PowerShell.Probe`, a small console
@@ -666,7 +680,7 @@ What was open when the design was written and what became of it (the state at th
 ## 12. R1 as built
 
 Section 12.0 reads the whole of R1 as one text. Sections 12.1 to 12.4 are the records the four parts wrote when they were done (the source comments cite them by number), and 12.5 records part 5. Where a
-record says "not yet" or ends with a question, 12.0 says what became of it. 12.6 records the repair of the engine's security composition after the audit of R1, and 12.7 what a red team found after it; where they differ from 12.0-12.5, they win. The blocks win over the design above.
+record says "not yet" or ends with a question, 12.0 says what became of it. 12.6 records the repair of the engine's security composition after the audit of R1, and 12.7, 12.8 and 12.9 what three red teams found after it; where they differ from 12.0-12.5, they win. The blocks win over the design above.
 
 ### 12.0 R1 in one text
 
@@ -752,7 +766,7 @@ has the picture.
 |---|---|
 | Commands in the catalog | 10: 6 `Get-` (`Get-AdmVersion` among them), `Search-`, `Out-`, `Open-`, `Export-`; no write verb |
 | Strings | 92 keys in each of `Strings.resx` and `Strings.pl.resx`: 75 `PowerShell.*`, 16 `PowerShellGrid.*`, 1 `Commands.PowerShell`; 91 constants in `L.PowerShell.cs` |
-| Engine tests (`AdMng.PowerShell.Tests`, Linux and Windows) | 239 at the end of R1: 237 passed, 2 skipped by design on each platform (Linux: the Windows-only execution-policy test and the opt-in 40 s cache proof; Windows: the Unix-only positive control and the same opt-in proof). 373 after the repair of 12.6: on Linux 370 passed and 3 skipped (the two above and the Windows-only authorization-manager test). 426 after 12.7 (+11 `RegexLimitTests`, +41 `HistoryPolicyTests` cases, +1 `EscapeTests`): on Linux 423 passed, the same 3 skipped. 461 after 12.8 (+25 `HistoryPolicyTests` cases, +4 `RegexLimitTests`, +4 `PowerShellSessionTests`, +2 `EscapeTests`): on Linux 458 passed, the same 3 skipped |
+| Engine tests (`AdMng.PowerShell.Tests`, Linux and Windows) | 239 at the end of R1: 237 passed, 2 skipped by design on each platform (Linux: the Windows-only execution-policy test and the opt-in 40 s cache proof; Windows: the Unix-only positive control and the same opt-in proof). 373 after the repair of 12.6: on Linux 370 passed and 3 skipped (the two above and the Windows-only authorization-manager test). 426 after 12.7 (+11 `RegexLimitTests`, +41 `HistoryPolicyTests` cases, +1 `EscapeTests`): on Linux 423 passed, the same 3 skipped. 461 after 12.8 (+25 `HistoryPolicyTests` cases, +4 `RegexLimitTests`, +4 `PowerShellSessionTests`, +2 `EscapeTests`): on Linux 458 passed, the same 3 skipped. 497 after 12.9 (+21 `HistoryPolicyTests` cases, +11 `InputGuardTests`, +3 `EscapeTests`, +1 `SyntaxTests`): on Linux 494 passed, the same 3 skipped |
 | Presentation tests (Linux) | 253 in `AdMng.Presentation.Tests.PowerShell` (one of them is part 5's test that the window's first lines name the guide), +1 in `ShellViewModelTests`; the project has 3,920. 256 after 12.8 (+3 `PowerShellWindowRunTests`: a run the engine left); the project has 3,952 |
 | Core tests (Linux) | 8 of `PowerShellGridTableTests`, 10 cases of `LdapFilter.Pattern` / `EqualBinary`; the project has 5,544 |
 | Lab tests against Samba | 5 (`PowerShellReadLabTests`), skipped without `ADMNG_TEST_LDAP_*`, run by the CI lab job |
@@ -1424,3 +1438,44 @@ again. What it found, and what became of it:
   still crashes; the one set up as the program lives on and nothing was written - it failed before the handler (the child crashed
   with the same error). The smoke test leaves such a timer behind in the published program and `HostTests` checks the program's
   module; ConstrainedLanguage refuses the timer itself.
+
+### 12.9 After the third red team of R1
+
+A third red team ran the eight goals against the session of 12.8. What it found, what was found while reproducing it, and what
+became of it:
+
+- **(h) A line nested too deeply for the parser left the window busy for good.** `$x = ` followed by 5 000 `(`, `1` and 5 000 `)`
+  (both language modes): from about 4 500 nested parentheses `Parser.ParseInput` gives up (`ScriptTooComplicated`, measured on Linux
+  in Debug and Release) and returns no syntax tree. `InputGuard.Refusal` dereferenced it and threw a `NullReferenceException` after
+  the session had counted itself as running; the flag was reset only on a refusal or a failed start, so every later command was
+  refused with "A command is already running in this window", and Stop could not help (no pipeline had started).
+  `ShouldRemember`, which the view model asks before the command runs, threw the same way. Now a text without a tree is refused
+  (`TooComplexMessage`, 4.6) and not remembered, and the session resets the flag when the check itself throws.
+- **Found while reproducing it: a chain of operators too deep to walk ended the whole program.** The parser guards its own recursion
+  but parses a chain of operators in a loop, and every walk over the tree afterwards recurses once per operator - the parser's own
+  checks after the parse, the engine's compiler, the history filter; a .NET stack overflow cannot be caught and ends the process, on
+  a workstation with every connection window. Measured on Linux in child processes from a thread with 1 MB of stack (the default of
+  a thread on Windows, the window's UI thread among them), in the default mode: `$x = 1+1+…` with 12 000 terms passed every check
+  and ended the engine's compiler when it ran (about 9 300 terms are enough), with 40 000 terms the end-of-input check of Enter ended
+  the process already (about 16 000 on 1 MB), and `$password = 'x'+'x'+…` with 4 000 terms the history filter (about 3 000). The
+  red team had not looked further than the parentheses. `Input/InputParser.cs` is now the one parse of what was typed (4.6, 4.9): a
+  text longer than 256 Ki characters is not parsed, one longer than 4 Ki is parsed on a thread with 64 MB of stack, and a tree deeper
+  than 500 levels counts as no tree - about 18 times below the depth that ended the compiler; a parenthesis takes three levels, a
+  script block about five, an operator of a chain one, so a command an operator types stays far below. A text without a tree is
+  refused with a message that says why, not remembered and not completed; it is highlighted from its tokens unless it is too long,
+  and Enter runs it so that the message is shown.
+- **(g) Three ways of a plain-text secret into the history.** `'P@ssw0rd!' | ConvertTo-SecureString -As -Force` (also `-A`: both
+  bind to `-AsPlainText` there, and the secret comes through the pipeline; the token rule counted a prefix from three letters),
+  `$h = @{ "Pass$x" = 'P@ssw0rd!' }` (only a constant key was looked at) and `[securestring]$x = 'P@ssw0rd!'` (the variable's name
+  decided alone). Fixed in 4.9: of `ConvertTo-SecureString` every prefix of `-AsPlainText` counts (also module-qualified; elsewhere
+  `-As` and `-A` stay ordinary parameters), the literal parts of an interpolated key, property or index count as its name, and a
+  literal cast to SecureString or assigned to a target typed so is a secret whatever the name.
+- **Tests.** `EscapeTests`: the red team's line in both modes (refused, the next command runs, nothing remembered, highlighting and
+  completion do not throw - it threw before); the three chains in child processes (the probe's `deep-input:<case>`) ended the process
+  before with exit 134 and "Stack overflow", now each is refused and the window runs the next command, as for the deepest chains,
+  unary operators, member accesses and parentheses that fit below the length limit; the same lines 400 terms long still run.
+  `InputGuardTests`, `HistoryPolicyTests` and `SyntaxTests` pin the limits on both sides; `HistoryPolicyTests` adds the red team's
+  11 lines and neighbours (remembered before) and 8 ordinary lines near the new rules that stay remembered.
+- **Left.** The limits were measured on Linux; Windows runs the same tests in CI, also the child processes with a 1 MB thread. When no
+  thread with 64 MB of stack can be made, a long text is treated as too long (refused, not remembered). In the trusted mode
+  `[scriptblock]::Create` still parses any text at run time - FullLanguage, decision 6 of 12.6; ConstrainedLanguage refuses it.

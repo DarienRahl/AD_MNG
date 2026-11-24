@@ -58,8 +58,9 @@ the Watchdog package.
    `Out-GridView`, `Export-Csv`, `Export-Clixml`, `Out-File`, `Set-Content`, `Add-Content`). There are no jobs, parallel
    runspaces, remote sessions, events, debugger, help updates, policy changes or commands that write a file (only
    `Export-AdmList` and `Start-Transcript -Path` write one). What reaches the engine without a command name is refused
-   from the text before it runs: `using module` / `using assembly`, the background operator `&` and redirection to a file.
-   Script files do not run: the session lists none, a lookup hook drops one found from a script block, and on Windows the
+   from the text before it runs: `using module` / `using assembly`, the background operator `&` and redirection to a file;
+   so is, as a whole, a text too long or nested too deeply to walk safely (a .NET stack overflow in the parser or the
+   engine's compiler would end the whole program). Script files do not run: the session lists none, a lookup hook drops one found from a script block, and on Windows the
    window's authorization manager refuses every `.ps1` and `.psm1` whatever the execution policy says (it stays
    `Restricted`; on Linux, where the window is not shipped, the engine asks no authorization manager). No job outlives the
    command that started it: a job left in the session is stopped when the command ends, on Stop and on dispose. No

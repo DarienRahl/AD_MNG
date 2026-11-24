@@ -86,8 +86,9 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   plików), **Enter** uruchamia kompletne polecenie albo dodaje wiersz, gdy jest niedokończone (otwarty cudzysłów, nawias, ukośnik
   pionowy), **Shift+Enter** zawsze dodaje wiersz, **Góra/Dół** chodzą po wierszach, a potem po historii, **Ctrl+R** przeszukuje
   historię, **Esc** zamyka listę, **Ctrl+L** czyści okno. Historia jest tylko w pamięci okna; wiersz z hasłem jawnym
-  (`-AsPlainText`, `ConvertTo-SecureString '…'`, wartość wpisana wprost – także w nawiasach albo złożona z samych napisów – dla
-  parametru, klucza tablicy skrótów – także przekazanej przez `@h` – albo zmiennej o nazwie z `Password`, `Passphrase`, `Pwd`,
+  (`-AsPlainText`, przy `ConvertTo-SecureString` także skrócone do `-As` albo `-A`, `ConvertTo-SecureString '…'`, napis zamieniany
+  na `[securestring]`, wartość wpisana wprost – także w nawiasach albo złożona z samych napisów – dla parametru, klucza tablicy
+  skrótów – także przekazanej przez `@h` albo złożonego ze zmiennej, jak `"Pass$x"` – albo zmiennej o nazwie z `Password`, `Passphrase`, `Pwd`,
   `Secret`, `Token`, `ApiKey` i podobnych, również skróconej do `-Pa`, wartość bez nazwy parametru dla polecenia, którego nazwa
   mówi o haśle) nie trafia do niej. Filtr nie rozpozna każdego hasła,
   więc hasła nie wpisuje się do polecenia w ogóle.
@@ -98,7 +99,10 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   `Start-Job`, operator `&` na końcu potoku), sesji zdalnych, `Invoke-Expression`, `Start-Process`, ładowania modułów
   (`Import-Module`, `using module`) ani zestawów (`using assembly`, `Add-Type`), profili ani PSReadLine, a pliki skryptów
   (`.ps1`) się nie uruchamiają – na Windows okno odrzuca je niezależnie od polityki wykonywania. Kilka nazw, które łatwo wpisać
-  odruchowo (`Start-Job`, `Export-Csv`, `Out-GridView` i inne), odpowiada komunikatem, czego użyć zamiast nich. Żadne zadanie
+  odruchowo (`Start-Job`, `Export-Csv`, `Out-GridView` i inne), odpowiada komunikatem, czego użyć zamiast nich. Polecenie dłuższe
+  niż 262 144 znaki albo zagnieżdżone zbyt głęboko (setki nawiasów lub bloków skryptu jeden w drugim albo łańcuch setek
+  operatorów) okno odrzuca w całości z komunikatem, zanim cokolwiek z niego ruszy, i nie zapamiętuje go w historii: silnik
+  PowerShella mógłby na nim zakończyć cały program. Żadne zadanie
   nie działa dłużej niż polecenie, które je uruchomiło: zadanie zostawione w sesji okno zatrzymuje, gdy polecenie się kończy,
   przy **Stop** i przy zamknięciu okna. Jedno dopasowanie wyrażenia regularnego (`-match`, `-replace`, `-split`,
   `switch -regex`, `Select-String`, `[regex]`) trwa najwyżej 2 sekundy, a potem kończy się błędem polecenia, więc wzorzec

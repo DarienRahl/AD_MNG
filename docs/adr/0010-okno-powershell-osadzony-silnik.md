@@ -58,7 +58,8 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
    równoległych runspace'ów, sesji zdalnych, zdarzeń, debugera, aktualizacji pomocy, zmian polityki ani poleceń
    zapisujących pliki (plik zapisują tylko `Export-AdmList` i `Start-Transcript -Path`). To, co trafia do silnika bez
    nazwy polecenia, jest odrzucane z tekstu, zanim ruszy: `using module` / `using assembly`, operator tła `&` i
-   przekierowanie do pliku. Pliki skryptów się nie uruchamiają: sesja nie zna żadnego, hak wyszukiwania odrzuca plik
+   przekierowanie do pliku; tak samo w całości tekst za długi albo zagnieżdżony zbyt głęboko, by przejść go bezpiecznie
+   (przepełnienie stosu .NET w parserze albo w kompilatorze silnika zakończyłoby cały program). Pliki skryptów się nie uruchamiają: sesja nie zna żadnego, hak wyszukiwania odrzuca plik
    znaleziony z bloku skryptu, a na Windows własny zarządca autoryzacji okna odrzuca każdy `.ps1` i `.psm1` niezależnie od
    polityki wykonywania (ta pozostaje `Restricted`; na Linuksie, gdzie okna się nie dostarcza, silnik nie pyta zarządcy
    autoryzacji). Żadne zadanie nie trwa dłużej niż polecenie, które je uruchomiło: zadanie pozostawione w sesji jest
