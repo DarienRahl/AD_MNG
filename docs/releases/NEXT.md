@@ -86,7 +86,9 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   plików), **Enter** uruchamia kompletne polecenie albo dodaje wiersz, gdy jest niedokończone (otwarty cudzysłów, nawias, ukośnik
   pionowy), **Shift+Enter** zawsze dodaje wiersz, **Góra/Dół** chodzą po wierszach, a potem po historii, **Ctrl+R** przeszukuje
   historię, **Esc** zamyka listę, **Ctrl+L** czyści okno – tak samo `cls` (`Clear-Host`) w poleceniu, w miejscu, w którym stoi.
-  `exit` kończy polecenie tam, gdzie stoi, a okno mówi to z kodem wyjścia i zostaje otwarte. Historia jest tylko w pamięci okna; wiersz z hasłem jawnym
+  `exit` kończy polecenie tam, gdzie stoi, a okno mówi to z kodem wyjścia i zostaje otwarte. O parametr obowiązkowy, który
+  przyjmuje listę (np. `-Identity`), okno pyta element po elemencie (`Identity[0]`, `Identity[1]`…) aż do pustej odpowiedzi,
+  jak konsola PowerShella – odpowiedź nie jest dzielona na przecinkach, więc nazwa wyróżniająca jest jedną tożsamością. Historia jest tylko w pamięci okna; wiersz z hasłem jawnym
   (`-AsPlainText`, przy `ConvertTo-SecureString` także skrócone do `-As` albo `-A`, `ConvertTo-SecureString '…'`, napis zamieniany
   na `[securestring]`, wartość wpisana wprost – także w nawiasach albo złożona z samych napisów – dla parametru, klucza tablicy
   skrótów – także przekazanej przez `@h` albo złożonego ze zmiennej, jak `"Pass$x"` – albo zmiennej o nazwie z `Password`, `Passphrase`, `Pwd`,

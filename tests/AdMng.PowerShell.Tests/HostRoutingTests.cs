@@ -112,8 +112,53 @@ public sealed class HostRoutingTests
             });
 
         Assert.Equal(PowerShellPromptKind.Text, asked!.Kind);
-        Assert.Contains("Number", asked.Label, StringComparison.Ordinal);
+        Assert.Equal("Number", asked.Label);
         Assert.Contains("42\n", TestSessions.Text(items), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_missing_array_parameter_is_asked_for_element_by_element_and_a_distinguished_name_stays_one_element()
+    {
+        // Audit PS-05: the answer was split at commas, so a DN typed at the -Identity prompt became four identities.
+        await using var session = await TestSessions.CreateAsync();
+        var asked = new List<PowerShellPromptItem>();
+        var answers = new Queue<string>(["CN=Jan Kowalski,OU=Księgowość,DC=contoso,DC=test", "jan.kowalski", string.Empty]);
+
+        var items = await TestSessions.RunAsync(
+            session,
+            "function Get-Ids { param([Parameter(Mandatory)][string[]]$Identity) \"count=$($Identity.Count)\"; $Identity }; Get-Ids",
+            prompt =>
+            {
+                asked.Add(prompt);
+                prompt.Respond(answers.Dequeue());
+                return Task.CompletedTask;
+            });
+
+        Assert.Equal(
+            "count=2\nCN=Jan Kowalski,OU=Księgowość,DC=contoso,DC=test\njan.kowalski\n",
+            TestSessions.Text(items));
+        Assert.Equal(["Identity[0]", "Identity[1]", "Identity[2]"], asked.Select(p => p.Label));
+        Assert.All(asked, prompt => Assert.Equal(PowerShellPromptKind.Text, prompt.Kind));
+        Assert.Equal(PowerShellRunState.Completed, TestSessions.End(items).State);
+    }
+
+    [Fact]
+    public async Task A_missing_int_array_parameter_converts_each_element()
+    {
+        await using var session = await TestSessions.CreateAsync();
+        var answers = new Queue<string>(["2", "5", string.Empty]);
+
+        var items = await TestSessions.RunAsync(
+            session,
+            "function Get-Sum { param([Parameter(Mandatory)][int[]]$Number) ($Number | Measure-Object -Sum).Sum }; Get-Sum",
+            prompt =>
+            {
+                prompt.Respond(answers.Dequeue());
+                return Task.CompletedTask;
+            });
+
+        Assert.EndsWith("7\n", TestSessions.Text(items), StringComparison.Ordinal);
+        Assert.False(TestSessions.End(items).HadErrors, TestSessions.Dump(items));
     }
 
     [Theory]

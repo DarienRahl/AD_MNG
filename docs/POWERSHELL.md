@@ -293,6 +293,9 @@ Programy konsolowe (`whoami`, `nltest`, `repadmin`) działają jak w każdej kon
 Windows, nigdy z poświadczeniami okna.
 
 Polecenia, które o coś pytają – `Read-Host`, parametr obowiązkowy, `-Confirm` – pytają w oknie, a *Zatrzymaj* anuluje pytanie.
+Parametr obowiązkowy, który przyjmuje listę (np. `-Identity`), okno – jak konsola PowerShella – pyta element po elemencie
+(`Identity[0]`, `Identity[1]`, …), aż odpowiesz pustym wierszem. Odpowiedź nie jest dzielona na przecinkach, więc nazwa
+wyróżniająca to jedna tożsamość.
 
 **Tryb zaufany (FullLanguage)** to przełącznik pod wierszem poleceń:
 

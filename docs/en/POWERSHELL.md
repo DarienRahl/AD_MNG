@@ -296,7 +296,9 @@ behind is stopped when the command ends, on *Stop* and when the window closes. C
 credentials.
 
 The commands that ask for something – `Read-Host`, a mandatory parameter, `-Confirm` – ask in the window, and *Stop* cancels the
-question.
+question. A mandatory parameter that takes a list (such as `-Identity`) is asked for element by element, as the PowerShell console
+asks (`Identity[0]`, `Identity[1]`, …), until you answer with an empty line. An answer is not split at commas, so a distinguished
+name is one identity.
 
 **The trusted mode (FullLanguage)** is a switch under the command line:
 

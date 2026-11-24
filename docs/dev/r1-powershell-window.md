@@ -241,7 +241,10 @@ PSHostRawUserInterface` (minimal: buffer and window size from the session's widt
   `WARNING:`-like prefix; the window decides how to show a stream); `WriteProgress` → a progress item. Nothing goes to a
   file or a console.
 - **Prompts.** `ReadLine`, `ReadLineAsSecureString`, `Prompt` (a missing mandatory parameter: one prompt per field, the
-  answer converted to the parameter's type), `PromptForChoice` (confirmations: `-Confirm`, `ShouldContinue`) post a **prompt
+  answer converted to the parameter's type; a parameter that takes an array is asked for element by element, `Identity[0]`,
+  `Identity[1]`, ..., until an empty answer, as the console host asks - an answer is never split at commas, so a distinguished
+  name stays one element, audit PS-05; the prompt text is the field's name, as in the console host, not its label with the
+  accelerator), `PromptForChoice` (confirmations: `-Confirm`, `ShouldContinue`) post a **prompt
   item** into the same stream and block the pipeline thread until the consumer answers it; Stop cancels the wait, and a
   cancelled prompt stops the pipeline (`PipelineStoppedException`, like Ctrl+C at a console prompt). `PromptForCredential`
   throws `PSNotSupportedException` with a clear message (R1 creates no `PSCredential`). `EnterNestedPrompt` is not supported.
