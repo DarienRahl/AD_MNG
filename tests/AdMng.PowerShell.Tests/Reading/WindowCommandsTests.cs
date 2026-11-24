@@ -89,6 +89,50 @@ public sealed class WindowCommandsTests
         Assert.Equal(-1, services.Grids[0].DistinguishedNameColumn);
     }
 
+    /// <summary>
+    /// Audit ps-commands-3: the text of a cell recursed into every list with no limit, so one array that contains itself - one line
+    /// in the default ConstrainedLanguage mode - overflowed the stack, which no handler can catch: the whole program ended.
+    /// </summary>
+    [Fact]
+    public async Task Out_AdmGrid_of_an_array_that_contains_itself_shows_a_cell_and_the_program_goes_on()
+    {
+        var services = new RecordingWindowServices();
+        await using var harness = await ReadHarness.CreateAsync(services: services);
+
+        var result = await harness.RunAsync("$a = @(1, 2); $a[0] = $a; New-Object PSObject -Property @{ X = $a } | Out-AdmGrid");
+
+        Assert.True(result.Errors.Length == 0, result.Errors);
+        var cell = Assert.Single(Cells(Assert.Single(services.Grids), "X"));
+        Assert.NotNull(cell);
+        Assert.EndsWith("2", cell, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_text_of_a_cell_looks_into_lists_three_levels_deep_and_then_names_the_list()
+    {
+        var inner = new object[] { "c", new object[] { "d" } };
+        var nested = new object[] { "a", new object[] { "b", inner } };
+        var self = new object[2];
+        self[0] = self;
+        self[1] = "x";
+
+        Assert.Equal(string.Join(AdMng.Core.Formatting.AttributeFormatter.ValueSeparator, "a", "b", "c", "System.Object[]"), Tables.CellText.Of(nested));
+        Assert.EndsWith("x", Tables.CellText.Of(self), StringComparison.Ordinal);
+    }
+
+    /// <summary>Audit ps-commands-6: a null element of an array ended the command with "the value of argument obj is null".</summary>
+    [Fact]
+    public async Task Out_AdmGrid_of_an_array_with_a_null_element_has_an_empty_row_for_it()
+    {
+        var services = new RecordingWindowServices();
+        await using var harness = await ReadHarness.CreateAsync(services: services);
+
+        var result = await harness.RunAsync("Out-AdmGrid -InputObject @('x', $null, 'y')");
+
+        Assert.True(result.Errors.Length == 0, result.Errors);
+        Assert.Equal(new List<string?> { "x", null, "y" }, Cells(Assert.Single(services.Grids), "Value"));
+    }
+
     [Fact]
     public async Task Out_AdmGrid_with_nothing_to_show_opens_no_grid_and_says_so()
     {
