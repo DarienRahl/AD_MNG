@@ -85,6 +85,27 @@ internal sealed class FakePowerShellSession : IPowerShellSession
 
     public List<PowerShellLanguageMode> ModeRequests { get; } = [];
 
+    /// <summary>How many new runspaces the session made: turning the trusted mode off makes one, like the real engine.</summary>
+    public int NewRunspaces { get; private set; }
+
+    /// <summary>When set, turning the trusted mode off waits for it - the real engine makes its new runspace meanwhile.</summary>
+    public TaskCompletionSource? NewRunspaceHold { get; set; }
+
+    /// <summary>Completes when turning the trusted mode off started making its new runspace.</summary>
+    public TaskCompletionSource NewRunspaceStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>What the new runspace sees when it is made (the real engine asks the lockdown again).</summary>
+    public Action? WhileTheNewRunspaceIsMade { get; set; }
+
+    /// <summary>
+    /// The new runspace cannot be made: turning the trusted mode off throws this (a <see cref="PowerShellSessionUnavailableException"/>),
+    /// and from then on the session runs nothing, as the real one.
+    /// </summary>
+    public PowerShellSessionUnavailableException? NewRunspaceFailure { get; set; }
+
+    /// <summary>The session has no runspace any more: every command and switch throws this.</summary>
+    public PowerShellSessionUnavailableException? Lost { get; set; }
+
     /// <summary>The last run, for the test that holds it.</summary>
     public FakeRun? LastRun { get; private set; }
 
@@ -174,9 +195,14 @@ internal sealed class FakePowerShellSession : IPowerShellSession
 
     public bool ShouldRemember(string line) => Remember(line);
 
-    public Task SetLanguageModeAsync(PowerShellLanguageMode mode, CancellationToken cancellationToken)
+    public async Task SetLanguageModeAsync(PowerShellLanguageMode mode, CancellationToken cancellationToken)
     {
         ModeRequests.Add(mode);
+        if (Lost is { } lost)
+        {
+            throw lost;
+        }
+
         if (IsRunning)
         {
             throw new InvalidOperationException("The language mode cannot be changed while a command is running.");
@@ -187,8 +213,28 @@ internal sealed class FakePowerShellSession : IPowerShellSession
             throw new InvalidOperationException("A system lockdown enforces ConstrainedLanguage.");
         }
 
+        if (mode == PowerShellLanguageMode.Constrained && LanguageMode == PowerShellLanguageMode.Full)
+        {
+            // Like the real engine: a new runspace, made off the caller's thread, and the lockdown asked again; the creation is not cancelled.
+            NewRunspaceStarted.TrySetResult();
+            if (NewRunspaceHold is { } hold)
+            {
+                await hold.Task.ConfigureAwait(false);
+            }
+
+            WhileTheNewRunspaceIsMade?.Invoke();
+            LanguageMode = PowerShellLanguageMode.Constrained;
+            if (NewRunspaceFailure is { } failure)
+            {
+                Lost = failure;
+                throw failure;
+            }
+
+            NewRunspaces++;
+            return;
+        }
+
         LanguageMode = mode;
-        return Task.CompletedTask;
     }
 
     public ValueTask DisposeAsync()
@@ -210,6 +256,11 @@ internal sealed class FakePowerShellSession : IPowerShellSession
 
     private async IAsyncEnumerable<PowerShellOutputItem> Run(string script, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
+        if (Lost is { } lost)
+        {
+            throw lost;
+        }
+
         if (IsRunning)
         {
             throw new InvalidOperationException("A run is already active.");

@@ -24,6 +24,8 @@ public static partial class L
         public const string TrustedSwitch = "PowerShell.Trusted.Switch";
 
         public const string TrustedOn = "PowerShell.Trusted.On";
+
+        /// <summary>A line of the window: the trusted mode is off, in a new session without the variables and functions of earlier commands.</summary>
         public const string TrustedOff = "PowerShell.Trusted.Off";
 
         /// <summary>A line of the window: the engine left a command that did not end after Stop and goes on in a new session.</summary>
@@ -37,6 +39,8 @@ public static partial class L
         public const string TrustedBlockedLockdown = "PowerShell.Trusted.BlockedLockdown";
         public const string TrustedBlockedRunning = "PowerShell.Trusted.BlockedRunning";
         public const string TrustedBlockedStarting = "PowerShell.Trusted.BlockedStarting";
+        public const string TrustedBlockedSwitching = "PowerShell.Trusted.BlockedSwitching";
+        public const string TrustedBlockedFailed = "PowerShell.Trusted.BlockedFailed";
 
         /// <summary>{0} = the lines that were dropped, {1} = the lines the window keeps.</summary>
         public const string DroppedLines = "PowerShell.DroppedLines";
@@ -146,8 +150,11 @@ public static partial class L
 
         public const string StartFailedNext = "PowerShell.Status.StartFailedNext";
 
-        /// <summary>Why: the build has no engine.</summary>
+        /// <summary>The build has no engine; a sentence of its own (also the reason of the disabled switch).</summary>
         public const string NotAvailable = "PowerShell.Status.NotAvailable";
+
+        /// <summary>What to do about a build without the engine.</summary>
+        public const string NotAvailableNext = "PowerShell.Status.NotAvailableNext";
 
         public const string Running = "PowerShell.Status.Running";
 
@@ -191,6 +198,9 @@ public static partial class L
 
         /// <summary>What was skipped, without a full stop.</summary>
         public const string ModeNotChanged = "PowerShell.Status.ModeNotChanged";
+
+        /// <summary>The trusted mode is being turned off: the session makes its new runspace.</summary>
+        public const string SwitchingOff = "PowerShell.Status.SwitchingOff";
 
         public const string TrustedNote = "PowerShell.Status.TrustedNote";
 

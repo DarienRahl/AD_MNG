@@ -51,16 +51,21 @@ public sealed partial class PowerShellInputModel : ObservableObject
     public const int SynchronousHighlightLength = 2_000;
 
     private readonly Func<IPowerShellSession?> _session;
+    private readonly Func<bool>? _canComplete;
     private CancellationTokenSource? _completion;
     private CancellationTokenSource? _highlight;
     private int _replaceIndex;
     private int _replaceLength;
     private int _searchIndex;
 
-    public PowerShellInputModel(Func<IPowerShellSession?> session, PowerShellInputHistory history)
+    /// <param name="session">The window's session, or null while it has none.</param>
+    /// <param name="history">The window's history.</param>
+    /// <param name="canComplete">False while the window takes no completion (the trusted mode is being turned off); null: always.</param>
+    public PowerShellInputModel(Func<IPowerShellSession?> session, PowerShellInputHistory history, Func<bool>? canComplete = null)
     {
         _session = session ?? throw new ArgumentNullException(nameof(session));
         History = history ?? throw new ArgumentNullException(nameof(history));
+        _canComplete = canComplete;
     }
 
     public PowerShellInputHistory History { get; }
@@ -295,7 +300,7 @@ public sealed partial class PowerShellInputModel : ObservableObject
             return;
         }
 
-        if (_session() is not { } session)
+        if (_canComplete?.Invoke() == false || _session() is not { } session)
         {
             return;
         }
@@ -374,6 +379,19 @@ public sealed partial class PowerShellInputModel : ObservableObject
             SelectedCompletionIndex = -1;
         }
     }
+
+    /// <summary>
+    /// The window's session is about to change its runspace (the trusted mode is turned off): the completion list closes and a request
+    /// on its way is dropped, and a highlight that runs on a pool thread is stopped. <see cref="Highlight"/> colours the text again after.
+    /// </summary>
+    public void CancelPendingWork()
+    {
+        CloseCompletion();
+        Interlocked.Exchange(ref _highlight, null)?.Cancel();
+    }
+
+    /// <summary>Highlights the text again, as a change of it would (after <see cref="CancelPendingWork"/>).</summary>
+    public void Highlight() => OnTextChanged(Text);
 
     // ---- Search of the history (Ctrl+R) -------------------------------------------------------------------------
 

@@ -25642,7 +25642,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Trusted mode is on for this window: FullLanguage, any .NET code. It is not remembered; a new window starts in ConstrainedLanguage.</value>
   </data>
   <data name="PowerShell.Trusted.Off" xml:space="preserve">
-    <value>Trusted mode is off: ConstrainedLanguage.</value>
+    <value>Trusted mode is off: ConstrainedLanguage, in a new PowerShell session. The variables, functions and aliases of earlier commands are gone; the history and the output stay.</value>
   </data>
   <data name="PowerShell.SessionRestarted" xml:space="preserve">
     <value>The command did not end after it was stopped: it is in .NET code that Stop cannot interrupt. The window left it and started a new PowerShell session, so the variables, functions and modules of earlier commands are gone. The command may keep a processor core busy until it ends or the program closes.</value>
@@ -25651,7 +25651,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Trusted mode</value>
   </data>
   <data name="PowerShell.Trusted.ConfirmMessage" xml:space="preserve">
-    <value>Turn on trusted mode in the PowerShell window of {0}?&#10;&#10;In trusted mode a script can run any .NET code and change the directory directly, around the change plan: without the preview, the audit log and the rollback of AD Manager. It is a protection against mistakes, not a security boundary.&#10;&#10;The mode applies to this window only and is not remembered.</value>
+    <value>Turn on trusted mode in the PowerShell window of {0}?&#10;&#10;In trusted mode a script can run any .NET code and change the directory directly, around the change plan: without the preview, the audit log and the rollback of AD Manager. It is a protection against mistakes, not a security boundary.&#10;&#10;The mode applies to this window only and is not remembered. Turning it off starts a new PowerShell session in the window: the variables, functions and aliases defined until then are gone.</value>
   </data>
   <data name="PowerShell.Trusted.BlockedLockdown" xml:space="preserve">
     <value>A system policy (WDAC or AppLocker) enforces ConstrainedLanguage mode.</value>
@@ -25661,6 +25661,12 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   </data>
   <data name="PowerShell.Trusted.BlockedStarting" xml:space="preserve">
     <value>PowerShell is not ready yet.</value>
+  </data>
+  <data name="PowerShell.Trusted.BlockedSwitching" xml:space="preserve">
+    <value>The trusted mode is being turned off.</value>
+  </data>
+  <data name="PowerShell.Trusted.BlockedFailed" xml:space="preserve">
+    <value>PowerShell could not be started in this window.</value>
   </data>
   <data name="PowerShell.DroppedLines" xml:space="preserve">
     <value>The oldest {0} lines were removed from this window to keep it fast; it keeps the last {1}.</value>
@@ -25688,6 +25694,9 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   </data>
   <data name="PowerShell.Status.NotAvailable" xml:space="preserve">
     <value>This installation has no PowerShell engine.</value>
+  </data>
+  <data name="PowerShell.Status.NotAvailableNext" xml:space="preserve">
+    <value>Use the standard package of AD Manager, which includes the engine.</value>
   </data>
   <data name="PowerShell.Status.Running" xml:space="preserve">
     <value>Running the command…</value>
@@ -25739,6 +25748,9 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   </data>
   <data name="PowerShell.Status.ModeNotChanged" xml:space="preserve">
     <value>The language mode was not changed</value>
+  </data>
+  <data name="PowerShell.Status.SwitchingOff" xml:space="preserve">
+    <value>Turning the trusted mode off: starting a new PowerShell session…</value>
   </data>
   <data name="PowerShell.Status.TrustedNote" xml:space="preserve">
     <value>Trusted mode is on: scripts in this window can run any .NET code and change the directory around the change plan, without the preview, audit and rollback of AD Manager. The switch turns it off.</value>

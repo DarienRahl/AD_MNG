@@ -46,6 +46,12 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
     private bool _policiesUnreadable;
     private string? _policiesError;
     private string? _startError;
+
+    /// <summary>
+    /// Why the window has no session although it was started: the factory failed, or the session lost its runspace (the new one after
+    /// the trusted mode or after a left command could not be made). The text is made from it when it is read, in the language of then.
+    /// </summary>
+    private Exception? _startFailure;
     private bool _started;
     private int _outputWidth = 120;
 
@@ -56,7 +62,7 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
         _info = Session?.Info;
         Status = new PageStatusHolder(Localizer, services.Dispatcher, services.Lists.StatusLog);
         History = new PowerShellInputHistory(line => _session?.ShouldRemember(line) ?? false);
-        Input = new PowerShellInputModel(() => _session, History);
+        Input = new PowerShellInputModel(() => _session, History, canComplete: () => !IsSwitchingMode);
         Input.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(PowerShellInputModel.Text))
@@ -95,8 +101,8 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
         ? Localizer.Format(IsTrustedMode ? L.PowerShell.WindowTitleTrusted : L.PowerShell.WindowTitle, info.DomainDnsName, info.Server, info.BoundIdentity)
         : Localizer[L.PowerShell.Name];
 
-    /// <summary>The engine session exists: commands can be run.</summary>
-    public bool IsReady => _session is not null && !IsSessionEnded;
+    /// <summary>The engine session exists and is not changing its runspace: commands can be run.</summary>
+    public bool IsReady => _session is not null && !IsSessionEnded && !IsSwitchingMode;
 
     /// <summary>The engine is being started (the first runspace of a process takes about half a second).</summary>
     [ObservableProperty]
@@ -313,6 +319,11 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
                 canClose: false);
         }
 
+        if (_startFailure is not null)
+        {
+            return PageStatus.Error(StartFailureText(), new PageStatusLog(L.PowerShellStatus.StartFailed), canClose: false);
+        }
+
         var notes = new List<(string Text, PageStatusLog Log)>();
         if (_policyNote is { } policy)
         {
@@ -337,6 +348,31 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
             1 => PageStatus.Attention(notes[0].Text, notes[0].Log),
             _ => PageStatus.Attention(string.Join(' ', notes.Select(note => note.Text)), new PageStatusLog(L.PowerShellStatus.Notes, notes.Count)),
         };
+    }
+
+    /// <summary>"PowerShell could not be started: why. Close the window and open it again." in the language of now.</summary>
+    private string StartFailureText()
+    {
+        var cause = _startFailure is PowerShellSessionUnavailableException { InnerException: { } inner } ? inner : _startFailure!;
+        return PageStatusText.Failure(Localizer[L.PowerShellStatus.StartFailed], Errors.Translate(cause), Localizer[L.PowerShellStatus.StartFailedNext]);
+    }
+
+    /// <summary>
+    /// The session has no runspace any more (<see cref="PowerShellSessionUnavailableException"/>): the window goes to the lasting state
+    /// "could not be started", says so in the scrollback, and closes the session - it would refuse every command.
+    /// </summary>
+    private void LoseSession(IPowerShellSession session, Exception failure)
+    {
+        _startFailure = failure;
+        if (ReferenceEquals(_session, session))
+        {
+            _session = null;
+        }
+
+        DisposeSession(session);
+        Output.AddLine(PowerShellLineKind.Information, StartFailureText());
+        UpdateLasting();
+        NotifyMode();
     }
 
     // ---- The window ends ----------------------------------------------------------------------------------------

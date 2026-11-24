@@ -94,6 +94,12 @@ public sealed partial class PowerShellWindowViewModel
                 Finish(scope, started, linesBefore, modeBefore);
             }
         }
+        catch (PowerShellSessionUnavailableException ex) when (!IsDisposed)
+        {
+            // The session lost its runspace (a new one after a left command could not be made): what lasts says so from now on.
+            Output.EndRun();
+            LoseSession(session, ex);
+        }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             if (!IsDisposed)

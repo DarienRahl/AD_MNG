@@ -25642,7 +25642,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Tryb zaufany jest włączony w tym oknie: FullLanguage, dowolny kod .NET. Nie jest zapamiętywany; nowe okno zaczyna w trybie ConstrainedLanguage.</value>
   </data>
   <data name="PowerShell.Trusted.Off" xml:space="preserve">
-    <value>Tryb zaufany jest wyłączony: ConstrainedLanguage.</value>
+    <value>Tryb zaufany jest wyłączony: ConstrainedLanguage, w nowej sesji PowerShell. Zmiennych, funkcji i aliasów z wcześniejszych poleceń już nie ma; historia i zawartość okna zostają.</value>
   </data>
   <data name="PowerShell.SessionRestarted" xml:space="preserve">
     <value>Polecenie nie zakończyło się po zatrzymaniu: wykonuje kod .NET, którego zatrzymanie nie przerywa. Okno je zostawiło i uruchomiło nową sesję PowerShell, więc zmiennych, funkcji i modułów z wcześniejszych poleceń już nie ma. Polecenie może zajmować rdzeń procesora, dopóki się nie skończy albo program nie zostanie zamknięty.</value>
@@ -25651,7 +25651,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Tryb zaufany</value>
   </data>
   <data name="PowerShell.Trusted.ConfirmMessage" xml:space="preserve">
-    <value>Włączyć tryb zaufany w oknie PowerShell domeny {0}?&#10;&#10;W trybie zaufanym skrypt może uruchamiać dowolny kod .NET i zmieniać katalog bezpośrednio, z pominięciem planu zmian: bez podglądu, dziennika audytu i wycofywania zmian w AD Manager. To zabezpieczenie przed pomyłkami, a nie granica bezpieczeństwa.&#10;&#10;Tryb dotyczy tylko tego okna i nie jest zapamiętywany.</value>
+    <value>Włączyć tryb zaufany w oknie PowerShell domeny {0}?&#10;&#10;W trybie zaufanym skrypt może uruchamiać dowolny kod .NET i zmieniać katalog bezpośrednio, z pominięciem planu zmian: bez podglądu, dziennika audytu i wycofywania zmian w AD Manager. To zabezpieczenie przed pomyłkami, a nie granica bezpieczeństwa.&#10;&#10;Tryb dotyczy tylko tego okna i nie jest zapamiętywany. Jego wyłączenie uruchamia w oknie nową sesję PowerShell: zmiennych, funkcji i aliasów zdefiniowanych do tego czasu już nie będzie.</value>
   </data>
   <data name="PowerShell.Trusted.BlockedLockdown" xml:space="preserve">
     <value>Zasady systemowe (WDAC lub AppLocker) wymuszają tryb ConstrainedLanguage.</value>
@@ -25661,6 +25661,12 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <data name="PowerShell.Trusted.BlockedStarting" xml:space="preserve">
     <value>PowerShell nie jest jeszcze gotowy.</value>
+  </data>
+  <data name="PowerShell.Trusted.BlockedSwitching" xml:space="preserve">
+    <value>Tryb zaufany jest właśnie wyłączany.</value>
+  </data>
+  <data name="PowerShell.Trusted.BlockedFailed" xml:space="preserve">
+    <value>W tym oknie nie można było uruchomić PowerShell.</value>
   </data>
   <data name="PowerShell.DroppedLines" xml:space="preserve">
     <value>Najstarsze wiersze ({0}) usunięto z tego okna, aby działało szybko; okno zachowuje ostatnie {1}.</value>
@@ -25688,6 +25694,9 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <data name="PowerShell.Status.NotAvailable" xml:space="preserve">
     <value>Ta instalacja nie zawiera silnika PowerShell.</value>
+  </data>
+  <data name="PowerShell.Status.NotAvailableNext" xml:space="preserve">
+    <value>Użyj standardowego pakietu AD Managera, który zawiera silnik.</value>
   </data>
   <data name="PowerShell.Status.Running" xml:space="preserve">
     <value>Wykonywanie polecenia…</value>
@@ -25739,6 +25748,9 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <data name="PowerShell.Status.ModeNotChanged" xml:space="preserve">
     <value>Nie zmieniono trybu języka</value>
+  </data>
+  <data name="PowerShell.Status.SwitchingOff" xml:space="preserve">
+    <value>Wyłączanie trybu zaufanego: uruchamianie nowej sesji PowerShell…</value>
   </data>
   <data name="PowerShell.Status.TrustedNote" xml:space="preserve">
     <value>Tryb zaufany jest włączony: skrypty w tym oknie mogą uruchamiać dowolny kod .NET i zmieniać katalog z pominięciem planu zmian, bez podglądu, audytu i wycofywania zmian w AD Manager. Przełącznik wyłącza ten tryb.</value>

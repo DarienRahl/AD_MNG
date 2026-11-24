@@ -296,7 +296,9 @@ public sealed class PowerShellWindowRunTests
         await run.WaitAsync(Limit, Ct);
 
         Assert.False(window.IsTrustedMode);
-        Assert.Equal((PowerShellLineKind.Information, "Trusted mode is off: ConstrainedLanguage."), Lines(window).Last());
+        Assert.Equal(
+            (PowerShellLineKind.Information, "Trusted mode is off: ConstrainedLanguage, in a new PowerShell session. The variables, functions and aliases of earlier commands are gone; the history and the output stay."),
+            Lines(window).Last());
         Assert.NotEmpty(title);
         Assert.DoesNotContain("trusted mode", window.WindowTitle, StringComparison.Ordinal);
         Assert.False(window.CanToggleTrustedMode);
