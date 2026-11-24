@@ -19,8 +19,9 @@ public enum PowerShellPolicyStore
     PowerShellCore = 0,
 
     /// <summary>
-    /// The Windows PowerShell policy key, <c>Software\Policies\Microsoft\Windows\PowerShell</c>: PowerShell 7 reads it only
-    /// while the policy "Use Windows PowerShell Policy setting" (<c>UseWindowsPowerShellPolicySetting</c>) is on.
+    /// The Windows PowerShell policy key, <c>Software\Policies\Microsoft\Windows\PowerShell</c> (or its sub key of the policy):
+    /// PowerShell 7 reads it for a policy only while that policy's "Use Windows PowerShell Policy setting"
+    /// (<c>UseWindowsPowerShellPolicySetting</c> in the policy's own PowerShell 7 key of the same hive) is on.
     /// </summary>
     WindowsPowerShell = 1,
 
@@ -28,7 +29,10 @@ public enum PowerShellPolicyStore
     ConfigFile = 2,
 }
 
-/// <summary>The store and the scope a policy setting came from (which hive and which policy source).</summary>
+/// <summary>
+/// The store and the scope a policy came from (which hive and which policy source): each policy has its own, since the engine takes
+/// each from the first place that sets any of its values, and "Use Windows PowerShell Policy setting" is a switch of each policy.
+/// </summary>
 public readonly record struct PowerShellPolicyOrigin(PowerShellPolicyStore Store, PowerShellPolicyScope Scope);
 
 /// <summary>Transcription (<c>Transcription</c>): the engine writes every command and its output to a file in <see cref="OutputDirectory"/>.</summary>
@@ -84,9 +88,6 @@ public sealed record PowerShellPolicies
     public PowerShellModuleLoggingPolicy ModuleLogging { get; init; } = PowerShellModuleLoggingPolicy.NotSet;
 
     public PowerShellExecutionPolicyPolicy ExecutionPolicy { get; init; } = PowerShellExecutionPolicyPolicy.NotSet;
-
-    /// <summary>"Use Windows PowerShell Policy setting" is on: the Windows PowerShell policies stand in for the PowerShell 7 ones.</summary>
-    public bool UseWindowsPowerShellPolicy { get; init; }
 
     /// <summary>WDAC / AppLocker (<c>SystemPolicy.GetSystemLockdownPolicy</c>).</summary>
     public PowerShellLockdownState Lockdown { get; init; }

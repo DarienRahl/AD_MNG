@@ -112,7 +112,6 @@
                        FontFamily="{StaticResource Ad.Font.Mono}"
                        FontSize="{StaticResource Ad.FontSize.Body}"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                       PasswordChanged="OnSecretChanged"
                        Template="{StaticResource BarePasswordTemplate}"
                        Visibility="Collapsed" />
         </Grid>

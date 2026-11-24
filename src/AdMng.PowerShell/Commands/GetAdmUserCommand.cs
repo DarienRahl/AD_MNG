@@ -93,7 +93,7 @@ public sealed class GetAdmUserCommand : AdmSearchCmdlet
         var projection = Project(context, AdmObjectType.User);
         if (ParameterSetName == IdentitySet)
         {
-            ReadIdentities(context, Identity, ObjectKind.User, projection, "a user");
+            ReadIdentities(context, Identity, ObjectKind.User, projection);
             return;
         }
 

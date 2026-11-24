@@ -240,6 +240,18 @@ jobs:
           if (-not "$($info.ProductVersion)".StartsWith($env:VERSION)) {
             "::warning::AdMng.exe reports product version '$($info.ProductVersion)', expected $($env:VERSION)."
           }
+      - name: Published layout of the PowerShell engine
+        # As the CI step of the same name (track R, ADR-0010): the engine runs from the single-file AdMng.exe (the smoke test above proves
+        # it); its all-users configuration and the help of its commands are published beside the program, and the four sni.dll packages
+        # (not OSI licensed) are not in the output.
+        shell: pwsh
+        run: |
+          foreach ($file in 'powershell.config.json', 'AdMng.PowerShell.dll-Help.xml') {
+            if (-not (Test-Path "publish/$file")) { throw "$file is missing from the publish output" }
+          }
+          if (Get-ChildItem publish -Recurse -Filter 'sni*.dll') { throw 'The output has an sni.dll (ADR-0010, Package licenses)' }
+          $folder = (Get-ChildItem publish -Recurse -File | Measure-Object Length -Sum).Sum
+          'AdMng.exe {0:N1} MB, the publish folder {1:N1} MB' -f ((Get-Item publish/AdMng.exe).Length / 1MB), ($folder / 1MB)
       - name: Screenshots
         if: needs.plan.outputs.screenshots == 'true'
         shell: pwsh
@@ -269,6 +281,24 @@ jobs:
             }
           }
           Get-ChildItem dist | ForEach-Object { "{0}  ({1:N0} bytes)" -f $_.Name, $_.Length }
+      - name: Smoke test the unpacked zip
+        # The zip holds the top-level files of the publish folder only (no runtimes\ sub folders): the program that ships is the one
+        # tested here, with the same layout checks (audit DLR-3).
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          $zip = "dist/AdMng-$($env:VERSION)-win-x64.zip"
+          Expand-Archive -Path $zip -DestinationPath unpacked
+          foreach ($file in 'AdMng.exe', 'powershell.config.json', 'AdMng.PowerShell.dll-Help.xml', 'LICENSE', 'NOTICE') {
+            if (-not (Test-Path "unpacked/$file")) { throw "$file is missing from $zip" }
+          }
+          if (Get-ChildItem unpacked -Recurse -Filter 'sni*.dll') { throw "$zip has an sni.dll (ADR-0010, Package licenses)" }
+          $p = Start-Process -FilePath unpacked/AdMng.exe -ArgumentList '--smoke-test' -PassThru -Wait `
+            -RedirectStandardOutput unpacked-smoke-out.txt -RedirectStandardError unpacked-smoke-err.txt
+          Get-Content unpacked-smoke-out.txt, unpacked-smoke-err.txt -ErrorAction SilentlyContinue
+          if ($p.ExitCode -ne 0) { throw "Smoke test of the unpacked zip failed with exit code $($p.ExitCode)" }
+          Remove-Item unpacked -Recurse -Force
       - uses: actions/upload-artifact@v4
         with:
           name: release-files
@@ -347,6 +377,15 @@ jobs:
           ls -l artifacts/deb/*.deb
           if [ ! -f "$expected" ]; then
             echo "::error::$expected was not built (release $VERSION)."
+            exit 1
+          fi
+      - name: The Watchdog package has no PowerShell engine
+        # As the CI step of the same name (track R, ADR-0010): the engine is used by AdMng.App only and never ships with the service,
+        # which ships as this .deb.
+        run: |
+          deb=$(ls artifacts/deb/admng-watchdog_*_amd64.deb)
+          if dpkg-deb -c "$deb" | grep -F 'System.Management.Automation'; then
+            echo "::error::$deb contains the PowerShell engine (ADR-0010)."
             exit 1
           fi
       - name: Install test on Debian 12 and 13

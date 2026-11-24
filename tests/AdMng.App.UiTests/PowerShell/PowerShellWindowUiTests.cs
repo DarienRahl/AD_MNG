@@ -79,6 +79,26 @@ public sealed class PowerShellWindowUiTests
 
         // The empty editor says how to use it, in the words of the language.
         Assert.StartsWith("Type a command", window.EditorControl.Hint, StringComparison.Ordinal);
+
+        // A line of an error, a warning or the note is heard with its kind first (audit W-07); any other line is its text.
+        var output = window.ViewModel.Output;
+        output.Add([new AdMng.Core.PowerShell.PowerShellTextItem(AdMng.Core.PowerShell.PowerShellStream.Error, "Get-AdmUser: no such user\n")]);
+        output.Add([new AdMng.Core.PowerShell.PowerShellTextItem(AdMng.Core.PowerShell.PowerShellStream.Warning, "Only 10 windows\n")]);
+        output.AddLine(PowerShellLineKind.PolicyNote, "Transcription is on");
+        output.AddLine(PowerShellLineKind.Information, "plain");
+        await UiTestSupport.WaitForIdleAsync();
+        string NameOf(string text)
+        {
+            var line = output.Lines.Last(l => l.Text == text);
+            window.Output.ScrollIntoView(line);
+            window.Output.UpdateLayout();
+            return AutomationProperties.GetName((DependencyObject)window.Output.ItemContainerGenerator.ContainerFromItem(line));
+        }
+
+        Assert.Equal("Error: Get-AdmUser: no such user", NameOf("Get-AdmUser: no such user"));
+        Assert.Equal("Warning: Only 10 windows", NameOf("Only 10 windows"));
+        Assert.Equal("Note: Transcription is on", NameOf("Transcription is on"));
+        Assert.Equal("plain", NameOf("plain"));
         context.AssertHealthy();
     });
 
@@ -235,6 +255,44 @@ public sealed class PowerShellWindowUiTests
         context.AssertHealthy();
     });
 
+    /// <summary>
+    /// Audit W-08 and W-09: the secret went through the model's text, a string per key, and stayed in the hidden password box after the
+    /// answer; text typed ahead of a question stayed in the hidden command line while the model had none. Enter in the password box now
+    /// hands over a SecureString, the box is empty after the answer, and the command line shows what was typed ahead again.
+    /// </summary>
+    [Fact]
+    public Task ASecretQuestion_TakesTheSecretFromThePasswordBoxOnly_EmptiesIt_AndTheTypedAheadTextComesBack() => WpfTestHost.RunAsync(async () =>
+    {
+        var (context, _, _, window) = await PowerShellUiSupport.OpenAsync();
+        await using var _c = context;
+        var editor = window.EditorControl;
+        var vm = window.ViewModel;
+
+        editor.Box.Text = "$s = Read-Host 'Secret' -AsSecureString; \"length=$($s.Length)\"";
+        var run = vm.RunCommand.ExecuteAsync(null);
+        await UiWait.UntilAsync(() => vm.IsRunning, "the command runs");
+        editor.Box.Text = "Get-AdmVersion";
+        await UiWait.UntilAsync(() => vm.PendingPrompt is not null, "the secret question");
+        await UiTestSupport.WaitForIdleAsync();
+
+        Assert.Equal(Visibility.Visible, editor.Secret.Visibility);
+        Assert.Equal(Visibility.Collapsed, editor.Box.Visibility);
+        editor.Secret.Password = "S3cret!";
+        Assert.Equal(string.Empty, vm.Input.Text);
+
+        Assert.True(editor.HandleKey(Key.Enter, ModifierKeys.None));
+        await run;
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+
+        Assert.Contains("length=7", PowerShellUiSupport.Lines(window));
+        Assert.DoesNotContain(PowerShellUiSupport.Lines(window), line => line.Contains("S3cret", StringComparison.Ordinal));
+        Assert.Equal(string.Empty, editor.Secret.Password);
+        Assert.Equal(Visibility.Collapsed, editor.Secret.Visibility);
+        Assert.Equal("Get-AdmVersion", editor.Box.Text);
+        Assert.Equal("Get-AdmVersion", vm.Input.Text);
+        context.AssertHealthy();
+    });
+
     [Fact]
     public Task CtrlC_WithoutASelection_StopsTheCommand_AndCtrlL_ClearsTheWindow() => WpfTestHost.RunAsync(async () =>
     {
@@ -286,6 +344,69 @@ public sealed class PowerShellWindowUiTests
         await UiWait.UntilAsync(() => !vm.IsRunning && line.Kind != PageStatusKind.Working, "the command ended");
         Assert.Equal(PageStatusKind.Attention, line.Kind);
         Assert.False(window.RunButton.IsRunning);
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task AFloodOfOutput_LeavesTheKeyboardFree_AndCtrlCOfInputPriorityIsTakenAtOnce() => WpfTestHost.RunAsync(async () =>
+    {
+        // Audit W-03 (by reasoning; this test is the first run of it on a dispatcher): the steps of the stream went to the UI thread at
+        // the normal priority, so a command that writes without a pause always had a step queued above the keyboard and the mouse.
+        var (context, _, _, window) = await PowerShellUiSupport.OpenAsync();
+        await using var _c = context;
+        var vm = window.ViewModel;
+        window.EditorControl.Box.Text = "while ($true) { 'x' * 40 }";
+        var running = vm.RunCommand.ExecuteAsync(null);
+        await UiWait.UntilAsync(() => vm.Output.OutputLinesWritten > 5_000, "the flood reached the window");
+
+        // What a key press is to the dispatcher: an operation of input priority. It is taken while the flood goes on.
+        var posted = System.Diagnostics.Stopwatch.StartNew();
+        TimeSpan? taken = null;
+        var stopped = false;
+        var press = window.Dispatcher.InvokeAsync(
+            () =>
+            {
+                taken = posted.Elapsed;
+                stopped = window.EditorControl.HandleKey(Key.C, ModifierKeys.Control);
+            },
+            System.Windows.Threading.DispatcherPriority.Input);
+        await press.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        Assert.True(stopped);
+        Assert.True(taken < TimeSpan.FromSeconds(1), $"Ctrl+C was taken after {taken?.TotalMilliseconds:N0} ms of the flood");
+
+        await running.WaitAsync(TimeSpan.FromSeconds(30));
+        await UiWait.UntilAsync(() => !vm.IsRunning && window.PageStatus.Kind != PageStatusKind.Working, "the flood stopped");
+        Assert.Equal(PageStatusKind.Attention, window.PageStatus.Kind);
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task ABurstOfChangesQueuesOneScroll_AndAClearBeforeItRunsIsNoError() => WpfTestHost.RunAsync(async () =>
+    {
+        // Audit W-05: every change of the output queued a scroll that read the last line when it ran, so Ctrl+L between the change and
+        // the scroll threw on the UI thread, once per queued scroll.
+        var (context, _, _, window) = await PowerShellUiSupport.OpenAsync();
+        await using var _c = context;
+        var output = window.ViewModel.Output;
+        await PowerShellUiSupport.RunAsync(window, "1..50");
+        window.Output.ScrollIntoView(window.Output.Items[^1]);
+        await UiTestSupport.WaitForIdleAsync();
+        var before = window.ScrollRequests;
+
+        // In one turn of the dispatcher: lines arrive three times, then Ctrl+L empties the list before the queued scroll runs.
+        output.AddLine(PowerShellLineKind.Information, "one");
+        output.AddLine(PowerShellLineKind.Information, "two");
+        output.AddLine(PowerShellLineKind.Information, "three");
+        Assert.Equal(before + 1, window.ScrollRequests);
+        Assert.True(window.EditorControl.HandleKey(Key.L, ModifierKeys.Control));
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Empty(output.Lines);
+
+        // The request ran: the next change queues a new one, and it scrolls to the new line.
+        output.AddLine(PowerShellLineKind.Information, "four");
+        Assert.Equal(before + 2, window.ScrollRequests);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal("four", Assert.Single(output.Lines).Text);
         context.AssertHealthy();
     });
 

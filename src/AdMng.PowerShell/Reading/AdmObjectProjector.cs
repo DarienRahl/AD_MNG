@@ -33,13 +33,45 @@ internal sealed class AdmObjectProjector
         _known = known;
     }
 
-    /// <summary>The type names of an object of <paramref name="kind"/>, most specific first.</summary>
-    public static string[] TypeNames(ObjectKind kind) => kind switch
+    /// <summary>
+    /// The type names of an object of <paramref name="kind"/> returned by a command of <paramref name="type"/>: the command's type name
+    /// first, on every object it returns, then the kind's own. The engine formats the first object's first type name as a table and
+    /// every object whose first type name differs as a list block, so mixed results (Get-AdmGroupMember, Search-AdmObject,
+    /// Get-AdmObject) were one table row and many list blocks, and a managed service account broke the table of Get-AdmComputer (audit
+    /// ps-commands-2). A command of objects puts <c>AdMng.Object</c> first; Get-AdmComputer types what it returns as
+    /// <c>AdMng.Computer</c> (a managed service account is a computer account; its <c>ObjectKind</c> says what it is).
+    /// </summary>
+    public static string[] TypeNames(ObjectKind kind, AdmObjectType type)
     {
-        ObjectKind.User or ObjectKind.InetOrgPerson => ["AdMng.User", "AdMng.Object"],
-        ObjectKind.Computer => ["AdMng.Computer", "AdMng.Object"],
-        ObjectKind.Group => ["AdMng.Group", "AdMng.Object"],
-        _ => ["AdMng.Object"],
+        var first = type switch
+        {
+            AdmObjectType.User => "AdMng.User",
+            AdmObjectType.Group => "AdMng.Group",
+            AdmObjectType.Computer => "AdMng.Computer",
+            _ => ObjectTypeName,
+        };
+        var names = new List<string> { first };
+        if (KindTypeName(kind) is { } own && own != first)
+        {
+            names.Add(own);
+        }
+
+        if (first != ObjectTypeName)
+        {
+            names.Add(ObjectTypeName);
+        }
+
+        return [.. names];
+    }
+
+    private const string ObjectTypeName = "AdMng.Object";
+
+    private static string? KindTypeName(ObjectKind kind) => kind switch
+    {
+        ObjectKind.User or ObjectKind.InetOrgPerson => "AdMng.User",
+        ObjectKind.Computer => "AdMng.Computer",
+        ObjectKind.Group => "AdMng.Group",
+        _ => null,
     };
 
     public async Task<AdmProjected> ProjectAsync(DirectoryObject obj, AdmProjection projection, CancellationToken cancellationToken)
@@ -50,7 +82,7 @@ internal sealed class AdmObjectProjector
         var kind = obj.Kind;
         var result = new PSObject();
         result.TypeNames.Clear();
-        foreach (var typeName in TypeNames(kind))
+        foreach (var typeName in TypeNames(kind, projection.Type))
         {
             result.TypeNames.Add(typeName);
         }

@@ -132,6 +132,26 @@ public sealed class PowerShellWindowRunTests
         Assert.Equal([Dn], harness.Directory.Dialogs.PropertiesShown);
     }
 
+    /// <summary>Audit W-06: a name that ends a line as wide as the engine's formatting may be cut there; the window knows the width it ran with.</summary>
+    [Fact]
+    public async Task ANameThatEndsALineAsWideAsTheFormatting_IsNoLink_ButTheSameNameInAShorterLineIs()
+    {
+        var harness = await PowerShellHarness.CreateAsync();
+        using var window = await harness.OpenAsync();
+        const string Dn = "CN=Łukasz Kowalski,OU=Sprzedaż,DC=contoso,DC=te";
+        window.SetOutputWidth(60);
+        var wrapped = new string('x', 59 - Dn.Length - 1) + " " + Dn;
+        harness.Session.Queue(Text(wrapped + "\n"), Text("st\n"), Text("short " + Dn + "\n"));
+
+        await PowerShellHarness.RunAsync(window, "Get-AdmUser Łukasz | Format-List");
+
+        Assert.Equal(59, wrapped.Length);
+        var links = window.Output.Lines.SelectMany(line => line.Runs).Where(run => run.IsLink).ToList();
+        var link = Assert.Single(links);
+        Assert.Equal(Dn, link.DistinguishedName);
+        Assert.StartsWith("short ", window.Output.Lines.Single(line => line.Runs.Any(run => run.IsLink)).Text, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task AResultOf100000Lines_ShowsTheLastOnes_InStepsOfTheWindowsOwn_AndSaysWhatWasDropped()
     {
@@ -150,6 +170,62 @@ public sealed class PowerShellWindowRunTests
 
         // The window was fed in steps: one hand-over to the UI thread per batch, not one per line.
         Assert.True(harness.Directory.Dispatcher.InvokeCount - invokesBefore < 1_000, "one hand-over per line would be 100,000");
+    }
+
+    [Fact]
+    public async Task TheResults_GoToTheUiThreadBelowItsInput_SoAFloodLeavesTheKeyboardAndStopFree()
+    {
+        // Audit W-03: at the dispatcher's normal priority a command that writes without a pause kept an operation of the window
+        // queued above the keyboard and the mouse at all times, so Stop could not be pressed.
+        var harness = await PowerShellHarness.CreateAsync();
+        using var window = await harness.OpenAsync();
+        harness.Session.Queue([.. Enumerable.Range(1, 3_000).Select(i => (PowerShellOutputItem)Text($"Line {i}\n"))]);
+        var dispatcher = harness.Directory.Dispatcher;
+        var invokesBefore = dispatcher.InvokeCount;
+        var backgroundBefore = dispatcher.BackgroundInvokeCount;
+
+        await PowerShellHarness.RunAsync(window, "1..3000");
+
+        Assert.Equal("Line 3000", window.Output.Lines[^1].Text);
+        var handOvers = dispatcher.BackgroundInvokeCount - backgroundBefore;
+        Assert.True(handOvers >= 2, $"the stream was handed over {handOvers} times below input");
+
+        // What else went to the UI thread at the normal priority is the window's own (the end of the run), not the stream.
+        Assert.InRange(dispatcher.InvokeCount - invokesBefore - handOvers, 0, 2);
+    }
+
+    [Fact]
+    public async Task ACommandThatWritesALineEveryMoment_IsHandedOverAtMostOncePerInterval_NotOncePerLine()
+    {
+        // Audit W-03: a partial step went at once whenever the next line was not there yet, so a command that writes a line every
+        // millisecond made one hand-over (and one layout of the window) per line.
+        var harness = await PowerShellHarness.CreateAsync();
+        using var window = await harness.OpenAsync();
+        harness.Session.Queue(_ => Trickle(300));
+        var dispatcher = harness.Directory.Dispatcher;
+        var before = dispatcher.InvokeCount;
+        var backgroundBefore = dispatcher.BackgroundInvokeCount;
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+
+        await PowerShellHarness.RunAsync(window, "trickle");
+
+        // The first step goes at once, every other one at least an interval after the one before, the last with the end of the run.
+        var most = (int)(clock.Elapsed / PowerShellWindowViewModel.HandOverInterval) + 2;
+        var handOvers = dispatcher.BackgroundInvokeCount - backgroundBefore;
+        Assert.Equal("Line 300", window.Output.Lines[^1].Text);
+        Assert.InRange(handOvers, 1, most);
+        Assert.True(dispatcher.InvokeCount - before <= most + 2, $"{dispatcher.InvokeCount - before} hand-overs in {clock.ElapsedMilliseconds} ms; at most {most} expected");
+
+        static async IAsyncEnumerable<PowerShellOutputItem> Trickle(int count)
+        {
+            for (var i = 1; i <= count; i++)
+            {
+                await Task.Delay(1).ConfigureAwait(false);
+                yield return Text($"Line {i}\n");
+            }
+
+            yield return FakePowerShellSession.End();
+        }
     }
 
     [Fact]
@@ -494,6 +570,34 @@ public sealed class PowerShellWindowRunTests
         Assert.Equal(PageStatusKind.Done, window.Status.Current.Kind);
     }
 
+    /// <summary>
+    /// Audit PS-07: the window made up a "finished" (or "stopped") end for an engine that ended a run without its end item, which
+    /// hid the engine losing it. Such an end is an error of the window now, and the next command runs.
+    /// </summary>
+    [Fact]
+    public async Task AnEngineThatEndsARunWithoutItsEndItem_IsAnErrorOnTheLine_NotAFinishedCommand()
+    {
+        var harness = await PowerShellHarness.CreateAsync();
+        using var window = await harness.OpenAsync();
+        harness.Session.Queue(_ => Without(Text("x\n")));
+
+        await PowerShellHarness.RunAsync(window, "x");
+
+        Assert.Equal(PageStatusKind.Error, window.Status.Current.Kind);
+        Assert.StartsWith("The command could not be started: Unexpected error: ", window.Status.Current.Message, StringComparison.Ordinal);
+        Assert.False(window.IsRunning);
+
+        harness.Session.Queue(Text("ok\n"));
+        await PowerShellHarness.RunAsync(window, "y");
+        Assert.Equal(PageStatusKind.Done, window.Status.Current.Kind);
+
+        static async IAsyncEnumerable<PowerShellOutputItem> Without(PowerShellOutputItem item)
+        {
+            yield return item;
+            await Task.CompletedTask.ConfigureAwait(false);
+        }
+    }
+
     [Fact]
     public async Task Progress_IsOnTheLine_WithThePartDone_AndTheLineGoesBackToRunningWhenItIsCompleted()
     {
@@ -550,6 +654,33 @@ public sealed class PowerShellWindowRunTests
     }
 
     [Fact]
+    public async Task TheEmptyEditor_SaysWhatToType_TheCommandOrTheAnswer_InTheLanguageOfTheWindow()
+    {
+        // Audit W-07: while a command waited for an answer, the empty editor still said "Type a command. Tab completes…".
+        var harness = await PowerShellHarness.CreateAsync();
+        using var window = await harness.OpenAsync();
+        var changed = new List<string?>();
+        window.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        var prompt = new PowerShellPromptItem(PowerShellPromptKind.Text, null, null, "Name: ");
+        harness.Session.Queue(run => Ask(run, prompt, _ => { }, a => $"Hello {a}"));
+        Assert.Equal("Type a command. Tab completes, Enter runs, Shift+Enter starts a new line.", window.EditorHint);
+
+        PowerShellHarness.Type(window, "Read-Host 'Name'");
+        var run = window.RunCommand.ExecuteAsync(null);
+        await UntilAsync(window, () => window.PendingPrompt is not null).WaitAsync(Limit, Ct);
+
+        Assert.Equal("Type the answer and press Enter.", window.EditorHint);
+        Assert.Contains(nameof(PowerShellWindowViewModel.EditorHint), changed);
+        harness.Directory.Localizer.SetCulture(CultureInfo.GetCultureInfo("pl-PL"));
+        Assert.Equal("Wpisz odpowiedź i naciśnij Enter.", window.EditorHint);
+
+        PowerShellHarness.Type(window, "Jan");
+        window.SubmitCommand.Execute(null);
+        await run.WaitAsync(Limit, Ct);
+        Assert.Equal("Wpisz polecenie. Tab uzupełnia, Enter uruchamia, Shift+Enter zaczyna nowy wiersz.", window.EditorHint);
+    }
+
+    [Fact]
     public async Task ASecretQuestion_GetsASecureString_AndTheSecretIsNowhereInTheWindow()
     {
         var harness = await PowerShellHarness.CreateAsync();
@@ -562,13 +693,27 @@ public sealed class PowerShellWindowRunTests
 
         await UntilAsync(window, () => window.PendingPrompt is not null).WaitAsync(Limit, Ct);
         Assert.True(window.Input.IsSecret);
+
+        // Audit W-08: the secret never becomes text of the editor's model (it was a string per key); Enter in the password box hands
+        // over a SecureString, and Submit alone answers nothing.
         PowerShellHarness.Type(window, "S3cret!");
+        Assert.Equal(string.Empty, window.Input.Text);
         Assert.Empty(window.Input.Spans);
         window.SubmitCommand.Execute(null);
+        Assert.NotNull(window.PendingPrompt);
+        Assert.False(prompt.IsAnswered);
+        using var typed = new System.Security.SecureString();
+        foreach (var character in "S3cret!")
+        {
+            typed.AppendChar(character);
+        }
+
+        window.AnswerSecretCommand.Execute(typed.Copy());
         await run.WaitAsync(Limit, Ct);
 
         var secure = Assert.IsType<System.Security.SecureString>(answer);
         Assert.Equal(7, secure.Length);
+        Assert.True(secure.IsReadOnly());
         Assert.DoesNotContain(window.Output.Lines, line => line.Text.Contains("S3cret", StringComparison.Ordinal));
         Assert.DoesNotContain(window.History.Entries, entry => entry.Contains("S3cret", StringComparison.Ordinal));
         Assert.DoesNotContain("S3cret", window.Status.Current.Message, StringComparison.Ordinal);
@@ -634,6 +779,76 @@ public sealed class PowerShellWindowRunTests
         Assert.Equal(1, answer);
     }
 
+    /// <summary>
+    /// Audit W-09: a question that arrives while the operator types the next command took the typed text away, and the Enter meant for
+    /// that command answered the question with its default (Yes of a -Confirm). The text comes back after the question, and an empty
+    /// answer right after such a question asks once more.
+    /// </summary>
+    [Fact]
+    public async Task AQuestionThatComesWhileTheNextCommandIsTyped_KeepsTheText_AndItsFirstEmptyEnterAsksAgain()
+    {
+        var harness = await PowerShellHarness.CreateAsync();
+        using var window = await harness.OpenAsync();
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var prompt = new PowerShellPromptItem(PowerShellPromptKind.Choice, "Confirm", "Remove?", null, [new PowerShellChoice("&Yes", ""), new PowerShellChoice("&No", "")], defaultChoice: 0);
+        object? answer = null;
+        harness.Session.Queue(run => AskAfter(gate.Task, run, prompt, a => answer = a));
+        PowerShellHarness.Type(window, "Remove-Item x -Confirm");
+        var running = window.RunCommand.ExecuteAsync(null);
+        await UntilAsync(window, () => window.IsRunning).WaitAsync(Limit, Ct);
+
+        PowerShellHarness.Type(window, "Get-AdmUser jan.kowalski");
+        gate.SetResult();
+        await UntilAsync(window, () => window.PendingPrompt is not null).WaitAsync(Limit, Ct);
+        Assert.Equal(string.Empty, window.Input.Text);
+        Assert.Equal("Get-AdmUser jan.kowalski", window.Input.CommandDraft);
+
+        window.SubmitCommand.Execute(null);
+        Assert.False(prompt.IsAnswered);
+        Assert.Contains(
+            "The question came while you were typing the next command; what you typed comes back after the answer. Type the answer, or press Enter again for the default.",
+            window.Output.Lines.Select(line => line.Text));
+
+        window.SubmitCommand.Execute(null);
+        await running.WaitAsync(Limit, Ct);
+        Assert.Equal(0, answer);
+        Assert.Equal("Get-AdmUser jan.kowalski", window.Input.Text);
+        Assert.Equal(PowerShellInputMode.Command, window.Input.Mode);
+    }
+
+    [Fact]
+    public async Task AQuestionWithoutTypeAhead_TakesTheDefaultAtTheFirstEmptyEnter_AndAnAnswerTypedAfterTheWipeCounts()
+    {
+        var harness = await PowerShellHarness.CreateAsync();
+        using var window = await harness.OpenAsync();
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var prompt = new PowerShellPromptItem(PowerShellPromptKind.Choice, null, null, null, [new PowerShellChoice("&Yes", ""), new PowerShellChoice("&No", "")], defaultChoice: 0);
+        object? answer = null;
+        harness.Session.Queue(run => AskAfter(gate.Task, run, prompt, a => answer = a));
+        PowerShellHarness.Type(window, "x");
+        var running = window.RunCommand.ExecuteAsync(null);
+        await UntilAsync(window, () => window.IsRunning).WaitAsync(Limit, Ct);
+        PowerShellHarness.Type(window, "typed ahead");
+        gate.SetResult();
+        await UntilAsync(window, () => window.PendingPrompt is not null).WaitAsync(Limit, Ct);
+
+        PowerShellHarness.Type(window, "n");
+        window.SubmitCommand.Execute(null);
+        await running.WaitAsync(Limit, Ct);
+
+        Assert.Equal(1, answer);
+        Assert.Equal("typed ahead", window.Input.Text);
+    }
+
+    private static async IAsyncEnumerable<PowerShellOutputItem> AskAfter(Task gate, FakeRun run, PowerShellPromptItem prompt, Action<object?> answered)
+    {
+        await gate.ConfigureAwait(false);
+        await foreach (var item in Ask(run, prompt, answered, a => $"choice {a}").ConfigureAwait(false))
+        {
+            yield return item;
+        }
+    }
+
     [Fact]
     public async Task StopWhileAQuestionIsPending_CancelsIt_AndEndsTheRun()
     {
@@ -669,8 +884,11 @@ public sealed class PowerShellWindowRunTests
         await PowerShellHarness.RunAsync(window, "Get-AdmGroup *");
 
         Assert.Equal(["Get-AdmUser jan", "Get-AdmGroup *"], window.History.Entries);
-        // The line that was not remembered was run all the same.
+        // The line that was not remembered was run all the same, as typed; the scrollback echoes it with its secret masked (audit PS-13).
         Assert.Equal(4, harness.Session.Scripts.Count);
+        Assert.Equal("$p = ConvertTo-SecureString 'Sup3r' -AsPlainText -Force", harness.Session.Scripts[2]);
+        Assert.Contains("PS> $p = ConvertTo-SecureString *** -AsPlainText -Force", window.Output.Lines.Select(line => line.Text));
+        Assert.DoesNotContain(window.Output.Lines, line => line.Text.Contains("Sup3r", StringComparison.Ordinal));
 
         window.ClearCommand.Execute(null);
         Assert.Empty(window.Output.Lines);

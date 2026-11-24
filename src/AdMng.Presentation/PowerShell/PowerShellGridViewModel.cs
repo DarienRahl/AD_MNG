@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using AdMng.Core.Csv;
 using AdMng.Core.PowerShell;
 using AdMng.Presentation.Dialogs;
@@ -280,14 +281,37 @@ public sealed partial class PowerShellGridViewModel : WindowViewModelBase, IHasP
     [RelayCommand(CanExecute = nameof(HasSelection))]
     private void CopyRowsWithHeaders() => Copy(includeHeaders: true);
 
+    /// <summary>
+    /// The columns are copied as the program's list copies them (audit ps-commands-4): a column with a secret - a password, the LAPS
+    /// password, a BitLocker recovery password, an attribute the schema marks confidential - is left out and the notification names it;
+    /// a secret is copied only after the explicit reveal of the Attribute Editor.
+    /// </summary>
     private void Copy(bool includeHeaders)
     {
+        var secret = SecretColumns();
+        var kept = Enumerable.Range(0, Columns.Count).Where(index => !secret.Contains(index)).ToList();
+        if (secret.Count > 0)
+        {
+            Services.Notifications.Show(NotificationSeverity.Warning, Localizer.Format(L.Copy.SecretColumnsLeftOut, string.Join(", ", secret.Select(index => Columns[index].Header))));
+        }
+
+        if (kept.Count == 0)
+        {
+            return;
+        }
+
         var text = ListClipboardText.Format(
-            [.. Columns.Select(column => column.Header)],
-            _selection.Select(row => (IReadOnlyList<string>)[.. row.Cells.Select(cell => cell ?? string.Empty)]),
+            [.. kept.Select(index => Columns[index].Header)],
+            _selection.Select(row => (IReadOnlyList<string>)[.. kept.Select(index => Cell(row, index))]),
             includeHeaders);
         ClipboardCopy.Text(Services.Clipboard, Services.Notifications, text, Localizer.Format(L.PowerShellGrid.CopiedRows, _selection.Count));
     }
+
+    /// <summary>The columns whose name is that of a secret attribute (<see cref="AdMng.Core.Schema.SecretAttributes.IsSecret"/>).</summary>
+    private List<int> SecretColumns() =>
+        [.. Enumerable.Range(0, Columns.Count).Where(index => AdMng.Core.Schema.SecretAttributes.IsSecret(Columns[index].Header, Session?.Schema))];
+
+    private static string Cell(PowerShellGridRow row, int index) => index < row.Cells.Count ? row.Cells[index] ?? string.Empty : string.Empty;
 
     /// <summary>Ctrl+Shift+C: the distinguished names of the selected rows, one per line.</summary>
     [RelayCommand(CanExecute = nameof(HasSelection))]
@@ -306,6 +330,23 @@ public sealed partial class PowerShellGridViewModel : WindowViewModelBase, IHasP
     [RelayCommand(CanExecute = nameof(HasRows))]
     private async Task ExportAsync()
     {
+        // Columns with secrets are written only after the question of the program's list export; declined, they are left out
+        // (audit ps-commands-4: the grid wrote the LAPS and BitLocker recovery passwords without a word).
+        var kept = Enumerable.Range(0, Columns.Count).ToList();
+        var secret = SecretColumns();
+        if (secret.Count > 0)
+        {
+            var message = Localizer.Format(L.Files.ExportSecretColumns, string.Join(", ", secret.Select(index => Columns[index].Header)));
+            if (!await Services.Dialogs.ConfirmAsync(Localizer[L.Batch.ExportPasswordsTitle], message, destructive: true).ConfigureAwait(true))
+            {
+                kept.RemoveAll(secret.Contains);
+                if (kept.Count == 0)
+                {
+                    return;
+                }
+            }
+        }
+
         var title = Localizer[L.Commands.ExportList];
         var path = await Services.Files.SaveFileAsync(
             title,
@@ -316,23 +357,36 @@ public sealed partial class PowerShellGridViewModel : WindowViewModelBase, IHasP
             return;
         }
 
-        var headers = Columns.Select(column => column.Header).ToList();
+        var headers = kept.Select(index => Columns[index].Header).ToList();
         var shown = Rows.ToList();
         using var writing = Status.Begin(
             Localizer[L.PowerShellGrid.Exporting], new PageStatusLog(L.PowerShellGrid.Exporting), canCancel: true, writes: OperationWrites.Other);
+        var token = writing.Token;
+        var started = new StrongBox<bool>();
         try
         {
-            // The separator of the operator's region (';' in Poland), whatever the language of the program.
+            // The separator of the operator's region (';' in Poland), whatever the language of the program. Stop ends the write between
+            // two rows (audit TI-3: it could end it only before the file was opened).
             var delimiter = CsvFiles.ListSeparator(Services.Regional.Culture);
             await CsvFiles.WriteAsync(
                 path,
-                writer => _csv.Write(writer, headers, shown.Select(row => (IReadOnlyList<string>)[.. row.Cells.Select(cell => cell ?? string.Empty)]), delimiter, protectFormulas: true),
-                writing.Token).ConfigureAwait(true);
+                writer =>
+                {
+                    started.Value = true;
+                    _csv.Write(writer, headers, shown.Select(row => Row(row, kept, token)), delimiter, protectFormulas: true);
+                },
+                token).ConfigureAwait(true);
             writing.CompleteDone(Localizer.Format(L.Files.Exported, shown.Count, Path.GetFileName(path)), new PageStatusLog(L.Files.Exported, shown.Count));
         }
         catch (OperationCanceledException) when (writing.IsCancelling)
         {
-            writing.CompleteAttention(Localizer[L.Feedback.Stopping], new PageStatusLog(L.Feedback.Stopping));
+            // Stopped: the part written is the operator's export, written by this window, and is deleted (audit TI-3: the line stayed at
+            // "Stopping…" and a part of the file was left). A file the write never opened is not touched.
+            var deleted = !started.Value || await RemovePartAsync(path).ConfigureAwait(true);
+            var name = Path.GetFileName(path);
+            writing.CompleteAttention(
+                Localizer.Format(deleted ? L.PowerShellGrid.ExportStopped : L.PowerShellGrid.ExportStoppedLeft, name),
+                new PageStatusLog(deleted ? L.PowerShellGrid.ExportStopped : L.PowerShellGrid.ExportStoppedLeft));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -341,6 +395,27 @@ public sealed partial class PowerShellGridViewModel : WindowViewModelBase, IHasP
                 new PageStatusLog(L.PowerShellGrid.ExportFailed));
         }
     }
+
+    /// <summary>The cells of the columns written, in order; a stop ends the write before the next row.</summary>
+    private static IReadOnlyList<string> Row(PowerShellGridRow row, List<int> kept, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        return [.. kept.Select(index => Cell(row, index))];
+    }
+
+    /// <summary>Deletes the part of a stopped export, on a pool thread; false when it could not be deleted.</summary>
+    private static Task<bool> RemovePartAsync(string path) => Task.Run(() =>
+    {
+        try
+        {
+            File.Delete(path);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    });
 
     /// <summary>Compares the cells of one column the way a grid does: numbers as numbers, text in the language's order, no value last.</summary>
     private sealed class CellComparer(int column, bool descending, CultureInfo culture) : IComparer<PowerShellGridRow>

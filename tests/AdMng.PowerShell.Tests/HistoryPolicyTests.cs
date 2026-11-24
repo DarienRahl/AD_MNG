@@ -197,6 +197,79 @@ public sealed class HistoryPolicyTests
         Assert.True(PowerShellHistoryPolicy.ShouldRemember(line), line);
     }
 
+    /// <summary>
+    /// What audit PS-13 found besides the red teams' lines: a literal that reaches a secret through a variable of the same line, a
+    /// credential built from a literal, and console programs - a password after <c>net user</c>, a switch with a secret's name and a
+    /// value (<c>/pass:x</c>, <c>/pd:x</c>, <c>/p:x</c>) or followed by one (<c>/rp x</c>, <c>psexec -p x</c>).
+    /// </summary>
+    [Theory]
+    [InlineData("$p = 'P@ssw0rd!'; Set-Thing -Password $p")]
+    [InlineData("$p = 'x'; $h = @{ Password = $p }; Set-Thing @h")]
+    [InlineData("$p = 'x'; ConvertTo-SecureString $p")]
+    [InlineData("$p = 'P@ssw0rd!'; $cred = New-Object System.Management.Automation.PSCredential('jan', $p)")]
+    [InlineData("Set-Thing -Credential (New-Object PSCredential 'jan', 'P@ssw0rd!')")]
+    [InlineData("New-Object -TypeName PSCredential -ArgumentList 'jan', 'P@ssw0rd!'")]
+    [InlineData("$c = [pscredential]::new('jan', 'P@ssw0rd!')")]
+    [InlineData("net user jan P@ssw0rd! /domain")]
+    [InlineData("net user jan 'P@ssw0rd!' /add")]
+    [InlineData("net.exe USER jan P@ssw0rd!")]
+    [InlineData("net use Z: \\\\srv\\share P@ssw0rd! /user:contoso\\jan")]
+    [InlineData("cmdkey /add:server /user:admin /pass:P@ssw0rd!")]
+    [InlineData("netdom resetpwd /s:dc1 /ud:contoso\\admin /pd:P@ssw0rd!")]
+    [InlineData("netdom join pc1 /domain:contoso /userd:admin /passwordd:P@ssw0rd!")]
+    [InlineData("ldp.exe /p:P@ssw0rd!")]
+    [InlineData("wmic /node:pc1 /user:admin /password:P@ssw0rd! os get caption")]
+    [InlineData("schtasks /create /tn t /ru admin /rp P@ssw0rd!")]
+    [InlineData("psexec \\\\pc -u admin -p P@ssw0rd! cmd")]
+    [InlineData("sqlcmd.exe -S db -U sa -P P@ssw0rd!")]
+    public void A_line_that_carries_a_plain_text_secret_through_a_variable_a_credential_or_a_console_program_is_not_remembered(string line)
+    {
+        Assert.False(PowerShellHistoryPolicy.ShouldRemember(line), line);
+    }
+
+    /// <summary>What the rules of audit PS-13 must not catch: a variable set from elsewhere, console programs without a secret, <c>-p</c> of a cmdlet.</summary>
+    [Theory]
+    [InlineData("$p = Read-Host -AsSecureString; Set-Thing -Password $p")]
+    [InlineData("$name = 'jan'; Get-AdmUser $name")]
+    [InlineData("$c = New-Object PSCredential 'jan', $secure")]
+    [InlineData("net user jan /domain")]
+    [InlineData("net user jan * /domain")]
+    [InlineData("net use Z: \\\\srv\\share /user:contoso\\jan")]
+    [InlineData("net group \"Domain Admins\" /domain")]
+    [InlineData("runas /user:contoso\\jan cmd")]
+    [InlineData("nltest /dsgetdc:contoso.test")]
+    [InlineData("whoami /groups")]
+    [InlineData("schtasks /query /tn t")]
+    [InlineData("psexec \\\\pc -u admin cmd")]
+    [InlineData("Get-ChildItem -p 'C:\\dane'")]
+    [InlineData("robocopy C:\\a D:\\b /mt:8 /r:1")]
+    public void An_ordinary_line_near_the_rules_of_audit_PS13_is_remembered(string line)
+    {
+        Assert.True(PowerShellHistoryPolicy.ShouldRemember(line), line);
+    }
+
+    /// <summary>
+    /// The scrollback shows every command it ran (audit PS-13 asked what it shows of a line the history refuses): the secret's literal
+    /// is masked there, the rest of the line is as typed.
+    /// </summary>
+    [Theory]
+    [InlineData("Set-Foo -Password 'hunter2' -Name jan", "Set-Foo -Password *** -Name jan")]
+    [InlineData("ConvertTo-SecureString 'hunter2' -AsPlainText -Force", "ConvertTo-SecureString *** -AsPlainText -Force")]
+    [InlineData("'hunter2' | ConvertTo-SecureString -AsPlainText -Force", "*** | ConvertTo-SecureString -AsPlainText -Force")]
+    [InlineData("$h = @{ Name = 'jan'; Password = 'hunter2' }; Set-Thing @h", "$h = @{ Name = 'jan'; Password = *** }; Set-Thing @h")]
+    [InlineData("$password = 'hunter2'", "$password = ***")]
+    [InlineData("$p = 'hunter2'; Set-Thing -Password $p", "$p = ***; Set-Thing -Password $p")]
+    [InlineData("Set-Thing -Value ([securestring]'hunter2')", "Set-Thing -Value ([securestring]***)")]
+    [InlineData("net user jan hunter2 /domain", "net user jan *** /domain")]
+    [InlineData("cmdkey /add:server /user:admin /pass:hunter2", "cmdkey /add:server /user:admin /pass:***")]
+    [InlineData("schtasks /create /ru admin /rp hunter2", "schtasks /create /ru admin /rp ***")]
+    [InlineData("Get-AdmUser jan", "Get-AdmUser jan")]
+    [InlineData("$p = ConvertTo-SecureString $env:X -AsPlainText -Force", "$p = ConvertTo-SecureString $env:X -AsPlainText -Force")]
+    public void The_echo_of_a_line_masks_its_plain_text_secret(string line, string echo)
+    {
+        Assert.Equal(echo, PowerShellHistoryPolicy.HideSecrets(line));
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
@@ -223,5 +296,6 @@ public sealed class HistoryPolicyTests
 
         Assert.True(session.ShouldRemember("Get-AdmVersion"));
         Assert.False(session.ShouldRemember("ConvertTo-SecureString 'x' -AsPlainText -Force"));
+        Assert.Equal("ConvertTo-SecureString *** -AsPlainText -Force", session.HideSecrets("ConvertTo-SecureString 'x' -AsPlainText -Force"));
     }
 }

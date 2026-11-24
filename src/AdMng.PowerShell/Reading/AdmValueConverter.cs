@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using AdMng.Core.ActiveDirectory;
+using AdMng.Core.Formatting;
 using AdMng.Core.Model;
 using AdMng.Core.Schema;
 
@@ -8,24 +9,14 @@ namespace AdMng.PowerShell.Reading;
 
 /// <summary>
 /// Turns the raw values of one attribute into what a script works with, by the rules the program's attribute view uses
-/// (<c>AttributeFormatter</c>: the same decisions about what is a FILETIME, a SID, a GUID, a flag set), but typed:
+/// (<see cref="AttributeValueRules"/>, the decisions <c>AttributeFormatter</c> takes about what is a FILETIME, a SID, a GUID, a flag
+/// set, a time), but typed:
 /// a number stays a number, a date is a <see cref="DateTime"/> (local time, the way the program shows it), a boolean is a
 /// <see cref="bool"/>, a multi-valued attribute is an array. FILETIME 0 and the "never" sentinels are <c>$null</c> (the
 /// program shows "never"). docs/dev/r1-powershell-window.md 12.2 has the table.
 /// </summary>
 internal static class AdmValueConverter
 {
-    private static readonly HashSet<string> SidAttributes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        Attr.ObjectSid, Attr.SidHistory, Attr.TokenGroups, "tokenGroupsGlobalAndUniversal", "tokenGroupsNoGCAcceptable",
-        "securityIdentifier", "mS-DS-CreatorSID",
-    };
-
-    private static readonly HashSet<string> GeneralizedTimeAttributes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        Attr.WhenCreated, Attr.WhenChanged, "dSCorePropagationData", "msDS-LastSuccessfulInteractiveLogonTime",
-    };
-
     /// <summary>
     /// The value of the attribute: a scalar for a single-valued attribute, an array for a multi-valued one (also with one
     /// value), <c>$null</c> when a single-valued attribute has no value (an empty array when a multi-valued one has none).
@@ -67,12 +58,12 @@ internal static class AdmValueConverter
 
     private static object? ConvertBytes(string name, AttributeDefinition? definition, byte[] bytes)
     {
-        if (bytes.Length == 16 && name.EndsWith("guid", StringComparison.OrdinalIgnoreCase))
+        if (AttributeValueRules.IsGuid(name, bytes))
         {
             return AdConvert.GuidFromBytes(bytes);
         }
 
-        if (SidAttributes.Contains(name) || definition?.Syntax == AttributeSyntax.Sid)
+        if (AttributeValueRules.IsSid(name, definition))
         {
             try
             {
@@ -100,7 +91,7 @@ internal static class AdmValueConverter
 
     private static object? ConvertText(string name, AttributeDefinition? definition, string text)
     {
-        if (Attr.FileTimeAttributes.Contains(name))
+        if (AttributeValueRules.IsFileTime(name))
         {
             if (!long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var fileTime))
             {
@@ -115,14 +106,12 @@ internal static class AdmValueConverter
             return AdConvert.FromFileTime(fileTime) is { } fileTimeValue ? fileTimeValue.LocalDateTime : text;
         }
 
-        if (string.Equals(name, Attr.UserAccountControl, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(name, Attr.UserAccountControlComputed, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(name, Attr.GroupType, StringComparison.OrdinalIgnoreCase))
+        if (AttributeValueRules.IsUserAccountControl(name) || AttributeValueRules.IsGroupType(name))
         {
             return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var flags) ? flags : text;
         }
 
-        var syntax = definition?.Syntax ?? (GeneralizedTimeAttributes.Contains(name) ? AttributeSyntax.GeneralizedTime : AttributeSyntax.Unknown);
+        var syntax = AttributeValueRules.TextSyntax(name, definition);
         switch (syntax)
         {
             case AttributeSyntax.GeneralizedTime:

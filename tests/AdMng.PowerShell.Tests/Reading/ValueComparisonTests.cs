@@ -45,7 +45,7 @@ public sealed class ValueComparisonTests
         foreach (var obj in expected)
         {
             var actual = byDn[obj.DistinguishedName.ToUpperInvariant()];
-            kinds.Add(actual.TypeNames[0]);
+            kinds.Add(actual.TypeNames.Count > 1 ? actual.TypeNames[1] : actual.TypeNames[0]);
             foreach (var (name, values) in obj.Attributes)
             {
                 var property = actual.Properties[name];
@@ -317,5 +317,43 @@ public sealed class ValueComparisonTests
         }
 
         return ou;
+    }
+
+    /// <summary>
+    /// Audit ps-commands-9: the converter of the commands kept its own copies of the formatter's lists of SID and time attributes and of
+    /// its decisions, and the member lookup its own copy of the program's batched read: an attribute added to the program's rules would
+    /// have been missed here. Both now use the program's rules (Core), and every attribute those rules name converts by them.
+    /// </summary>
+    [Fact]
+    public void The_converter_and_the_member_lookup_use_the_programs_rules_not_copies_of_them()
+    {
+        var sid = AdConvert.SidToBytes("S-1-5-21-1-2-3-500");
+        foreach (var name in AttributeValueRules.SidAttributes)
+        {
+            Assert.Equal("S-1-5-21-1-2-3-500", AdMng.PowerShell.Reading.AdmValueConverter.ConvertValue(name, null, sid));
+        }
+
+        foreach (var name in AttributeValueRules.GeneralizedTimeAttributes)
+        {
+            Assert.IsType<DateTime>(AdMng.PowerShell.Reading.AdmValueConverter.ConvertValue(name, null, "20260102030405.0Z"));
+        }
+
+        var converter = Source("Reading", "AdmValueConverter.cs");
+        var members = Source("Reading", "AdmGroupMembers.cs");
+        Assert.DoesNotContain("HashSet<string>", converter, StringComparison.Ordinal);
+        Assert.DoesNotContain("LdapFilter.Or(", members, StringComparison.Ordinal);
+        Assert.DoesNotContain("ToUpperInvariant", members, StringComparison.Ordinal);
+    }
+
+    private static string Source(params string[] parts)
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "AdMng.slnx")))
+        {
+            root = root.Parent;
+        }
+
+        Assert.NotNull(root);
+        return File.ReadAllText(Path.Combine([root.FullName, "src", "AdMng.PowerShell", .. parts]));
     }
 }

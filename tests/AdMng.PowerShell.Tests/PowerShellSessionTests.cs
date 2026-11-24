@@ -162,6 +162,92 @@ public sealed class PowerShellSessionTests
         Assert.False(session.IsRunning);
     }
 
+    /// <summary>
+    /// Audit PS-07: a script that floods a consumer that fell behind fills the channel; a stop then dropped the end item (posted
+    /// through the path that drops an item once the run is stopped) and the enumeration ended with text.
+    /// </summary>
+    [Fact]
+    public async Task A_flood_stopped_while_the_consumer_is_behind_still_ends_with_the_end_item()
+    {
+        await using var session = await TestSessions.CreateAsync();
+        var items = new List<PowerShellOutputItem>();
+        await using var run = session.RunAsync("while ($true) { 'x' }", TestContext.Current.CancellationToken).GetAsyncEnumerator(TestContext.Current.CancellationToken);
+
+        Assert.True(await run.MoveNextAsync());
+        items.Add(run.Current);
+
+        // The consumer stays away until the producer waits for room in the full channel.
+        var deadline = DateTime.UtcNow.AddSeconds(20);
+        while (session.BufferedItemCount < PowerShellSession.ChannelCapacity && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(20, TestContext.Current.CancellationToken);
+        }
+
+        Assert.Equal(PowerShellSession.ChannelCapacity, session.BufferedItemCount);
+        await session.StopAsync();
+        while (await run.MoveNextAsync())
+        {
+            items.Add(run.Current);
+        }
+
+        var end = Assert.IsType<PowerShellRunEndItem>(items[^1]);
+        Assert.Equal(PowerShellRunState.Stopped, end.State);
+        Assert.Single(items.OfType<PowerShellRunEndItem>());
+        Assert.False(session.IsRunning);
+    }
+
+    /// <summary>
+    /// Audit PS-09: the channel was bounded by its number of items only, so a flood of large strings held 4096 of them - 790 MB with
+    /// strings of 100,000 characters - while the window was behind. The text it holds is bounded by its size too.
+    /// </summary>
+    [Fact]
+    public async Task A_flood_of_large_strings_holds_at_most_the_channels_size_of_text_while_the_consumer_is_behind()
+    {
+        await using var session = await TestSessions.CreateAsync();
+        await using var run = session.RunAsync("$big = 'y' * 100000; while ($true) { $big }", TestContext.Current.CancellationToken).GetAsyncEnumerator(TestContext.Current.CancellationToken);
+
+        Assert.True(await run.MoveNextAsync());
+
+        // The consumer stays away; the producer runs until it waits for room (the held text stops growing).
+        var held = -1L;
+        var deadline = DateTime.UtcNow.AddSeconds(20);
+        while (DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(300, TestContext.Current.CancellationToken);
+            var now = session.BufferedCharacters;
+            if (now == held && now > 0)
+            {
+                break;
+            }
+
+            held = now;
+        }
+
+        Assert.InRange(session.BufferedCharacters, PowerShellSession.ChannelCharacterCapacity - 100_001, PowerShellSession.ChannelCharacterCapacity);
+        Assert.True(session.BufferedItemCount < 20, $"{session.BufferedItemCount} items held");
+
+        await session.StopAsync();
+        var last = run.Current;
+        while (await run.MoveNextAsync())
+        {
+            last = run.Current;
+        }
+
+        Assert.Equal(PowerShellRunState.Stopped, Assert.IsType<PowerShellRunEndItem>(last).State);
+        Assert.Equal(0, session.BufferedCharacters);
+    }
+
+    [Fact]
+    public async Task One_text_larger_than_the_channels_size_of_text_still_arrives_whole()
+    {
+        await using var session = await TestSessions.CreateAsync();
+
+        var items = await TestSessions.RunAsync(session, $"'z' * {PowerShellSession.ChannelCharacterCapacity + 10}; 'after'");
+
+        Assert.Equal(new string('z', PowerShellSession.ChannelCharacterCapacity + 10) + "\nafter\n", TestSessions.Text(items));
+        Assert.Equal(PowerShellRunState.Completed, TestSessions.End(items).State);
+    }
+
     [Fact]
     public async Task Cancelling_the_token_stops_the_pipeline_and_the_enumeration_still_ends_with_the_end_item()
     {
@@ -251,6 +337,42 @@ public sealed class PowerShellSessionTests
         // The left thread returns: its pipeline ends in the old runspace, and the session goes on.
         await Task.Delay(TimeSpan.FromMilliseconds(500), TestContext.Current.CancellationToken);
         Assert.Equal("next\n", TestSessions.Text(await TestSessions.RunAsync(session, "'next'")));
+    }
+
+    /// <summary>
+    /// Audit PS-10: a completion stuck in .NET code that its stop cannot interrupt (a completer of the operator's that calls such code)
+    /// held the session's gate for good. After its time limit and the grace period the session leaves it like a left run and goes on
+    /// in a new runspace.
+    /// </summary>
+    [Fact]
+    public async Task A_completion_that_its_stop_cannot_end_is_left_after_the_grace_period_and_the_next_command_runs_in_a_new_runspace()
+    {
+        var time = new FakeTimeProvider();
+        TestCommands.Release.Reset();
+        await using var session = await TestSessions.CreateAsync(time: time, extra: TestCommands.All);
+        await TestSessions.RunAsync(session, "$before = 'kept'; function global:TabExpansion2 { Block-AdmTest }");
+        try
+        {
+            var completing = session.CompleteAsync("Get-Ad", 6, TestContext.Current.CancellationToken).AsTask();
+            await Task.Delay(300, TestContext.Current.CancellationToken);
+            Assert.False(completing.IsCompleted);
+
+            time.Advance(PowerShellSessionOptions.DefaultCompletionTimeLimit);
+            await Task.Delay(200, TestContext.Current.CancellationToken);
+            Assert.False(completing.IsCompleted);
+            time.Advance(TimeSpan.FromSeconds(5));
+
+            var result = await completing.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+            Assert.Empty(result.Matches);
+            var next = await TestSessions.RunAsync(session, "$null -eq $before; 'next'");
+            Assert.Equal("True\nnext\n", TestSessions.Text(next));
+            var again = await session.CompleteAsync("Get-Ad", 6, TestContext.Current.CancellationToken);
+            Assert.Contains(again.Matches, match => match.Text == "Get-AdmVersion");
+        }
+        finally
+        {
+            TestCommands.Release.Set();
+        }
     }
 
     /// <summary>

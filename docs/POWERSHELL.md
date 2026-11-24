@@ -34,7 +34,8 @@ PowerShell…*); następne są szybkie.
 Od góry okno ma:
 
 - **wiersz stanu**: co okno robi (*Wykonywanie polecenia…*, *Polecenie zakończyło się: 12 wierszy danych wyjściowych w oknie,
-  0,8 s*, *Polecenie zatrzymano po 3 s*) z przyciskiem **Zatrzymaj**; błędy i ostrzeżenia mają ikonę, nie tylko kolor;
+  0,8 s*, *Polecenie zatrzymano po 3 s*) z przyciskiem **Zatrzymaj**; błędy i ostrzeżenia mają ikonę, nie tylko kolor,
+  a czytnik ekranu słyszy przed takim wierszem wyników *Błąd:*, *Ostrzeżenie:* albo *Uwaga:*;
 - **uwagi, które trwają** – co rejestrują zasady grupy (rozdział 8), *Tryb zaufany jest włączony* (rozdział 7) i *Najstarsze
   wiersze usunięto z tego okna* (okno zachowuje ostatnie 20 000 wierszy);
 - **obszar wyników**: uruchomione polecenia i to, co napisały, z błędami i ostrzeżeniami w kolorach okna;
@@ -51,7 +52,9 @@ wpiszesz, może zrobić wszystko, więc okno traktuje trwające polecenie jak ka
 ## 2. Polecenia
 
 Nazwy są takie same w angielskim i polskim interfejsie. `Get-Command *-Adm*` wypisuje je, `Get-Help <polecenie> -Examples`
-pokazuje pomoc z przykładami (po angielsku). Polecenia nie mają parametrów `-Server` ani `-Credential`: zawsze używają sesji
+pokazuje pomoc z przykładami (po angielsku, jak pomoc samego PowerShella). Błędy i ostrzeżenia poleceń AD Managera są w języku
+interfejsu; komunikaty silnika PowerShell (np. *The term '…' is not recognized*) i odmowy samej sesji okna (rozdział 7) są po
+angielsku, jak w każdej konsoli PowerShell. Polecenia nie mają parametrów `-Server` ani `-Credential`: zawsze używają sesji
 okna.
 
 | Polecenie | Co robi | Przykład |
@@ -72,8 +75,9 @@ okna.
 jest), `objectGUID` (także `<GUID=…>`), SID (`S-1-5-…`, także `<SID=…>`), w pozostałych przypadkach `sAMAccountName` (użytkownik
 lub obiekt także po głównej nazwie użytkownika; komputer z `$` albo bez). Typ polecenia jest częścią wyszukiwania: `Get-AdmUser`
 zwraca tylko konta użytkowników, więc komputer o tej samej nazwie nigdy przez nie nie wróci. Tożsamość, która niczego nie
-znajduje, to błąd, który to mówi (*Cannot find a user with identity 'nobody' …: it does not exist, or this account cannot see
-it*). Nazwę wyróżniającą z przecinkiem w wartości trzeba ująć w cudzysłów: `'CN=Kowalski\, Jan,OU=IT,DC=contoso,DC=test'`.
+znajduje, to błąd, który to mówi (*Nie znaleziono użytkownika o tożsamości 'nobody' …: nie istnieje albo to konto go nie
+widzi*); błąd ma zawsze ten sam identyfikator (`AdmObjectNotFound`) w każdym języku, a odczyt, którego kontroler domeny nie wykonał
+(przekroczony czas, odmowa dostępu), jest jednym błędem z identyfikatorem tej przyczyny, nie także „nie znaleziono”. Nazwę wyróżniającą z przecinkiem w wartości trzeba ująć w cudzysłów: `'CN=Kowalski\, Jan,OU=IT,DC=contoso,DC=test'`.
 
 **Filtry** poleceń `Get-AdmUser`, `Get-AdmGroup` i `Get-AdmComputer`: każdy parametr zawęża wynik (łączą się przez *i*) i
 przyjmuje `*` jako wieloznacznik.
@@ -129,7 +133,7 @@ Małgorzata Wójcik      malgorzata.wojcik    True    CN=Małgorzata Wójcik,OU=
 Grażyna Dąbrowska      grazyna.dabrowska    True    CN=Grażyna Dąbrowska,OU=Księgowość,OU=Pracownicy,OU=Firma,DC=conto…
 
 PS> Get-AdmUser -Identity nobody
-Get-AdmUser: Cannot find a user with identity 'nobody' under 'DC=contoso,DC=test': it does not exist, or this account cannot see it.
+Get-AdmUser: Nie znaleziono użytkownika o tożsamości 'nobody' w 'DC=contoso,DC=test': nie istnieje albo to konto go nie widzi.
 ```
 
 ## 3. Znaki specjalne i wieloznaczniki
@@ -173,15 +177,25 @@ grupy mają `GroupScope`, `GroupCategory` i `GroupTypeFlags`. Dalej są atrybuty
   BitLockera), są tu pokazane także – **nie czytaj ich w oknie, gdy zasady grupy rejestrują polecenia i wyniki**
   (rozdział 8).
 
-**Tabela i nazwa wyróżniająca.** Domyślne tabele kończą się kolumną `DistinguishedName`, która dostaje resztę wiersza. Nazwę
-dłuższą niż wiersz silnik ucina znakiem `…` (*Format-List*, szersze okno albo `Select-Object -ExpandProperty
-DistinguishedName` pokazują ją w całości). Nazwa, która w wynikach jest cała, jest **odnośnikiem**: kliknij ją, aby otworzyć
-obiekt w programie (*Otwórz w programie*), prawym przyciskiem – *Kopiuj nazwę wyróżniającą*; **Enter** na zaznaczonym wierszu
-otwiera pierwszą nazwę tego wiersza. Ucięta nazwa nie jest odnośnikiem.
+**Tabela i nazwa wyróżniająca.** Każde polecenie pokazuje swoje wyniki jedną tabelą: `Get-AdmUser`, `Get-AdmGroup` i
+`Get-AdmComputer` – tabelą swojego rodzaju (`Get-AdmComputer` także dla konta usługi zarządzanego, którego `ObjectKind` mówi, czym
+jest), a polecenia, które zwracają obiekty różnych rodzajów (`Get-AdmObject`, `Get-AdmGroupMember`, `Search-AdmObject`) – tabelą
+`ObjectKind`, `Name`, `DistinguishedName` dla wszystkich. Domyślne tabele kończą się kolumną `DistinguishedName`, która dostaje
+resztę wiersza. Nazwę
+dłuższą niż wiersz silnik ucina znakiem `…`. Szersze okno albo `Select-Object -ExpandProperty DistinguishedName` pokazują ją
+w całości w jednym wierszu; *Format-List* też pokazuje ją całą, ale łamie ją na szerokości okna w dowolnym miejscu. Nazwa, która
+w wynikach jest cała, jest **odnośnikiem**: kliknij ją, aby otworzyć obiekt w programie (*Otwórz w programie*), prawym
+przyciskiem – *Kopiuj nazwę wyróżniającą*; **Enter** na zaznaczonym wierszu otwiera pierwszą nazwę tego wiersza. Ucięta nazwa
+nie jest odnośnikiem, tak samo jak nazwa, którą formatowanie mogło złamać: kończąca wiersz o pełnej szerokości albo przecinkiem
+na końcu wiersza i zaczynająca wcięty wiersz kontynuacji – każda z nich otworzyłaby inny obiekt albo żaden.
 
 **Wiele wyników.** Wyniki przychodzą w miarę czytania: 100 000 obiektów nie blokuje okna, a **Zatrzymaj** (albo **Ctrl+C**)
-kończy odczyt na kontrolerze domeny. `Select-Object -First 50` kończy odczyt po 50 obiektach. Obszar wyników zachowuje ostatnie
-20 000 wierszy.
+kończy odczyt na kontrolerze domeny. Okno przyjmuje wyniki porcjami, najwyżej jedną co 40 ms, i dopiero po klawiaturze, myszy
+i rysowaniu okna, więc nawet polecenie, które pisze bez przerwy (`while ($true) { 'x' }`), nie odbiera działania przyciskowi
+Zatrzymaj ani Ctrl+C (test automatyczny na Windows zalewa okno wynikami i naciska Ctrl+C; nikt jeszcze nie sprawdził tego na
+ekranie). `Select-Object -First 50` kończy odczyt po 50 obiektach. Obszar wyników zachowuje ostatnie
+20 000 wierszy, a wiersz ma najwyżej 8000 znaków – dłuższy tekst ciągnie się w następnym wierszu (także postęp pisany kropka po
+kropce przez `Write-Host -NoNewline`, który nie spowalnia okna).
 
 **`Out-AdmGrid`** otwiera obiekty potoku w **osobnym oknie** (każde wywołanie to nowe okno, jak `Out-GridView`; należy do okna
 połączenia i zamyka się razem z nim):
@@ -190,7 +204,7 @@ połączenia i zamyka się razem z nim):
   przez `; `, wartości binarne jako `(binary, 12 bytes)`;
 - kliknięcie nagłówka kolumny sortuje (liczby jako liczby, puste komórki na końcu); pole filtra nad listą szuka tekstu w
   dowolnej kolumnie (wielkość liter i polskie znaki nie mają znaczenia);
-- **Enter** albo dwukrotne kliknięcie otwiera obiekt w programie (najwyżej 10 okien naraz); menu prawego przycisku ma *Otwórz w
+- **Enter** albo dwukrotne kliknięcie otwiera obiekt w programie (najwyżej 10 okien za jednym naciśnięciem); menu prawego przycisku ma *Otwórz w
   programie*, *Kopiuj wiersze*, *Kopiuj wiersze z nazwami kolumn*, *Kopiuj nazwę wyróżniającą* i *Eksportuj listę…*;
   **Ctrl+C** kopiuje zaznaczone wiersze (rozdzielone tabulatorami, formuły chronione jak w listach programu);
 - *Eksportuj listę…* zapisuje CSV do wybranego pliku – rozdział 5.
@@ -207,8 +221,16 @@ Plik powstaje w dokładnie trzech przypadkach i tylko wtedy, gdy o to prosisz:
   (`-Delimiter ';'` go zastępuje), UTF-8 ze znacznikiem kolejności bajtów. Zapisuje **tylko do pliku, który wskażesz** w
   `-Path` (pierwszy parametr) **albo wybierzesz w oknie *Zapisz jako***, gdy nie podasz ścieżki. Nigdy nie zapisuje w
   miejscu domyślnym; istniejący plik zastępuje tylko z `-Force`; bez ścieżki i z anulowanym oknem nie zapisuje niczego i
-  mówi o tym. Wypisuje ścieżkę oraz liczbę wierszy i kolumn, nigdy wartości.
-- ***Eksportuj listę…*** w oknie siatki `Out-AdmGrid`: ten sam CSV do wybranego pliku.
+  mówi o tym. Ścieżkę, `-Force` i separator sprawdza, zanim polecenie przed nim cokolwiek przeczyta, więc
+  `Get-AdmUser | Export-AdmList istniejący.csv` kończy się błędem od razu, a nie po odczytaniu całej domeny. Wypisuje ścieżkę
+  oraz liczbę wierszy i kolumn, nigdy wartości.
+- ***Eksportuj listę…*** w oknie siatki `Out-AdmGrid`: ten sam CSV do wybranego pliku. *Zatrzymaj* w wierszu stanu przerywa zapis
+  między dwoma wierszami i usuwa zapisaną już część pliku (wiersz stanu mówi o tym).
+- **Kolumny z sekretami** – hasło LAPS jawnym tekstem (`ms-Mcs-AdmPwd`, `msLAPS-Password`), hasło odzyskiwania BitLockera
+  (`msFVE-RecoveryPassword`) i atrybuty, które schemat oznacza jako poufne – `Export-AdmList` i eksport siatki zapisują dopiero po
+  tym samym pytaniu, które zadaje eksport listy programu (*Dołączyć hasła?*); odpowiedź *Nie* pomija te kolumny. Kopiowanie
+  wierszy siatki (Ctrl+C) zawsze je pomija i mówi, które – jak kopiowanie listy programu. `-Properties *` zwraca te atrybuty,
+  gdy konto może je czytać.
 - **`Start-Transcript -Path <plik>`** (albo `-LiteralPath`) zapisuje przebieg sesji – polecenia i wszystko, co pokazały, a więc
   także dane z katalogu – do pliku, który wskażesz, aż do `Stop-Transcript` albo do zamknięcia okna. Bez ścieżki jest odrzucany:
   silnik zapisałby wtedy plik o nadanej przez siebie nazwie w Twoim folderze *Dokumenty*. Nie ma tu ochrony formuł; traktuj ten plik
@@ -231,17 +253,27 @@ odrzuca wynik, a `2>&1` nadal łączy strumienie). Do CSV użyj `Export-AdmList`
   `Token`, `ApiKey` lub `PrivateKey`, nazwa `Pw`, `Pin` albo `Key` w całości i skróty `-Pa`, `-Pas`, `-Pass`. Wartość w
   nawiasach albo złożona z samych napisów (`-Password ('tekst')`, `$password = 'te' + 'kst'`, `$password = $x = 'tekst'`) liczy
   się tak samo jak wpisana wprost. Nie jest zapamiętywany także
-  wiersz z wartością wpisaną bez nazwy parametru dla polecenia, którego nazwa mówi o haśle (`Reset-AdmPassword jan 'tekst'`).
-  Zmienna albo `Read-Host -AsSecureString` jako wartość jest w porządku. Filtr nie rozpozna każdego hasła: wartości bez nazwy
-  parametru dla innego polecenia, hasła wewnątrz dłuższego tekstu, argumentu programu konsolowego (`net user jan tekst`) ani
-  nazwy spoza listy (np. polskiej: `$haslo = 'tekst'` zostaje zapamiętany). Wpisany wiersz zostaje też widoczny w obszarze wyników, dopóki go nie wyczyścisz albo nie
-  zamkniesz okna – i zasady grupy mogą go zarejestrować (rozdział 8) – więc nie wpisuj hasła do polecenia w ogóle. Hasło, o które prosi `Read-Host -AsSecureString` albo parametr obowiązkowy, wpisuje się w polu hasła i
+  wiersz z wartością wpisaną bez nazwy parametru dla polecenia, którego nazwa mówi o haśle (`Reset-AdmPassword jan 'tekst'`),
+  z napisem, który trafia do nazwy sekretu przez zmienną ustawioną w tym samym wierszu (`$p = 'tekst'; Set-Thing -Password $p`),
+  z poświadczeniem złożonym z napisu (`New-Object PSCredential 'jan', 'tekst'`, `[pscredential]::new('jan', 'tekst')`) ani z
+  hasłem programu konsolowego: po `net user jan` (`net user jan tekst`) i po `net use \\serwer\udział`, w przełączniku z nazwą
+  sekretu albo krótką nazwą hasła (`/pass:tekst`, `/password:tekst`, `/pd:tekst`, `/p:tekst`, `/rp tekst`) i po `-p` lub `-P`
+  programów `psexec`, `sqlcmd` i podobnych. Zmienna albo `Read-Host -AsSecureString` jako wartość jest w porządku. Filtr nie
+  rozpozna każdego hasła: wartości bez nazwy parametru dla innego polecenia, hasła wewnątrz dłuższego tekstu, przełącznika programu
+  konsolowego spoza tych nazw ani nazwy spoza listy (np. polskiej: `$haslo = 'tekst'` zostaje zapamiętany). Wpisany wiersz zostaje
+  też w obszarze wyników, dopóki go nie wyczyścisz albo nie zamkniesz okna – z hasłem, które filtr rozpoznał, zastąpionym przez
+  `***` (polecenie działa z hasłem, jak je wpisano) – a zasady grupy mogą go zarejestrować (rozdział 8), więc nie wpisuj hasła do
+  polecenia w ogóle. Hasło, o które prosi `Read-Host -AsSecureString` albo parametr obowiązkowy, wpisuje się w polu hasła i
   nigdy nie jest pokazywane.
 - **Program nie zapisuje niczego więcej.** PSReadLine nie jest ładowany (nie ma pliku historii), żaden profil nie jest
   uruchamiany (`$PROFILE` nigdy nie jest ładowany), telemetria i kanał diagnostyczny silnika są wyłączone, automatyczne
-  ładowanie modułów i pamięć podręczna analizy modułów są wyłączone, a test sprawdza, że silnik nie zapisuje własnych plików (na
-  Windows tylko w folderach, które da się przekierować zmienną, więc dowodem są przede wszystkim powyższe ustawienia).
-  Dziennik diagnostyczny programu nigdy nie zawiera polecenia ani wartości.
+  ładowanie modułów i pamięć podręczna analizy modułów są wyłączone, a test sprawdza, że praca w oknie nie zostawia pliku w
+  żadnym folderze, w którym silnik trzyma pliki – folder tymczasowy jest obserwowany przez cały czas, a na Windows Twoje
+  foldery PowerShella (*AppData*, *Dokumenty*) są też porównywane przed i po. Jedyne pliki, które silnik zapisuje sam z siebie, są na Windows: żeby
+  sprawdzić, czy działa AppLocker, zapisuje w Twoim folderze tymczasowym dwa małe pliki testowe,
+  `__PSScriptPolicyTest_<losowo>.ps1` i `.psm1` (wiersz komentarza, żadnych danych z katalogu), i od razu je usuwa – raz na
+  jedno uruchomienie AD Managera, gdy otwiera się pierwsze okno PowerShell. Dziennik diagnostyczny programu nigdy nie zawiera
+  polecenia ani wartości.
 
 ## 7. Tryby języka i tryb zaufany
 
@@ -290,9 +322,16 @@ nim zakończyć cały program; takie polecenie nie trafia też do historii. Plik
 niezależnie od polityki wykonywania. Nie ma profilu ani PSReadLine. Żadne zadanie nie trwa dłużej niż polecenie, które je
 uruchomiło: zadanie pozostawione w sesji jest zatrzymywane, gdy polecenie się kończy, po *Zatrzymaj* i przy zamknięciu okna.
 Programy konsolowe (`whoami`, `nltest`, `repadmin`) działają jak w każdej konsoli – jako osobny proces z Twoją tożsamością
-Windows, nigdy z poświadczeniami okna.
+Windows, nigdy z poświadczeniami okna. To, co wypisują – także na wyjście błędów, jako zwykły tekst, tak jak pokazuje je konsola
+PowerShell 7 – pojawia się w oknie, na swoim miejscu wśród wyników (`whoami /groups` na końcu polecenia wypisuje grupy w oknie).
 
 Polecenia, które o coś pytają – `Read-Host`, parametr obowiązkowy, `-Confirm` – pytają w oknie, a *Zatrzymaj* anuluje pytanie.
+Parametr obowiązkowy, który przyjmuje listę (np. `-Identity`), okno – jak konsola PowerShella – pyta element po elemencie
+(`Identity[0]`, `Identity[1]`, …), aż odpowiesz pustym wierszem. Odpowiedź nie jest dzielona na przecinkach, więc nazwa
+wyróżniająca to jedna tożsamość. Pytanie, które przyjdzie, gdy piszesz już następne polecenie, nie kasuje go: wpisany tekst wraca do
+wiersza poleceń po odpowiedzi. Pierwsze puste **Enter** po takim pytaniu z wyborem (np. `-Confirm`) nie wybiera odpowiedzi
+domyślnej – okno pyta jeszcze raz, bo to Enter było najpewniej przeznaczone dla polecenia. Hasło z pola hasła trafia do polecenia
+od razu jako `SecureString`; pole jest puste po odpowiedzi.
 
 **Tryb zaufany (FullLanguage)** to przełącznik pod wierszem poleceń:
 
@@ -327,7 +366,8 @@ Polecenia, które o coś pytają – `Read-Host`, parametr obowiązkowy, `-Confi
 
 W ConstrainedLanguage żadne polecenie okna nie uruchamia kodu w innym trybie języka, a nic w sesji – żadna zmienna, parametr ani
 nic z `$Host` – nie przekazuje skryptowi sesji katalogu okna ani jej poświadczeń: polecenia AD Managera znajdują swoje okno
-w tablicy silnika, której skrypt nie odczyta.
+w tablicy silnika, której skrypt nie odczyta. Każdy znaleziony dotąd sposób obejścia tego – przez audyt R1 i trzy późniejsze
+próby obejścia okna – jest testem automatycznym, który musi pozostać odrzucony.
 
 Tryb języka i lista poleceń to **zabezpieczenie przed pomyłką, a nie granica bezpieczeństwa.** Granicą są uprawnienia konta okna
 w AD: okno nigdy nie daje więcej, niż konto ma, a zmiana wykonana z pominięciem planu nie ma w programie audytu ani cofnięcia
@@ -343,21 +383,32 @@ tych zasad i ich nie omija.
 
 **Co okno robi w tej sprawie:**
 
-- przy otwarciu odczytuje zasady – PowerShell Core (`HKLM` i `HKCU`, `Software\Policies\Microsoft\PowerShellCore`), zasady
-  Windows PowerShell, gdy włączono *Use Windows PowerShell Policy setting*, i oba pliki `powershell.config.json` (silnika, obok
-  `AdMng.exe`, oraz Twój, w *Dokumenty\PowerShell*) – oraz stan blokady systemowej;
+- przy otwarciu odczytuje zasady według reguł kodu samego silnika, każdą z nich – transkrypcję, rejestrowanie bloków skryptów,
+  rejestrowanie modułów i zasady wykonywania – osobno: najpierw zasady komputera (`HKLM`), potem zasady użytkownika (`HKCU`)
+  PowerShell 7 (`Software\Policies\Microsoft\PowerShellCore` i jego klucze `Transcription`, `ScriptBlockLogging`,
+  `ModuleLogging`). Zasadę, w której zaznaczono *Use Windows PowerShell Policy setting*, odczytuje zamiast tego z klucza Windows
+  PowerShell tej samej gałęzi rejestru (`Software\Policies\Microsoft\Windows\PowerShell`); to zaznaczenie jest ustawieniem
+  każdej zasady z osobna, nie wszystkich naraz. O całej zasadzie decyduje pierwsza gałąź, która ustawia cokolwiek z tej zasady.
+  Dopiero zasada, której nie ustawiają żadne zasady grupy, pochodzi z dwóch plików `powershell.config.json` (silnika, obok
+  `AdMng.exe`, potem Twojego, w *Dokumenty\PowerShell*). Okno odczytuje też stan blokady systemowej;
 - zanim uruchomisz pierwsze polecenie, mówi wprost, co jest rejestrowane i gdzie, np. *Transkrypcja jest włączona (zasady
   komputera): polecenia wykonywane w tym oknie i ich wyniki, także dane z katalogu, są zapisywane w D:\PSLogs.* Uwaga jest w
   wierszu stanu (dopóki wynik polecenia jej nie przykrywa), w układzie pod nim i w pierwszych wierszach wyników; trwa do
   zamknięcia okna;
-- gdy zasad nie da się odczytać, mówi o tym: *Nie wiadomo, czy polecenia i wyniki są rejestrowane.* Brak wiedzy to też uwaga.
+- gdy zasad nie da się odczytać, mówi o tym i podaje klucz albo plik: *Nie wiadomo, czy polecenia i wyniki są rejestrowane.*
+  Brak wiedzy to też uwaga.
+
+Sam PowerShell odczytuje każdą z tych zasad raz na jedno uruchomienie AD Managera, wtedy, gdy pierwszy raz jej potrzebuje: zasada
+zmieniona w czasie pracy programu obowiązuje silnik dopiero po ponownym uruchomieniu AD Managera, a uwaga okna otwartego w tym
+czasie mówi już o nowym stanie.
 
 **Co z tym zrobić:** jeśli włączono transkrypcję albo rejestrowanie bloków skryptów, nie oglądaj w oknie wrażliwych atrybutów
 (haseł LAPS, haseł odzyskiwania BitLockera) i nie wpisuj hasła do polecenia. Zapytaj zespół bezpieczeństwa, dokąd trafiają
 transkrypcje i kto może je czytać – zawierają te same dane, które pokazuje okno. Plik `powershell.config.json`, który AD Manager
 dostarcza obok `AdMng.exe`, wyłącza transkrypcję i rejestrowanie włączone w **Twoim** `powershell.config.json`; nie wyłączy zasad
 komputera, a uwaga mówi wtedy, że zasada jest włączona. Systemy bezpieczeństwa (EDR) mogą zgłaszać *silnik PowerShell w
-procesie innym niż `powershell.exe`* – tym procesem jest `AdMng.exe`; uprzedź zespół bezpieczeństwa (SOC).
+procesie innym niż `powershell.exe`* – tym procesem jest `AdMng.exe` – oraz dwa pliki `__PSScriptPolicyTest_`, które zapisuje on
+w `%TEMP%` i od razu usuwa (rozdział 6), jak każdy PowerShell; uprzedź zespół bezpieczeństwa (SOC).
 
 ## 9. Czego okno jeszcze nie robi
 
@@ -372,7 +423,9 @@ procesie innym niż `powershell.exe`* – tym procesem jest `AdMng.exe`; uprzed�
 - **Brak modułów Microsoft 365** (ścieżka C), zdalnych sesji PowerShell do serwerów, zadań w tle, skryptów z plików (`.ps1`)
   i skryptów uruchamianych według harmonogramu.
 - **Brak uzupełniania nazw plików.** Tab uzupełnia polecenia, parametry, zmienne, nazwy atrybutów i kontenery okna, nie nazwy
-  plików; okno nigdy nie czyta katalogu na każdy klawisz.
+  plików; okno nigdy nie czyta katalogu na każdy klawisz. Uzupełnianie trwa najwyżej 5 sekund: własna funkcja `TabExpansion2`,
+  która się zapętla, jest wtedy zatrzymywana (także przez *Zatrzymaj* albo następny Tab), a taka, której zatrzymać się nie da,
+  zostaje porzucona jak polecenie – okno działa dalej w nowej sesji, bez wcześniejszych zmiennych i funkcji.
 - **Wiersz stanu liczy wiersze, nie obiekty.** Okno pokazuje sformatowany tekst silnika, więc mówi *12 wierszy danych
   wyjściowych*, nie *12 obiektów*.
 - `LockedOut` to własna flaga kontrolera domeny, gdy ją zwraca, a w przeciwnym razie „ma czas blokady”; lista kont w programie
@@ -406,8 +459,8 @@ Edytor koloruje polecenie w trakcie pisania: polecenia, parametry, zmienne, cią
 | *Ta instalacja nie zawiera silnika PowerShell.* | To wydanie AD Managera zbudowano bez silnika. Użyj standardowego pakietu. |
 | *Nie można uruchomić PowerShell* | Zamknij okno i otwórz je ponownie – także wtedy, gdy stało się to po wyłączeniu trybu zaufanego (nowa sesja nie wystartowała) albo po pozostawionym poleceniu. Powód jest w komunikacie. Jeśli się powtarza, zgłoś to ([PILOTAZ.md, rozdział 4](PILOTAZ.md#4-zgłaszanie-problemów)) z wersją programu. |
 | Polecenie się nie kończy | **Zatrzymaj** (albo Ctrl+C). Jedno dopasowanie wyrażenia regularnego (`-match`, `-replace`, `-split`, `switch -regex`, `Select-String`, `[regex]`) trwa najwyżej 2 sekundy, potem kończy się błędem *The Regex engine has timed out…*. Polecenie utknięte w kodzie .NET, którego zatrzymanie nie przerywa (tryb zaufany albo `[regex]` z własnym, dłuższym limitem czasu), okno zostawia po 5 sekundach i mówi o tym na pasku stanu i w oknie wyników: następne polecenie działa od razu, w nowej sesji, ale zmiennych, funkcji i modułów z wcześniejszych poleceń już w niej nie ma. Pozostawione polecenie może zajmować rdzeń procesora, dopóki się nie skończy albo nie zamkniesz programu; zamknięciu programu nie przeszkadza. |
-| *Cannot find a user with identity …* | Tożsamość nie istnieje, jest innego typu (`Get-AdmUser` nie znajdzie komputera) albo konto jej nie widzi. Nazwa wyróżniająca z przecinkiem w wartości wymaga cudzysłowu. |
-| *Access denied reading …* / *The attribute '…' of '…' was not returned …* | Konto okna nie ma prawa czytać obiektu albo atrybutu; kontroler domeny odpowiada na nieczytelny atrybut tak, jakby był pusty. Komunikat podaje atrybut jeden raz. |
+| *Nie znaleziono użytkownika o tożsamości …* | Tożsamość nie istnieje, jest innego typu (`Get-AdmUser` nie znajdzie komputera) albo konto jej nie widzi. Nazwa wyróżniająca z przecinkiem w wartości wymaga cudzysłowu. |
+| *Odmowa dostępu przy odczycie …* / *Atrybut '…' obiektu '…' nie został zwrócony …* | Konto okna nie ma prawa czytać obiektu albo atrybutu; kontroler domeny odpowiada na nieczytelny atrybut tak, jakby był pusty. Komunikat podaje atrybut jeden raz. |
 | *The LDAP filter is not valid* | Składnia `-LdapFilter` lub `-Filter`: zrównoważone nawiasy, `(atrybut=wartość)`. |
 | Nic nie wraca | Sprawdź filtr i `-SearchBase`; przy kilku parametrach filtra muszą pasować wszystkie. Nieistniejąca baza wyszukiwania to błąd, który ją nazywa. |
 | *Only core types are supported in this language mode* | Zob. rozdział 7: użyj `New-Object PSObject -Property` albo włącz tryb zaufany. |
@@ -415,8 +468,8 @@ Edytor koloruje polecenie w trakcie pisania: polecenia, parametry, zmienne, cią
 | Nazwy wyróżniające kończą się `…` | Użyj `Format-List`, szerszego okna albo `Select-Object -ExpandProperty DistinguishedName`. |
 | Przełącznik trybu zaufanego jest wyłączony | Podpowiedź mówi, dlaczego: trwa polecenie, PowerShell się uruchamia, właśnie wyłącza tryb zaufany albo nie dał się uruchomić, w tej instalacji nie ma silnika, sesja połączenia się skończyła albo system wymusza ConstrainedLanguage (WDAC, AppLocker). |
 | Uwaga mówi, że włączono transkrypcję lub rejestrowanie | Rozdział 8. To ustawienie zasad grupy tego komputera lub konta, nie AD Managera. |
-| *There are no objects to show: no grid was opened* | Potok `Out-AdmGrid` był pusty. |
-| *The file … exists. Nothing was written; use -Force* / *No file was chosen: nothing was written.* | `Export-AdmList` zastępuje plik tylko z `-Force` i nie zapisuje niczego bez ścieżki ani pliku wybranego w oknie *Zapisz jako*. |
+| *Nie ma obiektów do pokazania: nie otwarto siatki* | Potok `Out-AdmGrid` był pusty. |
+| *Plik … istnieje. Nic nie zapisano; użyj -Force* / *Nie wybrano pliku: nic nie zapisano.* | `Export-AdmList` zastępuje plik tylko z `-Force` i nie zapisuje niczego bez ścieżki ani pliku wybranego w oknie *Zapisz jako*. |
 | `Get-Help` nie pokazuje przykładów | Usunięto plik `AdMng.PowerShell.dll-Help.xml` obok `AdMng.exe`. Przywróć go z pakietu. |
 
 ## 12. Ograniczenia i pilotaż
@@ -427,9 +480,10 @@ musi potwierdzić:
 
 - wygląd kolorowanego tekstu (pole edytuje tekst przezroczysty, kolory rysuje warstwa pod nim), kursor i zaznaczenie w motywie
   jasnym, ciemnym i wysokiego kontrastu, przy skalowaniu 125 %–200 % oraz listę uzupełnień przy krawędzi ekranu;
-- czytnik ekranu (Narrator, NVDA) z oknem: lista uzupełnień nie jest ogłaszana;
+- czytnik ekranu (Narrator, NVDA) z oknem: lista uzupełnień nie jest ogłaszana (wiersz błędu, ostrzeżenia albo uwagi ma nazwę
+  zaczynającą się od swojego rodzaju – nazwy są sprawdzone testem, nikt ich jeszcze nie usłyszał);
 - zasady okna pod **prawdziwymi zasadami grupy** (transkrypcja, rejestrowanie bloków skryptów, rejestrowanie modułów; klucze
-  pochodzą z kodu samego silnika i z udokumentowanych szablonów) oraz silnik pod **WDAC / AppLocker**;
+  i reguły, który z nich wygrywa, pochodzą z kodu samego silnika i z udokumentowanych szablonów) oraz silnik pod **WDAC / AppLocker**;
 - polecenia na **prawdziwym Windows Server AD** (testy przeszły nad sztucznym katalogiem i kontrolerem Samba).
 
 Scenariusze pilotażu są w [PILOTAZ.md, rozdział 3.7](PILOTAZ.md#37-okno-powershell-r1).

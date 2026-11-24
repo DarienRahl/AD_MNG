@@ -96,13 +96,10 @@ internal sealed class ScriptedPolicySource : IPowerShellPolicySource
         return this;
     }
 
-    public int? GetDword(PowerShellPolicyScope scope, string subKey, string valueName) =>
-        _values.TryGetValue((scope, subKey, valueName), out var value) && value is int number ? number : null;
+    public object? GetValue(PowerShellPolicyScope scope, string subKey, string valueName) =>
+        _values.TryGetValue((scope, subKey, valueName), out var value) ? value : null;
 
-    public string? GetString(PowerShellPolicyScope scope, string subKey, string valueName) =>
-        _values.TryGetValue((scope, subKey, valueName), out var value) ? value as string : null;
-
-    public IReadOnlyList<string> GetValueNames(PowerShellPolicyScope scope, string subKey) => [];
+    public IReadOnlyList<string>? GetValueNames(PowerShellPolicyScope scope, string subKey) => null;
 
     public string? ReadConfigFile(PowerShellPolicyScope scope) => null;
 

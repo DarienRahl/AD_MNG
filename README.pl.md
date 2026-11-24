@@ -213,8 +213,9 @@ Szczegóły: [ścieżka E](#ścieżka-e--dzienniki-zdarzeń-czytnik-i-analiza--e
   oknie połączenia, z własnymi poleceniami odczytu AD Managera (`Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`,
   `Get-AdmGroupMember -Recursive`, `Search-AdmObject` …), które korzystają z sesji okna – ten sam kontroler domeny i to samo
   konto, każda wartość zabezpieczona, wyniki jako zwykłe obiekty otwierane w siatce i połączone z obiektem. Na razie tylko
-  odczyt: domyślnie ConstrainedLanguage (tryb zaufany na życzenie), zamknięta lista poleceń bez zadań w tle i poleceń
-  zapisujących pliki, bez profili, bez historii na dysku, wyraźna uwaga, gdy zasady grupy rejestrują PowerShell. Zapisy przez plan zmian i moduły RSAT to następne etapy.
+  odczyt: domyślnie ConstrainedLanguage (tryb zaufany na życzenie), zamknięta lista poleceń bez zadań w tle i bez poleceń
+  zapisujących pliki poza eksportem, o który prosi operator (`Export-AdmList`, `Start-Transcript -Path`), bez profili, bez
+  historii na dysku, wyraźna uwaga, gdy zasady grupy rejestrują PowerShell. Zapisy przez plan zmian i moduły RSAT to następne etapy.
 
 Szczegóły: [ścieżka R](#ścieżka-r--okno-powershell--r1-), [docs/POWERSHELL.md](docs/POWERSHELL.md).
 
@@ -2641,10 +2642,11 @@ etapy</summary>
   flagi `userAccountControl` jako nazwy), a atrybuty tajne (`SecretAttributes`) – maskowane jak w edytorze atrybutów.
 - **Wyniki** to zwykłe obiekty PowerShell – działają na nich `Where-Object`, `Select-Object`, `Group-Object`,
   `Measure-Object` i potok – pokazywane jako tabela albo lista; `Out-AdmGrid` otwiera je w siatce programu (sortowanie,
-  filtry, kolumny, kopiowanie), a przy każdym DN jest *Otwórz w programie* (właściwości, miejsce w drzewie; to samo robi
+  filtry, kolumny, kopiowanie), a przy każdym DN jest *Otwórz w programie* (właściwości obiektu; to samo robi
   `Open-AdmObject` dla DN albo `objectGUID`).
-- **Eksport** (`Export-Csv`, `Export-AdmList` z ochroną przed formułami jak w eksporcie list) tylko do pliku, który
-  wskaże operator – w oknie dialogowym *Zapisz jako* albo jawną ścieżką w poleceniu; sam program niczego nie zapisuje.
+- **Eksport** (`Export-AdmList` z ochroną przed formułami jak w eksporcie list; `Export-Csv` i inne polecenia PowerShell
+  zapisujące pliki okno odrzuca) tylko do pliku, który wskaże operator – w oknie dialogowym *Zapisz jako* albo jawną
+  ścieżką w poleceniu; sam program niczego nie zapisuje.
 
 #### Zapis przez plan zmian
 
@@ -2707,8 +2709,10 @@ etapy</summary>
 
 - **Niczego na dysku (zasada 1):** wyniki, historia poleceń i zawartość okna są tylko w pamięci i znikają po zamknięciu
   okna. AD Manager nie zapisuje historii poleceń ani transkrypcji: PSReadLine nie jest ładowany, a plik konfiguracji w
-  folderze programu wyłącza transkrypcję i rejestrowanie modułów włączone w pliku `powershell.config.json` użytkownika.
-  Do pliku trafia tylko to, co operator jawnie wyeksportuje; `Start-Transcript` bez `-Path` (domyślnie plik w
+  folderze programu wyłącza transkrypcję, rejestrowanie bloków skryptów i rejestrowanie modułów włączone w pliku
+  `powershell.config.json` użytkownika.
+  Do pliku trafia tylko to, co operator jawnie wyeksportuje (sam silnik zapisuje na Windows tylko dwa pliki testowe swojego
+  sprawdzenia AppLockera w `%TEMP%` – żadnych danych z katalogu – i od razu je usuwa); `Start-Transcript` bez `-Path` (domyślnie plik w
   *Dokumentach*) okno odrzuca – transkrypcja tylko do pliku wskazanego jawnie – i nie ma innego polecenia, które zapisuje
   plik (bez `Out-File`, `Export-Csv`, `Set-Content` i przekierowania do pliku). Fragmenty kodu zapisane w ustawieniach
   zawierają tylko kod wpisany przez operatora (jak zapisane widoki: nazwy, DN, filtry) – bez wyników i wartości
@@ -2730,8 +2734,8 @@ etapy</summary>
   7: instalator albo `RegisterManifest.ps1`) i rejestrowanie modułów. Transkrypcja obejmuje każdy program z silnikiem
   PowerShell, więc polecenia i wyniki – czyli dane katalogu – trafią do pliku wskazanego w GPO. PowerShell 7 czyta
   własne zasady (*PowerShell Core*, `HKLM`/`HKCU\Software\Policies\Microsoft\PowerShellCore`), a zasady Windows
-  PowerShell tylko przy włączonym *Use Windows PowerShell Policy setting*. Okno sprawdza oba miejsca przy otwarciu i
-  mówi o tych zasadach wyraźnie – nie próbuje ich obejść. AMSI sprawdza każdy blok skryptu (program antywirusowy widzi
+  PowerShell tylko dla zasady, w której włączono *Use Windows PowerShell Policy setting*. Okno odczytuje je przy otwarciu
+  według reguł silnika i mówi o tych zasadach wyraźnie – nie próbuje ich obejść. AMSI sprawdza każdy blok skryptu (program antywirusowy widzi
   jego treść). WDAC (App Control) i AppLocker wymuszają tryb ConstrainedLanguage – okno samo przechodzi w ten tryb, a
   polecenia AD Managera działają w nim dalej. Zasady wykonywania (`ExecutionPolicy`) dotyczą plików `.ps1` i `.psm1`.
 - **Inne:** telemetria PowerShell wyłączona; wyłączony też kanał diagnostyczny, przez który inny proces tego samego
@@ -2783,8 +2787,9 @@ etapy</summary>
   jest przełącznikiem okna – zob. „Ustalone”.
 - **Środowisko silnika** ustawione przed jego pierwszym użyciem: bez telemetrii i kanału diagnostycznego
   (`POWERSHELL_TELEMETRY_OPTOUT`, `POWERSHELL_DIAGNOSTICS_OPTOUT`), automatyczne ładowanie modułów wyłączone, a pamięć
-  podręczna analizy modułów skierowana na urządzenie puste (silnik nie zapisuje żadnego własnego pliku – sprawdzone na
-  Linuksie, zob. notatka wykonawcza), plik `powershell.config.json` w folderze silnika (`$PSHOME`; ma pierwszeństwo przed
+  podręczna analizy modułów skierowana na urządzenie puste (silnik nie zapisuje żadnego własnego pliku – zaobserwowane na
+  Linuksie; na Windows test porównuje też foldery PowerShella w profilu użytkownika – ta część jeszcze nie przeszła – a
+  sprawdzenie AppLockera przez silnik zapisuje w `%TEMP%` dwa pliki testowe i od razu je usuwa, zob. notatka wykonawcza), plik `powershell.config.json` w folderze silnika (`$PSHOME`; ma pierwszeństwo przed
   plikiem użytkownika, a ustawienia z GPO przed nim), bez PSReadLine, profili, zadań w tle i równoległych
   runspace'ów.
 - **Testy:** polecenia i plan na `FakeDirectorySession` (testy jednostkowe – pakiet działa także na Linuksie) i na
@@ -2827,7 +2832,8 @@ Właściciel rozstrzygnął te sprawy dla R1 (uzasadnienie i alternatywy:
   (zmierzony przyrost `AdMng.exe` to ok. 38 MB).
 - **Jeden runspace na okno,** nigdy niewspółdzielony między oknami połączeń i zwalniany z zakresem okna; własny host kieruje
   tekst, pytania i potwierdzenia do okna. Sesja ma zamkniętą listę poleceń (listę dozwolonych): bez zadań w tle, równoległych
-  runspace'ów i sesji zdalnych, bez `Invoke-Expression`, `Start-Process` i poleceń zapisujących pliki; żadne
+  runspace'ów i sesji zdalnych, bez `Invoke-Expression`, `Start-Process` i poleceń zapisujących pliki poza `Export-AdmList`
+  i `Start-Transcript -Path` do ścieżki podanej przez operatora; żadne
   zadanie nie trwa dłużej niż polecenie, które je uruchomiło. Bez profili i PSReadLine, automatyczne ładowanie modułów wyłączone; w R1 bez
   plików `.ps1` (okno je odrzuca niezależnie od polityki wykonywania).
 - **Moduły i skrypty z dysku:** `Import-Module` i `using module` tylko dla modułów z listy, która w R1 jest pusta (moduły RSAT
@@ -2843,7 +2849,8 @@ Właściciel rozstrzygnął te sprawy dla R1 (uzasadnienie i alternatywy:
   tryb: `PSCredential` jest typem dozwolonym w ConstrainedLanguage, więc `$cred.GetNetworkCredential().Password` działa
   także tam (R1 nie tworzy żadnego `PSCredential`).
 - **Nazwy i skrót:** przedrostek `Adm`; R1 buduje `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`,
-  `Get-AdmGroupMember` (`-Recursive`), `Search-AdmObject`, `Out-AdmGrid`, `Open-AdmObject` i `Export-AdmList`; nazwy
+  `Get-AdmGroupMember` (`-Recursive`), `Search-AdmObject`, `Get-AdmVersion`, `Out-AdmGrid`, `Open-AdmObject` i
+  `Export-AdmList`; nazwy
   poleceń zapisu powyżej pozostają zarezerwowane dla R2. Skrót okna to **Ctrl+Shift+P** (żaden istniejący skrót go nie
   używa).
 - **Edytor wiersza:** własna kontrolka WPF bez nowej zależności; uzupełnianie poleceń, parametrów i zmiennych przez silnik
@@ -2853,13 +2860,18 @@ Właściciel rozstrzygnął te sprawy dla R1 (uzasadnienie i alternatywy:
   okna (strzałki, Ctrl+R); wiersz z hasłem zwykłym tekstem nie jest zapamiętywany.
 - **Wyniki:** zwykłe obiekty pokazywane silnikiem formatowania PowerShell jako tekst z klikalnymi DN; błędy, ostrzeżenia i
   komunikaty szczegółowe w kolorach okna; `Out-AdmGrid` wysyła obiekty do siatki list obiektów programu.
-- **Zasady:** przy otwarciu okno odczytuje zasady PowerShell z GPO (PowerShell Core, a przy `UseWindowsPowerShellPolicySetting`
-  także Windows PowerShell: transkrypcja, rejestrowanie bloków skryptów, rejestrowanie modułów, polityka wykonywania) i stan
-  blokady systemu, a trwała notatka przed pierwszym poleceniem mówi wprost, co i gdzie jest zapisywane; program nie próbuje
+- **Zasady:** przy otwarciu okno odczytuje zasady PowerShell z GPO według reguł samego silnika (PowerShell Core, a dla
+  zasady, w której własnym kluczu włączono `UseWindowsPowerShellPolicySetting`, Windows PowerShell: transkrypcja,
+  rejestrowanie bloków skryptów, rejestrowanie modułów, polityka wykonywania, każda z pierwszej gałęzi rejestru, która ją
+  ustawia) i stan blokady systemu, a trwała notatka przed pierwszym poleceniem mówi wprost, co i gdzie jest zapisywane; program nie próbuje
   obejść żadnej zasady.
-- **Niczego na dysku:** środowisko silnika jest ustawiane przed jego pierwszym użyciem, a test „żadnych plików” dowodzi, że
-  praca w oknie nie zostawia pliku; w ConstrainedLanguage żaden skrypt nie dosięga sesji okna ani jej poświadczeń (w trybie
-  zaufanym kod .NET może); w R1 nie ma żadnego polecenia zapisu.
+- **Niczego na dysku:** środowisko silnika jest ustawiane przed jego pierwszym użyciem, a test „żadnych plików” sprawdza,
+  że praca w oknie nie zostawia pliku w żadnym folderze, w którym silnik trzyma pliki – na Linuksie wszystkie leżą w
+  folderze testu (zaobserwowane); na Windows test porównuje też foldery PowerShella w profilu użytkownika (ta część jeszcze
+  nie przeszła), a sprawdzenie AppLockera przez silnik zapisuje w `%TEMP%` dwa pliki testowe i od razu je
+  usuwa; w ConstrainedLanguage nie jest znany żaden sposób, w jaki skrypt dosięgnąłby sesji okna albo jej poświadczeń
+  (drogi znalezione przez audyt R1 i trzy późniejsze próby obejścia okna są testami, które muszą pozostać odrzucone; w
+  trybie zaufanym kod .NET może); w R1 nie ma żadnego polecenia zapisu.
 
 #### Do ustalenia z zespołem
 

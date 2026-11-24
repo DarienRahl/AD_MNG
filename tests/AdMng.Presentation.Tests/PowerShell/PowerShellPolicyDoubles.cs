@@ -12,24 +12,24 @@ internal sealed class FakePowerShellPolicySource : IPowerShellPolicySource
 
     public PowerShellLockdownState Lockdown { get; set; }
 
-    /// <summary>Every call the reader made, in order ("dword HKLM Software\...\Transcription EnableTranscripting").</summary>
+    /// <summary>Every call the reader made, in order ("value Computer Software\...\Transcription EnableTranscripting").</summary>
     public List<string> Calls { get; } = [];
 
     /// <summary>A failure of the next read (the registry cannot be opened).</summary>
     public Exception? Failure { get; set; }
 
-    public FakePowerShellPolicySource SetDword(PowerShellPolicyScope scope, string subKey, string name, int value)
+    /// <summary>A value as the registry holds it: an int is a REG_DWORD, a long a REG_QWORD, a string a REG_SZ, a string array a REG_MULTI_SZ.</summary>
+    public FakePowerShellPolicySource Set(PowerShellPolicyScope scope, string subKey, string name, object value)
     {
         _values[(scope, subKey, name)] = value;
         return this;
     }
 
-    public FakePowerShellPolicySource SetString(PowerShellPolicyScope scope, string subKey, string name, string value)
-    {
-        _values[(scope, subKey, name)] = value;
-        return this;
-    }
+    public FakePowerShellPolicySource SetDword(PowerShellPolicyScope scope, string subKey, string name, int value) => Set(scope, subKey, name, value);
 
+    public FakePowerShellPolicySource SetString(PowerShellPolicyScope scope, string subKey, string name, string value) => Set(scope, subKey, name, value);
+
+    /// <summary>A key whose value names are <paramref name="names"/> (also none: the key is there and empty).</summary>
     public FakePowerShellPolicySource SetNames(PowerShellPolicyScope scope, string subKey, params string[] names)
     {
         _names[(scope, subKey)] = [.. names];
@@ -43,32 +43,25 @@ internal sealed class FakePowerShellPolicySource : IPowerShellPolicySource
     }
 
     /// <summary>The PowerShell 7 policy of a hive: <c>PowerShellCore\&lt;section&gt;</c>.</summary>
-    public FakePowerShellPolicySource Core(PowerShellPolicyScope scope, string section, string name, int value) =>
-        SetDword(scope, PowerShellPolicyKeys.Sub(PowerShellPolicyKeys.CoreRoot, section), name, value);
+    public FakePowerShellPolicySource Core(PowerShellPolicyScope scope, string section, string name, object value) =>
+        Set(scope, PowerShellPolicyKeys.Sub(PowerShellPolicyKeys.CoreRoot, section), name, value);
 
     /// <summary>The Windows PowerShell policy of a hive.</summary>
-    public FakePowerShellPolicySource Windows(PowerShellPolicyScope scope, string section, string name, int value) =>
-        SetDword(scope, PowerShellPolicyKeys.Sub(PowerShellPolicyKeys.WindowsRoot, section), name, value);
+    public FakePowerShellPolicySource Windows(PowerShellPolicyScope scope, string section, string name, object value) =>
+        Set(scope, PowerShellPolicyKeys.Sub(PowerShellPolicyKeys.WindowsRoot, section), name, value);
 
-    public int? GetDword(PowerShellPolicyScope scope, string subKey, string valueName)
+    public object? GetValue(PowerShellPolicyScope scope, string subKey, string valueName)
     {
-        Calls.Add($"dword {scope} {subKey} {valueName}");
+        Calls.Add($"value {scope} {subKey} {valueName}");
         Fail();
-        return _values.TryGetValue((scope, subKey, valueName), out var value) && value is int number ? number : null;
+        return _values.TryGetValue((scope, subKey, valueName), out var value) ? value : null;
     }
 
-    public string? GetString(PowerShellPolicyScope scope, string subKey, string valueName)
-    {
-        Calls.Add($"string {scope} {subKey} {valueName}");
-        Fail();
-        return _values.TryGetValue((scope, subKey, valueName), out var value) && value is string text ? text : null;
-    }
-
-    public IReadOnlyList<string> GetValueNames(PowerShellPolicyScope scope, string subKey)
+    public IReadOnlyList<string>? GetValueNames(PowerShellPolicyScope scope, string subKey)
     {
         Calls.Add($"names {scope} {subKey}");
         Fail();
-        return _names.TryGetValue((scope, subKey), out var names) ? names : [];
+        return _names.TryGetValue((scope, subKey), out var names) ? names : null;
     }
 
     public string? ReadConfigFile(PowerShellPolicyScope scope)

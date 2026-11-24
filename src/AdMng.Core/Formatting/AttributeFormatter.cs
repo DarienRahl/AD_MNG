@@ -27,23 +27,6 @@ public sealed class AttributeFormatter : IAttributeFormatter
     /// <summary>Binary values longer than this are truncated in the display (followed by "...").</summary>
     public const int MaxDisplayedBytes = 256;
 
-    private static readonly HashSet<string> SidAttributes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        Attr.ObjectSid, Attr.SidHistory, Attr.TokenGroups, "tokenGroupsGlobalAndUniversal", "tokenGroupsNoGCAcceptable",
-        "securityIdentifier", "mS-DS-CreatorSID",
-    };
-
-    private static readonly HashSet<string> UserAccountControlAttributes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        Attr.UserAccountControl, Attr.UserAccountControlComputed,
-    };
-
-    /// <summary>Well-known GeneralizedTime attributes, used when the schema does not describe them.</summary>
-    private static readonly HashSet<string> GeneralizedTimeAttributes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        Attr.WhenCreated, Attr.WhenChanged, "dSCorePropagationData", "msDS-LastSuccessfulInteractiveLogonTime",
-    };
-
     private static readonly (int Bit, string Name)[] UserAccountControlNames =
     [
         (0x0001, "SCRIPT"), (0x0002, "ACCOUNTDISABLE"), (0x0008, "HOMEDIR_REQUIRED"), (0x0010, "LOCKOUT"),
@@ -168,12 +151,12 @@ public sealed class AttributeFormatter : IAttributeFormatter
 
     private static string FormatBinary(string name, AttributeDefinition? definition, byte[] bytes, CultureInfo culture)
     {
-        if (bytes.Length == 16 && name.EndsWith("guid", StringComparison.OrdinalIgnoreCase))
+        if (AttributeValueRules.IsGuid(name, bytes))
         {
             return AdConvert.GuidFromBytes(bytes).ToString("D");
         }
 
-        if (SidAttributes.Contains(name) || definition?.Syntax == AttributeSyntax.Sid)
+        if (AttributeValueRules.IsSid(name, definition))
         {
             try
             {
@@ -195,7 +178,7 @@ public sealed class AttributeFormatter : IAttributeFormatter
 
     private static string FormatText(string name, AttributeDefinition? definition, string text, CultureInfo culture)
     {
-        if (Attr.FileTimeAttributes.Contains(name))
+        if (AttributeValueRules.IsFileTime(name))
         {
             if (!long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var fileTime))
             {
@@ -210,17 +193,17 @@ public sealed class AttributeFormatter : IAttributeFormatter
             return AdConvert.FromFileTime(fileTime) is { } when ? ToLocalText(when, culture) : text;
         }
 
-        if (UserAccountControlAttributes.Contains(name))
+        if (AttributeValueRules.IsUserAccountControl(name))
         {
             return FormatFlags(text, UserAccountControlNames);
         }
 
-        if (string.Equals(name, Attr.GroupType, StringComparison.OrdinalIgnoreCase))
+        if (AttributeValueRules.IsGroupType(name))
         {
             return FormatFlags(text, GroupTypeNames);
         }
 
-        var syntax = definition?.Syntax ?? (GeneralizedTimeAttributes.Contains(name) ? AttributeSyntax.GeneralizedTime : AttributeSyntax.Unknown);
+        var syntax = AttributeValueRules.TextSyntax(name, definition);
         switch (syntax)
         {
             case AttributeSyntax.GeneralizedTime:

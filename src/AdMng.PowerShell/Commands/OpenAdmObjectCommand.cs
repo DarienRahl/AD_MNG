@@ -38,7 +38,7 @@ public sealed class OpenAdmObjectCommand : AdmCmdlet
             var identity = AdmIdentity.Parse(text);
             if (identity is null)
             {
-                WriteError(AdmErrors.InvalidIdentity());
+                WriteError(AdmErrors.InvalidIdentity(UiCulture));
                 continue;
             }
 
@@ -48,7 +48,7 @@ public sealed class OpenAdmObjectCommand : AdmCmdlet
                 {
                     _refusedMore = true;
                     WriteError(new ErrorRecord(
-                        new InvalidOperationException($"Open-AdmObject opens at most {MaxWindows} windows in one command; the rest were not opened."),
+                        new InvalidOperationException(Text(AdmText.Keys.OpenTooMany, MaxWindows)),
                         "AdmTooManyWindows",
                         ErrorCategory.LimitsExceeded,
                         identity.Text));
@@ -70,7 +70,7 @@ public sealed class OpenAdmObjectCommand : AdmCmdlet
             else
             {
                 WriteError(new ErrorRecord(
-                    new InvalidOperationException($"The program could not open '{dn}'."), "AdmObjectNotOpened", ErrorCategory.OpenError, dn));
+                    new InvalidOperationException(Text(AdmText.Keys.OpenNotOpened, dn)), "AdmObjectNotOpened", ErrorCategory.OpenError, dn));
             }
         }
     }
@@ -84,7 +84,7 @@ public sealed class OpenAdmObjectCommand : AdmCmdlet
             var found = Wait(AdmSearchPlan.FirstAsync(context.Reader.SearchAsync(search, StopToken), StopToken));
             if (found is null)
             {
-                WriteError(AdmErrors.NotFound(identity.Text, "an object"));
+                WriteError(AdmErrors.NotFound(UiCulture, identity.Text, AdMng.Core.Model.ObjectKind.Unknown));
                 return null;
             }
 
@@ -92,7 +92,7 @@ public sealed class OpenAdmObjectCommand : AdmCmdlet
         }
         catch (DirectoryException error) when (error.Kind == DirectoryErrorKind.NoSuchObject)
         {
-            WriteError(AdmErrors.NotFound(identity.Text, "an object"));
+            WriteError(AdmErrors.NotFound(UiCulture, identity.Text, AdMng.Core.Model.ObjectKind.Unknown));
             return null;
         }
         catch (DirectoryException error)
@@ -102,7 +102,7 @@ public sealed class OpenAdmObjectCommand : AdmCmdlet
                 throw new PipelineStoppedException();
             }
 
-            WriteError(AdmErrors.FromDirectory(error, identity.Text));
+            WriteError(AdmErrors.FromDirectory(UiCulture, error, identity.Text));
             return null;
         }
     }

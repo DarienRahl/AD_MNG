@@ -25683,6 +25683,9 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="PowerShell.Prompt.Help" xml:space="preserve">
     <value>Pomoc</value>
   </data>
+  <data name="PowerShell.Prompt.TypeAhead" xml:space="preserve">
+    <value>Pytanie przyszło w trakcie pisania następnego polecenia; wpisany tekst wróci po odpowiedzi. Wpisz odpowiedź albo naciśnij Enter jeszcze raz, aby wybrać odpowiedź domyślną.</value>
+  </data>
   <data name="PowerShell.Prompt.Default" xml:space="preserve">
     <value>(domyślnie: "{0}")</value>
   </data>
@@ -25767,6 +25770,15 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="PowerShell.Status.PolicyUnreadableNext" xml:space="preserve">
     <value>Nie wiadomo, czy polecenia i wyniki są rejestrowane.</value>
   </data>
+  <data name="PowerShell.Status.PolicyKeyUnreadable" xml:space="preserve">
+    <value>Nie można odczytać klucza rejestru {0}</value>
+  </data>
+  <data name="PowerShell.Status.PolicyFileUnreadable" xml:space="preserve">
+    <value>Nie można odczytać pliku {0}</value>
+  </data>
+  <data name="PowerShell.Status.PolicySwitchUnreadable" xml:space="preserve">
+    <value>Wartość UseWindowsPowerShellPolicySetting klucza rejestru {0} nie jest liczbą REG_DWORD</value>
+  </data>
   <data name="PowerShell.Editor.Name" xml:space="preserve">
     <value>Wiersz poleceń</value>
   </data>
@@ -25807,13 +25819,13 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Zaznacz wszystko</value>
   </data>
   <data name="PowerShell.Kind.Error" xml:space="preserve">
-    <value>Błąd</value>
+    <value>Błąd: {0}</value>
   </data>
   <data name="PowerShell.Kind.Warning" xml:space="preserve">
-    <value>Ostrzeżenie</value>
+    <value>Ostrzeżenie: {0}</value>
   </data>
   <data name="PowerShell.Kind.Note" xml:space="preserve">
-    <value>Uwaga</value>
+    <value>Uwaga: {0}</value>
   </data>
   <data name="PowerShellGrid.Title" xml:space="preserve">
     <value>Wyniki</value>
@@ -25856,6 +25868,12 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <data name="PowerShellGrid.ExportFailed" xml:space="preserve">
     <value>Nie zapisano pliku</value>
+  </data>
+  <data name="PowerShellGrid.ExportStopped" xml:space="preserve">
+    <value>Eksport zatrzymano: plik {0} nie został zapisany (zapisaną już część usunięto).</value>
+  </data>
+  <data name="PowerShellGrid.ExportStoppedLeft" xml:space="preserve">
+    <value>Eksport zatrzymano: plik {0} jest niekompletny i nie dało się go usunąć. Usuń go albo wyeksportuj listę jeszcze raz.</value>
   </data>
   <data name="PowerShellGrid.Menu.CopyRows" xml:space="preserve">
     <value>Kopiuj wiersze</value>

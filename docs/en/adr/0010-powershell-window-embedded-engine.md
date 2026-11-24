@@ -76,7 +76,8 @@ the Watchdog package.
    lasting note for as long as it is on, and it is never remembered between windows or sessions. With a system lockdown
    (WDAC / AppLocker, `SystemPolicy.GetSystemLockdownPolicy`) the window stays in ConstrainedLanguage and the switch is
    disabled with the reason. In ConstrainedLanguage no command of the window runs code in another runspace or language
-   mode. The trusted mode changes the language mode only: it adds no command, and its .NET code runs in AD Manager's process,
+   mode (`LanguageModeTests` and `EscapeTests` try each known way – `-Parallel`, `[powershell]`, `[runspacefactory]`,
+   `[scriptblock]::Create`, jobs and the ways of the audit). The trusted mode changes the language mode only: it adds no command, and its .NET code runs in AD Manager's process,
    where it can reach anything – the window's directory session and its credentials included. **This is a protection
    against mistakes, not a security boundary** (README, "Security and data"): in FullLanguage any .NET code bypasses the
    change plan, and the operator can run `pwsh.exe` anyway. **Turning the trusted mode off gives the window a new
@@ -109,22 +110,31 @@ the Watchdog package.
    messages use the window's colours and the status line's glyphs. `Out-AdmGrid` sends the objects to the program's object
    list grid: the objects become rows, the columns come from their properties, and the grid's sorting, filters, copying and
    CSV export work. Nothing is written anywhere unless the operator exports.
-7. **PowerShell policies from GPOs (D7).** When the window opens it reads the PowerShell policies: PowerShell Core
-   (`HKLM`/`HKCU\Software\Policies\Microsoft\PowerShellCore`) and Windows PowerShell
-   (`Software\Policies\Microsoft\Windows\PowerShell`, when `UseWindowsPowerShellPolicySetting` is on) – transcription
-   (`EnableTranscripting`, `OutputDirectory`), script block logging, module logging and `ExecutionPolicy` – and the
-   lockdown state. A lasting note (the status line's Attention) before the first command says plainly what is logged where
+7. **PowerShell policies from GPOs (D7).** When the window opens it reads the PowerShell policies by the engine's own
+   rules: PowerShell Core (`HKLM`/`HKCU\Software\Policies\Microsoft\PowerShellCore`) and, for a policy whose own
+   `UseWindowsPowerShellPolicySetting` is on, Windows PowerShell (`Software\Policies\Microsoft\Windows\PowerShell`) –
+   transcription (`EnableTranscripting`, `OutputDirectory`), script block logging, module logging and `ExecutionPolicy`,
+   each from the first hive that sets it, then the `powershell.config.json` files – and the lockdown state. A lasting note (the status line's Attention) before the first command says plainly what is logged where
    ("transcription is on by policy: commands and results are written by Windows to <directory>"). The program does not try
    to get around any policy. The registry reader sits behind an interface (the Windows implementation in `AdMng.App`, a
    fake in tests).
 8. **Nothing on disk, passwords, one DC, the UI never blocks (D8).** The window's content, results and history live in
    memory only (rule 1). The engine's environment is set **before** its first use: `POWERSHELL_TELEMETRY_OPTOUT=1`,
    `POWERSHELL_DIAGNOSTICS_OPTOUT=1`, `POWERSHELL_UPDATECHECK=Off`, module auto-loading off and the module analysis cache
-   pointed at a null device; a "no files" test runs commands in a process whose `HOME`, `LOCALAPPDATA`, `TEMP` and `XDG_*`
-   point at an empty folder and asserts that the folder is still empty. In ConstrainedLanguage no script reaches the
-   window's session or its credentials: no variable, parameter or member of `$Host` carries them (AD Manager's commands
-   find their window in a registry of the engine, keyed by the runspace), and R1 creates no `PSCredential` (rule 2); in
-   the trusted mode .NET reflection can (decision 3). Filters are built with `AdMng.Core.Ldap.LdapFilter` and DNs with
+   pointed at a null device; a "no files" test runs commands in a process whose `HOME`, `USERPROFILE`, `LOCALAPPDATA`,
+   `APPDATA`, `TEMP` and `XDG_*` point at an empty folder, the child names the folders its engine keeps files in (read from
+   the engine itself), and the test asserts that it watches each of them and that none holds a file afterwards – on Linux
+   they all lie in the empty folder (observed); on Windows the engine finds its folders through the known-folder API, which
+   the variables need not move, so there the test also compares the PowerShell folders of the user's profile before and
+   after the run (that part has not passed on Windows yet). On Windows the engine writes two files of its own accord that
+   cannot be turned off: its AppLocker check writes `__PSScriptPolicyTest_<random>.ps1` and `.psm1` (a comment line, no
+   directory data) into `%TEMP%` and deletes them at once, once per process (read in the engine's code); the test allows
+   exactly these. In ConstrainedLanguage no script is known to reach the window's session or its credentials: no variable,
+   parameter or member of `$Host` carries them (AD Manager's commands find their window in a registry of the engine, keyed
+   by the runspace), no command of the window runs code in another language mode (decision 3), the audit's way through
+   `ForEach-Object -Parallel` and those of three later attempts to get around the window (red teams, 12.7–12.9 of the
+   implementation note) are tests that must stay refused, and R1 creates no
+   `PSCredential` (rule 2); in the trusted mode .NET reflection can (decision 3). Filters are built with `AdMng.Core.Ldap.LdapFilter` and DNs with
    `DistinguishedName` (rule 3). The commands read only from the window's `IDirectorySession` – one DC, no `-Server` and
    no `-Credential` (rule 4). Every directory call is asynchronous with the pipeline's cancellation token
    (`StopProcessing` cancels it); results are streamed and paged, and 100,000 results do not block the window (rule 6). Stop
@@ -186,11 +196,14 @@ The result of part 4 of R1, checked in Windows CI (the step "Smoke test publishe
 - **Only the files .NET does not put into the single file land beside `AdMng.exe`:** the engine's native libraries
   (`pwrshplugin.dll`, `PowerShell.Core.Instrumentation.dll`, `getfilesiginforedist.dll`,
   `microsoft.management.infrastructure.native.unmanaged.dll`), `build.manifest(.sig)`, the module manifests
-  (`runtimes/*/lib/net10.0/Modules`; nothing loads them – the default session state binds the commands directly), the help of
+  (`runtimes/*/lib/net10.0/Modules`; nothing loads them – the default session state binds the commands directly; the release
+  zip takes the top-level files of the publish folder only, so it has none of them, and the release workflow runs the smoke test on
+  the unpacked zip), the help of
   the commands (`AdMng.PowerShell.dll-Help.xml`, found through `AppContext.BaseDirectory` because `Assembly.Location` is empty in a
   single file) and **`powershell.config.json`**, which turns off transcription, script block logging, module logging and the
   Windows PowerShell 5.1 compatibility layer. The engine reads it from `$PSHOME`, and a setting there wins over the same
-  setting in a user's file (checked on Linux in part 1); the computer's policies (GPO) take precedence over both, and the window
+  setting in a user's file (checked on Linux in part 1, and by the smoke test of the published single file, which also asserts that
+  `$PSHOME` is the folder of `AdMng.exe`); the computer's policies (GPO) take precedence over both, and the window
   says what they record before the first command.
 - **Size** (MB = 10^6 bytes; the same publish command as CI, `-r win-x64 --self-contained -p:PublishSingleFile=true`, run on Linux for
   the commit of 0.16.0 and for the head of R1; CI prints the same 173.5 as "MB", which is MiB). `AdMng.exe` (one file, uncompressed):

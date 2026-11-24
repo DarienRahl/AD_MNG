@@ -27,6 +27,9 @@ public partial class PowerShellEditor : UserControl
     public static readonly DependencyProperty SubmitCommandProperty = DependencyProperty.Register(
         nameof(SubmitCommand), typeof(ICommand), typeof(PowerShellEditor), new PropertyMetadata(null));
 
+    public static readonly DependencyProperty SubmitSecretCommandProperty = DependencyProperty.Register(
+        nameof(SubmitSecretCommand), typeof(ICommand), typeof(PowerShellEditor), new PropertyMetadata(null));
+
     public static readonly DependencyProperty StopCommandProperty = DependencyProperty.Register(
         nameof(StopCommand), typeof(ICommand), typeof(PowerShellEditor), new PropertyMetadata(null));
 
@@ -77,6 +80,16 @@ public partial class PowerShellEditor : UserControl
     {
         get => (ICommand?)GetValue(SubmitCommandProperty);
         set => SetValue(SubmitCommandProperty, value);
+    }
+
+    /// <summary>
+    /// Enter at a secret question: executed with a copy of what the password box holds, a <see cref="System.Security.SecureString"/> the
+    /// command takes over (audit W-08: the secret went through the model's text, a string per key, and stayed in the hidden box).
+    /// </summary>
+    public ICommand? SubmitSecretCommand
+    {
+        get => (ICommand?)GetValue(SubmitSecretCommandProperty);
+        set => SetValue(SubmitSecretCommandProperty, value);
     }
 
     /// <summary>Ctrl+C with nothing selected.</summary>
@@ -203,16 +216,19 @@ public partial class PowerShellEditor : UserControl
 
         if (model.IsSecret)
         {
-            if (model.Text.Length == 0 && SecretBox.Password.Length > 0)
-            {
-                _applying = true;
-                SecretBox.Clear();
-                _applying = false;
-            }
-
+            // The secret is in the password box only; the model holds no text meanwhile.
             return;
         }
 
+        SyncBox(model);
+        UpdateHint();
+        RebuildLayer();
+        SizeTheBox();
+    }
+
+    /// <summary>The command line shows the model's text and caret (also what was typed ahead and comes back after a question, audit W-09).</summary>
+    private void SyncBox(PowerShellInputModel model)
+    {
         if (PowerShellEditorText.ToModel(InputBox.Text) != model.Text)
         {
             _applying = true;
@@ -226,10 +242,6 @@ public partial class PowerShellEditor : UserControl
                 _applying = false;
             }
         }
-
-        UpdateHint();
-        RebuildLayer();
-        SizeTheBox();
     }
 
     private void ApplyCaret()
@@ -267,11 +279,15 @@ public partial class PowerShellEditor : UserControl
         SecretBox.Visibility = secret ? Visibility.Visible : Visibility.Collapsed;
         InputBox.Visibility = secret ? Visibility.Collapsed : Visibility.Visible;
         HighlightLayer.Visibility = secret ? Visibility.Collapsed : Visibility.Visible;
-        if (secret)
+
+        // The password box is empty in every mode but while a secret is typed (audit W-08: it kept the answer for the life of the
+        // window), and the command line follows the model on every change of mode (it kept text the model no longer had).
+        SecretBox.Clear();
+        if (!secret)
         {
-            _applying = true;
-            SecretBox.Clear();
-            _applying = false;
+            SyncBox(model);
+            RebuildLayer();
+            SizeTheBox();
         }
 
         UpdateHint();
@@ -329,14 +345,19 @@ public partial class PowerShellEditor : UserControl
         PositionCompletion();
     }
 
-    private void OnSecretChanged(object sender, RoutedEventArgs e)
+    /// <summary>Enter in the password box: a copy of the secret goes to the window, and the box is emptied.</summary>
+    private void SubmitSecret()
     {
-        if (_applying || _model is not { IsSecret: true } model)
+        var secret = SecretBox.SecurePassword.Copy();
+        SecretBox.Clear();
+        if (SubmitSecretCommand is { } command && command.CanExecute(secret))
         {
-            return;
+            command.Execute(secret);
         }
-
-        model.SetText(SecretBox.Password, SecretBox.Password.Length);
+        else
+        {
+            secret.Dispose();
+        }
     }
 
     // ---- Keys ---------------------------------------------------------------------------------------------------------
@@ -370,6 +391,9 @@ public partial class PowerShellEditor : UserControl
                 InputBox.SelectedText = Environment.NewLine;
                 InputBox.CaretIndex += InputBox.SelectionLength;
                 InputBox.SelectionLength = 0;
+                return true;
+            case Key.Enter when !control && !alt && model.IsSecret:
+                SubmitSecret();
                 return true;
             case Key.Enter when !control && !alt:
                 SubmitCommand?.Execute(null);

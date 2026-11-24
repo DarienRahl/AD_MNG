@@ -85,17 +85,17 @@ public sealed class SearchAdmObjectCommand : AdmSearchCmdlet
             var name = raw.Trim();
             if (name.Length == 0 || !char.IsAsciiLetter(name[0]) || !name.All(c => char.IsAsciiLetterOrDigit(c) || c == '-'))
             {
-                ThrowTerminatingError(AdmErrors.InvalidArgument($"'{raw}' is not an attribute name.", "AdmInvalidAttribute", raw));
+                ThrowTerminatingError(AdmErrors.InvalidArgument(Text(AdmText.Keys.SearchNotAName, raw), "AdmInvalidAttribute", raw));
             }
 
             if (schema.Attributes.Count > 0 && schema.FindAttribute(name) is null)
             {
-                ThrowTerminatingError(AdmErrors.InvalidArgument($"The schema of this domain has no attribute '{name}'. Press Tab after -Attribute to see the attribute names.", "AdmInvalidAttribute", raw));
+                ThrowTerminatingError(AdmErrors.InvalidArgument(Text(AdmText.Keys.SearchUnknown, name), "AdmInvalidAttribute", raw));
             }
 
             if (SecretAttributes.IsSecret(name, schema))
             {
-                ThrowTerminatingError(AdmErrors.InvalidArgument($"'{name}' holds secrets: AD Manager does not search by the value of a secret attribute.", "AdmSecretAttribute", raw));
+                ThrowTerminatingError(AdmErrors.InvalidArgument(Text(AdmText.Keys.SearchSecret, name), "AdmSecretAttribute", raw));
             }
 
             names.Add(schema.FindAttribute(name)?.LdapName ?? name);
@@ -108,7 +108,7 @@ public sealed class SearchAdmObjectCommand : AdmSearchCmdlet
     {
         if (Value.Any(string.IsNullOrEmpty))
         {
-            ThrowTerminatingError(AdmErrors.InvalidArgument("A value to look for cannot be empty.", "AdmInvalidValue", Value));
+            ThrowTerminatingError(AdmErrors.InvalidArgument(Text(AdmText.Keys.SearchEmptyValue), "AdmInvalidValue", Value));
         }
 
         return Value;

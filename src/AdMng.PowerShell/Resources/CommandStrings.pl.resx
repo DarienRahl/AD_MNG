@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Attribute.Hidden" xml:space="preserve">
+    <value>Atrybut '{0}' obiektu '{1}' nie został zwrócony, choć ma go każdy obiekt tej klasy: to konto nie ma uprawnienia, by go czytać. Tak samo jest z innymi obiektami; ten komunikat pojawia się raz.</value>
+  </data>
+  <data name="Cell.Binary.Few" xml:space="preserve">
+    <value>(dane binarne, {0} bajty)</value>
+  </data>
+  <data name="Cell.Binary.Many" xml:space="preserve">
+    <value>(dane binarne, {0} bajtów)</value>
+  </data>
+  <data name="Cell.Binary.One" xml:space="preserve">
+    <value>(dane binarne, {0} bajt)</value>
+  </data>
+  <data name="Cell.SecureString" xml:space="preserve">
+    <value>(bezpieczny ciąg)</value>
+  </data>
+  <data name="Context.Missing" xml:space="preserve">
+    <value>To polecenie działa tylko w oknie PowerShell AD Managera połączonym z domeną.</value>
+  </data>
+  <data name="Directory.AccessDenied" xml:space="preserve">
+    <value>Odmowa dostępu: konto tego okna nie może tego czytać.</value>
+  </data>
+  <data name="Directory.AccessDenied.At" xml:space="preserve">
+    <value>Odmowa dostępu przy odczycie '{0}': konto tego okna nie może tego czytać.</value>
+  </data>
+  <data name="Directory.Failed" xml:space="preserve">
+    <value>Odczyt się nie powiódł.</value>
+  </data>
+  <data name="Directory.Failed.At" xml:space="preserve">
+    <value>Odczyt '{0}' się nie powiódł.</value>
+  </data>
+  <data name="Directory.Limited" xml:space="preserve">
+    <value>Kontroler domeny ograniczył wynik.</value>
+  </data>
+  <data name="Directory.Limited.At" xml:space="preserve">
+    <value>Kontroler domeny ograniczył wynik odczytu '{0}'.</value>
+  </data>
+  <data name="Directory.NoAnswer" xml:space="preserve">
+    <value>Kontroler domeny nie odpowiedział na odczyt.</value>
+  </data>
+  <data name="Directory.NoAnswer.At" xml:space="preserve">
+    <value>Kontroler domeny nie odpowiedział na odczyt '{0}'.</value>
+  </data>
+  <data name="Directory.NoSuchObject" xml:space="preserve">
+    <value>Obiekt nie istnieje.</value>
+  </data>
+  <data name="Directory.NoSuchObject.At" xml:space="preserve">
+    <value>Obiekt '{0}' nie istnieje.</value>
+  </data>
+  <data name="Directory.Refused" xml:space="preserve">
+    <value>Katalog odrzucił żądanie.</value>
+  </data>
+  <data name="Directory.Refused.At" xml:space="preserve">
+    <value>Katalog odrzucił żądanie dotyczące '{0}'.</value>
+  </data>
+  <data name="Export.FileExists" xml:space="preserve">
+    <value>Plik '{0}' istnieje. Nic nie zapisano; użyj -Force, aby go zastąpić.</value>
+  </data>
+  <data name="Export.InvalidDelimiter" xml:space="preserve">
+    <value>Separator musi być jednym widocznym znakiem, nie cudzysłowem ani końcem wiersza.</value>
+  </data>
+  <data name="Export.NoFile" xml:space="preserve">
+    <value>Nie wybrano pliku: nic nie zapisano.</value>
+  </data>
+  <data name="Export.NoObjects" xml:space="preserve">
+    <value>Nie ma obiektów do eksportu: nic nie zapisano.</value>
+  </data>
+  <data name="Export.NotFileSystem" xml:space="preserve">
+    <value>'{0}' nie jest ścieżką w systemie plików.</value>
+  </data>
+  <data name="Grid.NoObjects" xml:space="preserve">
+    <value>Nie ma obiektów do pokazania: nie otwarto siatki.</value>
+  </data>
+  <data name="Identity.Empty" xml:space="preserve">
+    <value>Tożsamość jest pusta.</value>
+  </data>
+  <data name="LdapFilter.Invalid" xml:space="preserve">
+    <value>Filtr LDAP jest niepoprawny: {0}</value>
+  </data>
+  <data name="Members.Missing.Few" xml:space="preserve">
+    <value>Nie udało się odczytać {0} członków grupy '{1}' (usuniętych w międzyczasie, z innej domeny albo to konto nie może ich czytać), na przykład: {2}</value>
+  </data>
+  <data name="Members.Missing.Many" xml:space="preserve">
+    <value>Nie udało się odczytać {0} członków grupy '{1}' (usuniętych w międzyczasie, z innej domeny albo to konto nie może ich czytać), na przykład: {2}</value>
+  </data>
+  <data name="Members.Missing.One" xml:space="preserve">
+    <value>Nie udało się odczytać {0} członka grupy '{1}' (usunięty w międzyczasie, z innej domeny albo to konto nie może go czytać), na przykład: {2}</value>
+  </data>
+  <data name="NotFound.Computer" xml:space="preserve">
+    <value>Nie znaleziono komputera o tożsamości '{0}': nie istnieje albo to konto go nie widzi.</value>
+  </data>
+  <data name="NotFound.Computer.Under" xml:space="preserve">
+    <value>Nie znaleziono komputera o tożsamości '{0}' w '{1}': nie istnieje albo to konto go nie widzi.</value>
+  </data>
+  <data name="NotFound.Group" xml:space="preserve">
+    <value>Nie znaleziono grupy o tożsamości '{0}': nie istnieje albo to konto jej nie widzi.</value>
+  </data>
+  <data name="NotFound.Group.Under" xml:space="preserve">
+    <value>Nie znaleziono grupy o tożsamości '{0}' w '{1}': nie istnieje albo to konto jej nie widzi.</value>
+  </data>
+  <data name="NotFound.Object" xml:space="preserve">
+    <value>Nie znaleziono obiektu o tożsamości '{0}': nie istnieje albo to konto go nie widzi.</value>
+  </data>
+  <data name="NotFound.Object.Under" xml:space="preserve">
+    <value>Nie znaleziono obiektu o tożsamości '{0}' w '{1}': nie istnieje albo to konto go nie widzi.</value>
+  </data>
+  <data name="NotFound.User" xml:space="preserve">
+    <value>Nie znaleziono użytkownika o tożsamości '{0}': nie istnieje albo to konto go nie widzi.</value>
+  </data>
+  <data name="NotFound.User.Under" xml:space="preserve">
+    <value>Nie znaleziono użytkownika o tożsamości '{0}' w '{1}': nie istnieje albo to konto go nie widzi.</value>
+  </data>
+  <data name="Open.NotOpened" xml:space="preserve">
+    <value>Program nie mógł otworzyć '{0}'.</value>
+  </data>
+  <data name="Open.TooMany" xml:space="preserve">
+    <value>Open-AdmObject otwiera najwyżej {0} okien w jednym poleceniu; pozostałych nie otwarto.</value>
+  </data>
+  <data name="Properties.NotAName" xml:space="preserve">
+    <value>'{0}' nie jest nazwą atrybutu (litery, cyfry i '-'; '*' oznacza wszystkie atrybuty).</value>
+  </data>
+  <data name="Properties.Unknown" xml:space="preserve">
+    <value>Schemat tej domeny nie ma atrybutu '{0}'. Naciśnij Tab po -Properties, aby zobaczyć nazwy atrybutów.</value>
+  </data>
+  <data name="Search.EmptyValue" xml:space="preserve">
+    <value>Szukana wartość nie może być pusta.</value>
+  </data>
+  <data name="Search.NotAName" xml:space="preserve">
+    <value>'{0}' nie jest nazwą atrybutu.</value>
+  </data>
+  <data name="Search.Secret" xml:space="preserve">
+    <value>'{0}' przechowuje sekrety: AD Manager nie wyszukuje według wartości atrybutu z sekretem.</value>
+  </data>
+  <data name="Search.Unknown" xml:space="preserve">
+    <value>Schemat tej domeny nie ma atrybutu '{0}'. Naciśnij Tab po -Attribute, aby zobaczyć nazwy atrybutów.</value>
+  </data>
+  <data name="SearchBase.Invalid" xml:space="preserve">
+    <value>'{0}' nie jest nazwą wyróżniającą (-SearchBase przyjmuje nazwę wyróżniającą kontenera).</value>
+  </data>
+  <data name="Services.Unavailable" xml:space="preserve">
+    <value>To okno nie może tego zrobić: program nie dał mu do tego środków.</value>
+  </data>
+</root>

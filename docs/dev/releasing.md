@@ -56,8 +56,9 @@ The template is `tools/release/NEXT.template.md`; `python3 tools/release/notes.p
 
 `plan` decides what to release – from pushed notes `docs/releases/v*.md` (the commit named by the marker, or the pushed
 commit), from a pushed tag, or from a manual start – and fails early without the secret `RELEASE_TOKEN`. `build`
-(Windows: build, unit and UI tests, single-file publish, smoke test), `openwec-package` and `linux-package` (the three
-`.deb` files, install tests on Debian 12 and 13, lintian) all work on that one commit. `release` runs last: it uploads
+(Windows: build, unit and UI tests, single-file publish, smoke test, the layout of the PowerShell engine, the zip and the
+smoke test of the unpacked zip), `openwec-package` and `linux-package` (the three `.deb` files, no PowerShell engine in
+`admng-watchdog`, install tests on Debian 12 and 13, lintian) all work on that one commit. `release` runs last: it uploads
 the files with `SHA256SUMS.txt` to a draft and publishes it, which creates the tag. A failed build therefore leaves
 no tag and no release behind.
 

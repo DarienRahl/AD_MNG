@@ -27,7 +27,13 @@ internal sealed class AdmTableBuilder
 
     public int RowCount => _rows.Count;
 
-    /// <summary>Adds a row for <paramref name="item"/>; an array or a list is added element by element.</summary>
+    /// <summary>The window's language: the words of a cell that stands for a secure string or a binary value.</summary>
+    public CultureInfo Culture { get; set; } = CultureInfo.CurrentUICulture;
+
+    /// <summary>
+    /// Adds a row for <paramref name="item"/>; an array or a list is added element by element, and a null element is a row without a
+    /// value (audit ps-commands-6: it ended the command).
+    /// </summary>
     public void Add(PSObject item)
     {
         ArgumentNullException.ThrowIfNull(item);
@@ -35,7 +41,14 @@ internal sealed class AdmTableBuilder
         {
             foreach (var element in list)
             {
-                AddRow(element is PSObject wrapped ? wrapped : PSObject.AsPSObject(element));
+                if (element is null)
+                {
+                    AddEmptyRow();
+                }
+                else
+                {
+                    AddRow(element is PSObject wrapped ? wrapped : PSObject.AsPSObject(element));
+                }
             }
 
             return;
@@ -79,24 +92,23 @@ internal sealed class AdmTableBuilder
             _index.ContainsKey(DistinguishedNameColumn) ? _columns[_index[DistinguishedNameColumn]] : null);
     }
 
+    /// <summary>A row for a null element: a cell of the value column without a value.</summary>
+    private void AddEmptyRow() => AddCells([(ValueColumn, null)]);
+
     private void AddRow(PSObject item)
     {
         var cells = new List<(string Name, string? Text)>();
         var value = item.BaseObject;
-        if (value is null)
-        {
-            cells.Add((ValueColumn, null));
-        }
-        else if (value is IDictionary dictionary)
+        if (value is IDictionary dictionary)
         {
             foreach (DictionaryEntry entry in dictionary)
             {
-                cells.Add((Convert.ToString(entry.Key, CultureInfo.InvariantCulture) ?? string.Empty, CellText.Of(entry.Value)));
+                cells.Add((Convert.ToString(entry.Key, CultureInfo.InvariantCulture) ?? string.Empty, CellText.Of(entry.Value, Culture)));
             }
         }
         else if (CellText.IsSimple(value))
         {
-            cells.Add((ValueColumn, CellText.Of(value)));
+            cells.Add((ValueColumn, CellText.Of(value, Culture)));
         }
         else
         {
@@ -110,7 +122,7 @@ internal sealed class AdmTableBuilder
                 string? text;
                 try
                 {
-                    text = CellText.Of(property.Value);
+                    text = CellText.Of(property.Value, Culture);
                 }
                 catch (Exception ex) when (ex is GetValueException or InvalidOperationException or NotSupportedException or ArgumentException)
                 {
@@ -122,6 +134,11 @@ internal sealed class AdmTableBuilder
             }
         }
 
+        AddCells(cells);
+    }
+
+    private void AddCells(List<(string Name, string? Text)> cells)
+    {
         // The columns this row introduces are registered first, so the row is allocated once, as wide as the table is now.
         var columns = new int[cells.Count];
         for (var i = 0; i < cells.Count; i++)
@@ -168,22 +185,30 @@ internal static class CellText
         || value.GetType().IsPrimitive || value is decimal or System.Numerics.BigInteger;
 
     /// <summary>
-    /// The text of <paramref name="value"/>: null for no value; a list is its elements joined by the separator of the program's own
-    /// lists; a date and time as <see cref="DateTimeFormat"/>; numbers independent of the language; binary values only as their size;
-    /// a secure string never as anything but its name.
+    /// How many lists deep a cell looks: a list inside a list inside a list is shown by its elements, the next level by the name of its
+    /// type. Without a limit an array that contains itself overflowed the stack and ended the program (audit ps-commands-3).
     /// </summary>
-    public static string? Of(object? value)
+    public const int MaxListDepth = 3;
+
+    /// <summary>
+    /// The text of <paramref name="value"/>: null for no value; a list is its elements joined by the separator of the program's own
+    /// lists (<see cref="MaxListDepth"/> levels deep); a date and time as <see cref="DateTimeFormat"/>; numbers independent of the
+    /// language; binary values only as their size; a secure string never as anything but its name.
+    /// </summary>
+    public static string? Of(object? value, CultureInfo? culture = null) => Of(value, culture ?? CultureInfo.CurrentUICulture, 0);
+
+    private static string? Of(object? value, CultureInfo culture, int depth)
     {
         switch (value)
         {
             case null or DBNull:
                 return null;
             case PSObject wrapped:
-                return wrapped.BaseObject is PSCustomObject ? wrapped.ToString() : Of(wrapped.BaseObject);
+                return wrapped.BaseObject is PSCustomObject ? wrapped.ToString() : Of(wrapped.BaseObject, culture, depth);
             case string text:
                 return text;
             case SecureString:
-                return "(secure string)";
+                return Reading.AdmText.Get(culture, Reading.AdmText.Keys.CellSecureString);
             case bool flag:
                 return flag ? "True" : "False";
             case DateTime moment:
@@ -197,13 +222,15 @@ internal static class CellText
             case Enum or Uri or char:
                 return value.ToString();
             case byte[] bytes:
-                return $"(binary, {bytes.Length} bytes)";
+                return Reading.AdmText.Plural(culture, Reading.AdmText.Keys.CellBinary, bytes.Length);
             case IFormattable formattable:
                 return formattable.ToString(null, CultureInfo.InvariantCulture);
             case IDictionary:
                 return value.ToString();
+            case IEnumerable when depth >= MaxListDepth:
+                return value.GetType().ToString();
             case IEnumerable list:
-                return string.Join(AttributeFormatter.ValueSeparator, list.Cast<object?>().Select(Of).Where(part => part is not null));
+                return string.Join(AttributeFormatter.ValueSeparator, list.Cast<object?>().Select(element => Of(element, culture, depth + 1)).Where(part => part is not null));
             default:
                 try
                 {

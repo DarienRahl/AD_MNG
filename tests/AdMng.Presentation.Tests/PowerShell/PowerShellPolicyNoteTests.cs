@@ -29,7 +29,6 @@ public sealed class PowerShellPolicyNoteTests
         {
             ExecutionPolicy = new PowerShellExecutionPolicyPolicy("AllSigned", CoreComputer),
             Lockdown = PowerShellLockdownState.Enforce,
-            UseWindowsPowerShellPolicy = true,
             Transcription = new PowerShellTranscriptionPolicy(false, Directory, true, CoreComputer),
         };
 

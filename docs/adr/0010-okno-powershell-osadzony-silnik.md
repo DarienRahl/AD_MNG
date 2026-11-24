@@ -75,7 +75,9 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
    (dowolny kod .NET, zapisy z pominięciem planu zmian); tryb widać w tytule okna i w trwałej notatce, dopóki jest
    włączony; nie jest zapamiętywany między oknami ani sesjami. Przy blokadzie systemu (WDAC / AppLocker,
    `SystemPolicy.GetSystemLockdownPolicy`) okno zostaje w ConstrainedLanguage, a przełącznik jest wyłączony z podaniem
-   powodu. W ConstrainedLanguage żadne polecenie okna nie uruchamia kodu w innym runspace ani w innym trybie języka.
+   powodu. W ConstrainedLanguage żadne polecenie okna nie uruchamia kodu w innym runspace ani w innym trybie języka (każdą
+   znaną drogę – `-Parallel`, `[powershell]`, `[runspacefactory]`, `[scriptblock]::Create`, zadania i drogi audytu – próbują
+   `LanguageModeTests` i `EscapeTests`).
    Tryb zaufany zmienia tylko tryb języka: nie dodaje poleceń, a jego kod .NET działa w procesie AD Managera, gdzie może
    sięgnąć do wszystkiego – także do sesji katalogu okna i jej poświadczeń. **To ochrona przed pomyłką, nie granica
    bezpieczeństwa** (README, „Bezpieczeństwo i dane”): w FullLanguage dowolny kod .NET omija plan zmian, a operator może
@@ -108,10 +110,11 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
    szczegółowe mają kolory okna i znaczki linii stanu. `Out-AdmGrid` wysyła obiekty do siatki list programu: obiekty stają
    się wierszami, kolumny wynikają z ich właściwości, a sortowanie, filtry, kopiowanie i eksport CSV siatki działają.
    Nic nie jest nigdzie zapisywane, dopóki operator nie wyeksportuje.
-7. **Zasady PowerShell z GPO (D7).** Przy otwarciu okno odczytuje zasady PowerShell: PowerShell Core
-   (`HKLM`/`HKCU\Software\Policies\Microsoft\PowerShellCore`) i Windows PowerShell
-   (`Software\Policies\Microsoft\Windows\PowerShell`, gdy włączono `UseWindowsPowerShellPolicySetting`) – transkrypcję
-   (`EnableTranscripting`, `OutputDirectory`), rejestrowanie bloków skryptów, rejestrowanie modułów i `ExecutionPolicy` –
+7. **Zasady PowerShell z GPO (D7).** Przy otwarciu okno odczytuje zasady PowerShell według reguł samego silnika:
+   PowerShell Core (`HKLM`/`HKCU\Software\Policies\Microsoft\PowerShellCore`) oraz, dla zasady, w której własnym kluczu
+   włączono `UseWindowsPowerShellPolicySetting`, Windows PowerShell (`Software\Policies\Microsoft\Windows\PowerShell`) –
+   transkrypcję (`EnableTranscripting`, `OutputDirectory`), rejestrowanie bloków skryptów, rejestrowanie modułów
+   i `ExecutionPolicy`, każdą z pierwszej gałęzi rejestru, która ją ustawia, potem z plików `powershell.config.json` –
    oraz stan blokady systemu. Trwała notatka (Uwaga linii stanu) przed pierwszym poleceniem mówi wprost, co i gdzie jest
    zapisywane („transkrypcja jest włączona zasadą: polecenia i wyniki zapisuje Windows w <katalog>”). Program nie próbuje
    obejść żadnej zasady. Czytnik rejestru stoi za interfejsem (implementacja Windows w `AdMng.App`, atrapa w testach).
@@ -119,10 +122,19 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
    (zasada 1). Środowisko silnika ustawiamy **przed** jego pierwszym użyciem: `POWERSHELL_TELEMETRY_OPTOUT=1`,
    `POWERSHELL_DIAGNOSTICS_OPTOUT=1`, `POWERSHELL_UPDATECHECK=Off`, wyłączone automatyczne ładowanie modułów i pamięć
    podręczna analizy modułów skierowana na urządzenie puste; test „żadnych plików” uruchamia polecenia w procesie z
-   `HOME`, `LOCALAPPDATA`, `TEMP` i `XDG_*` wskazującymi pusty folder i sprawdza, że folder jest nadal pusty. W
-   ConstrainedLanguage żaden skrypt nie dosięga sesji okna ani jej poświadczeń: nie przenosi ich żadna zmienna, parametr
-   ani składowa `$Host` (polecenia AD Managera znajdują swoje okno w rejestrze silnika, według runspace'u), a w R1 nie
-   powstaje żaden `PSCredential` (zasada 2); w trybie zaufanym może to zrobić odbicie .NET (punkt 3). Filtry budujemy
+   `HOME`, `USERPROFILE`, `LOCALAPPDATA`, `APPDATA`, `TEMP` i `XDG_*` wskazującymi pusty folder, proces potomny podaje
+   foldery, w których jego silnik trzyma pliki (odczytane z samego silnika), a test sprawdza, że obserwuje każdy z nich i
+   że w żadnym nie zostaje plik – na Linuksie wszystkie leżą w pustym folderze (zaobserwowane); na Windows silnik znajduje
+   swoje foldery przez interfejs folderów znanych, którego zmienne nie muszą przesuwać, więc tam test porównuje też
+   foldery PowerShella w profilu użytkownika przed i po uruchomieniu (ta część jeszcze nie przeszła na Windows). Na
+   Windows silnik sam z siebie zapisuje dwa pliki, których nie da się wyłączyć: jego sprawdzenie AppLockera zapisuje w
+   `%TEMP%` pliki `__PSScriptPolicyTest_<losowo>.ps1` i `.psm1` (wiersz komentarza, żadnych danych z katalogu) i od razu
+   je usuwa, raz na proces (odczytane z kodu silnika); test dopuszcza dokładnie te pliki. W ConstrainedLanguage nie jest
+   znany żaden sposób, w jaki skrypt dosięgnąłby sesji okna albo jej poświadczeń: nie przenosi ich żadna zmienna, parametr
+   ani składowa `$Host` (polecenia AD Managera znajdują swoje okno w rejestrze silnika, według runspace'u), żadne polecenie
+   okna nie uruchamia kodu w innym trybie języka (punkt 3), droga audytu przez `ForEach-Object -Parallel` i drogi trzech
+   późniejszych prób obejścia okna (red team, 12.7–12.9 notatki wykonawczej) są testami, które muszą pozostać odrzucone, a w R1 nie powstaje żaden `PSCredential` (zasada 2); w
+   trybie zaufanym może to zrobić odbicie .NET (punkt 3). Filtry budujemy
    przez `AdMng.Core.Ldap.LdapFilter`, a DN przez `DistinguishedName` (zasada 3). Polecenia czytają wyłącznie z
    `IDirectorySession` okna – jeden DC, bez `-Server` i `-Credential` (zasada 4). Każde wywołanie katalogu jest
    asynchroniczne z tokenem anulowania potoku (`StopProcessing` go anuluje); wyniki są strumieniowane i stronicowane, 100
@@ -182,10 +194,12 @@ Wynik części 4 R1, sprawdzony w CI na Windows (krok „Smoke test published ap
 - **Obok `AdMng.exe` trafiają tylko pliki, których .NET nie umieszcza w pliku:** natywne biblioteki silnika (`pwrshplugin.dll`,
   `PowerShell.Core.Instrumentation.dll`, `getfilesiginforedist.dll`, `microsoft.management.infrastructure.native.unmanaged.dll`),
   `build.manifest(.sig)`, manifesty modułów (`runtimes/*/lib/net10.0/Modules`; nic ich nie ładuje – domyślny stan sesji wiąże polecenia
-  bezpośrednio), pomoc poleceń (`AdMng.PowerShell.dll-Help.xml`, wskazywana przez `AppContext.BaseDirectory`, bo w jednym pliku
+  bezpośrednio; archiwum wydania bierze tylko pliki z głównego folderu publikacji, więc nie ma ich wcale, a przepływ wydania
+  uruchamia test dymny na rozpakowanym archiwum), pomoc poleceń (`AdMng.PowerShell.dll-Help.xml`, wskazywana przez `AppContext.BaseDirectory`, bo w jednym pliku
   `Assembly.Location` jest pusty) i **`powershell.config.json`**: wyłącza transkrypcję, rejestrowanie bloków skryptów i modułów oraz
   warstwę zgodności z Windows PowerShell 5.1. Silnik czyta go z `$PSHOME`, a ustawienie w nim wygrywa z tym samym ustawieniem w pliku
-  użytkownika (sprawdzone na Linuksie w części 1); zasady komputera (GPO) mają pierwszeństwo przed oboma, a okno mówi o nich przed
+  użytkownika (sprawdzone na Linuksie w części 1 i testem dymnym opublikowanego pliku, który sprawdza też, że `$PSHOME` to folder
+  `AdMng.exe`); zasady komputera (GPO) mają pierwszeństwo przed oboma, a okno mówi o nich przed
   pierwszym poleceniem.
 - **Rozmiar** (MB = 10^6 bajtów; to samo polecenie publikacji co w CI, `-r win-x64 --self-contained -p:PublishSingleFile=true`,
   uruchomione na Linuksie dla commitu 0.16.0 i dla czoła R1; CI wypisuje te same 173,5 jako „MB”, a to MiB). `AdMng.exe` (jeden

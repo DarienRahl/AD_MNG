@@ -2,6 +2,7 @@ using System.Security;
 using AdMng.Core.PowerShell;
 using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
+using AdMng.Presentation.Services;
 using CommunityToolkit.Mvvm.Input;
 
 namespace AdMng.Presentation.PowerShell;
@@ -9,8 +10,14 @@ namespace AdMng.Presentation.PowerShell;
 // Running a command: the operation on the status line, the stream of the engine's items, the questions of the command, Stop.
 public sealed partial class PowerShellWindowViewModel
 {
-    /// <summary>How many items are shown to the window at once: a result of 100,000 objects is shown in steps, never in one freeze.</summary>
-    internal const int BatchSize = 500;
+    /// <summary>The most items one hand-over shows the window: a result of 100,000 objects is shown in steps, never in one freeze.</summary>
+    internal const int BatchSize = 2_000;
+
+    /// <summary>
+    /// The least time between the end of one hand-over of the stream to the UI thread and the next (audit W-03): a command that writes
+    /// without a pause becomes one step per interval, and the UI thread has that time for the keyboard, the mouse and the drawing.
+    /// </summary>
+    internal static readonly TimeSpan HandOverInterval = TimeSpan.FromMilliseconds(40);
 
     /// <summary>The longest first line of an error that goes into the status line.</summary>
     private const int ErrorReasonLength = 240;
@@ -18,6 +25,9 @@ public sealed partial class PowerShellWindowViewModel
     private OperationScope? _scope;
     private string? _firstError;
     private PowerShellRunEndItem? _end;
+
+    /// <summary>The pending question came while the operator was typing the next command (audit W-09): an empty answer to a choice asks once more.</summary>
+    private bool _questionWipedDraft;
 
     /// <summary>The count of lines written when the running command last cleared the window (<c>Clear-Host</c>): its result counts what is left.</summary>
     private long _linesAtClear = -1;
@@ -63,13 +73,18 @@ public sealed partial class PowerShellWindowViewModel
         }
 
         var script = Input.Text;
-        Output.AddCommand(script, PromptText, ContinuationText);
+
+        // The echo masks a plain-text secret that keeps the line out of the history (audit PS-13); the command runs as typed.
+        Output.AddCommand(session.HideSecrets(script), PromptText, ContinuationText);
         History.Add(script);
         Input.Clear();
         if (!session.IsRunning)
         {
             session.OutputWidth = _outputWidth;
         }
+
+        // A name the engine may have wrapped at this width is no link (audit W-06).
+        Output.Width = session.OutputWidth;
 
         _firstError = null;
         _end = null;
@@ -87,15 +102,16 @@ public sealed partial class PowerShellWindowViewModel
             await Task.Run(() => PumpAsync(session, script, scope.Token), CancellationToken.None).ConfigureAwait(true);
             if (!IsDisposed)
             {
-                Finish(scope, started, linesBefore, modeBefore);
+                // The engine always ends a run with its end item (audit PS-07: a flood that was stopped lost it, and a default here hid it).
+                Finish(scope, started, linesBefore, modeBefore, _end ?? throw new InvalidOperationException("The PowerShell engine ended the command without saying how it ended."));
             }
         }
         catch (OperationCanceledException) when (scope.Token.IsCancellationRequested)
         {
-            // An engine that ends a stopped run by throwing is a stopped run too.
+            // An engine that ends a stopped run by throwing (the stop came while the command waited to start) is a stopped run too.
             if (!IsDisposed)
             {
-                Finish(scope, started, linesBefore, modeBefore);
+                Finish(scope, started, linesBefore, modeBefore, _end ?? new PowerShellRunEndItem(PowerShellRunState.Stopped, _firstError is not null));
             }
         }
         catch (PowerShellSessionUnavailableException ex) when (!IsDisposed)
@@ -170,22 +186,48 @@ public sealed partial class PowerShellWindowViewModel
     // ---- The stream of the engine -------------------------------------------------------------------------------
 
     /// <summary>
-    /// Reads the engine's items off the UI thread and hands them over in steps: whatever is ready when the next item would have to be
-    /// waited for goes at once - so a line of output appears as soon as it was written - and a burst goes in batches of
-    /// <see cref="BatchSize"/>. Each step waits until the UI thread has taken it, so a command that writes faster than the window
-    /// can show is held back (the engine's own channel is bounded too) instead of piling up.
+    /// Reads the engine's items off the UI thread and hands them over in steps, below the UI thread's input (audit W-03:
+    /// <see cref="UiDispatchPriority.Background"/> - at the normal priority a command that writes without a pause kept a step queued
+    /// above the keyboard and the mouse, and Stop could not be pressed). The first item after a quiet moment goes at once, so a line
+    /// appears as soon as it was written; after a step, what follows is gathered for at least <see cref="HandOverInterval"/> (or until
+    /// <see cref="BatchSize"/> items), so a flood is one step per interval, not one per line. Each step waits until the UI thread has
+    /// taken it, so a command that writes faster than the window can show is held back (the engine's own channel is bounded too)
+    /// instead of piling up.
     /// </summary>
     private async Task PumpAsync(IPowerShellSession session, string script, CancellationToken stop)
     {
         var batch = new List<PowerShellOutputItem>();
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var lastHandOver = TimeSpan.MinValue;
         await using var items = session.RunAsync(script, stop).GetAsyncEnumerator(CancellationToken.None);
         while (true)
         {
             var next = items.MoveNextAsync();
-            if (!next.IsCompleted && batch.Count > 0)
+            if (batch.Count > 0 && (batch.Count >= BatchSize || !next.IsCompleted))
             {
-                await Services.Dispatcher.InvokeAsync(ApplyTo(batch)).ConfigureAwait(false);
-                batch = [];
+                var wait = lastHandOver == TimeSpan.MinValue ? TimeSpan.Zero : HandOverInterval - (clock.Elapsed - lastHandOver);
+                if (wait > TimeSpan.Zero)
+                {
+                    if (batch.Count >= BatchSize)
+                    {
+                        // A full step waits out the interval; the engine waits for the pump meanwhile.
+                        await Task.Delay(wait, CancellationToken.None).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        // Gather what comes within the interval; a step goes when it ends or the step is full.
+                        var pending = next.AsTask();
+                        await Task.WhenAny(pending, Task.Delay(wait, CancellationToken.None)).ConfigureAwait(false);
+                        next = new ValueTask<bool>(pending);
+                    }
+                }
+
+                if (batch.Count >= BatchSize || !next.IsCompleted)
+                {
+                    await Services.Dispatcher.InvokeAsync(ApplyTo(batch), UiDispatchPriority.Background).ConfigureAwait(false);
+                    lastHandOver = clock.Elapsed;
+                    batch = [];
+                }
             }
 
             if (!await next.ConfigureAwait(false))
@@ -194,16 +236,11 @@ public sealed partial class PowerShellWindowViewModel
             }
 
             batch.Add(items.Current);
-            if (batch.Count >= BatchSize)
-            {
-                await Services.Dispatcher.InvokeAsync(ApplyTo(batch)).ConfigureAwait(false);
-                batch = [];
-            }
         }
 
         if (batch.Count > 0)
         {
-            await Services.Dispatcher.InvokeAsync(ApplyTo(batch)).ConfigureAwait(false);
+            await Services.Dispatcher.InvokeAsync(ApplyTo(batch), UiDispatchPriority.Background).ConfigureAwait(false);
         }
     }
 
@@ -289,10 +326,9 @@ public sealed partial class PowerShellWindowViewModel
     /// in the scrollback: the window goes on in a new session without the variables of the old one - and constrained when a lockdown
     /// came into force meanwhile.
     /// </summary>
-    private void Finish(OperationScope scope, DateTimeOffset started, long linesBefore, PowerShellLanguageMode modeBefore)
+    private void Finish(OperationScope scope, DateTimeOffset started, long linesBefore, PowerShellLanguageMode modeBefore, PowerShellRunEndItem end)
     {
         Output.EndRun();
-        var end = _end ?? new PowerShellRunEndItem(scope.Token.IsCancellationRequested ? PowerShellRunState.Stopped : PowerShellRunState.Completed, _firstError is not null);
         var elapsed = Services.Time.GetUtcNow() - started;
         var time = Localizer.Format(L.PowerShellStatus.Seconds, Math.Max(0, elapsed.TotalSeconds).ToString("0.0", Localizer.Culture));
         var lines = Output.OutputLinesWritten - Math.Max(linesBefore, _linesAtClear);
@@ -383,6 +419,8 @@ public sealed partial class PowerShellWindowViewModel
             Output.AddLine(PowerShellLineKind.Prompt, ChoiceMenu(item));
         }
 
+        // What the operator typed ahead as the next command is kept by the editor and comes back after the question (audit W-09).
+        _questionWipedDraft = !Input.IsAnswering && !Input.IsBlank;
         Input.SetMode(item.Kind == PowerShellPromptKind.Secret ? PowerShellInputMode.Secret : PowerShellInputMode.Answer);
         _scope?.Report(Localizer[L.PowerShellStatus.Waiting], PageProgress.Indeterminate, new PageStatusLog(L.PowerShellStatus.Waiting));
 
@@ -404,14 +442,23 @@ public sealed partial class PowerShellWindowViewModel
         switch (item.Kind)
         {
             case PowerShellPromptKind.Secret:
-                // The echo has no answer in it: a secret is only ever in the SecureString that goes to the command.
-                Output.AddLine(PowerShellLineKind.Prompt, item.Label ?? string.Empty);
-                item.RespondSecret(ToSecureString(text));
-                break;
+                // A secret comes from the view's password box as a SecureString (AnswerSecret); it is never text of the editor (audit W-08).
+                return;
             case PowerShellPromptKind.Choice:
                 if (text == "?")
                 {
                     ShowChoiceHelp(item);
+                    Input.Clear();
+                    return;
+                }
+
+                if (text.Trim().Length == 0 && _questionWipedDraft)
+                {
+                    // The question took the place of the command being typed: this Enter was most likely meant for that command, not
+                    // for the default choice (audit W-09). Asked once more; an empty answer now takes the default.
+                    _questionWipedDraft = false;
+                    Output.AddLine(PowerShellLineKind.Prompt, Localizer[L.PowerShell.PromptTypeAhead]);
+                    Output.AddLine(PowerShellLineKind.Prompt, ChoiceMenu(item));
                     Input.Clear();
                     return;
                 }
@@ -436,9 +483,31 @@ public sealed partial class PowerShellWindowViewModel
         EndPrompt(answered: true);
     }
 
-    /// <summary>The question is over (answered, or the command ended): the editor takes commands again.</summary>
+    /// <summary>
+    /// Enter at a secret question: the view hands over a copy of what its password box holds (audit W-08: the secret went through the
+    /// editor's text, a string per key, and stayed in the hidden box). The window takes ownership: it goes to the command, read-only,
+    /// and the echo has the question's label only. Without a secret question pending it is disposed.
+    /// </summary>
+    [RelayCommand]
+    private void AnswerSecret(SecureString? secret)
+    {
+        if (IsDisposed || PendingPrompt is not { Item: { Kind: PowerShellPromptKind.Secret } item })
+        {
+            secret?.Dispose();
+            return;
+        }
+
+        var answer = secret ?? new SecureString();
+        answer.MakeReadOnly();
+        Output.AddLine(PowerShellLineKind.Prompt, item.Label ?? string.Empty);
+        item.RespondSecret(answer);
+        EndPrompt(answered: true);
+    }
+
+    /// <summary>The question is over (answered, or the command ended): the editor takes commands again, with what was typed ahead.</summary>
     private void EndPrompt(bool answered)
     {
+        _questionWipedDraft = false;
         if (PendingPrompt is null)
         {
             return;
@@ -504,15 +573,4 @@ public sealed partial class PowerShellWindowViewModel
     /// <summary>The label without the '&amp;'.</summary>
     internal static string ChoiceText(string label) => label.Replace("&", string.Empty, StringComparison.Ordinal);
 
-    private static SecureString ToSecureString(string text)
-    {
-        var secret = new SecureString();
-        foreach (var character in text)
-        {
-            secret.AppendChar(character);
-        }
-
-        secret.MakeReadOnly();
-        return secret;
-    }
 }

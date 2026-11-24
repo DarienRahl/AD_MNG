@@ -104,10 +104,12 @@ internal static class TestSessions
         bool withoutWindow = false,
         IPowerShellLockdownProbe? probe = null,
         TimeProvider? time = null,
-        IReadOnlyList<System.Management.Automation.Runspaces.SessionStateCommandEntry>? extra = null) =>
+        IReadOnlyList<System.Management.Automation.Runspaces.SessionStateCommandEntry>? extra = null,
+        System.Globalization.CultureInfo? culture = null) =>
         PowerShellSession.CreateAsync(
             new PowerShellSessionOptions
             {
+                Culture = culture,
                 Context = withoutWindow ? null : context ?? new FakeWindowContext(),
                 LockdownProbe = probe ?? new FakeLockdownProbe(),
                 TimeProvider = time ?? TimeProvider.System,

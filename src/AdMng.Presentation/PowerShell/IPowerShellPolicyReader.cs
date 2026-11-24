@@ -14,25 +14,25 @@ public interface IPowerShellPolicyReader
 }
 
 /// <summary>
-/// The raw reads behind <see cref="PowerShellPolicyReader"/>: the one thing the Windows implementation (AdMng.App, unit 4 of
-/// stage R1) has to provide, so that every rule - which key wins, when Windows PowerShell policies count, how a config file is
-/// read - is plain code that is tested on any system. <b>The exact keys and values are in <see cref="PowerShellPolicyKeys"/>.</b>
-/// An absent key, an absent value or a value of another type is <c>null</c> / empty, never an exception; a real failure (the
-/// registry cannot be opened, the policy probe throws) is an exception.
+/// The raw reads behind <see cref="PowerShellPolicyReader"/>: the one thing the Windows implementation (AdMng.App) has to provide, so
+/// that every rule - which hive and which key decide, when the Windows PowerShell keys count, which value type is a setting, how a
+/// config file is read - is plain code that is tested on any system. <b>The exact keys and values are in
+/// <see cref="PowerShellPolicyKeys"/>.</b> An absent key or an absent value is <c>null</c>, never an exception; a real failure (a key
+/// that cannot be opened, a file that cannot be read, the policy probe throws) is a <see cref="PowerShellPolicyUnreadableException"/>.
 /// </summary>
 public interface IPowerShellPolicySource
 {
     /// <summary>
-    /// A <c>REG_DWORD</c> value under <c>HKLM\</c> (<see cref="PowerShellPolicyScope.Computer"/>) or <c>HKCU\</c>
-    /// (<see cref="PowerShellPolicyScope.User"/>) + <paramref name="subKey"/>, or null.
+    /// A value of the key <c>HKLM\</c> (<see cref="PowerShellPolicyScope.Computer"/>) or <c>HKCU\</c>
+    /// (<see cref="PowerShellPolicyScope.User"/>) + <paramref name="subKey"/>, as the registry holds it: an <see cref="int"/>
+    /// (<c>REG_DWORD</c>), a <see cref="long"/> (<c>REG_QWORD</c>), a <see cref="string"/> (<c>REG_SZ</c>, also <c>REG_EXPAND_SZ</c>, not
+    /// expanded), a <see cref="string"/> array (<c>REG_MULTI_SZ</c>) or a <see cref="byte"/> array (any other type); null when the key or
+    /// the value is absent. Which type counts as a setting is the reader's rule, not the source's.
     /// </summary>
-    int? GetDword(PowerShellPolicyScope scope, string subKey, string valueName);
+    object? GetValue(PowerShellPolicyScope scope, string subKey, string valueName);
 
-    /// <summary>A <c>REG_SZ</c> value (also <c>REG_EXPAND_SZ</c>, not expanded), or null.</summary>
-    string? GetString(PowerShellPolicyScope scope, string subKey, string valueName);
-
-    /// <summary>The names of the values of a key (the module names of <c>ModuleLogging\ModuleNames</c> are value names); empty when the key is absent.</summary>
-    IReadOnlyList<string> GetValueNames(PowerShellPolicyScope scope, string subKey);
+    /// <summary>The names of the values of a key (the module names of <c>ModuleLogging\ModuleNames</c> are value names); null when the key is absent.</summary>
+    IReadOnlyList<string>? GetValueNames(PowerShellPolicyScope scope, string subKey);
 
     /// <summary>
     /// The text of a <c>powershell.config.json</c>, or null when there is none: <see cref="PowerShellPolicyScope.Computer"/> is the
@@ -46,20 +46,24 @@ public interface IPowerShellPolicySource
 }
 
 /// <summary>
-/// The registry keys, value names and file sections <see cref="PowerShellPolicyReader"/> reads. Taken from what the engine
-/// itself reads (<c>System.Management.Automation.dll</c> 7.6: the key paths and the property names of its policy classes) and
-/// from the Group Policy templates of PowerShell. The Windows implementation of <see cref="IPowerShellPolicySource"/> only
-/// reads these.
+/// The registry keys, value names and file sections <see cref="PowerShellPolicyReader"/> reads: the ones the engine itself reads
+/// (<c>System.Management.Automation.dll</c> 7.6, <c>Utils.GetPolicySetting</c>: the key of each policy and the properties of its policy
+/// class, which are the value names) and that the Group Policy templates of PowerShell write. The Windows implementation of
+/// <see cref="IPowerShellPolicySource"/> only reads these.
 /// </summary>
 public static class PowerShellPolicyKeys
 {
-    /// <summary>The PowerShell 7 policy key, under both <c>HKLM</c> and <c>HKCU</c>.</summary>
+    /// <summary>The PowerShell 7 policy key, under both <c>HKLM</c> and <c>HKCU</c>; the key of the execution policy, and the parent of the other three.</summary>
     public const string CoreRoot = @"Software\Policies\Microsoft\PowerShellCore";
 
-    /// <summary>The Windows PowerShell policy key, under both <c>HKLM</c> and <c>HKCU</c>; read only while <see cref="UseWindowsPowerShellPolicy"/> is on.</summary>
+    /// <summary>The Windows PowerShell policy key, under both <c>HKLM</c> and <c>HKCU</c>; read for a policy only while its own <see cref="UseWindowsPowerShellPolicy"/> is on.</summary>
     public const string WindowsRoot = @"Software\Policies\Microsoft\Windows\PowerShell";
 
-    /// <summary><c>REG_DWORD</c> 1 in <see cref="CoreRoot"/>: "Use Windows PowerShell Policy setting" (the Windows PowerShell policies stand in for the PowerShell 7 ones).</summary>
+    /// <summary>
+    /// <c>REG_DWORD</c>, non-zero = on, in the PowerShell 7 key <b>of each policy</b> (<see cref="CoreRoot"/> for the execution policy,
+    /// <c>CoreRoot\Transcription</c> for transcription, and so on): "Use Windows PowerShell Policy setting" of that policy - the
+    /// engine then reads that policy from the same hive's Windows PowerShell key instead (<see cref="WindowsRoot"/>, or its sub key).
+    /// </summary>
     public const string UseWindowsPowerShellPolicy = "UseWindowsPowerShellPolicySetting";
 
     // The execution policy: values of the root key itself.
@@ -97,7 +101,7 @@ public static class PowerShellPolicyKeys
     /// <summary><c>REG_DWORD</c>.</summary>
     public const string EnableModuleLogging = "EnableModuleLogging";
 
-    /// <summary>Sub key of <see cref="ModuleLoggingKey"/> whose value names are the logged modules ("*" is all).</summary>
+    /// <summary>Sub key of <see cref="ModuleLoggingKey"/> whose value names are the logged modules ("*" is all); a <c>REG_SZ</c> or <c>REG_MULTI_SZ</c> value of that name stands in for it.</summary>
     public const string ModuleNamesKey = "ModuleNames";
 
     // powershell.config.json: { "PowerShellPolicies": { "<section>": { "<name>": value } } } with the same value names; booleans are true / false.

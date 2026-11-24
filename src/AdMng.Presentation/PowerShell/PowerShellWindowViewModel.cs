@@ -44,7 +44,8 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
     private PowerShellPolicies _policies = PowerShellPolicies.None;
     private PowerShellPolicyNote? _policyNote;
     private bool _policiesUnreadable;
-    private string? _policiesError;
+    /// <summary>Why the policies could not be read; translated whenever the line is built, so it follows the language (audit W-01).</summary>
+    private Exception? _policiesFailure;
 
     /// <summary>The build has no engine (no session factory): the window says so and what helps, not "open it again".</summary>
     private bool _noEngine;
@@ -71,6 +72,10 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
             if (e.PropertyName is nameof(PowerShellInputModel.Text))
             {
                 RunCommand.NotifyCanExecuteChanged();
+            }
+            else if (e.PropertyName is nameof(PowerShellInputModel.IsAnswering))
+            {
+                OnPropertyChanged(nameof(EditorHint));
             }
         };
         Output.PropertyChanged += (_, e) =>
@@ -103,6 +108,12 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
     public override string WindowTitle => _info is { } info
         ? Localizer.Format(IsTrustedMode ? L.PowerShell.WindowTitleTrusted : L.PowerShell.WindowTitle, info.DomainDnsName, info.Server, info.BoundIdentity)
         : Localizer[L.PowerShell.Name];
+
+    /// <summary>
+    /// What the empty editor says: how to type a command, or - while a command waits for an answer - that the answer is typed here
+    /// (audit W-07: the command hint stayed while a question waited).
+    /// </summary>
+    public string EditorHint => Localizer[Input.IsAnswering ? L.PowerShell.AnswerHint : L.PowerShell.EditorHint];
 
     /// <summary>The engine session exists and is not changing its runspace: commands can be run.</summary>
     public bool IsReady => _session is not null && !IsSessionEnded && !IsSwitchingMode;
@@ -264,7 +275,7 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             _policiesUnreadable = true;
-            _policiesError = ex.Message;
+            _policiesFailure = ex;
         }
     }
 
@@ -336,7 +347,7 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
         if (_policiesUnreadable)
         {
             notes.Add((
-                PageStatusText.Failure(Localizer[L.PowerShellStatus.PolicyUnreadable], _policiesError, Localizer[L.PowerShellStatus.PolicyUnreadableNext]),
+                PageStatusText.Failure(Localizer[L.PowerShellStatus.PolicyUnreadable], _policiesFailure is null ? null : Errors.Translate(_policiesFailure), Localizer[L.PowerShellStatus.PolicyUnreadableNext]),
                 new PageStatusLog(L.PowerShellStatus.PolicyUnreadable)));
         }
 
@@ -403,6 +414,7 @@ public sealed partial class PowerShellWindowViewModel : WindowViewModelBase, IHa
         OnPropertyChanged(nameof(DroppedNote));
         OnPropertyChanged(nameof(PolicyNoteText));
         OnPropertyChanged(nameof(TrustedModeDisabledReason));
+        OnPropertyChanged(nameof(EditorHint));
     }
 
     protected override void Dispose(bool disposing)

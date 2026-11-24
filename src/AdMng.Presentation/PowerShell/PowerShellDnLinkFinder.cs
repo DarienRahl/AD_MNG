@@ -29,8 +29,14 @@ public static partial class PowerShellDnLinkFinder
     /// <summary>The longest text the finder looks at: a line of a table or a list is far shorter, a wall of text is no place for links.</summary>
     public const int MaxTextLength = 8000;
 
-    /// <summary>The names in <paramref name="text"/>, in order, not overlapping. Empty for a text without any.</summary>
-    public static IReadOnlyList<PowerShellDnSpan> Find(string? text)
+    /// <summary>
+    /// The names in <paramref name="text"/> (one line), in order, not overlapping. Empty for a text without any. With the
+    /// <paramref name="width"/> of the engine's formatting, a name is no link where <c>Format-List</c> (or <c>Format-Table -Wrap</c>)
+    /// may have wrapped it (audit W-06): it ends with a line as long as the formatting allows (<paramref name="width"/> - 1), or a
+    /// line starts with it after blanks only - the continuation of a value; a comma at the very end of the line cuts a name whatever
+    /// the width.
+    /// </summary>
+    public static IReadOnlyList<PowerShellDnSpan> Find(string? text, int width = 0)
     {
         if (string.IsNullOrEmpty(text) || text.Length > MaxTextLength || !text.Contains('=', StringComparison.Ordinal))
         {
@@ -43,7 +49,7 @@ public static partial class PowerShellDnLinkFinder
             foreach (Match match in Candidate().Matches(text))
             {
                 var end = match.Index + match.Length;
-                if (IsCut(text, end) || !DistinguishedName.TryParse(match.Value, out _))
+                if (IsCut(text, end) || IsWrapped(text, match.Index, end, width) || !DistinguishedName.TryParse(match.Value, out _))
                 {
                     continue;
                 }
@@ -76,6 +82,21 @@ public static partial class PowerShellDnLinkFinder
             return true;
         }
 
-        return next == ',' && end + 1 < text.Length && !char.IsWhiteSpace(text[end + 1]);
+        // A comma that goes on into more text, or one that ends the line (the formatting wrapped the name there, audit W-06).
+        return next == ',' && (end + 1 >= text.Length || !char.IsWhiteSpace(text[end + 1]) || text.AsSpan(end + 1).IsWhiteSpace());
+    }
+
+    /// <summary>
+    /// The name may be one the formatting wrapped (audit W-06): it ends a line as long as the formatting writes one (the width less
+    /// one), or it starts an indented line - the continuation of a wrapped value (<c>DC=test</c>, <c>OU=Firma,DC=contoso,DC=test</c>).
+    /// </summary>
+    private static bool IsWrapped(string text, int start, int end, int width)
+    {
+        if (start > 0 && text.AsSpan(0, start).IsWhiteSpace())
+        {
+            return true;
+        }
+
+        return width > 1 && end == text.Length && text.Length >= width - 1;
     }
 }

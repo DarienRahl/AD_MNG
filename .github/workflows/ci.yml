@@ -73,6 +73,9 @@ jobs:
         env:
           ADMNG_UI_TESTS: "1"
           ADMNG_WINDOWS_EVENTLOG_TESTS: "1"
+          # The 40 s proof that the PowerShell engine never writes its module analysis cache: on Windows its path is NUL\ModuleAnalysisCache,
+          # which only a Windows run can show to be unwritable (docs/dev/r1-powershell-window.md 4.2).
+          ADMNG_POWERSHELL_SLOW_TESTS: "1"
       # The UI tests grew from 11 to 27 minutes within a day of new tests: the thirty slowest of the run, from the trx files,
       # say where the time goes (a test that waits for its own timeout shows up here).
       - name: Slowest tests
@@ -421,6 +424,15 @@ jobs:
           merge-multiple: true
       - name: Build admng-watchdog .deb
         run: tools/packaging/build-deb.sh --output artifacts/deb
+      - name: The Watchdog package has no PowerShell engine (.deb)
+        # Track R (ADR-0010), as the step on the Windows publish of the service above: the service ships as this .deb, and the release
+        # workflow runs the same check before it publishes one.
+        run: |
+          deb=$(ls artifacts/deb/admng-watchdog_*_amd64.deb)
+          if dpkg-deb -c "$deb" | grep -F 'System.Management.Automation'; then
+            echo "::error::$deb contains the PowerShell engine (ADR-0010)."
+            exit 1
+          fi
       - name: Install test on Debian 12 and 13
         # Users, modes, credential, certificate, idempotent postinst, systemd-analyze verify + security (exposure <= 2.0),
         # nft -c of the example ruleset, --check-config (placeholders fail, real SIDs pass), --smoke-test as

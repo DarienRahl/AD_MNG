@@ -82,21 +82,19 @@ internal sealed class WindowHostUserInterface : PSHostUserInterface
         var first = true;
         foreach (var field in descriptions)
         {
-            var isSecret = string.Equals(field.ParameterTypeFullName, typeof(SecureString).FullName, StringComparison.Ordinal);
-            var label = string.IsNullOrEmpty(field.Label) ? field.Name : field.Label;
-            var item = new PowerShellPromptItem(
-                isSecret ? PowerShellPromptKind.Secret : PowerShellPromptKind.Text,
-                first ? caption : null,
-                first ? message : null,
-                label);
-            first = false;
-            var answer = Ask(item);
-            results[field.Name] = answer switch
+            // The console host's prompt text is the field's name: the label of a mandatory parameter carries an accelerator ("&Identity").
+            var label = field.Name;
+            var type = TypeOf(field.ParameterTypeFullName);
+            if (type is { IsArray: true } && type.GetElementType() is { } elementType)
             {
-                SecureString secret => PSObject.AsPSObject(secret),
-                string text => PSObject.AsPSObject(ConvertAnswer(text, field.ParameterTypeFullName)),
-                _ => throw new PipelineStoppedException(),
-            };
+                results[field.Name] = PSObject.AsPSObject(AskArray(label, elementType, first ? caption : null, first ? message : null));
+                first = false;
+                continue;
+            }
+
+            var answer = Ask(new PowerShellPromptItem(KindOf(type), first ? caption : null, first ? message : null, label));
+            first = false;
+            results[field.Name] = PSObject.AsPSObject(Converted(answer, type));
         }
 
         return results;
@@ -147,25 +145,50 @@ internal sealed class WindowHostUserInterface : PSHostUserInterface
         return answer;
     }
 
-    private static object ConvertAnswer(string text, string? typeName)
+    /// <summary>
+    /// A parameter that takes an array is asked for element by element, as the console host asks (<c>Identity[0]</c>,
+    /// <c>Identity[1]</c>, ...), until an empty answer: an answer is one element and is never split, so a distinguished name with
+    /// its commas stays one identity (audit PS-05).
+    /// </summary>
+    private Array AskArray(string label, Type elementType, string? caption, string? message)
     {
-        if (string.IsNullOrEmpty(typeName) || Type.GetType(typeName, throwOnError: false) is not { } type || type == typeof(string) || type == typeof(object))
+        var elements = new List<object?>();
+        while (true)
         {
-            return text;
-        }
-
-        if (type.IsArray && type.GetElementType() is { } elementType)
-        {
-            var parts = text.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-            var array = Array.CreateInstance(elementType, parts.Length);
-            for (var i = 0; i < parts.Length; i++)
+            var answer = Ask(new PowerShellPromptItem(
+                KindOf(elementType),
+                elements.Count == 0 ? caption : null,
+                elements.Count == 0 ? message : null,
+                string.Create(CultureInfo.InvariantCulture, $"{label}[{elements.Count}]")));
+            if (answer is string { Length: 0 } || answer is SecureString { Length: 0 })
             {
-                array.SetValue(LanguagePrimitives.ConvertTo(parts[i], elementType, CultureInfo.InvariantCulture), i);
+                break;
             }
 
-            return array;
+            elements.Add(Converted(answer, elementType));
         }
 
-        return LanguagePrimitives.ConvertTo(text, type, CultureInfo.InvariantCulture);
+        var array = Array.CreateInstance(elementType, elements.Count);
+        for (var i = 0; i < elements.Count; i++)
+        {
+            array.SetValue(elements[i], i);
+        }
+
+        return array;
     }
+
+    private static PowerShellPromptKind KindOf(Type? type) =>
+        type == typeof(SecureString) ? PowerShellPromptKind.Secret : PowerShellPromptKind.Text;
+
+    private static Type? TypeOf(string? typeName) =>
+        string.IsNullOrEmpty(typeName) ? null : Type.GetType(typeName, throwOnError: false);
+
+    /// <summary>The answer as the parameter's type; a cancelled question (null) stops the pipeline.</summary>
+    private static object Converted(object? answer, Type? type) => answer switch
+    {
+        SecureString secret => secret,
+        string text when type is null || type == typeof(string) || type == typeof(object) => text,
+        string text => LanguagePrimitives.ConvertTo(text, type, CultureInfo.InvariantCulture),
+        _ => throw new PipelineStoppedException(),
+    };
 }

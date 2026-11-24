@@ -50,6 +50,42 @@ public sealed class PowerShellWindowActionsHostTests
         Assert.Equal(["CN=Jan Kowalski,OU=Firma,DC=contoso,DC=test"], harness.Dialogs.PropertiesShown);
     }
 
+    /// <summary>
+    /// Audit ps-commands-4: Export-AdmList wrote the clear-text LAPS password and the BitLocker recovery password of every computer the
+    /// account may read (<c>-Properties *</c> returns them) without the question the program's list export asks.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AnExportOfColumnsWithSecrets_AsksFirst_AndLeavesThemOutUnlessTheAnswerIsYes(bool include)
+    {
+        var harness = await B2Harness.CreateAsync();
+        harness.Dialogs.ConfirmAnswers.Enqueue(include);
+        var table = new PowerShellGridTable(
+            ["DistinguishedName", "Name", "ms-Mcs-AdmPwd", "msFVE-RecoveryPassword"],
+            [["CN=LAPS01,DC=contoso,DC=test", "LAPS01", "Cleartext!Laps1", "111111-222222"]],
+            null,
+            "DistinguishedName");
+        var path = Path.Combine(Path.GetTempPath(), "admng-actions-" + Guid.NewGuid().ToString("N") + ".csv");
+        try
+        {
+            var written = await Create(harness).ExportListAsync(table, path, ';', Ct);
+
+            Assert.Equal(path, written);
+            var confirmation = Assert.Single(harness.Dialogs.Shown, shown => shown.StartsWith("confirm:", StringComparison.Ordinal));
+            Assert.Contains("ms-Mcs-AdmPwd", confirmation, StringComparison.Ordinal);
+            Assert.Contains("msFVE-RecoveryPassword", confirmation, StringComparison.Ordinal);
+            var text = await File.ReadAllTextAsync(path, Ct);
+            Assert.Equal(include, text.Contains("Cleartext!Laps1", StringComparison.Ordinal));
+            Assert.Equal(include, text.Contains("111111-222222", StringComparison.Ordinal));
+            Assert.Contains("LAPS01", text, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     [Fact]
     public async Task AnExportWithAPath_WritesExactlyThatFile_WithTheDelimiterOfTheCommand_AndProtectedFormulas()
     {

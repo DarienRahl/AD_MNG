@@ -1,4 +1,5 @@
 using System.Management.Automation;
+using AdMng.PowerShell.Reading;
 
 namespace AdMng.PowerShell.Commands;
 
@@ -26,44 +27,45 @@ public sealed class ExportAdmListCommand : AdmTableCmdlet
     [Parameter]
     public SwitchParameter Force { get; set; }
 
+    // The file, resolved before anything of the pipeline is read.
+    private string? _path;
+
+    /// <summary>
+    /// The delimiter, the path and -Force are checked here, before the commands in front of this one read anything (audit
+    /// ps-commands-10: the whole pipeline was read and kept, then refused); a refusal ends the pipeline.
+    /// </summary>
+    protected override void BeginProcessing()
+    {
+        base.BeginProcessing();
+        if (Delimiter is { } separator && (char.IsControl(separator) || separator is '"' or '\r' or '\n'))
+        {
+            ThrowTerminatingError(new ErrorRecord(
+                new ArgumentException(Text(AdmText.Keys.ExportInvalidDelimiter)),
+                "AdmInvalidDelimiter",
+                ErrorCategory.InvalidArgument,
+                separator));
+        }
+
+        if (Path is not null)
+        {
+            _path = Resolve(Path);
+            RefuseAnExistingFile(_path);
+        }
+    }
+
     protected override void EndProcessing()
     {
         var context = RequireContext();
         var table = Table.Build(null);
         if (table is null)
         {
-            WriteWarning("There are no objects to export: nothing was written.");
+            WriteWarning(Text(AdmText.Keys.ExportNoObjects));
             return;
         }
 
-        if (Delimiter is { } separator && (char.IsControl(separator) || separator is '"' or '\r' or '\n'))
-        {
-            ThrowTerminatingError(new ErrorRecord(
-                new ArgumentException("The delimiter must be one visible character, not a quote or a line break."),
-                "AdmInvalidDelimiter",
-                ErrorCategory.InvalidArgument,
-                separator));
-        }
-
-        string? path = null;
-        if (Path is not null)
-        {
-            path = Resolve(Path);
-            if (path is null)
-            {
-                return;
-            }
-
-            if (File.Exists(path) && !Force)
-            {
-                WriteError(new ErrorRecord(
-                    new IOException($"The file '{path}' exists. Nothing was written; use -Force to replace it."),
-                    "AdmExportFileExists",
-                    ErrorCategory.ResourceExists,
-                    path));
-                return;
-            }
-        }
+        // The file may have been made while the pipeline was read.
+        var path = _path;
+        RefuseAnExistingFile(path);
 
         string? written;
         try
@@ -78,33 +80,48 @@ public sealed class ExportAdmListCommand : AdmTableCmdlet
 
         if (written is null)
         {
-            WriteWarning("No file was chosen: nothing was written.");
+            WriteWarning(Text(AdmText.Keys.ExportNoFile));
             return;
         }
 
         WriteObject(new AdmExportResult(written, table.Rows.Count, table.Columns.Count));
     }
 
-    /// <summary>The full path of <paramref name="text"/> in the file system, or null (after an error) when it is not one.</summary>
-    private string? Resolve(string text)
+    /// <summary>Ends the command with an error when <paramref name="path"/> exists and <c>-Force</c> was not given.</summary>
+    private void RefuseAnExistingFile(string? path)
     {
+        if (path is not null && File.Exists(path) && !Force)
+        {
+            ThrowTerminatingError(new ErrorRecord(
+                new IOException(Text(AdmText.Keys.ExportFileExists, path)),
+                "AdmExportFileExists",
+                ErrorCategory.ResourceExists,
+                path));
+        }
+    }
+
+    /// <summary>The full path of <paramref name="text"/> in the file system; ends the command with an error when it is not one.</summary>
+    private string Resolve(string text)
+    {
+        string full;
+        ProviderInfo provider;
         try
         {
-            var full = SessionState.Path.GetUnresolvedProviderPathFromPSPath(text, out var provider, out _);
-            if (!string.Equals(provider.Name, "FileSystem", StringComparison.OrdinalIgnoreCase))
-            {
-                WriteError(new ErrorRecord(
-                    new ArgumentException($"'{text}' is not a path in the file system."), "AdmExportInvalidPath", ErrorCategory.InvalidArgument, text));
-                return null;
-            }
-
-            return full;
+            full = SessionState.Path.GetUnresolvedProviderPathFromPSPath(text, out provider, out _);
         }
         catch (Exception error) when (error is ArgumentException or PSInvalidOperationException or System.Management.Automation.DriveNotFoundException or ProviderNotFoundException or NotSupportedException)
         {
-            WriteError(new ErrorRecord(error, "AdmExportInvalidPath", ErrorCategory.InvalidArgument, text));
-            return null;
+            ThrowTerminatingError(new ErrorRecord(error, "AdmExportInvalidPath", ErrorCategory.InvalidArgument, text));
+            throw;
         }
+
+        if (!string.Equals(provider.Name, "FileSystem", StringComparison.OrdinalIgnoreCase))
+        {
+            ThrowTerminatingError(new ErrorRecord(
+                new ArgumentException(Text(AdmText.Keys.ExportNotFileSystem, text)), "AdmExportInvalidPath", ErrorCategory.InvalidArgument, text));
+        }
+
+        return full;
     }
 }
 

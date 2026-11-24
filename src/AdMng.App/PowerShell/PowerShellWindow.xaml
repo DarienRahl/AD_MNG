@@ -29,6 +29,39 @@
       <Setter Property="Margin" Value="0" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
       <Setter Property="AutomationProperties.Name" Value="{Binding Text, Mode=OneWay}" />
+      <!-- An error, a warning or the note is said with its kind first (audit W-07): the glyph and the colour are not heard. -->
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static vm:PowerShellLineKind.Error}">
+          <Setter Property="AutomationProperties.Name">
+            <Setter.Value>
+              <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
+                <l:TrBinding Key="PowerShell.Kind.Error" />
+                <Binding Mode="OneWay" Path="Text" />
+              </MultiBinding>
+            </Setter.Value>
+          </Setter>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static vm:PowerShellLineKind.Warning}">
+          <Setter Property="AutomationProperties.Name">
+            <Setter.Value>
+              <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
+                <l:TrBinding Key="PowerShell.Kind.Warning" />
+                <Binding Mode="OneWay" Path="Text" />
+              </MultiBinding>
+            </Setter.Value>
+          </Setter>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static vm:PowerShellLineKind.PolicyNote}">
+          <Setter Property="AutomationProperties.Name">
+            <Setter.Value>
+              <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
+                <l:TrBinding Key="PowerShell.Kind.Note" />
+                <Binding Mode="OneWay" Path="Text" />
+              </MultiBinding>
+            </Setter.Value>
+          </Setter>
+        </DataTrigger>
+      </Style.Triggers>
     </Style>
 
     <!-- A line of the scrollback: the glyph of its kind (errors, warnings and notes), then the pieces. -->
@@ -113,11 +146,12 @@
         <ps:PowerShellEditor x:Name="Editor"
                              Grid.Row="1"
                              ClearCommand="{Binding ClearCommand}"
-                             Hint="{l:Tr PowerShell.Editor.Hint}"
+                             Hint="{Binding EditorHint, Mode=OneWay}"
                              Model="{Binding Input}"
                              Prompt="{Binding InputPrompt, Mode=OneWay}"
                              StopCommand="{Binding StopCommand}"
-                             SubmitCommand="{Binding SubmitCommand}" />
+                             SubmitCommand="{Binding SubmitCommand}"
+                             SubmitSecretCommand="{Binding AnswerSecretCommand}" />
 
         <DockPanel Grid.Row="2" Margin="0,8,0,0" LastChildFill="False">
           <c:ActionButton x:Name="RunButton"

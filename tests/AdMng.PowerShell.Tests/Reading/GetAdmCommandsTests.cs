@@ -165,7 +165,8 @@ public sealed class GetAdmCommandsTests
         Assert.Contains("AdMng.Object", organizationalUnit.TypeNames);
         Assert.Equal("OrganizationalUnit", organizationalUnit.Properties["ObjectKind"].Value);
         Assert.Equal("IT", organizationalUnit.Properties["Name"].Value);
-        Assert.Equal(["AdMng.Group", "AdMng.Object"], byGuid.TypeNames.ToArray());
+        // Get-AdmObject returns objects of every kind: one type name first for all of them, the kind's behind it (audit ps-commands-2).
+        Assert.Equal(["AdMng.Object", "AdMng.Group"], byGuid.TypeNames.ToArray());
         Assert.True(SameDn(group, (string)byGuid.Properties["DistinguishedName"].Value!));
         Assert.True(SameDn(group, (string)bySam.Properties["DistinguishedName"].Value!));
         Assert.Equal("Global", bySam.Properties["GroupScope"].Value);
@@ -251,5 +252,37 @@ public sealed class GetAdmCommandsTests
         Assert.Equal(["KRK-LT001", "WAW-PC001", "WAW-PC002"], windows11.Texts("Name").Order().ToArray());
         Assert.Equal(["WAW-PC001", "WAW-PC002"], byLocation.Texts("Name").Order().ToArray());
         Assert.Equal(4, all.Objects.Count);
+    }
+
+    [Fact]
+    public async Task Get_AdmObject_asked_for_its_identity_takes_a_typed_distinguished_name_as_one_identity()
+    {
+        // Audit PS-05: the answer at the -Identity prompt was split at its commas into four identities that do not exist.
+        await using var harness = await ReadHarness.CreateAsync();
+        var jan = harness.Company.JanKowalski;
+        var answers = new Queue<string>([jan, string.Empty]);
+        var objects = new List<System.Management.Automation.PSObject>();
+        var errors = new System.Text.StringBuilder();
+
+        await foreach (var item in harness.Session.RunObjectsAsync("Get-AdmObject", TestContext.Current.CancellationToken))
+        {
+            switch (item)
+            {
+                case PowerShellPromptItem prompt:
+                    prompt.Respond(answers.Dequeue());
+                    break;
+                case PowerShellObjectItem { Value: System.Management.Automation.PSObject value }:
+                    objects.Add(value);
+                    break;
+                case PowerShellTextItem { Stream: PowerShellStream.Error } text:
+                    errors.Append(text.Text);
+                    break;
+            }
+        }
+
+        Assert.True(errors.Length == 0, errors.ToString());
+        var found = Assert.Single(objects);
+        Assert.True(SameDn(jan, (string)found.Properties["DistinguishedName"].Value!));
+        Assert.Empty(answers);
     }
 }

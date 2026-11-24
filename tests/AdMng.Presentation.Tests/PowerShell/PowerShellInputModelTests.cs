@@ -222,24 +222,61 @@ public sealed class PowerShellInputModelTests
         var (input, session, history) = Create();
         history.Add("older");
         session.Completion = (_, _) => new PowerShellCompletionResult(0, 0, [Match("x")]);
-        input.SetMode(PowerShellInputMode.Secret);
+        input.SetMode(PowerShellInputMode.Answer);
 
-        input.SetText("S3cret", 6);
+        input.SetText("Get-Date", 8);
         await input.CompleteAsync(Ct);
         input.BeginSearch();
 
-        Assert.True(input.IsSecret);
+        Assert.False(input.IsSecret);
         Assert.True(input.IsAnswering);
         Assert.Empty(input.Spans);
         Assert.Empty(session.CompletionRequests);
         Assert.False(input.IsSearching);
         Assert.False(input.MoveUp());
         Assert.False(input.MoveDown());
-        Assert.Equal("S3cret", input.Text);
+        Assert.Equal("Get-Date", input.Text);
 
         input.SetMode(PowerShellInputMode.Command);
         Assert.Equal(string.Empty, input.Text);
-        Assert.False(input.IsSecret);
+        Assert.False(input.IsAnswering);
+    }
+
+    /// <summary>Audit W-08: the secret went through the model's text, a string per key; the model takes no text in the secret mode.</summary>
+    [Fact]
+    public void ASecret_IsNeverTextOfTheModel()
+    {
+        var (input, _, _) = Create();
+        var changes = new List<string?>();
+        input.SetMode(PowerShellInputMode.Secret);
+        input.PropertyChanged += (_, e) => changes.Add(e.PropertyName);
+
+        input.SetText("S3cret", 6);
+        input.Insert("x");
+
+        Assert.True(input.IsSecret);
+        Assert.Equal(string.Empty, input.Text);
+        Assert.DoesNotContain(nameof(PowerShellInputModel.Text), changes);
+    }
+
+    /// <summary>Audit W-09: a question of the running command took away what the operator was typing as the next command.</summary>
+    [Theory]
+    [InlineData(PowerShellInputMode.Answer)]
+    [InlineData(PowerShellInputMode.Secret)]
+    public void WhatWasTypedAheadOfAQuestion_ComesBackWhenTheQuestionIsOver(PowerShellInputMode question)
+    {
+        var (input, _, _) = Create();
+        input.SetText("Get-AdmUser jan", 11);
+
+        input.SetMode(question);
+        Assert.Equal(string.Empty, input.Text);
+        Assert.Equal("Get-AdmUser jan", input.CommandDraft);
+        input.SetText("answer", 6);
+
+        input.SetMode(PowerShellInputMode.Command);
+        Assert.Equal("Get-AdmUser jan", input.Text);
+        Assert.Equal(11, input.CaretIndex);
+        Assert.Equal(string.Empty, input.CommandDraft);
     }
 
     // ---- Up and Down -----------------------------------------------------------------------------------------------

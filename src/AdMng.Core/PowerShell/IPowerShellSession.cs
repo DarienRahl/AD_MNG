@@ -46,6 +46,12 @@ public interface IPowerShellSession : IAsyncDisposable
     bool ShouldRemember(string line);
 
     /// <summary>
+    /// The line as the window echoes it in its scrollback: each plain-text secret that keeps it out of the history (<see cref="ShouldRemember"/>)
+    /// replaced by a mask, the rest as typed; the line itself when it has none.
+    /// </summary>
+    string HideSecrets(string line);
+
+    /// <summary>
     /// Switches the language mode; refused (throws, nothing changes) under a lockdown or while a run is active. Turning the trusted mode
     /// on keeps the runspace and its variables. Turning it off makes a new runspace in ConstrainedLanguage (audit PS-02): nothing the
     /// trusted mode defined - variables, functions, aliases, script blocks, modules, members of the host - is in it, so none of it runs

@@ -32,6 +32,14 @@ public sealed class ErrorTranslator(ILocalizer localizer)
         {
             DirectoryException de => Translate(de.Kind, de.Win32Error),
             SessionEndedException => localizer[L.WindowSession.Ended],
+            PowerShell.PowerShellPolicyUnreadableException pe => localizer.Format(
+                pe.Place switch
+                {
+                    PowerShell.PowerShellPolicyPlace.ConfigFile => L.PowerShellStatus.PolicyFileUnreadable,
+                    PowerShell.PowerShellPolicyPlace.SwitchValue => L.PowerShellStatus.PolicySwitchUnreadable,
+                    _ => L.PowerShellStatus.PolicyKeyUnreadable,
+                },
+                pe.Location),
             OperationCanceledException => localizer[L.Errors.Cancelled],
             TimeoutException => localizer.ErrorKindName(DirectoryErrorKind.Timeout),
             UnauthorizedAccessException or IOException => localizer.Format(L.Errors.File, exception.Message),

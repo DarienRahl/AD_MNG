@@ -250,6 +250,112 @@ public sealed class PowerShellGridViewModelTests
         Assert.DoesNotContain("Jan", grid.Status.Current.Log.ToString(), StringComparison.Ordinal);
     }
 
+    private static PowerShellGridTable WithSecrets() => new(
+        ["DistinguishedName", "Name", "ms-Mcs-AdmPwd", "msFVE-RecoveryPassword"],
+        [["CN=LAPS01,OU=Komputery,DC=contoso,DC=test", "LAPS01", "Cleartext!Laps1", "111111-222222-333333-444444-555555-666666-777777-888888"]],
+        "Computers",
+        "DistinguishedName");
+
+    /// <summary>
+    /// Audit ps-commands-4: the grid copied the clear-text LAPS password and the BitLocker recovery password with the rest; the
+    /// program's list leaves such columns out of a copy (the Attribute Editor's explicit reveal is the way to copy a secret).
+    /// </summary>
+    [Fact]
+    public async Task ACopy_LeavesOutTheColumnsWithSecrets_AndSaysWhichOnes()
+    {
+        var harness = await B2Harness.CreateAsync();
+        using var grid = Create(harness, WithSecrets());
+        grid.SetSelection(grid.Rows);
+
+        grid.CopyRowsWithHeadersCommand.Execute(null);
+
+        Assert.Equal($"DistinguishedName\tName{Environment.NewLine}CN=LAPS01,OU=Komputery,DC=contoso,DC=test\tLAPS01", harness.Clipboard.Text);
+        Assert.Contains(harness.Notifications.Items, item => item.Message.Contains("ms-Mcs-AdmPwd", StringComparison.Ordinal) && item.Message.Contains("msFVE-RecoveryPassword", StringComparison.Ordinal));
+    }
+
+    /// <summary>Audit ps-commands-4: the grid exported the secrets without the question the program's list export asks.</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AnExport_AsksFirstAboutTheColumnsWithSecrets_AndLeavesThemOutUnlessTheAnswerIsYes(bool include)
+    {
+        var harness = await B2Harness.CreateAsync();
+        using var grid = Create(harness, WithSecrets());
+        using var folder = new TempFolder();
+        harness.Files.NextSavePath = Path.Combine(folder.Path, "laps.csv");
+        harness.Dialogs.ConfirmAnswers.Enqueue(include);
+
+        await grid.ExportCommand.ExecuteAsync(null);
+
+        var confirmation = Assert.Single(harness.Dialogs.Shown, shown => shown.StartsWith("confirm:", StringComparison.Ordinal));
+        Assert.Contains("ms-Mcs-AdmPwd", confirmation, StringComparison.Ordinal);
+        var text = await File.ReadAllTextAsync(harness.Files.NextSavePath, TestContext.Current.CancellationToken);
+        Assert.Equal(include, text.Contains("Cleartext!Laps1", StringComparison.Ordinal));
+        Assert.Equal(include, text.Contains("msFVE-RecoveryPassword", StringComparison.Ordinal));
+        Assert.Contains("LAPS01", text, StringComparison.Ordinal);
+        Assert.Equal(PageStatusKind.Done, grid.Status.Current.Kind);
+    }
+
+    [Fact]
+    public async Task AnExportOfATableWithoutSecrets_AsksNothing()
+    {
+        var harness = await B2Harness.CreateAsync();
+        using var grid = Create(harness);
+        using var folder = new TempFolder();
+        harness.Files.NextSavePath = Path.Combine(folder.Path, "users.csv");
+
+        await grid.ExportCommand.ExecuteAsync(null);
+
+        Assert.DoesNotContain(harness.Dialogs.Shown, shown => shown.StartsWith("confirm:", StringComparison.Ordinal));
+        Assert.True(File.Exists(harness.Files.NextSavePath));
+    }
+
+    /// <summary>
+    /// Audit TI-3: a stopped export ended with the lasting line "Stopping…" - the text of the stop in progress - and said neither that it
+    /// was stopped nor that a part of the file may be left. It says so in its own words, and the part written is deleted.
+    /// </summary>
+    [Theory]
+    [InlineData("en-US", "The export was stopped: users.csv was not written (the part already written was deleted).")]
+    [InlineData("pl-PL", "Eksport zatrzymano: plik users.csv nie został zapisany (zapisaną już część usunięto).")]
+    public async Task AStoppedExport_SaysSoInItsOwnWords_AndDeletesThePartOfTheFileItWrote(string culture, string expected)
+    {
+        var harness = await B2Harness.CreateAsync(CultureInfo.GetCultureInfo(culture));
+        var codec = new HeldCsvCodec(harness.Engines.Csv);
+        using var grid = new PowerShellGridViewModel(harness.Services, codec, Users());
+        using var folder = new TempFolder();
+        harness.Files.NextSavePath = Path.Combine(folder.Path, "users.csv");
+
+        var export = grid.ExportCommand.ExecuteAsync(null);
+        await codec.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        Assert.True(File.Exists(harness.Files.NextSavePath));
+        grid.Status.CancelCommand.Execute(null);
+        codec.Release.SetResult();
+        await export.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        Assert.False(File.Exists(harness.Files.NextSavePath));
+        Assert.Equal(PageStatusKind.Attention, grid.Status.Current.Kind);
+        Assert.Equal(expected, grid.Status.Current.Message);
+    }
+
+    /// <summary>A codec that writes the header, then waits until the test lets it go on with the rows (an export the test can stop midway).</summary>
+    private sealed class HeldCsvCodec(AdMng.Core.Csv.ICsvCodec inner) : AdMng.Core.Csv.ICsvCodec
+    {
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public AdMng.Core.Csv.CsvTable Read(TextReader reader, char? delimiter = null) => inner.Read(reader, delimiter);
+
+        public void Write(TextWriter writer, IReadOnlyList<string> headers, IEnumerable<IReadOnlyList<string>> rows, char delimiter = ';', bool protectFormulas = true)
+        {
+            writer.Write(string.Join(delimiter, headers));
+            writer.Flush();
+            Entered.TrySetResult();
+            Release.Task.Wait(TimeSpan.FromSeconds(10));
+            inner.Write(writer, headers, rows, delimiter, protectFormulas);
+        }
+    }
+
     [Fact]
     public async Task NothingOfTheRowsReachesTheLogCopyOrToString()
     {

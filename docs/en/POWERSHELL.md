@@ -34,7 +34,8 @@ and you do not sign in again. The first window of a program run takes under a se
 From top to bottom the window has:
 
 - the **status line**: what the window is doing (*Running the command…*, *The command finished: 12 lines of output in the
-  window, 0.8 s*, *The command was stopped after 3 s*) with **Stop**; errors and warnings have an icon, not only a colour;
+  window, 0.8 s*, *The command was stopped after 3 s*) with **Stop**; errors and warnings have an icon, not only a colour,
+  and a screen reader hears *Error:*, *Warning:* or *Note:* before such a line of the output;
 - **notes that last** – what Group Policy records (chapter 8), *Trusted mode is on* (chapter 7), and *The oldest N lines
   were removed from this window* (the window keeps the last 20,000 lines);
 - the **output area**: the commands you ran and what they wrote, with errors and warnings in the window's colours;
@@ -50,8 +51,10 @@ anything in the trusted mode, so the window treats a running command like any op
 ## 2. Commands
 
 The names are the same in the English and the Polish interface. `Get-Command *-Adm*` lists them, `Get-Help <command>
--Examples` shows the help with examples (in English). The commands have no `-Server` and no `-Credential` parameter: they
-always use the window's session.
+-Examples` shows the help with examples (in English, like the help of PowerShell itself). The errors and warnings of AD
+Manager's commands are in the language of the interface; the messages of the PowerShell engine (such as *The term '…' is not
+recognized*) and the refusals of the window's session itself (chapter 7) are English, as in any PowerShell console. The commands
+have no `-Server` and no `-Credential` parameter: they always use the window's session.
 
 | Command | What it does | Example |
 |---|---|---|
@@ -72,7 +75,8 @@ an `objectGUID` (also `<GUID=…>`), a SID (`S-1-5-…`, also `<SID=…>`), othe
 by user principal name; a computer with or without the `$`). The type of the command is part of the search:
 `Get-AdmUser` returns only user accounts, so a computer with the same name is never returned by it. An identity that finds
 nothing is an error that says so (*Cannot find a user with identity 'nobody' …: it does not exist, or this account cannot
-see it*). A distinguished name with a comma in a value must be quoted: `'CN=Kowalski\, Jan,OU=IT,DC=contoso,DC=test'`.
+see it*); the error has the same id (`AdmObjectNotFound`) in every language, and a read the domain controller did not do (a
+timeout, a refusal) is one error with the id of that cause, not also "not found". A distinguished name with a comma in a value must be quoted: `'CN=Kowalski\, Jan,OU=IT,DC=contoso,DC=test'`.
 
 **Filters** of `Get-AdmUser`, `Get-AdmGroup` and `Get-AdmComputer`: each parameter narrows the result (they are combined
 with *and*) and takes `*` as a wildcard.
@@ -172,15 +176,24 @@ attributes under their LDAP names (`sAMAccountName`, `mail`, `memberOf`). `Get-M
   recovery password) are shown here too – **do not read them in a window while Group Policy records commands and results**
   (chapter 8).
 
-**The table and the distinguished name.** The default tables end with the `DistinguishedName` column, which gets the rest
-of the line. A name longer than the line is cut by the engine with `…` (*Format-List*, a wider window or `Select-Object
--ExpandProperty DistinguishedName` show it whole). A name that is whole in the output is a **link**: click it to open the
-object in the program (*Open in the program*), right-click for *Copy the distinguished name*; **Enter** on a selected line opens
-the first name of that line. A cut name is not a link.
+**The table and the distinguished name.** Every command shows its results as one table: `Get-AdmUser`, `Get-AdmGroup` and
+`Get-AdmComputer` the table of their kind (`Get-AdmComputer` also for a managed service account, whose `ObjectKind` says what it
+is), and the commands that return objects of different kinds (`Get-AdmObject`, `Get-AdmGroupMember`, `Search-AdmObject`) the
+table `ObjectKind`, `Name`, `DistinguishedName` for all of them. The default tables end with the `DistinguishedName` column, which gets the rest
+of the line. A name longer than the line is cut by the engine with `…`. A wider window or `Select-Object -ExpandProperty
+DistinguishedName` show it whole in one line; *Format-List* shows it whole too, but breaks it at the width of the window at any
+character. A name that is whole in the output is a **link**: click it to open the object in the program (*Open in the
+program*), right-click for *Copy the distinguished name*; **Enter** on a selected line opens the first name of that line. A cut
+name is not a link, and neither is a name the formatting may have broken: one that ends a line of the full width or with a comma
+at the end of the line, and one that starts an indented continuation line – each would open another object or none.
 
 **Many results.** The results arrive as they are read: 100,000 objects do not block the window, and **Stop** (or **Ctrl+C**)
-ends the read at the domain controller. `Select-Object -First 50` stops the read after 50 objects. The output area keeps the
-last 20,000 lines.
+ends the read at the domain controller. The window takes the output in steps, at most one every 40 ms, and only after the
+keyboard, the mouse and the drawing of the window, so even a command that writes without a pause (`while ($true) { 'x' }`)
+leaves Stop and Ctrl+C working (an automated test on Windows floods the window and presses Ctrl+C; nobody has tried it on a
+screen yet). `Select-Object -First 50` stops the read after 50 objects. The output area keeps the
+last 20,000 lines, and a line holds at most 8,000 characters – a longer text goes on in the next line (also progress written dot
+by dot with `Write-Host -NoNewline`, which does not slow the window down).
 
 **`Out-AdmGrid`** opens the objects of the pipeline in a **window of its own** (each call is a new window, like
 `Out-GridView`; it belongs to the connection window and closes with it):
@@ -189,7 +202,7 @@ last 20,000 lines.
   joined with `; `, binary values as `(binary, 12 bytes)`;
 - a click on a column header sorts (numbers as numbers, empty cells last); the filter box above the list finds text in any
   column (case and Polish letters do not matter);
-- **Enter** or a double click opens the object in the program (at most 10 windows at once); the right-click menu has *Open in
+- **Enter** or a double click opens the object in the program (at most 10 windows for one press); the right-click menu has *Open in
   the program*, *Copy rows*, *Copy rows with the column names*, *Copy distinguished name* and *Export list…*;
   **Ctrl+C** copies the selected rows (tab-separated, formulas protected as in the program's lists);
 - *Export list…* writes CSV to a file you choose – chapter 5.
@@ -207,8 +220,16 @@ A file is written in exactly three cases, and only when you ask:
   settings (`-Delimiter ';'` overrides it), UTF-8 with a byte order mark. It writes **only to the file you name** with
   `-Path` (the first parameter) **or choose in *Save As***, when you give no path. It never writes to a default place; an
   existing file is replaced only with `-Force`; without a path and with the dialog cancelled it writes nothing and says so.
-  It prints the path and the number of rows and columns, never the values.
-- ***Export list…*** in the grid window of `Out-AdmGrid`: the same CSV, to the file you choose.
+  It checks the path, `-Force` and the delimiter before the command in front of it reads anything, so
+  `Get-AdmUser | Export-AdmList existing.csv` ends with an error at once, not after reading the whole domain. It prints the
+  path and the number of rows and columns, never the values.
+- ***Export list…*** in the grid window of `Out-AdmGrid`: the same CSV, to the file you choose. *Stop* on the status line ends the
+  write between two rows and deletes the part of the file already written (the status line says so).
+- **Columns with secrets** – the clear-text LAPS password (`ms-Mcs-AdmPwd`, `msLAPS-Password`), a BitLocker recovery password
+  (`msFVE-RecoveryPassword`) and attributes the schema marks confidential – are written by `Export-AdmList` and the grid's export
+  only after the same question the program's list export asks (*Include passwords?*); *No* leaves these columns out. Copying rows
+  of the grid (Ctrl+C) always leaves them out and says which, as copying the program's list does. `-Properties *` returns these
+  attributes when the account may read them.
 - **`Start-Transcript -Path <file>`** (or `-LiteralPath`) records the session – the commands and everything they show, so
   directory data too – to the file you name, until `Stop-Transcript` or until the window closes. Without a path it is refused:
   the engine would write to a file it names itself in your *Documents* folder. There is no formula protection; treat the file like an
@@ -233,17 +254,27 @@ that says so, and redirection to a file (`>`, `>>`, `2>`) is refused before the 
   `Pw`, `Pin` or `Key`, and the abbreviations `-Pa`, `-Pas`, `-Pass`. A value in parentheses or put together from literals
   alone (`-Password ('literal')`, `$password = 'lit' + 'eral'`, `$password = $x = 'literal'`) counts the same as one typed
   directly. A line with a value written without a parameter name to a command whose
-  name speaks of a password (`Reset-AdmPassword jan 'literal'`) is not remembered either. A variable or
-  `Read-Host -AsSecureString` as the value is fine. The filter does not recognise every password: a value without a parameter
-  name for another command, a password inside a longer text, an argument of a console program (`net user jan literal`) or a
-  name outside the list (a Polish one, for example: `$haslo = 'literal'` is remembered). The line you typed also stays visible
-  in the output area until you clear it or close the window – and Group Policy may record it (chapter 8) – so do not type a
-  password into a command at all. A
+  name speaks of a password (`Reset-AdmPassword jan 'literal'`) is not remembered either, nor one with a literal that reaches a
+  secret's name through a variable set in the same line (`$p = 'literal'; Set-Thing -Password $p`), a credential built from a
+  literal (`New-Object PSCredential 'jan', 'literal'`, `[pscredential]::new('jan', 'literal')`) or a password of a console
+  program: after `net user jan` (`net user jan literal`) and after `net use \\server\share`, in a switch with a secret's name or a
+  short name of a password (`/pass:literal`, `/password:literal`, `/pd:literal`, `/p:literal`, `/rp literal`) and after `-p` or
+  `-P` of `psexec`, `sqlcmd` and the like. A variable or `Read-Host -AsSecureString` as the value is fine. The filter does not
+  recognise every password: a value without a parameter name for another command, a password inside a longer text, a switch of a
+  console program outside these names or a name outside the list (a Polish one, for example: `$haslo = 'literal'` is
+  remembered). The line you typed also stays in the output area until you clear it or close the window – with a password the
+  filter recognised replaced by `***` (the command runs with the password as typed) – and Group Policy may record it (chapter 8),
+  so do not type a password into a command at all. A
   password asked for by `Read-Host -AsSecureString` or a mandatory parameter is typed into a password box and never shown.
 - **The program writes nothing else.** PSReadLine is not loaded (no history file), no profile is run (`$PROFILE` is never
   loaded), the engine's telemetry and diagnostics channel are off, module auto-loading and the module analysis cache are
-  off, and a test checks that the engine writes no file of its own (on Windows only in the folders a variable can redirect, so
-  the settings above are what carries the proof). The program's own diagnostic log never holds a command or a value.
+  off, and a test checks that working in the window leaves no file behind in any folder where the engine keeps files – the
+  temporary folder is watched during the whole run, and on Windows your own PowerShell folders (*AppData*, *Documents*) are
+  also compared before and after. The only files the
+  engine writes of its own accord are on Windows: to learn whether AppLocker is in force it writes two small test files,
+  `__PSScriptPolicyTest_<random>.ps1` and `.psm1` (a comment line, no directory data), into your temporary folder and deletes
+  them at once – once per run of AD Manager, when the first PowerShell window opens. The program's own diagnostic log never
+  holds a command or a value.
 
 ## 7. Language modes and the trusted mode
 
@@ -293,10 +324,16 @@ PowerShell engine could end the whole program on it; such a command does not ent
 the execution policy says. There is no profile and no PSReadLine. No job outlives the command that started it: a job left
 behind is stopped when the command ends, on *Stop* and when the window closes. Console programs (`whoami`, `nltest`,
 `repadmin`) run as in any console, as a separate process with your own Windows identity – never with the window's
-credentials.
+credentials. What they write – also to their error output, as plain text, the way the PowerShell 7 console shows it – appears in
+the window, in its place among the results (`whoami /groups` at the end of a command lists the groups in the window).
 
 The commands that ask for something – `Read-Host`, a mandatory parameter, `-Confirm` – ask in the window, and *Stop* cancels the
-question.
+question. A mandatory parameter that takes a list (such as `-Identity`) is asked for element by element, as the PowerShell console
+asks (`Identity[0]`, `Identity[1]`, …), until you answer with an empty line. An answer is not split at commas, so a distinguished
+name is one identity. A question that comes while you are already typing the next command does not wipe it: what you typed comes
+back to the command line after the answer. The first empty **Enter** after such a question with choices (`-Confirm`, for example)
+does not take the default answer – the window asks once more, since that Enter was most likely meant for the command. A password
+from the password box goes to the command at once as a `SecureString`; the box is empty after the answer.
 
 **The trusted mode (FullLanguage)** is a switch under the command line:
 
@@ -332,7 +369,8 @@ question.
 
 In ConstrainedLanguage no command of the window runs code in another language mode, and nothing in the session – no variable, no
 parameter, nothing of `$Host` – hands a script the window's directory session or its credentials: AD Manager's commands find
-their window in a table of the engine that a script cannot read.
+their window in a table of the engine that a script cannot read. Each way around this found so far – by the audit of R1 and by
+three later attempts to get around the window – is an automated test that must stay refused.
 
 The language mode and the list of commands are **a protection against mistakes, not a security boundary.** The boundary is the
 rights of the window's account in AD: the window never gives more than the account has, and a change made around the plan has no
@@ -348,21 +386,32 @@ these policies and does not get around them.
 
 **What the window does about it:**
 
-- when it opens, it reads the policies – PowerShell Core (`HKLM` and `HKCU`, `Software\Policies\Microsoft\PowerShellCore`), the
-  Windows PowerShell ones when *Use Windows PowerShell Policy setting* is on, and the two `powershell.config.json` files (the
-  engine's, beside `AdMng.exe`, and yours, in *Documents\PowerShell*) – and the system lockdown state;
+- when it opens, it reads the policies by the rules of the engine's own code, each of transcription, script block logging,
+  module logging and the execution policy on its own: first the computer policy (`HKLM`), then the user policy (`HKCU`) of
+  PowerShell 7 (`Software\Policies\Microsoft\PowerShellCore` and its keys `Transcription`, `ScriptBlockLogging`,
+  `ModuleLogging`). A policy whose *Use Windows PowerShell Policy setting* is ticked is read from the Windows PowerShell key of the
+  same hive instead (`Software\Policies\Microsoft\Windows\PowerShell`); the tick is a setting of each policy, not of all of them.
+  The first hive that sets anything of a policy decides the whole policy. Only a policy that no Group Policy sets comes from the
+  two `powershell.config.json` files (the engine's, beside `AdMng.exe`, then yours, in *Documents\PowerShell*). The window also
+  reads the system lockdown state;
 - before you run the first command it says plainly what is recorded where, for example *Transcription is on (computer
   policy): the commands you run here and their results, which can include directory data, are written to D:\PSLogs.*
   The note is in the status line (while no command's result covers it), in the layout under it, and in the first lines of the
   output; it stays until the window closes;
-- when the policies cannot be read, it says so: *Whether commands and results are recorded is unknown.* Not knowing is a note too.
+- when the policies cannot be read, it says so and names the key or the file: *Whether commands and results are recorded is
+  unknown.* Not knowing is a note too.
+
+PowerShell itself reads each of these policies once per run of AD Manager, the first time it needs it: a policy that changes
+while the program runs applies to the engine after AD Manager is restarted, while the note of a window opened meanwhile already
+says the new state.
 
 **What to do about it:** if transcription or script block logging is on, do not look at sensitive attributes in the window
 (LAPS passwords, BitLocker recovery passwords) and do not type a password into a command. Ask the security team where the
 transcripts go and who can read them – they hold the same data the window shows. A `powershell.config.json` that AD Manager
 ships beside `AdMng.exe` turns off the transcription and logging that **your own** `powershell.config.json` turned on; it cannot
 turn off a computer policy, and the note then says that the policy is on. Security systems (EDR) may report *a PowerShell engine
-in a process other than `powershell.exe`* – the process is `AdMng.exe`; tell the security team (SOC) in advance.
+in a process other than `powershell.exe`* – the process is `AdMng.exe` – and the two `__PSScriptPolicyTest_` files it writes
+into `%TEMP%` and deletes at once (chapter 6), as every PowerShell does; tell the security team (SOC) in advance.
 
 ## 9. What the window does not do yet
 
@@ -377,7 +426,9 @@ in a process other than `powershell.exe`* – the process is `AdMng.exe`; tell t
 - **No Microsoft 365 modules** (track C), no remote PowerShell sessions to servers, no background jobs, no scripts from files
   (`.ps1`) and no scheduled scripts.
 - **No file system completion.** Tab completes commands, parameters, variables, attribute names and the window's containers,
-  not file names; the window never reads the directory per keystroke.
+  not file names; the window never reads the directory per keystroke. Completion takes at most 5 seconds: a `TabExpansion2`
+  function of your own that loops is stopped then (also by *Stop* or the next Tab), and one that cannot be stopped is left like a
+  command – the window goes on in a new session, without the earlier variables and functions.
 - **The status line counts lines, not objects.** The window shows the engine's formatted text, so it says *12 lines of
   output*, not *12 objects*.
 - `LockedOut` is the domain controller's own flag when it returns one, and otherwise "has a lockout time"; the list of
@@ -432,9 +483,10 @@ pilot on Windows has to confirm:
 
 - the look of the coloured text (the box edits transparent text, the colours are drawn in a layer under it), the caret and the
   selection in light, dark and High Contrast themes, at 125 %–200 % scaling, and the completion list near the edge of the screen;
-- a screen reader (Narrator, NVDA) with the window: the list of completions is not announced;
+- a screen reader (Narrator, NVDA) with the window: the list of completions is not announced (a line of an error, a warning or
+  the note is named with its kind first – the names are tested, not yet heard);
 - the policies of the window under a **real Group Policy** (transcription, script block logging, module logging; the keys
-  come from the engine's own code and the documented templates) and the engine under **WDAC / AppLocker**;
+  and the rules of which one wins come from the engine's own code and the documented templates) and the engine under **WDAC / AppLocker**;
 - the commands against a **real Windows Server AD** (the tests ran over a fake directory and a Samba domain controller).
 
 The scenarios for the pilot are in [PILOT.md, chapter 3.7](PILOT.md#37-powershell-window-r1).

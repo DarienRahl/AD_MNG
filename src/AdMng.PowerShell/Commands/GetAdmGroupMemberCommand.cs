@@ -41,7 +41,7 @@ public sealed class GetAdmGroupMemberCommand : AdmReadCmdlet
             var identity = AdmIdentity.Parse(text);
             if (identity is null)
             {
-                WriteError(AdmErrors.InvalidIdentity());
+                WriteError(AdmErrors.InvalidIdentity(UiCulture));
                 continue;
             }
 
@@ -65,9 +65,7 @@ public sealed class GetAdmGroupMemberCommand : AdmReadCmdlet
                 groupDn);
             if (report.Missing > 0)
             {
-                WriteWarning(
-                    $"{report.Missing} member(s) of '{groupDn}' could not be read (deleted meanwhile, in another domain, or this account may not read them), for example: " +
-                    string.Join("; ", report.Samples));
+                WriteWarning(AdmText.Plural(UiCulture, AdmText.Keys.MembersMissing, report.Missing, groupDn, string.Join("; ", report.Samples)));
             }
         }
     }
@@ -90,11 +88,11 @@ public sealed class GetAdmGroupMemberCommand : AdmReadCmdlet
         }
         catch (DirectoryException error)
         {
-            WriteError(AdmErrors.FromDirectory(error, identity.Text));
+            WriteError(AdmErrors.FromDirectory(UiCulture, error, identity.Text));
             return null;
         }
 
-        WriteError(AdmErrors.NotFound(identity.Text, "a group"));
+        WriteError(AdmErrors.NotFound(UiCulture, identity.Text, ObjectKind.Group));
         return null;
     }
 }

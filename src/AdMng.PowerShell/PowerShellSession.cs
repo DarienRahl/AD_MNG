@@ -27,7 +27,11 @@ namespace AdMng.PowerShell;
 /// </summary>
 public sealed class PowerShellSession : IPowerShellSession
 {
-    private const int ChannelCapacity = 4096;
+    /// <summary>The most items the output channel of a run holds before the pipeline waits for the window.</summary>
+    internal const int ChannelCapacity = 4096;
+
+    /// <summary>The most characters of text (2 MB) the output channel of a run holds before the pipeline waits for the window (audit PS-09).</summary>
+    internal const int ChannelCharacterCapacity = 1 << 20;
 
     private const int RunActive = 0;
     private const int RunFinished = 1;
@@ -39,9 +43,11 @@ public sealed class PowerShellSession : IPowerShellSession
     private readonly IPowerShellLockdownProbe _probe;
     private readonly TimeProvider _time;
     private readonly TimeSpan _grace;
+    private readonly TimeSpan _completionLimit;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly object _sync = new();
     private ActiveRun? _run;
+    private ActiveCompletion? _completion;
     private bool _running;
     private bool _disposed;
 
@@ -65,6 +71,7 @@ public sealed class PowerShellSession : IPowerShellSession
         _probe = options.LockdownProbe;
         _time = options.TimeProvider;
         _grace = options.StopGracePeriod;
+        _completionLimit = options.CompletionTimeLimit;
         _width = WindowHostRawUserInterface.Clamp(options.OutputWidth);
         _version = ResolveVersion(options.Context);
         _culture = options.Culture ?? CultureInfo.CurrentCulture;
@@ -119,6 +126,30 @@ public sealed class PowerShellSession : IPowerShellSession
         }
     }
 
+    /// <summary>For tests: how many items of the active run wait in its channel for the consumer (0 when no run is active).</summary>
+    internal int BufferedItemCount
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _run?.Channel.Reader.Count ?? 0;
+            }
+        }
+    }
+
+    /// <summary>For tests: how many characters of text of the active run wait in its channel for the consumer (0 when no run is active).</summary>
+    internal long BufferedCharacters
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _run?.Sink.BufferedCharacters ?? 0;
+            }
+        }
+    }
+
     /// <inheritdoc />
     public int OutputWidth
     {
@@ -149,9 +180,18 @@ public sealed class PowerShellSession : IPowerShellSession
     public async Task StopAsync()
     {
         ActiveRun? run;
+        ActiveCompletion? completion;
         lock (_sync)
         {
             run = _run;
+            completion = _completion;
+        }
+
+        if (completion is not null)
+        {
+            // A completion that runs the operator's code (audit PS-10) ends like a run: stopped, or left after the grace period.
+            StopCompletion(completion);
+            await completion.Idle.Task.ConfigureAwait(false);
         }
 
         if (run is null)
@@ -166,9 +206,17 @@ public sealed class PowerShellSession : IPowerShellSession
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Completion runs the session's <c>TabExpansion2</c> and the argument completers on the window's runspace - code the operator can
+    /// replace or register - with the session's gate held, so a completion that never returned held the window for good (audit PS-10).
+    /// It is stopped when <paramref name="cancellationToken"/> is cancelled, on <see cref="StopAsync"/> and after
+    /// <see cref="PowerShellSessionOptions.CompletionTimeLimit"/>; one that its stop cannot end (stuck in .NET code) is left after the
+    /// grace period like a run, and the session goes on in a new runspace. A completion that fails or is stopped offers nothing.
+    /// </remarks>
     public async ValueTask<PowerShellCompletionResult> CompleteAsync(string input, int cursorIndex, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(input);
+        cancellationToken.ThrowIfCancellationRequested();
         lock (_sync)
         {
             if (_disposed || _running)
@@ -182,16 +230,46 @@ public sealed class PowerShellSession : IPowerShellSession
             return PowerShellCompletionResult.Empty;
         }
 
-        try
+        ActiveCompletion completion;
+        lock (_sync)
         {
-            return CurrentEngine() is { } engine
-                ? await Task.Run(() => Complete(engine.Runspace, input, cursorIndex), cancellationToken).ConfigureAwait(false)
-                : PowerShellCompletionResult.Empty;
+            if (_disposed || _engine is not { } engine)
+            {
+                _gate.Release();
+                return PowerShellCompletionResult.Empty;
+            }
+
+            var ps = SmaPowerShell.Create();
+            ps.Runspace = engine.Runspace;
+            completion = new ActiveCompletion(engine, ps);
+            _completion = completion;
         }
-        finally
+
+        var work = Task.Run(() => Complete(completion.Ps, input, cursorIndex), CancellationToken.None);
+        using var limit = _time.CreateTimer(_ => StopCompletion(completion), null, _completionLimit, Timeout.InfiniteTimeSpan);
+        using var registration = cancellationToken.Register(() => StopCompletion(completion));
+        await Task.WhenAny(work, completion.Left.Task).ConfigureAwait(false);
+        lock (_sync)
+        {
+            if (ReferenceEquals(_completion, completion))
+            {
+                _completion = null;
+            }
+        }
+
+        if (Interlocked.CompareExchange(ref completion.State, RunFinished, RunActive) == RunActive)
         {
             _gate.Release();
+            completion.Idle.TrySetResult();
         }
+        else
+        {
+            // The session left it (LeaveCompletion released the gate and made a new runspace); the old one is closed when it returns.
+            _ = work.ContinueWith(_ => DisposeRunspace(completion.Engine.Runspace), CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return work.IsCompletedSuccessfully ? work.Result : PowerShellCompletionResult.Empty;
     }
 
     /// <inheritdoc />
@@ -202,6 +280,9 @@ public sealed class PowerShellSession : IPowerShellSession
 
     /// <inheritdoc />
     public bool ShouldRemember(string line) => PowerShellHistoryPolicy.ShouldRemember(line);
+
+    /// <inheritdoc />
+    public string HideSecrets(string line) => PowerShellHistoryPolicy.HideSecrets(line);
 
     /// <inheritdoc />
     /// <remarks>
@@ -268,6 +349,7 @@ public sealed class PowerShellSession : IPowerShellSession
     public async ValueTask DisposeAsync()
     {
         ActiveRun? run;
+        ActiveCompletion? completion;
         lock (_sync)
         {
             if (_disposed)
@@ -277,6 +359,13 @@ public sealed class PowerShellSession : IPowerShellSession
 
             _disposed = true;
             run = _run;
+            completion = _completion;
+        }
+
+        if (completion is not null)
+        {
+            // Closing the runspace below ends a completion that its stop does not; no new runspace is made for a disposed session.
+            StopCompletion(completion);
         }
 
         if (run is not null)
@@ -575,7 +664,23 @@ public sealed class PowerShellSession : IPowerShellSession
         }
     }
 
-    private static PowerShellCompletionResult Complete(Runspace runspace, string input, int cursorIndex)
+    private static PowerShellCompletionResult Complete(SmaPowerShell ps, string input, int cursorIndex)
+    {
+        using (ps)
+        {
+            try
+            {
+                return CompleteWith(ps, input, cursorIndex);
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                // A completion that was stopped, or whose TabExpansion2 or completer failed: nothing to offer (as in the console).
+                return PowerShellCompletionResult.Empty;
+            }
+        }
+    }
+
+    private static PowerShellCompletionResult CompleteWith(SmaPowerShell ps, string input, int cursorIndex)
     {
         // The engine's completion parses the whole input on this thread: nothing is completed in a text too long or too deep to walk.
         if (InputParser.Parse(input).Ast is null)
@@ -583,8 +688,6 @@ public sealed class PowerShellSession : IPowerShellSession
             return PowerShellCompletionResult.Empty;
         }
 
-        using var ps = SmaPowerShell.Create();
-        ps.Runspace = runspace;
         var result = CommandCompletion.CompleteInput(input, Math.Clamp(cursorIndex, 0, input.Length), options: null, ps);
         var matches = new List<PowerShellCompletionMatch>(result.CompletionMatches.Count);
         foreach (var match in result.CompletionMatches)
@@ -709,6 +812,8 @@ public sealed class PowerShellSession : IPowerShellSession
                 {
                     if (Volatile.Read(ref run.State) != RunLeft)
                     {
+                        // The end item is not in the channel (audit PS-07): a stopped run whose consumer fell behind dropped it there.
+                        yield return run.End ?? throw new InvalidOperationException("The run ended without its end item.");
                         yield break;
                     }
 
@@ -719,6 +824,7 @@ public sealed class PowerShellSession : IPowerShellSession
 
                 while (!run.Left.Task.IsCompleted && reader.TryRead(out var item))
                 {
+                    run.Sink.Taken(item);
                     yield return item;
                 }
             }
@@ -727,6 +833,7 @@ public sealed class PowerShellSession : IPowerShellSession
             // runspace. What it wrote before is shown (at most one channel's worth), then the end of a left run.
             for (var i = 0; i < ChannelCapacity && reader.TryRead(out var early); i++)
             {
+                run.Sink.Taken(early);
                 yield return early;
             }
 
@@ -762,7 +869,7 @@ public sealed class PowerShellSession : IPowerShellSession
             FullMode = BoundedChannelFullMode.Wait,
         });
         var stop = new CancellationTokenSource();
-        var sink = new OutputSink(channel.Writer, stop.Token);
+        var sink = new OutputSink(channel.Writer, stop.Token, ChannelCharacterCapacity);
         var ps = SmaPowerShell.Create();
         ps.Runspace = engine.Runspace;
         ps.AddScript(script, useLocalScope: false);
@@ -775,9 +882,17 @@ public sealed class PowerShellSession : IPowerShellSession
         else
         {
             // The way the console host runs a command: the pipeline ends in Out-Default, which formats with the engine's own
-            // formatting and writes to the host; errors are merged into it so they are formatted the same way.
+            // formatting and writes to the host; the script's errors are merged into its output so they are formatted the same way.
+            // Two details are for console programs (audit PS-06): the window's pass-through stands before Out-Default, so the engine
+            // captures the output of a program last in the script instead of handing it the process's own standard output (in
+            // AdMng.exe on Windows a hidden console); and the merge is the script's own (not "the unclaimed results" of Out-Default),
+            // which also takes in what such a program writes to its error output - the engine drops that otherwise.
+            ps.Commands.Commands[0].MergeMyResults(PipelineResultTypes.Error, PipelineResultTypes.Output);
+            ps.AddCommand(new CmdletInfo(WindowOutputCommand.Name, typeof(WindowOutputCommand)));
             ps.AddCommand("Out-Default");
-            ps.Commands.Commands[^1].MergeUnclaimedPreviousCommandResults = PipelineResultTypes.Error | PipelineResultTypes.Output;
+
+            // Nothing is expected here; whatever still reaches the pipeline's own error stream is shown rather than lost.
+            ps.Streams.Error.DataAdded += (_, e) => sink.Post(new PowerShellTextItem(PowerShellStream.Error, ps.Streams.Error[e.Index].ToString() + "\n"));
         }
 
         var run = new ActiveRun(engine, ps, channel, stop, sink);
@@ -861,7 +976,10 @@ public sealed class PowerShellSession : IPowerShellSession
 
         run.Ps.Dispose();
         _gate.Release();
-        run.Sink.Post(new PowerShellRunEndItem(state, hadErrors, exitCode));
+
+        // The end item is kept on the run, never posted: a post drops an item when the channel is full and the run was stopped, the
+        // case Stop exists for (a flood). The consumer yields it after the channel's last item (audit PS-07).
+        run.End = new PowerShellRunEndItem(state, hadErrors, exitCode);
 
         // Idle first: a consumer that sees the channel end must also see the run as finished.
         run.Idle.TrySetResult();
@@ -904,6 +1022,96 @@ public sealed class PowerShellSession : IPowerShellSession
         _ = Task.Delay(_grace, _time).ContinueWith(_ => Leave(run), CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
     }
 
+    /// <summary>Stops a completion (its token, Stop, its time limit, dispose); one that has not ended after the grace period is left.</summary>
+    private void StopCompletion(ActiveCompletion completion)
+    {
+        if (Interlocked.Exchange(ref completion.StopRequested, 1) == 1)
+        {
+            return;
+        }
+
+        var stopper = new Thread(() => StopPipeline(completion.Ps)) { IsBackground = true, Name = "AD Manager PowerShell completion stop" };
+        stopper.Start();
+        _ = Task.Delay(_grace, _time).ContinueWith(_ => LeaveCompletion(completion), CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+    }
+
+    /// <summary>
+    /// The grace period of a completion's stop passed and it has not returned: it is stuck in .NET code (a completer of the operator's).
+    /// The session leaves it as it leaves a run (<see cref="Leave"/>): the next command and the next completion run in a new runspace.
+    /// </summary>
+    private void LeaveCompletion(ActiveCompletion completion)
+    {
+        if (Interlocked.CompareExchange(ref completion.State, RunLeft, RunActive) != RunActive)
+        {
+            return;
+        }
+
+        var (fresh, failure) = (default(Engine), default(Exception));
+        try
+        {
+            (fresh, failure) = ReplaceLeftEngine(completion.Engine);
+        }
+        finally
+        {
+            lock (_sync)
+            {
+                _engine = fresh;
+                _restartFailure = failure;
+                if (ReferenceEquals(_completion, completion))
+                {
+                    _completion = null;
+                }
+            }
+
+            _gate.Release();
+            completion.Left.TrySetResult();
+            completion.Idle.TrySetResult();
+        }
+    }
+
+    /// <summary>
+    /// The runspace of a left run or completion leaves the window - out of the registry, its host detached, its jobs ended - and a new
+    /// runspace in the same language mode (constrained when a lockdown is now enforced) takes its place; none for a disposed session.
+    /// </summary>
+    private (Engine? Fresh, Exception? Failure) ReplaceLeftEngine(Engine left)
+    {
+        try
+        {
+            left.Host.Output.Attach(null);
+            WindowRegistry.Remove(left.Runspace);
+            EndJobs(left.Jobs);
+            bool disposed;
+            PowerShellLanguageMode mode;
+            lock (_sync)
+            {
+                disposed = _disposed;
+                mode = _mode;
+            }
+
+            if (disposed)
+            {
+                return (null, null);
+            }
+
+            if (mode == PowerShellLanguageMode.Full && _probe.Probe() == PowerShellLockdownState.Enforce)
+            {
+                mode = PowerShellLanguageMode.Constrained;
+                lock (_sync)
+                {
+                    _lockdown = PowerShellLockdownState.Enforce;
+                    _mode = mode;
+                }
+            }
+
+            return (CreateEngine(mode == PowerShellLanguageMode.Full ? PSLanguageMode.FullLanguage : PSLanguageMode.ConstrainedLanguage), null);
+        }
+        catch (Exception ex)
+        {
+            // The window cannot run another command; the next one says so.
+            return (null, ex);
+        }
+    }
+
     private static void StopPipeline(SmaPowerShell ps)
     {
         try
@@ -930,40 +1138,10 @@ public sealed class PowerShellSession : IPowerShellSession
             return;
         }
 
-        Engine? fresh = null;
-        Exception? failure = null;
+        var (fresh, failure) = (default(Engine), default(Exception));
         try
         {
-            run.Engine.Host.Output.Attach(null);
-            WindowRegistry.Remove(run.Engine.Runspace);
-            EndJobs(run.Engine.Jobs);
-            bool disposed;
-            PowerShellLanguageMode mode;
-            lock (_sync)
-            {
-                disposed = _disposed;
-                mode = _mode;
-            }
-
-            if (!disposed)
-            {
-                if (mode == PowerShellLanguageMode.Full && _probe.Probe() == PowerShellLockdownState.Enforce)
-                {
-                    mode = PowerShellLanguageMode.Constrained;
-                    lock (_sync)
-                    {
-                        _lockdown = PowerShellLockdownState.Enforce;
-                        _mode = mode;
-                    }
-                }
-
-                fresh = CreateEngine(mode == PowerShellLanguageMode.Full ? PSLanguageMode.FullLanguage : PSLanguageMode.ConstrainedLanguage);
-            }
-        }
-        catch (Exception ex)
-        {
-            // The window cannot run another command; the next one says so.
-            failure = ex;
+            (fresh, failure) = ReplaceLeftEngine(run.Engine);
         }
         finally
         {
@@ -979,6 +1157,28 @@ public sealed class PowerShellSession : IPowerShellSession
             run.Left.TrySetResult();
             run.Idle.TrySetResult();
         }
+    }
+
+    /// <summary>A completion (Tab) on the window's runspace: it holds the session's gate until it returns or the session leaves it.</summary>
+    private sealed class ActiveCompletion(Engine engine, SmaPowerShell ps)
+    {
+        /// <summary>The runspace the completion runs in.</summary>
+        public Engine Engine { get; } = engine;
+
+        /// <summary>The engine's pipeline of the completion: what a stop stops.</summary>
+        public SmaPowerShell Ps { get; } = ps;
+
+        /// <summary>Set (to 1) by the first stop request.</summary>
+        public int StopRequested;
+
+        /// <summary><see cref="RunActive"/>, then <see cref="RunFinished"/> (it returned) or <see cref="RunLeft"/> (the session left it).</summary>
+        public int State;
+
+        /// <summary>Completed when the session left the completion (<see cref="LeaveCompletion"/>).</summary>
+        public TaskCompletionSource Left { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>Completed when the gate is free again: the completion returned, or the session left it.</summary>
+        public TaskCompletionSource Idle { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
     /// <summary>A runspace of the window, its host, the host's raw user interface and its job repository.</summary>
@@ -1008,6 +1208,15 @@ public sealed class PowerShellSession : IPowerShellSession
 
         /// <summary>Set (to 1) by the first stop request.</summary>
         public int StopRequested;
+
+        /// <summary>How the run ended: set by <see cref="FinishRun"/> before the channel completes, yielded after its last item.</summary>
+        public PowerShellRunEndItem? End
+        {
+            get => Volatile.Read(ref _end);
+            set => Volatile.Write(ref _end, value);
+        }
+
+        private PowerShellRunEndItem? _end;
 
         /// <summary><see cref="RunActive"/>, then <see cref="RunFinished"/> (the pipeline ended) or <see cref="RunLeft"/> (the session left it), whichever comes first.</summary>
         public int State;

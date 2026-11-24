@@ -56,6 +56,9 @@ public static partial class L
 
         public const string PromptHelp = "PowerShell.Prompt.Help";
 
+        /// <summary>A choice prompt that came while the next command was being typed got an empty answer: asked once more (audit W-09).</summary>
+        public const string PromptTypeAhead = "PowerShell.Prompt.TypeAhead";
+
         /// <summary>{0} = the choice that is taken by an empty answer.</summary>
         public const string PromptDefault = "PowerShell.Prompt.Default";
 
@@ -91,7 +94,10 @@ public static partial class L
 
         public const string SelectAll = "PowerShell.Menu.SelectAll";
 
-        /// <summary>The words a screen reader hears before the glyph-and-colour of a line kind (never colour alone).</summary>
+        /// <summary>
+        /// What a screen reader hears for a line of an error, a warning or the policy note: the kind, then the text ({0}); the glyph and
+        /// the colour are not heard (audit W-07). Used by the line style of the window.
+        /// </summary>
         public const string KindError = "PowerShell.Kind.Error";
 
         public const string KindWarning = "PowerShell.Kind.Warning";
@@ -134,6 +140,12 @@ public static partial class L
 
         /// <summary>What was tried, without a full stop.</summary>
         public const string ExportFailed = "PowerShellGrid.ExportFailed";
+
+        /// <summary>Stop during an export (audit TI-3): {0} = the file name; the part written was deleted.</summary>
+        public const string ExportStopped = "PowerShellGrid.ExportStopped";
+
+        /// <summary>Stop during an export, and the part written could not be deleted: {0} = the file name.</summary>
+        public const string ExportStoppedLeft = "PowerShellGrid.ExportStoppedLeft";
 
         public const string CopyRows = "PowerShellGrid.Menu.CopyRows";
         public const string CopyRowsWithHeaders = "PowerShellGrid.Menu.CopyRowsWithHeaders";
@@ -214,6 +226,15 @@ public static partial class L
         public const string PolicyUnreadable = "PowerShell.Status.PolicyUnreadable";
 
         public const string PolicyUnreadableNext = "PowerShell.Status.PolicyUnreadableNext";
+
+        /// <summary>The reason of <see cref="PolicyUnreadable"/>: a registry key that cannot be opened ({0} = HKLM\… or HKCU\…; audit W-01).</summary>
+        public const string PolicyKeyUnreadable = "PowerShell.Status.PolicyKeyUnreadable";
+
+        /// <summary>The reason of <see cref="PolicyUnreadable"/>: a powershell.config.json that cannot be read ({0} = its path).</summary>
+        public const string PolicyFileUnreadable = "PowerShell.Status.PolicyFileUnreadable";
+
+        /// <summary>The reason of <see cref="PolicyUnreadable"/>: a UseWindowsPowerShellPolicySetting that is no REG_DWORD ({0} = its key).</summary>
+        public const string PolicySwitchUnreadable = "PowerShell.Status.PolicySwitchUnreadable";
     }
 
     /// <summary>

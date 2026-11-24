@@ -59,6 +59,57 @@ public sealed class ErrorsDisplayAndCompletionTests
         Assert.Equal(["jan.kowalski"], next.Texts("sAMAccountName"));
     }
 
+    /// <summary>
+    /// Audit ps-commands-1: a read by identity that the directory failed (a timeout, a refusal) also said the object does not exist, so a
+    /// script that goes on at "not found" was told an existing account is missing. It is one error, the directory's.
+    /// </summary>
+    [Theory]
+    [InlineData(DirectoryErrorKind.Timeout, "AdmTimeout", "Get-AdmUser")]
+    [InlineData(DirectoryErrorKind.AccessDenied, "AdmAccessDenied", "Get-AdmUser")]
+    [InlineData(DirectoryErrorKind.Timeout, "AdmTimeout", "Get-AdmObject")]
+    [InlineData(DirectoryErrorKind.ServerUnavailable, "AdmServerUnavailable", "Get-AdmGroup")]
+    [InlineData(DirectoryErrorKind.Timeout, "AdmTimeout", "Get-AdmComputer")]
+    public async Task A_read_by_identity_that_the_directory_failed_is_one_error_of_the_directory_not_also_not_found(DirectoryErrorKind kind, string id, string command)
+    {
+        await using var harness = await ReadHarness.CreateAsync();
+        harness.Directory.FailNext(FakeOperationKind.Search, null, kind);
+
+        var result = await harness.RunAsync($"{command} -Identity jan.kowalski -ErrorVariable e -ErrorAction SilentlyContinue; $e.Count; $e | ForEach-Object {{ $_.FullyQualifiedErrorId.Split(',')[0] }}");
+
+        Assert.Equal(["1", id], result.Objects.Select(o => o.ToString()).ToArray());
+    }
+
+    [Fact]
+    public async Task An_identity_that_does_not_exist_is_still_one_not_found_error()
+    {
+        await using var harness = await ReadHarness.CreateAsync();
+
+        var result = await harness.RunAsync("Get-AdmUser -Identity nobody.here -ErrorVariable e -ErrorAction SilentlyContinue; $e.Count; $e | ForEach-Object { $_.FullyQualifiedErrorId.Split(',')[0] }");
+
+        Assert.Equal(["1", "AdmObjectNotFound"], result.Objects.Select(o => o.ToString()).ToArray());
+    }
+
+    /// <summary>
+    /// Audit ps-commands-7: the message says it is shown once, but it was shown once per identity - 5,000 members piped into Get-AdmUser
+    /// made 5,000 such errors. It is shown once per command, whether the identities come as a list or through the pipeline.
+    /// </summary>
+    [Theory]
+    [InlineData("Get-AdmUser -Identity '{0}','{1}'")]
+    [InlineData("'{0}','{1}' | Get-AdmUser")]
+    [InlineData("'{0}','{1}' | Get-AdmObject")]
+    public async Task A_hidden_mandatory_attribute_is_reported_once_per_command_not_once_per_identity(string script)
+    {
+        await using var harness = await ReadHarness.CreateAsync();
+        harness.Directory.HideAttributes(harness.Company.JanKowalski, "sAMAccountName");
+        harness.Directory.HideAttributes(harness.Company.LukaszWisniewski, "sAMAccountName");
+        var command = string.Format(System.Globalization.CultureInfo.InvariantCulture, script, harness.Company.JanKowalski, harness.Company.LukaszWisniewski);
+
+        var result = await harness.RunAsync(command + " -ErrorVariable e -ErrorAction SilentlyContinue; $e.Count");
+
+        Assert.Equal(2, result.Objects.Count(o => o.Properties["DistinguishedName"] is not null));
+        Assert.Equal("1", result.Objects[^1].ToString());
+    }
+
     [Fact]
     public async Task A_mandatory_attribute_the_account_may_not_read_is_reported_once_with_its_name_and_the_objects_still_arrive()
     {
@@ -109,6 +160,44 @@ public sealed class ErrorsDisplayAndCompletionTests
         Assert.Contains(harness.Company.Computer1, computers, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(harness.Company.AccountingOu, objects, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain('…', users + groups + objects);
+    }
+
+    /// <summary>
+    /// Audit ps-commands-2: each object had its kind's type name first, and the engine formats the first object's kind as a table and
+    /// every object of another kind as a list block - Get-AdmGroupMember -Recursive printed a table of users and an 11-line list per
+    /// group, and a managed service account broke the table of Get-AdmComputer. A command whose results are mixed shows one table.
+    /// </summary>
+    [Theory]
+    [InlineData("Get-AdmGroupMember '{0}' -Recursive")]
+    [InlineData("Search-AdmObject -Name 'G' -Match StartsWith")]
+    [InlineData("Get-AdmObject -LdapFilter '(|(objectClass=user)(objectClass=group)(objectClass=organizationalUnit))'")]
+    [InlineData("Get-AdmComputer")]
+    public async Task Mixed_results_are_one_table_with_one_header_and_no_list_blocks(string script)
+    {
+        await using var harness = await ReadHarness.CreateAsync((builder, _) => builder.AddServiceAccount("svc-sql"));
+        harness.Session.OutputWidth = 200;
+
+        var text = TestSessions.Text(await TestSessions.RunAsync(harness.Session, string.Format(System.Globalization.CultureInfo.InvariantCulture, script, harness.Company.GroupAll)));
+
+        var headers = text.Split('\n').Count(line => line.TrimStart().StartsWith("ObjectKind", StringComparison.Ordinal) || line.TrimStart().StartsWith("Name ", StringComparison.Ordinal));
+        Assert.True(headers == 1, text);
+        Assert.DoesNotMatch(@"(?m)^\s*DistinguishedName\s+:", text);
+        Assert.DoesNotMatch(@"(?m)^\s*ObjectKind\s+:", text);
+    }
+
+    [Fact]
+    public async Task The_objects_keep_the_type_name_of_their_kind_behind_the_one_of_the_command()
+    {
+        await using var harness = await ReadHarness.CreateAsync((builder, _) => builder.AddServiceAccount("svc-sql"));
+
+        var members = await harness.RunAsync($"Get-AdmGroupMember '{harness.Company.GroupAll}' -Recursive");
+        var computers = await harness.RunAsync("Get-AdmComputer");
+
+        Assert.All(members.Objects, member => Assert.Equal("AdMng.Object", member.TypeNames[0]));
+        Assert.Contains(members.Objects, member => member.TypeNames.Contains("AdMng.User"));
+        Assert.Contains(members.Objects, member => member.TypeNames.Contains("AdMng.Group"));
+        Assert.All(computers.Objects, computer => Assert.Equal("AdMng.Computer", computer.TypeNames[0]));
+        Assert.Contains(computers.Objects, computer => (string?)computer.Properties["ObjectKind"].Value == "GroupManagedServiceAccount");
     }
 
     [Fact]

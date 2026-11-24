@@ -57,19 +57,22 @@ internal sealed class ReadHarness : IAsyncDisposable
 
     public PowerShellSession Session { get; }
 
-    public static async Task<ReadHarness> CreateAsync(Action<FakeDirectoryBuilder, SampleCompany>? seed = null, IAdmWindowServices? services = null)
+    public static async Task<ReadHarness> CreateAsync(
+        Action<FakeDirectoryBuilder, SampleCompany>? seed = null,
+        IAdmWindowServices? services = null,
+        System.Globalization.CultureInfo? culture = null)
     {
         var builder = new FakeDirectoryBuilder();
         var company = builder.AddSampleCompany();
         seed?.Invoke(builder, company);
-        return await CreateAsync(builder, company, services);
+        return await CreateAsync(builder, company, services, culture);
     }
 
-    /// <summary>A harness over a directory the test built itself (a schema of its own, extra objects).</summary>
-    public static async Task<ReadHarness> CreateAsync(FakeDirectoryBuilder builder, SampleCompany company, IAdmWindowServices? services = null)
+    /// <summary>A harness over a directory the test built itself (a schema of its own, extra objects); <paramref name="culture"/> is the window's language.</summary>
+    public static async Task<ReadHarness> CreateAsync(FakeDirectoryBuilder builder, SampleCompany company, IAdmWindowServices? services = null, System.Globalization.CultureInfo? culture = null)
     {
         var context = new FakeWindowContext(builder.Session, services);
-        var session = await TestSessions.CreateAsync(context);
+        var session = await TestSessions.CreateAsync(context, culture: culture);
         return new ReadHarness(builder, company, context, session);
     }
 

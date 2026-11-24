@@ -40,5 +40,5 @@ public sealed class UnavailableWindowServices : IAdmWindowServices
     public Task<string?> ExportListAsync(PowerShellGridTable table, string? path, char? delimiter, CancellationToken cancellationToken) =>
         Task.FromException<string?>(Unavailable());
 
-    private static NotSupportedException Unavailable() => new("This window cannot do that: the program did not give it the means.");
+    private static NotSupportedException Unavailable() => new(Reading.AdmText.Get(System.Globalization.CultureInfo.CurrentUICulture, Reading.AdmText.Keys.ServicesUnavailable));
 }

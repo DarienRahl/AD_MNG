@@ -76,22 +76,41 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   dla członków zagnieżdżonych – wynik zawiera też same grupy zagnieżdżone, tak jak lista *Wszystkie (zagnieżdżone)*;
   `-ExcludeGroups` je pomija), `Search-AdmObject` (wartości są zawsze dosłowne, więc `Łukasz (Kraków)*` znajduje tylko to, co
   napisano), `Get-AdmVersion`, `Out-AdmGrid`, `Open-AdmObject` i `Export-AdmList`. Wyniki są zwykłymi obiektami PowerShella
-  (`Where-Object`, `Select-Object`, `Sort-Object`… działają), z wartościami dekodowanymi tak jak w oknach programu, a hasła i
+  (`Where-Object`, `Select-Object`, `Sort-Object`… działają) i domyślnie są jedną tabelą także wtedy, gdy są różnych rodzajów
+  (członkowie grupy, wyniki wyszukiwania), z wartościami dekodowanymi tak jak w oknach programu, a hasła i
   klucze, których edytor atrybutów nie pokazuje, są zamaskowane. Wyniki są czytane strumieniem – 100 000 obiektów nie blokuje
-  okna, a **Stop** (przycisk albo Ctrl+C) przerywa odczyt na kontrolerze domeny.
+  okna, a **Stop** (przycisk albo Ctrl+C) przerywa odczyt na kontrolerze domeny. Okno przyjmuje wyniki porcjami, najwyżej jedną
+  co 40 ms, i dopiero po klawiaturze, myszy i rysowaniu, więc polecenie, które pisze bez przerwy (`while ($true) { 'x' }`), nie
+  odbiera działania Ctrl+C ani przyciskowi **Stop** (Ctrl+C sprawdza test automatyczny, kliknięcia na ekranie nikt jeszcze nie
+  próbował). Błędy i ostrzeżenia poleceń są w języku
+  interfejsu (pomoc `Get-Help` i komunikaty samego silnika PowerShell są po angielsku), a odczyt, którego kontroler domeny nie
+  wykonał (przekroczony czas, odmowa dostępu), jest jednym błędem tej przyczyny, nie także „nie znaleziono”. Okno zachowuje ostatnie 20 000 wierszy po
+  najwyżej 8000 znaków (dłuższy tekst ciągnie się w następnym wierszu), a postęp pisany kropka po kropce
+  (`Write-Host -NoNewline`) nie spowalnia go.
 - **Co jest w oknie.** Wiersz stanu na górze mówi, co robi polecenie, i ma **Stop**; błędy i ostrzeżenia mają ikonę
-  (nie tylko kolor); nazwa wyróżniająca w wyniku jest odnośnikiem (*Otwórz w programie*, prawy przycisk: *Kopiuj nazwę
-  wyróżniającą*, Enter otwiera pierwszą nazwę zaznaczonego wiersza). **Tab** uzupełnia (polecenia, parametry, zmienne, nazwy
+  (nie tylko kolor), a nazwa takiego wiersza dla czytnika ekranu zaczyna się od „Błąd:” albo „Ostrzeżenie:” (uwagi o zasadach – od
+  „Uwaga:”); nazwa wyróżniająca w wyniku jest odnośnikiem (*Otwórz w programie*, prawy przycisk: *Kopiuj nazwę
+  wyróżniającą*, Enter otwiera pierwszą nazwę zaznaczonego wiersza) – z wyjątkiem nazwy uciętej albo takiej, którą `Format-List`
+  mógł złamać na szerokości okna, bo ta otworzyłaby inny obiekt. **Tab** uzupełnia (polecenia, parametry, zmienne, nazwy
   atrybutów ze schematu i kontenery, które okno już zna – bez odczytu z katalogu przy każdym znaku; nie ma uzupełniania nazw
-  plików), **Enter** uruchamia kompletne polecenie albo dodaje wiersz, gdy jest niedokończone (otwarty cudzysłów, nawias, ukośnik
+  plików; uzupełnianie trwa najwyżej 5 sekund, więc zapętlona własna funkcja `TabExpansion2` nie blokuje okna), **Enter**
+  uruchamia kompletne polecenie albo dodaje wiersz, gdy jest niedokończone (otwarty cudzysłów, nawias, ukośnik
   pionowy), **Shift+Enter** zawsze dodaje wiersz, **Góra/Dół** chodzą po wierszach, a potem po historii, **Ctrl+R** przeszukuje
   historię, **Esc** zamyka listę, **Ctrl+L** czyści okno – tak samo `cls` (`Clear-Host`) w poleceniu, w miejscu, w którym stoi.
-  `exit` kończy polecenie tam, gdzie stoi, a okno mówi to z kodem wyjścia i zostaje otwarte. Historia jest tylko w pamięci okna; wiersz z hasłem jawnym
+  `exit` kończy polecenie tam, gdzie stoi, a okno mówi to z kodem wyjścia i zostaje otwarte. Gdy polecenie czeka na odpowiedź, puste pole mówi
+  „Wpisz odpowiedź i naciśnij Enter.” zamiast podpowiedzi do polecenia. O parametr obowiązkowy, który
+  przyjmuje listę (np. `-Identity`), okno pyta element po elemencie (`Identity[0]`, `Identity[1]`…) aż do pustej odpowiedzi,
+  jak konsola PowerShella – odpowiedź nie jest dzielona na przecinkach, więc nazwa wyróżniająca jest jedną tożsamością. Pytanie,
+  które przyjdzie w trakcie pisania następnego polecenia, nie kasuje wpisanego tekstu (wraca po odpowiedzi), a pierwsze puste
+  Enter po takim pytaniu z wyborem pyta jeszcze raz zamiast wybrać odpowiedź domyślną. Hasło z pola hasła trafia do polecenia
+  wprost jako `SecureString`, a pole jest puste po odpowiedzi. Historia jest tylko w pamięci okna; wiersz z hasłem jawnym
   (`-AsPlainText`, przy `ConvertTo-SecureString` także skrócone do `-As` albo `-A`, `ConvertTo-SecureString '…'`, napis zamieniany
   na `[securestring]`, wartość wpisana wprost – także w nawiasach albo złożona z samych napisów – dla parametru, klucza tablicy
   skrótów – także przekazanej przez `@h` albo złożonego ze zmiennej, jak `"Pass$x"` – albo zmiennej o nazwie z `Password`, `Passphrase`, `Pwd`,
   `Secret`, `Token`, `ApiKey` i podobnych, również skróconej do `-Pa`, wartość bez nazwy parametru dla polecenia, którego nazwa
-  mówi o haśle) nie trafia do niej. Filtr nie rozpozna każdego hasła,
+  mówi o haśle, napis, który trafia tam przez zmienną z tego samego wiersza, poświadczenie złożone z napisu i hasło programu
+  konsolowego – `net user jan hasło`, `/pass:…`, `/pd:…`, `/rp …`, `psexec -p …`) nie trafia do niej, a w obszarze wyników
+  rozpoznane hasło takiego wiersza jest zastąpione przez `***`. Filtr nie rozpozna każdego hasła,
   więc hasła nie wpisuje się do polecenia w ogóle.
 - **Lista poleceń, tryb ograniczony i tryb zaufany.** Okno zaczyna w ConstrainedLanguage i ma zamkniętą listę poleceń: polecenia
   programu oraz zwykłe cmdlety do pracy z obiektami (`Where-Object`, `Select-Object`, `Sort-Object`, `Group-Object`,
@@ -130,10 +149,14 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   uruchomić, sesja połączenia się skończyła albo system wymusza ConstrainedLanguage (WDAC, AppLocker) – wtedy okno w nim
   zostaje. Wydanie bez silnika PowerShella mówi, żeby użyć standardowego pakietu, a powód, dla którego PowerShella nie można
   uruchomić, jest w bieżącym języku interfejsu, także po jego zmianie. To ochrona przed pomyłką, nie granica bezpieczeństwa: granicą są uprawnienia konta w AD, a programy
-  konsolowe (`whoami`, `nltest`) działają jak w każdej konsoli – jako osobny proces z tożsamością operatora.
+  konsolowe (`whoami`, `nltest`) działają jak w każdej konsoli – jako osobny proces z tożsamością operatora; to, co wypisują,
+  także na wyjście błędów, jest w oknie (wcześniej program na końcu polecenia pisał poza nie, do niewidocznej konsoli).
 - **Zasady PowerShella tego komputera.** Przy otwarciu okno czyta zasady grupy PowerShella (transkrypcję, rejestrowanie bloków
   skryptów i modułów) oraz oba pliki `powershell.config.json` i, zanim uruchomisz pierwsze polecenie, mówi stałą uwagą, co jest
-  gdzie zapisywane („transkrypcja jest włączona zasadą komputera: polecenia i wyniki zapisuje Windows w …”). Program niczego
+  gdzie zapisywane („transkrypcja jest włączona zasadą komputera: polecenia i wyniki zapisuje Windows w …”). Czyta je według
+  reguł samego silnika: każdą zasadę osobno, najpierw z zasad komputera, potem użytkownika, a zasadę z zaznaczonym *Use Windows
+  PowerShell Policy setting* – z klucza Windows PowerShell; pliki liczą się dopiero wtedy, gdy zasady grupy jej nie ustawiają.
+  Gdy klucza albo pliku nie da się odczytać, uwaga mówi który i że nie wiadomo, czy polecenia są rejestrowane. Program niczego
   nie zmienia i niczego nie obchodzi; plik `powershell.config.json` obok `AdMng.exe` wyłącza tylko to, co włączył plik
   użytkownika (zasada komputera ma pierwszeństwo przed nim). Wyniki pokazują te same sekrety, które pokazuje Edytor atrybutów
   (np. hasło LAPS jawnym tekstem), więc przy włączonej transkrypcji trafią one do transkrypcji – uwaga o zasadach mówi to z
@@ -141,14 +164,22 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
 - **`Out-AdmGrid`, `Open-AdmObject`, `Export-AdmList`.** `Out-AdmGrid` otwiera okno z siatką jak lista obiektów: kolumny z
   właściwości obiektów, sortowanie kliknięciem w nagłówek, filtr, kopiowanie (Ctrl+C), eksport CSV z ochroną formuł i otwieranie
   obiektu (Enter) – każde wywołanie to osobne okno. `Open-AdmObject` otwiera właściwości obiektu (nazwa wyróżniająca,
-  `objectGUID`, SID, nazwa konta; najwyżej 10 okien naraz). `Export-AdmList` zapisuje CSV tak jak eksport listy (formuły
+  `objectGUID`, SID, nazwa konta; najwyżej 10 okien w jednym poleceniu). `Export-AdmList` zapisuje CSV tak jak eksport listy (formuły
   chronione, separator z ustawień regionalnych, UTF-8 z BOM) tylko do pliku z `-Path` albo wybranego w oknie *Zapisz jako*;
-  istniejący plik zastępuje tylko z `-Force`, a bez ścieżki i bez wybranego pliku nic nie zapisuje.
+  istniejący plik zastępuje tylko z `-Force`, a bez ścieżki i bez wybranego pliku nic nie zapisuje. Ścieżkę, `-Force` i
+  separator sprawdza, zanim polecenie przed nim cokolwiek przeczyta. Kolumny z sekretami (hasło LAPS jawnym tekstem, hasło
+  odzyskiwania BitLockera, atrybuty poufne) `Export-AdmList` i eksport siatki zapisują dopiero po tym samym pytaniu co eksport
+  listy programu, a kopiowanie wierszy siatki je pomija. *Zatrzymaj* przy eksporcie siatki przerywa zapis i usuwa zapisaną część
+  pliku, a wiersz stanu mówi to własnymi słowami.
 - **Nic na dysku.** Wynik, historia i zawartość okna są tylko w pamięci i znikają z oknem. Silnik (PowerShell 7.6 wbudowany w
   program) ma wyłączone: telemetrię, kanał diagnostyczny, sprawdzanie aktualizacji, automatyczne ładowanie modułów i zapis
-  pamięci podręcznej analizy modułów; test „bez plików” sprawdza, że praca w oknie nie zostawia pliku. W trybie ograniczonym
-  skrypt nie dosięga sesji okna ani jej danych logowania: żadna zmienna, parametr ani `$Host` jej nie przekazuje (polecenia
-  znajdują swoje okno w tablicy silnika), a polecenia czytają przez widok tylko do odczytu tej sesji. Plik zapisują tylko
+  pamięci podręcznej analizy modułów; test „bez plików” sprawdza, że praca w oknie nie zostawia pliku w żadnym folderze, w
+  którym silnik trzyma pliki (na Windows także w folderach PowerShella w profilu użytkownika, porównanych przed i po). Na Windows silnik sam z siebie zapisuje w `%TEMP%` dwa pliki testowe
+  `__PSScriptPolicyTest_…` (sprawdzenie AppLockera, bez danych z katalogu) i od razu je usuwa – raz na uruchomienie programu;
+  uprzedź o tym zespół bezpieczeństwa. W trybie ograniczonym nie jest znany żaden sposób, w jaki skrypt dosięgnąłby sesji okna
+  albo jej danych logowania: żadna zmienna, parametr ani `$Host` jej nie przekazuje (polecenia znajdują swoje okno w tablicy
+  silnika), polecenia czytają przez widok tylko do odczytu tej sesji, a każdy sposób znaleziony przez audyt i późniejsze próby
+  obejścia okna jest testem, który musi pozostać odrzucony. Plik zapisują tylko
   `Export-AdmList` (lista z ochroną formuł) i `Start-Transcript -Path` (zapis sesji do pliku, który wskażesz); `Start-Transcript`
   bez ścieżki – który zapisałby polecenia i ich wyniki do pliku w folderze *Dokumenty* – oraz `Out-File`, `Set-Content`,
   `Add-Content`, `Export-Csv`, `Export-Clixml` i przekierowanie `>` do pliku są odrzucane z komunikatem (`> $null` działa).
@@ -205,14 +236,17 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   o zamknięcie okna go uwzględnia. Zamknięcie okna przez zamknięcie okna, do którego należy, albo przez zamknięcie programu nie
   zadaje pytania samo: pyta okno główne.
 - Okno PowerShell (R1) sprawdzono testami automatycznymi: silnik, polecenia i model okna na Linuksie i Windows oraz prawdziwe
-  okno z prawdziwym silnikiem nad sztuczną domeną na Windows; nikt nie oglądał go jeszcze na ekranie. Wygląd kolorowanego tekstu
+  okno z prawdziwym silnikiem nad sztuczną domeną na Windows; nikt nie oglądał go jeszcze na ekranie – także tego, że zalane
+  wynikami okno przyjmuje kliknięcie **Stop** (sprawdza to test automatyczny, który zalewa okno i naciska Ctrl+C). To, że wyjście programów
+  konsolowych (`whoami`, `nltest`) trafia do okna, sprawdzono na Linuksie i testem z `cmd.exe` na Windows, ale nie w uruchomionym
+  `AdMng.exe`. Wygląd kolorowanego tekstu
   (tekst w polu jest przezroczysty, kolory rysuje warstwa pod nim), listy uzupełnień pod kursorem, odnośników do nazw i okna siatki
   w jasnym, ciemnym i wysokim kontraście, a także to, czy czytnik ekranu czyta okno sensownie (lista uzupełnień nie jest
   ogłaszana), czeka na pilotaż. Zachowanie silnika pod WDAC/AppLocker i przy włączonych zasadach transkrypcji nie zostało
   sprawdzone na prawdziwej maszynie z takimi zasadami, a polecenia nie były uruchamiane na prawdziwym Windows Server AD (tylko
-nad sztucznym katalogiem i kontrolerem Samba). Nie ma jeszcze poleceń zapisu ani modułów RSAT (etapy R2 i R3), uzupełniania
-nazw plików ani `N obiektów` w wierszu stanu (liczy wiersze danych wyjściowych); `LockedOut` nie uwzględnia czasu blokady z
-zasad domeny, gdy kontroler nie zwraca własnej flagi. W trybie ograniczonym `[pscustomobject]@{}` i wywołania metod typów spoza
+  nad sztucznym katalogiem i kontrolerem Samba). Nie ma jeszcze poleceń zapisu ani modułów RSAT (etapy R2 i R3), uzupełniania
+  nazw plików ani `N obiektów` w wierszu stanu (liczy wiersze danych wyjściowych); `LockedOut` nie uwzględnia czasu blokady z
+  zasad domeny, gdy kontroler nie zwraca własnej flagi. W trybie ograniczonym `[pscustomobject]@{}` i wywołania metod typów spoza
   rdzenia są odrzucane (`New-Object PSObject -Property` działa); skrypt w trybie zaufanym, który używa `System.Data.SqlClient`, nie
   znajdzie `sni.dll` (pakiet bez licencji OSI jest wyłączony).
 

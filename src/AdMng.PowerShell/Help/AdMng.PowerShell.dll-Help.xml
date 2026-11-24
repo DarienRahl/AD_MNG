@@ -34,7 +34,7 @@
       <command:verb>Get</command:verb>
       <command:noun>AdmObject</command:noun>
     </command:details>
-    <maml:description><maml:para>Get-AdmObject reads through the connection of this window only (one domain controller; there is no -Server and no -Credential). The identity is a distinguished name, an objectGUID, a SID, a sAMAccountName or a user principal name. The objects are typed AdMng.User, AdMng.Group, AdMng.Computer or AdMng.Object by what they are, and each has the property DistinguishedName. Attributes keep their type; the value of a secret that the Attribute Editor never shows is masked. An object that does not exist is a non-terminating error that names it. Results are streamed one object at a time and Stop (Ctrl+C) cancels the read.</maml:para></maml:description>
+    <maml:description><maml:para>Get-AdmObject reads through the connection of this window only (one domain controller; there is no -Server and no -Credential). The identity is a distinguished name, an objectGUID, a SID, a sAMAccountName or a user principal name. The objects are of every kind: each is typed AdMng.Object first (so that the default display is one table), then AdMng.User, AdMng.Group or AdMng.Computer by what it is, and each has the properties ObjectKind and DistinguishedName. Attributes keep their type; the value of a secret that the Attribute Editor never shows is masked. An object that does not exist is a non-terminating error that names it. Results are streamed one object at a time and Stop (Ctrl+C) cancels the read.</maml:para></maml:description>
     <command:syntax>
       <command:syntaxItem>
         <maml:name>Get-AdmObject</maml:name>
