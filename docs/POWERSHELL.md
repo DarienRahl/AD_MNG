@@ -290,7 +290,8 @@ nim zakończyć cały program; takie polecenie nie trafia też do historii. Plik
 niezależnie od polityki wykonywania. Nie ma profilu ani PSReadLine. Żadne zadanie nie trwa dłużej niż polecenie, które je
 uruchomiło: zadanie pozostawione w sesji jest zatrzymywane, gdy polecenie się kończy, po *Zatrzymaj* i przy zamknięciu okna.
 Programy konsolowe (`whoami`, `nltest`, `repadmin`) działają jak w każdej konsoli – jako osobny proces z Twoją tożsamością
-Windows, nigdy z poświadczeniami okna.
+Windows, nigdy z poświadczeniami okna. To, co wypisują – także na wyjście błędów, jako zwykły tekst, tak jak pokazuje je konsola
+PowerShell 7 – pojawia się w oknie, na swoim miejscu wśród wyników (`whoami /groups` na końcu polecenia wypisuje grupy w oknie).
 
 Polecenia, które o coś pytają – `Read-Host`, parametr obowiązkowy, `-Confirm` – pytają w oknie, a *Zatrzymaj* anuluje pytanie.
 Parametr obowiązkowy, który przyjmuje listę (np. `-Identity`), okno – jak konsola PowerShella – pyta element po elemencie

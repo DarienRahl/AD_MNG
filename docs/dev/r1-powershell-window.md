@@ -281,7 +281,15 @@ PSHostRawUserInterface` (minimal: buffer and window size from the session's widt
 | `PowerShellRunEndItem(State, HadErrors, ExitCode?)` | Always the last item - kept on the run and yielded after the channel's last item, never posted into the channel, where a stopped flood dropped it (audit PS-07; the view model no longer makes one up when it is missing): `Completed`, `Stopped`, `Failed` (a terminating error, whose text is the item before it) or `Abandoned` (4.1); whether any error was written - for a stopped run only an error the command wrote, not the stop itself; and the code of an `exit` that ended the script. |
 
 The window uses the **formatted mode**: the script is run as one pipeline followed by `Out-Default`, with the error stream
-merged into it, the way the console host runs a command. The engine's own formatting therefore decides tables and lists (a
+merged into it, the way the console host runs a command. Between the two stands the window's compiled pass-through
+`Write-AdmWindowOutput` (`WindowOutputCommand`, not in the session state), and the merge is the script's own
+(`MergeMyResults`), not "the unclaimed results" of `Out-Default` (audit PS-06): the engine starts a console program that is last
+in its pipeline with the process's own standard output when the command downstream is `Out-Default` - in AdMng.exe on Windows a
+hidden console, so `whoami` showed nothing - and dropped what such a program writes to its error output. Now both are captured:
+the output as text, the error output as plain text in its place (as PowerShell 7 shows a captured error output; it does not make
+the run one with errors). Proven on Linux with `/bin/echo` and `/bin/sh -c '... 1>&2'`; the same tests use `cmd.exe /c` on
+Windows, where the engine still allocates its hidden console (`ConsoleVisibility.AllocateHiddenConsole`) but no longer hands it
+the output. The engine's own formatting therefore decides tables and lists (a
 header once, column widths from `OutputWidth`), and the text reaches the host as above; the objects are real objects up to
 `Out-Default`, so `Where-Object`, `Select-Object` and `Out-AdmGrid` in the pipeline work on them. The script runs in the
 global scope (variables stay between commands, like in a console). The channel is bounded by its number of items (4096) and

@@ -58,7 +58,7 @@ public sealed class CommandCatalogTests
         Assert.All(internalOnes, type => Assert.False(type.IsSubclassOf(typeof(AdmCmdlet)), $"{type.Name} is an internal AdmCmdlet"));
         Assert.Equal(
             Guards.CommandGuards.Replacements.Concat(Guards.CommandGuards.WindowCommands).Select(r => r.Type).Append(typeof(Hosting.WindowSetupCommand))
-                .OrderBy(t => t.FullName, StringComparer.Ordinal).ToArray(),
+                .Append(typeof(Hosting.WindowOutputCommand)).OrderBy(t => t.FullName, StringComparer.Ordinal).ToArray(),
             internalOnes.OrderBy(t => t.FullName, StringComparer.Ordinal).ToArray());
 
         Assert.Equal(

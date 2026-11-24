@@ -856,9 +856,17 @@ public sealed class PowerShellSession : IPowerShellSession
         else
         {
             // The way the console host runs a command: the pipeline ends in Out-Default, which formats with the engine's own
-            // formatting and writes to the host; errors are merged into it so they are formatted the same way.
+            // formatting and writes to the host; the script's errors are merged into its output so they are formatted the same way.
+            // Two details are for console programs (audit PS-06): the window's pass-through stands before Out-Default, so the engine
+            // captures the output of a program last in the script instead of handing it the process's own standard output (in
+            // AdMng.exe on Windows a hidden console); and the merge is the script's own (not "the unclaimed results" of Out-Default),
+            // which also takes in what such a program writes to its error output - the engine drops that otherwise.
+            ps.Commands.Commands[0].MergeMyResults(PipelineResultTypes.Error, PipelineResultTypes.Output);
+            ps.AddCommand(new CmdletInfo(WindowOutputCommand.Name, typeof(WindowOutputCommand)));
             ps.AddCommand("Out-Default");
-            ps.Commands.Commands[^1].MergeUnclaimedPreviousCommandResults = PipelineResultTypes.Error | PipelineResultTypes.Output;
+
+            // Nothing is expected here; whatever still reaches the pipeline's own error stream is shown rather than lost.
+            ps.Streams.Error.DataAdded += (_, e) => sink.Post(new PowerShellTextItem(PowerShellStream.Error, ps.Streams.Error[e.Index].ToString() + "\n"));
         }
 
         var run = new ActiveRun(engine, ps, channel, stop, sink);

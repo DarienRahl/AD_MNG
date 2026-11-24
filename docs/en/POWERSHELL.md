@@ -293,7 +293,8 @@ PowerShell engine could end the whole program on it; such a command does not ent
 the execution policy says. There is no profile and no PSReadLine. No job outlives the command that started it: a job left
 behind is stopped when the command ends, on *Stop* and when the window closes. Console programs (`whoami`, `nltest`,
 `repadmin`) run as in any console, as a separate process with your own Windows identity – never with the window's
-credentials.
+credentials. What they write – also to their error output, as plain text, the way the PowerShell 7 console shows it – appears in
+the window, in its place among the results (`whoami /groups` at the end of a command lists the groups in the window).
 
 The commands that ask for something – `Read-Host`, a mandatory parameter, `-Confirm` – ask in the window, and *Stop* cancels the
 question. A mandatory parameter that takes a list (such as `-Identity`) is asked for element by element, as the PowerShell console

@@ -34,6 +34,78 @@ public sealed class HostRoutingTests
         Assert.Equal(PowerShellStream.Output, text.Stream);
     }
 
+    /// <summary>
+    /// Audit PS-06: a console program last in the pipeline ran with the process's own standard output and error, because the window's
+    /// pipeline ends in Out-Default - in AdMng.exe on Windows a hidden console, so <c>whoami</c> showed nothing. Its output and its
+    /// errors are the window's now, as the captured forms (<c>whoami | Out-String</c>) always were.
+    /// </summary>
+    [Fact]
+    public async Task A_console_program_last_in_the_pipeline_writes_into_the_window()
+    {
+        await using var session = await TestSessions.CreateAsync();
+        var script = OperatingSystem.IsWindows() ? "cmd.exe /c echo native-direct" : "/bin/echo native-direct";
+
+        var items = await TestSessions.RunAsync(session, script);
+
+        Assert.Equal(["native-direct"], Lines(TestSessions.Text(items)));
+        Assert.Equal(PowerShellRunState.Completed, TestSessions.End(items).State);
+    }
+
+    /// <summary>
+    /// What a console program writes to its error output arrives in the window too, in its place among the output, as plain text - the
+    /// way PowerShell 7 shows a program's error output whose stream is captured (it is not an error record of the engine, so the run
+    /// does not count as one with errors).
+    /// </summary>
+    [Fact]
+    public async Task What_a_console_program_writes_to_its_error_output_arrives_in_the_window_in_order()
+    {
+        await using var session = await TestSessions.CreateAsync();
+        var script = OperatingSystem.IsWindows() ? "cmd.exe /c 'echo to-stderr 1>&2'; 'after'" : "/bin/sh -c 'echo to-stderr 1>&2'; 'after'";
+
+        var items = await TestSessions.RunAsync(session, script);
+
+        Assert.Equal(["to-stderr", "after"], Lines(TestSessions.Text(items)));
+        Assert.Equal(new PowerShellRunEndItem(PowerShellRunState.Completed, HadErrors: false), TestSessions.End(items));
+    }
+
+    [Fact]
+    public async Task An_error_of_a_command_beside_a_console_program_is_still_an_error_of_the_window()
+    {
+        await using var session = await TestSessions.CreateAsync();
+        var native = OperatingSystem.IsWindows() ? "cmd.exe /c echo native" : "/bin/echo native";
+
+        var items = await TestSessions.RunAsync(session, $"{native}; Write-Error 'e1'; 'after'");
+
+        Assert.Equal(["native", "after"], Lines(TestSessions.Text(items)));
+        Assert.Contains("e1", TestSessions.Text(items, PowerShellStream.Error), StringComparison.Ordinal);
+        Assert.True(TestSessions.End(items).HadErrors);
+    }
+
+    [Fact]
+    public async Task A_console_program_inside_a_script_block_and_after_other_output_writes_into_the_window_in_order()
+    {
+        await using var session = await TestSessions.CreateAsync();
+        var native = OperatingSystem.IsWindows() ? "cmd.exe /c echo second" : "/bin/echo second";
+
+        var items = await TestSessions.RunAsync(session, $"'first'; & {{ {native} }}; 'third'");
+
+        Assert.Equal(["first", "second", "third"], Lines(TestSessions.Text(items)));
+    }
+
+    [Fact]
+    public async Task The_windows_pass_through_is_not_a_command_of_the_session()
+    {
+        await using var session = await TestSessions.CreateAsync();
+
+        var items = await TestSessions.RunAsync(session, "Write-AdmWindowOutput 'x'");
+
+        Assert.Contains("Write-AdmWindowOutput", TestSessions.Text(items, PowerShellStream.Error), StringComparison.Ordinal);
+        Assert.Equal(string.Empty, TestSessions.Text(items));
+    }
+
+    private static string[] Lines(string text) =>
+        [.. text.Split('\n').Select(line => line.TrimEnd('\r', ' ')).Where(line => line.Length > 0)];
+
     [Fact]
     public async Task Write_Progress_arrives_as_a_progress_item()
     {
