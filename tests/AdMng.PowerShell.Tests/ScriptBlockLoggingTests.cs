@@ -6,9 +6,10 @@ namespace AdMng.PowerShell.Tests;
 /// <c>System.Management.Automation</c> 7.6.10: <c>PerformSecurityChecks</c> (<c>CompiledScriptBlock.cs</c>) marks a script block
 /// when it is compiled if <c>ScriptBlock.CheckSuspiciousContent</c> finds anything, and that check has two parts - its text holds a
 /// word of the engine's list (<c>SuspiciousContentChecker.Match</c>: "Properties", "Add-Type", "EncodedCommand", "GetMethod"…,
-/// also inside a longer word; <c>Match</c> hashes only letters and '-', so the five words of the list with a digit,
-/// "FromBase64String" among them, never match, and it tests every length once more at the end, so the last letters of the text,
-/// read without what lies between them, count too - <c>Get-AdmUser 'grace mit'</c> ends in "Emit"), or the parser marked it
+/// also inside a longer word - <c>Get-AdmUser jmarshall</c> holds "Marshal"; <c>Match</c> hashes only letters and '-', and any
+/// other character ends the run it tests while it reads, so the five words of the list with a digit, "FromBase64String" among
+/// them, never match; it tests every length once more at the end, so the last letters of the text, read without what lies between
+/// them, count too - <c>Get-AdmUser 'grace mit'</c> ends in "Emit"), or the parser marked it
 /// (<c>Ast.HasSuspiciousContent</c>, set on every parse by <c>SemanticChecks</c>: a member whose name is not a constant -
 /// <c>$u.$a</c>, <c>$u.('mail')</c>, <c>$u."$n"</c> -, a static member of something that is not a type literal - <c>$t::Now</c> -,
 /// and the type <c>[type]</c> itself). <c>LogScriptBlockStart</c> then logs a marked block with <c>force</c>, and
@@ -22,11 +23,12 @@ public sealed class ScriptBlockLoggingTests
 {
     /// <summary>The probe's lines the engine marks as suspicious (<c>ScriptBlockLoggingProbe.Lines</c>), in the order of its report.</summary>
     private static readonly string[] Suspicious =
-        ["word", "member-by-variable", "member-by-expression", "member-by-expandable-string", "static-member-through-variable", "type-type", "last-letters"];
+        ["word", "member-by-variable", "member-by-expression", "member-by-expandable-string", "static-member-through-variable", "type-type", "last-letters",
+         "word-inside-name"];
 
     /// <summary>
     /// The probe's ordinary lines: no word of the list, members by constant names, a static member of a type literal, a word of the
-    /// list with a digit, an account name whose letters end in no word of the list.
+    /// list with a digit, an account name for which the line's letters hold no word of the list anywhere.
     /// </summary>
     private static readonly string[] Ordinary = ["ordinary", "members-by-constant-name", "word-with-digit", "account-name"];
 

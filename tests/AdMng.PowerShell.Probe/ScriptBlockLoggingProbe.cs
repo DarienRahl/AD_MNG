@@ -22,14 +22,16 @@ namespace AdMng.PowerShell.Probe;
 internal static class ScriptBlockLoggingProbe
 {
     /// <summary>
-    /// The operator's lines, by name, in the order of the report. The first seven are marked suspicious by
-    /// <c>ScriptBlock.CheckSuspiciousContent</c>: a word of the engine's list ("Properties", <c>SuspiciousContentChecker.Match</c>),
-    /// or a mark of the parser's <c>SemanticChecks</c> (<c>CheckMemberAccess</c>: a member name that is not a constant, a static
-    /// member of something that is not a type literal; <c>VisitTypeExpression</c>: the type <c>[type]</c>), or the last letters of
-    /// the text, read without what lies between them, spell a word of the list (<c>Match</c> hashes only letters and '-' and tests
-    /// every length at the end: "gracemit" ends in "Emit"). The last four are not - among them a word of the list with a digit
-    /// ("FromBase64String": a digit is never hashed, so such a word never matches) and an account name whose letters end in no
-    /// word of the list (the pilot's PW12). <c>Get-AdmUser</c> is a function of the probe that does nothing.
+    /// The operator's lines, by name, in the order of the report. The first eight are marked suspicious by
+    /// <c>ScriptBlock.CheckSuspiciousContent</c>: a word of the engine's list inside one run of letters and '-'
+    /// (<c>SuspiciousContentChecker.Match</c> while it reads: "Properties", and "Marshal" inside the account name "jmarshall"), or a
+    /// mark of the parser's <c>SemanticChecks</c> (<c>CheckMemberAccess</c>: a member name that is not a constant, a static member
+    /// of something that is not a type literal; <c>VisitTypeExpression</c>: the type <c>[type]</c>), or the last letters of the
+    /// text, read without what lies between them, spell a word of the list (<c>Match</c> hashes only letters and '-' and tests
+    /// every length once more at the end: "gracemit" ends in "Emit"). The last four are not - among them a word of the list with a
+    /// digit ("FromBase64String": a digit is never hashed, so such a word never matches) and a line whose letters hold no word of
+    /// the list anywhere (the pilot's PW12, "get-admuserjkowalski"). <c>Get-AdmUser</c> is a function of the probe that does
+    /// nothing.
     /// </summary>
     public static IReadOnlyList<(string Name, string Line)> Lines { get; } =
     [
@@ -40,6 +42,7 @@ internal static class ScriptBlockLoggingProbe
         ("static-member-through-variable", "$t = [datetime]; $t::Now"),
         ("type-type", "[type]"),
         ("last-letters", "Get-AdmUser 'grace mit'"),
+        ("word-inside-name", "Get-AdmUser jmarshall"),
         ("ordinary", "$attributes = 'mail', 'department'"),
         ("members-by-constant-name", "$u = @{ mail = 'a' }; $u.mail; $u.'mail'; [datetime]::Now"),
         ("word-with-digit", "$x = [Convert]::FromBase64String('eA==')"),
