@@ -210,7 +210,9 @@ Plik powstaje w dokładnie trzech przypadkach i tylko wtedy, gdy o to prosisz:
   (`-Delimiter ';'` go zastępuje), UTF-8 ze znacznikiem kolejności bajtów. Zapisuje **tylko do pliku, który wskażesz** w
   `-Path` (pierwszy parametr) **albo wybierzesz w oknie *Zapisz jako***, gdy nie podasz ścieżki. Nigdy nie zapisuje w
   miejscu domyślnym; istniejący plik zastępuje tylko z `-Force`; bez ścieżki i z anulowanym oknem nie zapisuje niczego i
-  mówi o tym. Wypisuje ścieżkę oraz liczbę wierszy i kolumn, nigdy wartości.
+  mówi o tym. Ścieżkę, `-Force` i separator sprawdza, zanim polecenie przed nim cokolwiek przeczyta, więc
+  `Get-AdmUser | Export-AdmList istniejący.csv` kończy się błędem od razu, a nie po odczytaniu całej domeny. Wypisuje ścieżkę
+  oraz liczbę wierszy i kolumn, nigdy wartości.
 - ***Eksportuj listę…*** w oknie siatki `Out-AdmGrid`: ten sam CSV do wybranego pliku.
 - **`Start-Transcript -Path <plik>`** (albo `-LiteralPath`) zapisuje przebieg sesji – polecenia i wszystko, co pokazały, a więc
   także dane z katalogu – do pliku, który wskażesz, aż do `Stop-Transcript` albo do zamknięcia okna. Bez ścieżki jest odrzucany:

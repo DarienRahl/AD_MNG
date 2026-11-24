@@ -152,7 +152,8 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   obiektu (Enter) – każde wywołanie to osobne okno. `Open-AdmObject` otwiera właściwości obiektu (nazwa wyróżniająca,
   `objectGUID`, SID, nazwa konta; najwyżej 10 okien naraz). `Export-AdmList` zapisuje CSV tak jak eksport listy (formuły
   chronione, separator z ustawień regionalnych, UTF-8 z BOM) tylko do pliku z `-Path` albo wybranego w oknie *Zapisz jako*;
-  istniejący plik zastępuje tylko z `-Force`, a bez ścieżki i bez wybranego pliku nic nie zapisuje.
+  istniejący plik zastępuje tylko z `-Force`, a bez ścieżki i bez wybranego pliku nic nie zapisuje. Ścieżkę, `-Force` i
+  separator sprawdza, zanim polecenie przed nim cokolwiek przeczyta.
 - **Nic na dysku.** Wynik, historia i zawartość okna są tylko w pamięci i znikają z oknem. Silnik (PowerShell 7.6 wbudowany w
   program) ma wyłączone: telemetrię, kanał diagnostyczny, sprawdzanie aktualizacji, automatyczne ładowanie modułów i zapis
   pamięci podręcznej analizy modułów; test „bez plików” sprawdza, że praca w oknie nie zostawia pliku. W trybie ograniczonym

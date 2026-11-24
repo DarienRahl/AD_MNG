@@ -210,7 +210,9 @@ A file is written in exactly three cases, and only when you ask:
   settings (`-Delimiter ';'` overrides it), UTF-8 with a byte order mark. It writes **only to the file you name** with
   `-Path` (the first parameter) **or choose in *Save As***, when you give no path. It never writes to a default place; an
   existing file is replaced only with `-Force`; without a path and with the dialog cancelled it writes nothing and says so.
-  It prints the path and the number of rows and columns, never the values.
+  It checks the path, `-Force` and the delimiter before the command in front of it reads anything, so
+  `Get-AdmUser | Export-AdmList existing.csv` ends with an error at once, not after reading the whole domain. It prints the
+  path and the number of rows and columns, never the values.
 - ***Export list…*** in the grid window of `Out-AdmGrid`: the same CSV, to the file you choose.
 - **`Start-Transcript -Path <file>`** (or `-LiteralPath`) records the session – the commands and everything they show, so
   directory data too – to the file you name, until `Stop-Transcript` or until the window closes. Without a path it is refused:

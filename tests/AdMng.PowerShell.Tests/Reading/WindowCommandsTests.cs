@@ -315,6 +315,43 @@ public sealed class WindowCommandsTests
         Assert.Equal(chosenPath, chosen.Single().Properties["Path"].Value);
     }
 
+    /// <summary>
+    /// Audit ps-commands-10: Export-AdmList checked its path, -Force and -Delimiter only after it had read the whole pipeline - in a large
+    /// domain 100,000 objects read and kept, then refused. It refuses before the command before it reads anything.
+    /// </summary>
+    [Theory]
+    [InlineData("exists")]
+    [InlineData("variable")]
+    [InlineData("delimiter")]
+    public async Task Export_AdmList_refuses_before_the_pipeline_is_read(string refusal)
+    {
+        var services = new RecordingWindowServices();
+        await using var harness = await ReadHarness.CreateAsync(services: services);
+        var file = Path.Combine(Path.GetTempPath(), "admng-exists-" + Guid.NewGuid().ToString("N") + ".csv");
+        await File.WriteAllTextAsync(file, "old", TestContext.Current.CancellationToken);
+        try
+        {
+            var target = refusal switch
+            {
+                "exists" => $"-Path '{file}'",
+                "variable" => "-Path 'Variable:\\x'",
+                _ => $"-Path '{file}' -Force -Delimiter \"`n\"",
+            };
+            var searchesBefore = harness.Directory.Operations.Count(o => o.Kind == FakeOperationKind.Search);
+
+            var result = await harness.RunAsync($"Get-AdmUser | Export-AdmList {target}");
+
+            Assert.NotEqual(0, result.Errors.Length);
+            Assert.Empty(services.Exports);
+            Assert.Equal(searchesBefore, harness.Directory.Operations.Count(o => o.Kind == FakeOperationKind.Search));
+            Assert.Equal("old", await File.ReadAllTextAsync(file, TestContext.Current.CancellationToken));
+        }
+        finally
+        {
+            File.Delete(file);
+        }
+    }
+
     [Fact]
     public async Task Export_AdmList_does_not_replace_a_file_without_Force()
     {
