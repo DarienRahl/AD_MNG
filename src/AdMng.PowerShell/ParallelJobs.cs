@@ -22,7 +22,9 @@ namespace AdMng.PowerShell;
 /// takes away the pool's free place and gives the stop signal - the two events <c>Add</c> waits on - so that the work item hands out
 /// no child that has not got a place yet, waits until the work item has closed the pool (<c>PSTaskPool.IsOpen</c>, which only its last
 /// step and a stop clear), and only then lets the job be stopped. A child that the work item is already opening when the signal comes
-/// still starts, and is stopped with the job. These are private members of the engine (Microsoft.PowerShell.SDK 7.6.10, pinned in
+/// still starts, and is stopped with the job; so does the next one when a running child of a full pool ends and frees its place
+/// (<c>HandleTaskStateChanged</c> sets <c>_addAvailable</c> again) in the moment the work item takes to leave its loop. Either way the
+/// open ends before the pool closes, so the stop never meets it. These are private members of the engine (Microsoft.PowerShell.SDK 7.6.10, pinned in
 /// Directory.Packages.props); <c>EscapeTests</c> fails when they change. Without them the session waits until every child has started,
 /// which needs no member: a child leaves NotStarted only once its runspace is open.
 /// </para>

@@ -546,8 +546,8 @@ public sealed class PowerShellSession : IPowerShellSession
 
     /// <summary>
     /// Stops and disposes a job; a job that has finished is only disposed. A ForEach-Object -Parallel job (<see cref="PSTaskJob"/>) is
-    /// stopped only once the engine's work item that hands its children to its pool is done with the pool, and none of its children
-    /// that had not got a place starts any more (<see cref="ParallelJobs.PrepareEndAsync"/>): stopping or disposing the job closes the
+    /// stopped only once the engine's work item that hands its children to its pool is done with the pool, after the session took away
+    /// the pool's free place so that the children waiting for one do not start (<see cref="ParallelJobs.PrepareEndAsync"/>): stopping or disposing the job closes the
     /// runspaces of the pool - also one that work item is still opening, which then fails on that thread and ends the process (CI run
     /// 45315307313; <c>EscapeTests</c>, the probe's <c>parallel-job-open</c> and <c>parallel-job-children</c>). A parallel job that
     /// something else stopped first is left as it is. No child is stopped by itself: a child's stop while the pool's thread still starts

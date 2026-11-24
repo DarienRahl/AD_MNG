@@ -307,11 +307,12 @@ question.
   included. Turning it on keeps the session and its variables (the functions defined before in ConstrainedLanguage the
   PowerShell engine itself drops);
 - it adds no command: the list above is the same. A job that .NET code puts into the session (the engine's own
-  `ForEach-Object -Parallel -AsJob`, reached through .NET) is stopped with its command like any other, as soon as the engine has
-  started its child jobs (when a throttle limit holds some of them back: once the running ones have stayed unchanged for 10 seconds);
-  a thread or a runspace that .NET code makes for itself is beyond the window's reach, like the rest of the process – it keeps
-  running after *Stop* and after the window closes; a script block that such a timer or thread calls after the window closed no
-  longer runs (there is no runspace), and its error does not close the program;
+  `ForEach-Object -Parallel -AsJob`, reached through .NET) is stopped with its command like any other (if the engine is just
+  opening a runspace for one of its child jobs, once it has opened it), and its child jobs that were still waiting for their turn
+  no longer start (except one whose turn comes at that very moment – it is stopped with the rest); a thread or a runspace that
+  .NET code makes for itself is beyond the window's reach, like the rest of the process – it keeps running after *Stop* and after
+  the window closes; a script block that such a timer or thread calls after the window closed no longer runs (there is no
+  runspace), and its error does not close the program;
 - while it is on, the title says *– trusted mode* and a note that lasts says the same;
 - turning it **off** asks nothing, but starts a **new PowerShell session** in the window, in ConstrainedLanguage. For the fraction
   of a second it takes, the status line says *Turning the trusted mode off: starting a new PowerShell session…*, and commands, Tab
