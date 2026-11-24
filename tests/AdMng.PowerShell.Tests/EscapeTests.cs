@@ -539,12 +539,13 @@ public sealed class EscapeTests : IDisposable
     /// once per operator, and a .NET stack overflow ends the process - on a workstation with every window of the program. Each case runs in
     /// a child process from a thread with 1 MB of stack (the window's UI thread on Windows): <c>$x = 1+1+…</c> with 12 000 terms ended the
     /// engine's compiler when it ran, with 40 000 terms the parse of the end-of-input check, and <c>$password = 'x'+'x'+…</c> with 4 000
-    /// terms the history filter. Each is refused now and the window runs the next command; the same lines 400 terms long still run.
+    /// terms the history filter. Each is refused now and the window runs the next command, also the deepest chains, unary operators,
+    /// member accesses and parentheses that fit below the length limit; the same lines 400 terms long still run.
     /// </summary>
     [Fact]
     public async Task A_chain_of_operators_too_deep_to_walk_is_refused_and_does_not_end_the_process()
     {
-        string[] refused = ["sum-12000", "sum-40000", "secret-4000"];
+        string[] refused = ["sum-12000", "sum-40000", "secret-4000", "sum-max", "member-max", "not-max", "paren-max"];
         string[] kept = ["sum-400", "secret-400"];
         var folders = refused.Concat(kept).ToDictionary(name => name, _ => new TempFolder());
         try

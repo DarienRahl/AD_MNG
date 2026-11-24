@@ -203,13 +203,19 @@ internal static class Program
     /// The lines of the third red team of R1 (goal h) and its neighbours. A chain of operators is parsed without the parser's own
     /// recursion guard, but every walk over its syntax tree afterwards recurses once per operator: about 16 000 terms ended a parse on a
     /// 1 MB stack, about 9 300 ended the engine's compiler when the command ran, about 3 000 ended the history filter on a secret's
-    /// name. A .NET stack overflow cannot be caught - it ends the process, on a workstation with every window of the program.
+    /// name. A .NET stack overflow cannot be caught - it ends the process, on a workstation with every window of the program. The
+    /// <c>-max</c> cases are as deep as a text just below the length limit can be (InputParser.MaxLength): they are parsed on the parser's
+    /// own thread and must be refused, not end the process.
     /// </summary>
     private static string DeepLine(string name) => name switch
     {
         "sum-12000" => "$x = 1" + string.Concat(Enumerable.Repeat("+1", 12_000)) + "; 'sum ' + $x",
         "sum-40000" => "$x = 1" + string.Concat(Enumerable.Repeat("+1", 40_000)) + "; 'sum ' + $x",
         "secret-4000" => "$password = 'x'" + string.Concat(Enumerable.Repeat("+'x'", 4_000)),
+        "sum-max" => "$x = 1" + string.Concat(Enumerable.Repeat("+1", 131_000)),
+        "member-max" => "$x = 'a'" + string.Concat(Enumerable.Repeat(".a", 131_000)),
+        "not-max" => "$x = " + new string('!', 262_000) + "1",
+        "paren-max" => "$x = " + new string('(', 131_000) + "1" + new string(')', 131_000),
         "sum-400" => "$x = 1" + string.Concat(Enumerable.Repeat("+1", 400)) + "; 'sum ' + $x",
         "secret-400" => "$password = 'x'" + string.Concat(Enumerable.Repeat("+'x'", 400)) + "; $password.Length",
         _ => throw new ArgumentException("unknown case " + name, nameof(name)),
