@@ -120,15 +120,20 @@ the Watchdog package.
 8. **Nothing on disk, passwords, one DC, the UI never blocks (D8).** The window's content, results and history live in
    memory only (rule 1). The engine's environment is set **before** its first use: `POWERSHELL_TELEMETRY_OPTOUT=1`,
    `POWERSHELL_DIAGNOSTICS_OPTOUT=1`, `POWERSHELL_UPDATECHECK=Off`, module auto-loading off and the module analysis cache
-   pointed at a null device; a "no files" test runs commands in a process whose `HOME`, `LOCALAPPDATA`, `TEMP` and `XDG_*`
-   point at an empty folder and asserts that the folder is still empty – on Linux that covers every folder the engine uses;
-   on Windows the engine finds its folders through the known-folder API, which the variables do not move, so there the test
-   also compares the user's PowerShell folders before and after the run. On Windows the engine writes two files of its own
-   accord that cannot be turned off: its AppLocker check writes `__PSScriptPolicyTest_<random>.ps1` and `.psm1` (a comment
-   line, no directory data) into `%TEMP%` and deletes them at once, once per process; the test allows exactly these. In ConstrainedLanguage no script reaches the
-   window's session or its credentials: no variable, parameter or member of `$Host` carries them (AD Manager's commands
-   find their window in a registry of the engine, keyed by the runspace), and R1 creates no `PSCredential` (rule 2); in
-   the trusted mode .NET reflection can (decision 3). Filters are built with `AdMng.Core.Ldap.LdapFilter` and DNs with
+   pointed at a null device; a "no files" test runs commands in a process whose `HOME`, `USERPROFILE`, `LOCALAPPDATA`,
+   `APPDATA`, `TEMP` and `XDG_*` point at an empty folder, the child names the folders its engine keeps files in (read from
+   the engine itself), and the test asserts that it watches each of them and that none holds a file afterwards – on Linux
+   they all lie in the empty folder (observed); on Windows the engine finds its folders through the known-folder API, which
+   the variables need not move, so there the test also compares the user's own folders of the engine before and after the
+   run (the Windows part has not been seen to pass yet). On Windows the engine writes two files of its own accord that
+   cannot be turned off: its AppLocker check writes `__PSScriptPolicyTest_<random>.ps1` and `.psm1` (a comment line, no
+   directory data) into `%TEMP%` and deletes them at once, once per process (read in the engine's code); the test allows
+   exactly these. In ConstrainedLanguage no script is known to reach the window's session or its credentials: no variable,
+   parameter or member of `$Host` carries them (AD Manager's commands find their window in a registry of the engine, keyed
+   by the runspace), no command of the window runs code in another language mode (decision 3), the audit's way through
+   `ForEach-Object -Parallel` and those of three later attempts to get around the window (red teams, 12.7–12.9 of the
+   implementation note) are tests that must stay refused, and R1 creates no
+   `PSCredential` (rule 2); in the trusted mode .NET reflection can (decision 3). Filters are built with `AdMng.Core.Ldap.LdapFilter` and DNs with
    `DistinguishedName` (rule 3). The commands read only from the window's `IDirectorySession` – one DC, no `-Server` and
    no `-Credential` (rule 4). Every directory call is asynchronous with the pipeline's cancellation token
    (`StopProcessing` cancels it); results are streamed and paged, and 100,000 results do not block the window (rule 6). Stop

@@ -146,7 +146,7 @@ scope. `PowerShellSession.CreateAsync(options)` builds it on a pool thread: the 
   runspace (a left one is disposed when its thread returns), is safe to call twice, and makes later `RunAsync` calls throw
   `ObjectDisposedException`.
 
-### 4.2 The engine's environment (D8, proven)
+### 4.2 The engine's environment (D8; observed on Linux)
 
 `PowerShellEnvironment.Apply()` runs once per process, before the first runspace and before any other use of the engine
 (every public entry point calls it; idempotent and thread-safe). It sets, overriding what the user's environment says,
@@ -178,9 +178,13 @@ device name on purpose: `/dev/null` as such worked on Linux, but a bare `NUL` on
 was not observed, whereas "a folder that cannot be created" is the failure the engine was seen to swallow (the
 `/proc/nonexistent` row) and the same on both systems. The probe is repeatable as the opt-in test
 `NoFilesTests.The_module_analysis_cache_is_never_written_but_would_be_with_auto_loading_on` (`ADMNG_POWERSHELL_SLOW_TESTS=1`,
-about 40 s; it passed here with the path above). `NUL\ModuleAnalysisCache` on Windows is the one part not verified: if the engine
-did not swallow its error, the process could fail 12 s after an operator lists the modules – part 4's Windows run is where
-this is looked at (the opt-in test passes or fails there the same way).
+about 40 s; it passed here with the path above). `NUL\ModuleAnalysisCache` on Windows is the one part not verified: it is a
+**relative** path there (a folder `NUL` below the process's current folder, which the Win32 path rules turn into the device - so
+creating it should fail, and the engine swallows the failure: `AnalysisCacheData.Serialize`, decompiled 7.6.10, catches every
+exception of the write) and nobody has run it; the opt-in test runs in the Windows CI job since the audit (its window child works in
+the watched folder, and the snapshot of the user's cache folder covers the engine's default place), not seen to pass there yet. In
+the window nothing makes the engine write the cache in the first place: auto-loading is off and `Get-Module` is not one of its
+commands (4.6), so the path is the second line of defence.
 
 **The time limit of regular expressions.** Not an environment variable but a setting of the .NET runtime:
 `PowerShellEnvironment.LimitRegularExpressions()` sets `REGEX_DEFAULT_MATCH_TIMEOUT` (an `AppContext` value) to
@@ -677,11 +681,14 @@ This is the plan of the parts; the files that exist are in the records of 12.1-1
   app the tests start as a child process, so that the environment is set before the runtime starts) with `HOME`,
   `LOCALAPPDATA`, `APPDATA`, `USERPROFILE`, `TEMP`, `TMP`, `TMPDIR` and `XDG_*` pointing at an empty folder and telemetry
   switched **on** in its environment runs two sessions, a script touching the formatter, module discovery, completion, syntax and
-  the history policy, and the folder holds no file afterwards; a **positive control** (an ordinary runspace of the SDK, Unix
-  only) leaves `telemetry.uuid` there, so the probe would see it; the opt-in **module analysis cache proof**
-  (`ADMNG_POWERSHELL_SLOW_TESTS=1`, about 40 s). The probe is not an xunit run on purpose (the first version started this test
-  assembly as the child and took 18.6 s on the Windows runner) and does not list modules on Windows (`Get-Module -ListAvailable`
-  on a runner with hundreds of modules took 30 s to minutes); on Unix it does, with the module path of the machine.
+  the history policy, and the folder holds no file afterwards; the child reports the folders of its engine and the test asserts
+  that it watches each (on Windows also a snapshot of the user's own folders of the engine; 12.1, "What could not be verified on
+  Linux"); a **positive control** (an ordinary runspace of the SDK, both systems) leaves `telemetry.uuid` and a file of the probe in
+  the engine's cache folder, and the test must see them; the opt-in **module analysis cache proof** (`ADMNG_POWERSHELL_SLOW_TESTS=1`,
+  about 40 s; set in the Windows CI job since the audit). The probe is not an xunit run on purpose (the first version started this
+  test assembly as the child and took 18.6 s on the Windows runner). Its `Get-Module -ListAvailable` fails at once in the window,
+  whose command list does not have it; the first version ran it in an ordinary runspace and left it out on Windows, where a runner
+  with hundreds of modules took 30 s to minutes.
 - **`HistoryPolicyTests`**, **`SyntaxTests`**, **`CompletionTests`** – section 4.9 (the matrices are in the tests); the
   completion test has a mutation check (it fails when the file system matches are not dropped).
 - **`CommandCatalogTests`** – section 4.8, and the context mechanism: `Get-AdmVersion` reports the fake session's domain, DC and
@@ -986,7 +993,7 @@ The result of the last Windows run is recorded in the report of the part.
 **What could not be verified on Linux, and why it should still be right.**
 
 - *Windows behaviour of the engine setup:* `PSModuleAnalysisCachePath=NUL\ModuleAnalysisCache` (the engine swallows an unwritable path on Linux; the
-  proof test runs on Windows only if someone sets `ADMNG_POWERSHELL_SLOW_TESTS=1`), `InitialSessionState.ExecutionPolicy =
+  proof test runs in the Windows CI job since the audit, `ADMNG_POWERSHELL_SLOW_TESTS=1`, not seen to pass there yet), `InitialSessionState.ExecutionPolicy =
   Restricted` and whether it is the process environment variable `PSExecutionPolicyPreference` (a Windows-only test asserts
   `Get-ExecutionPolicy` is `Restricted`), the STA apartment with `ReuseThread`, the absence of `\\.\pipe\PSHost.*` (the Linux run
   cannot show the pipe exists in the first place – a plain runspace creates none there; the Windows run is the proof), and the
@@ -994,18 +1001,27 @@ The result of the last Windows run is recorded in the report of the part.
   a machine with WDAC").
 - *The "no files" test on Windows* only watched what an environment variable moves (`TEMP`, `TMP`); the engine's files there go
   to known folders (`%LOCALAPPDATA%`), which a variable does not redirect, and its positive control was skipped - so the Windows
-  run passed whatever the engine did (audit TI-1). *After the audit:* on Windows the test also takes a snapshot (length, time
-  written) of the user's PowerShell folders found through the known-folder API - `%LOCALAPPDATA%\Microsoft\PowerShell` (the
-  engine's cache: `telemetry.uuid`, startup data), `%LOCALAPPDATA%\Microsoft\Windows\PowerShell` (the module analysis cache),
-  `%APPDATA%\Microsoft\Windows\PowerShell` (PSReadLine), `Documents\PowerShell` and `Documents\WindowsPowerShell` - before and
-  after the child run and asserts no new or changed file; a `FileSystemWatcher` on the redirected temporary folder catches a file
-  made and deleted during the run, and the only ones allowed are the two `__PSScriptPolicyTest_<random>.ps1` / `.psm1` of the
-  engine's AppLocker check (`SystemPolicy.GetAppLockerPolicy`, decompiled 7.6.10: written with a comment line and deleted at once,
-  once per process; audit W-11). The positive control runs there too: an ordinary runspace writes a file into the real cache folder
-  (and the engine's `telemetry.uuid` when the user had none), the snapshot must see it, and the test removes what the control made.
-  The collection runs alone. The Windows part has not been seen to pass yet (it runs in the Windows CI job); on Linux the watcher
-  sees only the runtime's diagnostic socket and debug pipes, gone by the end; what stays there is one empty folder, `powershell`
-  (the engine's cache folder, made at its start - a folder, no file).
+  run passed whatever the engine did (audit TI-1). *After the audit:* the child reports where its engine keeps files of its own -
+  the engine's `Platform.CacheDirectory` (`telemetry.uuid`, the module analysis cache, startup data) and `Platform.ConfigDirectory`
+  (the user's `powershell.config.json`, profiles, modules), read from the engine itself, on Windows also Windows PowerShell's
+  `%LOCALAPPDATA%\Microsoft\Windows\PowerShell` (its module analysis cache), `%APPDATA%\Microsoft\Windows\PowerShell`
+  (PSReadLine) and `Documents\WindowsPowerShell`, found as the engine finds a folder (`DoNotVerify`), and the temporary folder
+  (`tests/AdMng.PowerShell.Probe/EngineFolders.cs`) - and the test asserts that it watches each of them: below the child's folder,
+  or, on Windows, in a snapshot (length, time written) of the user's own folders of the same kinds taken before and after the run,
+  which must show no new or changed file; the temporary folder must be the child's. A `FileSystemWatcher` on the child's folder
+  catches a file made and deleted during the run, and on Windows the only ones allowed are the two
+  `__PSScriptPolicyTest_<random>.ps1` / `.psm1` of the engine's AppLocker check (`SystemPolicy.GetAppLockerPolicy`, decompiled
+  7.6.10: written with a comment line and deleted at once, once per process; audit W-11). The positive control is the same on both
+  systems: an ordinary runspace of the SDK, telemetry on, whose first command writes the engine's `telemetry.uuid` into the engine's
+  cache folder, where the probe also writes a file of its own; both must be seen where the test watches (`telemetry.uuid` only when
+  it is new there), and the test removes what the control made in a real folder. The first Windows run of the control (CI of
+  5cfead9c) failed: it wrote its file into the folder `[Environment]::GetFolderPath('LocalApplicationData')` named in the child,
+  and the snapshot of the user's real folder did not see it - so the child's variables do move at least that answer of the
+  known-folder API (probably through `USERPROFILE`, or .NET's fallback to `LOCALAPPDATA` when the folder is missing; not looked
+  into further), and the test now assumes neither and asks the engine. The collection runs alone. On Linux every folder the child
+  reports is below its folder; the watcher sees only the runtime's diagnostic socket and debug pipes, gone by the end, and what
+  stays is one empty folder, `powershell` (the engine's cache folder, made at its start - a folder, no file). The Windows part has
+  not been seen to pass yet (Windows CI job; the test prints the child's folders).
 - *Whether the engine reads `PowerShellPolicies` from `powershell.config.json` on Windows* next to the registry; the D7 reader
   will read both, so the note is right either way.
 - *The single-file layout:* where `$PSHOME` points and whether the four modules are found (part 4) - settled in 12.4 decision 1: the single file runs the engine and `$PSHOME` is the program folder.

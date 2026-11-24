@@ -73,6 +73,9 @@ jobs:
         env:
           ADMNG_UI_TESTS: "1"
           ADMNG_WINDOWS_EVENTLOG_TESTS: "1"
+          # The 40 s proof that the PowerShell engine never writes its module analysis cache: on Windows its path is NUL\ModuleAnalysisCache,
+          # which only a Windows run can show to be unwritable (docs/dev/r1-powershell-window.md 4.2).
+          ADMNG_POWERSHELL_SLOW_TESTS: "1"
       # The UI tests grew from 11 to 27 minutes within a day of new tests: the thirty slowest of the run, from the trx files,
       # say where the time goes (a test that waits for its own timeout shows up here).
       - name: Slowest tests

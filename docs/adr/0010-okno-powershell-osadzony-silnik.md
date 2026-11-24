@@ -120,15 +120,19 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
    (zasada 1). Środowisko silnika ustawiamy **przed** jego pierwszym użyciem: `POWERSHELL_TELEMETRY_OPTOUT=1`,
    `POWERSHELL_DIAGNOSTICS_OPTOUT=1`, `POWERSHELL_UPDATECHECK=Off`, wyłączone automatyczne ładowanie modułów i pamięć
    podręczna analizy modułów skierowana na urządzenie puste; test „żadnych plików” uruchamia polecenia w procesie z
-   `HOME`, `LOCALAPPDATA`, `TEMP` i `XDG_*` wskazującymi pusty folder i sprawdza, że folder jest nadal pusty – na Linuksie
-   obejmuje to każdy folder, którego używa silnik; na Windows silnik znajduje swoje foldery przez interfejs folderów
-   znanych, którego zmienne nie przesuwają, więc tam test porównuje też foldery PowerShella użytkownika przed i po
-   uruchomieniu. Na Windows silnik sam z siebie zapisuje dwa pliki, których nie da się wyłączyć: jego sprawdzenie
-   AppLockera zapisuje w `%TEMP%` pliki `__PSScriptPolicyTest_<losowo>.ps1` i `.psm1` (wiersz komentarza, żadnych danych
-   z katalogu) i od razu je usuwa, raz na proces; test dopuszcza dokładnie te pliki. W
-   ConstrainedLanguage żaden skrypt nie dosięga sesji okna ani jej poświadczeń: nie przenosi ich żadna zmienna, parametr
-   ani składowa `$Host` (polecenia AD Managera znajdują swoje okno w rejestrze silnika, według runspace'u), a w R1 nie
-   powstaje żaden `PSCredential` (zasada 2); w trybie zaufanym może to zrobić odbicie .NET (punkt 3). Filtry budujemy
+   `HOME`, `USERPROFILE`, `LOCALAPPDATA`, `APPDATA`, `TEMP` i `XDG_*` wskazującymi pusty folder, proces potomny podaje
+   foldery, w których jego silnik trzyma pliki (odczytane z samego silnika), a test sprawdza, że obserwuje każdy z nich i
+   że w żadnym nie zostaje plik – na Linuksie wszystkie leżą w pustym folderze (zaobserwowane); na Windows silnik znajduje
+   swoje foldery przez interfejs folderów znanych, którego zmienne nie muszą przesuwać, więc tam test porównuje też
+   własne foldery silnika użytkownika przed i po uruchomieniu (części na Windows nie widziano jeszcze przechodzącej). Na
+   Windows silnik sam z siebie zapisuje dwa pliki, których nie da się wyłączyć: jego sprawdzenie AppLockera zapisuje w
+   `%TEMP%` pliki `__PSScriptPolicyTest_<losowo>.ps1` i `.psm1` (wiersz komentarza, żadnych danych z katalogu) i od razu
+   je usuwa, raz na proces (odczytane z kodu silnika); test dopuszcza dokładnie te pliki. W ConstrainedLanguage nie jest
+   znany żaden sposób, w jaki skrypt dosięgnąłby sesji okna albo jej poświadczeń: nie przenosi ich żadna zmienna, parametr
+   ani składowa `$Host` (polecenia AD Managera znajdują swoje okno w rejestrze silnika, według runspace'u), żadne polecenie
+   okna nie uruchamia kodu w innym trybie języka (punkt 3), droga audytu przez `ForEach-Object -Parallel` i drogi trzech
+   późniejszych prób obejścia okna (red team, 12.7–12.9 notatki wykonawczej) są testami, które muszą pozostać odrzucone, a w R1 nie powstaje żaden `PSCredential` (zasada 2); w
+   trybie zaufanym może to zrobić odbicie .NET (punkt 3). Filtry budujemy
    przez `AdMng.Core.Ldap.LdapFilter`, a DN przez `DistinguishedName` (zasada 3). Polecenia czytają wyłącznie z
    `IDirectorySession` okna – jeden DC, bez `-Server` i `-Credential` (zasada 4). Każde wywołanie katalogu jest
    asynchroniczne z tokenem anulowania potoku (`StopProcessing` go anuluje); wyniki są strumieniowane i stronicowane, 100

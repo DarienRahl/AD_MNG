@@ -12,9 +12,9 @@ namespace AdMng.PowerShell.Probe;
 /// The child process of the engine's file tests. <c>Probe.dll &lt;mode&gt; &lt;report file&gt;</c>; the parent sets the
 /// environment (HOME, TEMP, XDG_*, the user's own PowerShell settings) and looks at the folders afterwards. Modes:
 /// <c>files</c> (the window's session, a script that touches the formatter, module discovery, completion, syntax and the
-/// history policy, then a measurement), <c>control</c> (an ordinary runspace of the SDK: the parent expects it to leave
-/// telemetry.uuid), <c>control-known-folders</c> (Windows: an ordinary runspace that writes a file into the user's real cache folder of
-/// PowerShell, which the parent's snapshot must see), <c>cache-control</c> and <c>cache-window</c> (the module analysis cache, about 40 s each), <c>left-run</c> (a
+/// history policy, then a measurement; the report names the engine's folders, <see cref="EngineFolders"/>), <c>control</c> (an
+/// ordinary runspace of the SDK and a file of the probe in the engine's cache folder: the parent expects to see that file and the
+/// engine's telemetry.uuid where it watches), <c>cache-control</c> and <c>cache-window</c> (the module analysis cache, about 40 s each), <c>left-run</c> (a
 /// run the session left: the process still ends), <c>leftover-callback</c> and <c>leftover-callback-control</c> (a script block
 /// that trusted-mode code left behind runs after its window closed: the process survives it, the control crashes), <c>deep-input:&lt;case&gt;</c>
 /// (a line nested deeper than the engine can walk, checked, highlighted, completed and run from a thread with the stack of the window's UI
@@ -26,7 +26,7 @@ internal static class Program
     {
         if (args.Length != 2)
         {
-            await Console.Error.WriteLineAsync("usage: probe <files|control|control-known-folders|cache-control|cache-window|left-run|leftover-callback|leftover-callback-control|deep-input:<case>> <report file>");
+            await Console.Error.WriteLineAsync("usage: probe <files|control|cache-control|cache-window|left-run|leftover-callback|leftover-callback-control|deep-input:<case>> <report file>");
             return 2;
         }
 
@@ -39,12 +39,7 @@ internal static class Program
                     await FilesAsync(report);
                     break;
                 case "control":
-                    Control();
-                    await File.WriteAllTextAsync(report, "done\n");
-                    break;
-                case "control-known-folders":
-                    ControlKnownFolders();
-                    await File.WriteAllTextAsync(report, "done\n");
+                    await File.WriteAllTextAsync(report, Control() + "done\n");
                     break;
                 case "cache-control":
                     await CacheControlAsync();
@@ -97,7 +92,7 @@ internal static class Program
 
         // An explicit module listing, as an operator would type it. Get-Module is not in the window's command list (CommandGuards), so
         // the line fails and only shows that trying writes nothing; discovery runs through Get-Command and completion above and below.
-        // On Windows the parent watches the known folders the engine would write to (audit TI-1), so this runs there too.
+        // The parent watches the folders the engine would write to (EngineFolders, audit TI-1), so this runs on Windows too.
         await RunAsync(first, "Get-Module -ListAvailable | Out-Null");
 
         await first.CompleteAsync("Get-Ad", 6, CancellationToken.None);
@@ -110,36 +105,29 @@ internal static class Program
             report,
             string.Create(
                 CultureInfo.InvariantCulture,
-                $"first_ms={firstMs}\nsecond_ms={secondMs}\nmanaged_kb={managed / 1024}\nworking_set_mb={workingSet / (1024 * 1024)}\ndone\n"));
+                $"first_ms={firstMs}\nsecond_ms={secondMs}\nmanaged_kb={managed / 1024}\nworking_set_mb={workingSet / (1024 * 1024)}\n{EngineFolders.OfThisProcess().ToReport()}done\n"));
     }
 
-    private static void Control()
+    private static string Control()
     {
-        // No AdMng code: an ordinary runspace of the SDK with telemetry on, as a plain pwsh-like host would start.
+        // No AdMng code: an ordinary runspace of the SDK with telemetry on, as a plain pwsh-like host would start - its first command
+        // writes the engine's telemetry.uuid into the engine's cache folder. The probe also writes a file of its own there, so the parent
+        // sees a new file even when the user already has a telemetry.uuid in a folder it watches (audit TI-1).
         using var runspace = RunspaceFactory.CreateRunspace();
         runspace.Open();
         using var ps = SmaPowerShell.Create();
         ps.Runspace = runspace;
         ps.AddScript("Get-Date | Out-Null").Invoke();
-    }
-
-    private static void ControlKnownFolders()
-    {
-        // Windows: an ordinary runspace, telemetry on (the engine's own telemetry.uuid when the user has none), and a script that writes a
-        // file into the engine's cache folder as the engine would - found through the known-folder API, which the parent's environment
-        // variables do not move (audit TI-1). The parent must see the file in its snapshot of that folder.
-        using var runspace = RunspaceFactory.CreateRunspace();
-        runspace.Open();
-        using var ps = SmaPowerShell.Create();
-        ps.Runspace = runspace;
-        ps.AddScript(
-            "$cache = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Microsoft\\PowerShell'; "
-            + "$null = New-Item -ItemType Directory -Force -Path $cache; "
-            + "[System.IO.File]::WriteAllText((Join-Path $cache ('admng-no-files-control-' + [guid]::NewGuid().ToString('N') + '.tmp')), 'x')").Invoke();
         if (ps.HadErrors)
         {
             throw new InvalidOperationException(string.Join("; ", ps.Streams.Error.Select(error => error.ToString())));
         }
+
+        var folders = EngineFolders.OfThisProcess();
+        Directory.CreateDirectory(folders.Cache);
+        var control = Path.Combine(folders.Cache, EngineFolders.ControlFilePrefix + Guid.NewGuid().ToString("N") + ".tmp");
+        File.WriteAllText(control, "x");
+        return folders.ToReport() + "control=" + control + "\n";
     }
 
     private static async Task CacheControlAsync()
