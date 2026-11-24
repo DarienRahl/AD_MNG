@@ -1,4 +1,3 @@
-using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Core.Model;
@@ -12,8 +11,8 @@ namespace AdMng.Presentation.Infrastructure;
 /// </summary>
 internal static class DirectoryLookup
 {
-    /// <summary>DNs per OR filter (keeps filters well below AD's 10 MB / MaxQueryDuration limits).</summary>
-    public const int BatchSize = 100;
+    /// <summary>DNs per OR filter (<see cref="DistinguishedNameBatch.Size"/>).</summary>
+    public const int BatchSize = DistinguishedNameBatch.Size;
 
     /// <summary>
     /// Reads the objects with the given DNs (duplicates ignored). Objects outside the domain partition (e.g. groups of
@@ -35,14 +34,7 @@ internal static class DirectoryLookup
             .ToList();
         foreach (var chunk in unique.Chunk(BatchSize))
         {
-            var search = new DirectorySearch
-            {
-                BaseDn = session.Info.DefaultNamingContext,
-                Scope = SearchScope.Subtree,
-                Filter = LdapFilter.Or(chunk.Select(dn => LdapFilter.Equal(Attr.DistinguishedName, dn))),
-                Attributes = attributes,
-                PageSize = BatchSize,
-            };
+            var search = DistinguishedNameBatch.Search(session, chunk, attributes);
             await foreach (var obj in session.SearchAsync(search, cancellationToken).ConfigureAwait(false))
             {
                 result[DnKey.For(obj.DistinguishedName)] = obj;

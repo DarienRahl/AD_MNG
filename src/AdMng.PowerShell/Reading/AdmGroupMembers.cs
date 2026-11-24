@@ -36,8 +36,8 @@ internal sealed class AdmMemberReport
 /// </summary>
 internal static class AdmGroupMembers
 {
-    /// <summary>DNs per OR filter (the program's own batch size; it keeps the filter far below the DC's limits).</summary>
-    public const int BatchSize = 100;
+    /// <summary>DNs per OR filter: the program's own batch (<see cref="DistinguishedNameBatch"/>).</summary>
+    public const int BatchSize = DistinguishedNameBatch.Size;
 
     /// <summary>The search for the direct and indirect members of <paramref name="groupDn"/>, groups included unless <paramref name="excludeGroups"/>.</summary>
     public static DirectorySearch NestedSearch(IDirectoryReader reader, string groupDn, IReadOnlyList<string> attributes, bool excludeGroups) => new()
@@ -119,7 +119,7 @@ internal static class AdmGroupMembers
         {
             if (DistinguishedName.TryParse(dn, out var parsed) && !parsed.IsRoot)
             {
-                wanted[Key(parsed.ToString())] = dn;
+                wanted[DistinguishedName.KeyOf(dn)] = dn;
             }
             else
             {
@@ -132,17 +132,10 @@ internal static class AdmGroupMembers
             yield break;
         }
 
-        var search = new DirectorySearch
-        {
-            BaseDn = reader.Info.DefaultNamingContext,
-            Scope = SearchScope.Subtree,
-            Filter = LdapFilter.Or(wanted.Values.Select(dn => LdapFilter.Equal(Attr.DistinguishedName, dn))),
-            Attributes = attributes,
-            PageSize = BatchSize,
-        };
+        var search = DistinguishedNameBatch.Search(reader, wanted.Values, attributes);
         await foreach (var member in reader.SearchAsync(search, cancellationToken).ConfigureAwait(false))
         {
-            wanted.Remove(Key(DistinguishedName.TryParse(member.DistinguishedName, out var found) ? found.ToString() : member.DistinguishedName));
+            wanted.Remove(DistinguishedName.KeyOf(member.DistinguishedName));
             yield return member;
         }
 
@@ -151,6 +144,4 @@ internal static class AdmGroupMembers
             report.Add(missing);
         }
     }
-
-    private static string Key(string distinguishedName) => distinguishedName.ToUpperInvariant();
 }

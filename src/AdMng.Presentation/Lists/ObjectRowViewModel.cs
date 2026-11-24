@@ -214,6 +214,5 @@ public sealed class ObjectRowViewModel : INotifyPropertyChanged
 internal static class DnKey
 {
     /// <summary>Normalized dictionary key for a DN (parsed form, upper case) so differently escaped DNs match.</summary>
-    public static string For(string dn) =>
-        (DistinguishedName.TryParse(dn, out var parsed) ? parsed.ToString() : dn).ToUpperInvariant();
+    public static string For(string dn) => DistinguishedName.KeyOf(dn);
 }
