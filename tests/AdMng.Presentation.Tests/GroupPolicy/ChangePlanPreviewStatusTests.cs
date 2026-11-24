@@ -234,6 +234,8 @@ public sealed class ChangePlanPreviewStatusTests
         var plan = await CopyPlanAsync(h);
         var preview = new ChangePlanPreviewViewModel(h.Ui, h.B2.Engines, new ChangePlanPreviewRequest(plan, "Kopia"));
         var window = new TestWindowHost(preview);
+        var toastedAfterTheClose = false;
+        h.B2.Notifications.OnShow = (_, _) => toastedAfterTheClose = window.IsClosed;
         using var held = new SemaphoreSlim(0);
         using var release = new ManualResetEventSlim();
         var hold = 1;
@@ -282,6 +284,15 @@ public sealed class ChangePlanPreviewStatusTests
         Assert.True(window.IsClosed);
         Assert.True(preview.ChangedDirectory);
         Assert.Equal(2, h.B2.Dialogs.CloseQuestions.Count);
+
+        // The line that said how far the stopped plan got went with the window: the connection says it - after the window
+        // closed - with the domain, so the operator knows that a part of the GPO change was made.
+        var toast = Assert.Single(h.B2.Notifications.Items);
+        Assert.Equal(NotificationSeverity.Warning, toast.Severity);
+        Assert.StartsWith("Executing “Kopia” in contoso.test was stopped: 1 of ", toast.Message, StringComparison.Ordinal);
+        Assert.EndsWith(" objects done, failed: 0, the one that ran was finished.", toast.Message, StringComparison.Ordinal);
+        Assert.True(toastedAfterTheClose);
+        Assert.Empty(h.B2.Dialogs.Errors);
     }
 
     [Fact]

@@ -63,6 +63,12 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
     /// <summary>The close question that is open or waiting for a stop: a second close joins it (one question, one wait).</summary>
     private Task<bool>? _closing;
 
+    /// <summary>
+    /// The executions a close looked at (D-A): told once the window closed, so that the connection says how those that ended
+    /// in the window ended - its line goes with it (<see cref="Feedback.IWindowRun.WindowClosed"/>).
+    /// </summary>
+    private readonly List<Feedback.IWindowRun> _reportOnClose = [];
+
     protected WindowViewModelBase(DialogServices services)
     {
         Services = services ?? throw new ArgumentNullException(nameof(services));
@@ -152,7 +158,9 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
     /// may go on without the window), Don't close - and the window closes after a stopped operation ended, or at once when the
     /// execution left it; one that cannot be stopped keeps the window open and says so; a read is cancelled without a
     /// question. The window's own questions (<see cref="CanCloseCoreAsync"/>: unsaved changes, generated passwords) come
-    /// with it. A second close while the first one asks or waits - the title bar, then the Close button - joins it.
+    /// with it. A second close while the first one asks or waits - the title bar, then the Close button - joins it. A window that
+    /// closes after an execution ended in it - stopped, or its result came back under the question - hands the connection's
+    /// report of it on once it has closed (<see cref="Dispose()"/>).
     /// </summary>
     public Task<bool> CanCloseAsync()
     {
@@ -170,8 +178,16 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
     {
         try
         {
-            return await Feedback.RunningWork.ConfirmCloseAsync(
-                Services.Localizer, Services.Dialogs, WindowTitle, Feedback.RunningWork.HoldersOf(this), ownQuestions: CanCloseCoreAsync).ConfigureAwait(true);
+            var closes = await Feedback.RunningWork.ConfirmCloseAsync(
+                Services.Localizer, Services.Dialogs, WindowTitle, Feedback.RunningWork.HoldersOf(this), ownQuestions: CanCloseCoreAsync,
+                reportOnClose: _reportOnClose).ConfigureAwait(true);
+            if (closes && IsDisposed)
+            {
+                // Closed by force while the question waited (the owner window closed): the runs are told now.
+                TellRunsTheWindowClosed();
+            }
+
+            return closes;
         }
         finally
         {
@@ -197,11 +213,22 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
 
         // A close that was not asked (the owner window closed, the program ends): an execution that still runs leaves the
         // window - whatever would have kept it - so that the connection says how it ended; nothing of the window is touched
-        // by it any more.
+        // by it any more. One whose result came back already, while the window's code finishes (it reads its list again),
+        // cannot leave: the connection says how it ended all the same, as the line goes with the window.
         foreach (var operation in Feedback.RunningWork.RunningWrites(Feedback.RunningWork.HoldersOf(this)))
         {
-            operation.Run?.LeaveWindow();
+            if (operation.Run is { } run && !run.LeaveWindow())
+            {
+                run.ReportByConnection();
+                if (!_reportOnClose.Contains(run))
+                {
+                    _reportOnClose.Add(run);
+                }
+            }
         }
+
+        // The window is gone now: what the connection says of the executions that ended in it comes after it, never owned by it.
+        TellRunsTheWindowClosed();
 
         Services.Localizer.CultureChanged -= OnLocalizerCultureChanged;
         Services.Sessions.SessionChanged -= OnSessionsChanged;
@@ -212,6 +239,16 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
     /// <summary>Releases subscriptions of the derived view model.</summary>
     protected virtual void Dispose(bool disposing)
     {
+    }
+
+    private void TellRunsTheWindowClosed()
+    {
+        var runs = _reportOnClose.ToList();
+        _reportOnClose.Clear();
+        foreach (var run in runs)
+        {
+            run.WindowClosed();
+        }
     }
 
     /// <summary>

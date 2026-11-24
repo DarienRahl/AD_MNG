@@ -558,9 +558,11 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase, IHasPageS
         ClosePreview();
         if (result is not null && result.FailedCount == 0 && !execution.ReportsByConnection)
         {
-            // A restore without failures is also a toast of the main window, for which it finished elsewhere. (A window that
-            // closes right after it leaves that to the connection, which says it once.)
+            // A restore without failures is also a toast of the main window, for which it finished elsewhere - the report of the
+            // restore, also when the window is closed while it reads the list again. (A window that closes right after it leaves
+            // that to the connection, which says it once, after the window closed.)
             ReportRestored(result);
+            execution.WindowNotifies = true;
         }
 
         if (execution.ReportsByConnection)

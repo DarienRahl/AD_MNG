@@ -97,7 +97,6 @@ public static partial class L
         /// <summary>{0} = domain, {1} = account (with the ordinal of a second identical window), {2} = app title.</summary>
         public const string WindowTitleConnection = "Shell.WindowTitleConnection";
 
-        /// <summary>{0} = domain: closing one connection window while its background operations run.</summary>
         public const string MenuFile = "Shell.MenuFile";
         public const string MenuAction = "Shell.MenuAction";
         public const string MenuView = "Shell.MenuView";

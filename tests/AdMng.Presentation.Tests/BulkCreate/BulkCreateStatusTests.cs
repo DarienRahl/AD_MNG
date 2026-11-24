@@ -269,5 +269,51 @@ public sealed class BulkCreateStatusTests
         harness.Session.BeforeOperation = null;
         Assert.True(wizard.Editor.IsResultsStep);
     }
-}
 
+    [Fact]
+    public async Task AForcedCloseWhileAFirstAccountThatAlreadyExistsIsCreated_StartsNoOtherFirstAccount()
+    {
+        // The first account already exists in the directory: normally the wizard hands over to the next account as the first one.
+        // But the owner window closed by force (nothing is asked) while the first account was created: no other account is
+        // started for a window that is gone.
+        using var wizard = await B4Wizard.CreateAsync();
+        wizard.Use(wizard.OperatorInput(new BulkAccountOptions { PasswordMode = InitialPasswordMode.None, Enabled = false }));
+        await wizard.EnterCheckAsync();
+        await wizard.Editor.PreviewCommand.ExecuteAsync(null);
+        Assert.True(wizard.Editor.IsPreviewStep, wizard.Editor.Error);
+        var harness = wizard.Harness;
+        harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
+        harness.Session.FailNext(FakeOperationKind.Add, null, Core.Directory.DirectoryErrorKind.AlreadyExists);
+        using var held = new SemaphoreSlim(0);
+        using var release = new ManualResetEventSlim();
+        var creates = 0;
+        harness.Session.BeforeOperation = operation =>
+        {
+            if (operation.Kind == FakeOperationKind.Add && Interlocked.Increment(ref creates) == 1)
+            {
+                held.Release();
+                release.Wait(TestContext.Current.CancellationToken);
+            }
+        };
+        Task execution;
+        try
+        {
+            execution = wizard.Editor.ExecuteCommand.ExecuteAsync(null);
+            Assert.True(await held.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+            Assert.Equal(BulkExecutionPart.FirstAccount, wizard.Editor.BulkCreate!.ExecutingPart);
+
+            // The owner window closes: the forced close of the batch editor (the only path that disposes without the question).
+            wizard.Editor.Dispose();
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        await execution.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        harness.Session.BeforeOperation = null;
+
+        Assert.Equal(1, creates);
+        Assert.True(wizard.Editor.BulkCreate!.WasStoppedAfterCanary);
+    }
+}

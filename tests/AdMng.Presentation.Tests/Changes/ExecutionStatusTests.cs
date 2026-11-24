@@ -469,6 +469,13 @@ public class ExecutionStatusTests
         Assert.True(rest.HasLeftWindow);
         second.Report(2, 3, 0);
         Assert.Equal(PageStatusKind.Idle, status.Current.Kind);
+
+        // Not followed: a Stop of the window that is gone reaches neither the part that left nor the one that started after it.
+        execution.Stop();
+        Assert.False(canary.IsCancelling);
+        Assert.False(rest.IsCancelling);
+        Assert.False(second.Token.IsCancellationRequested);
+        Assert.Contains(harness.Activities.RunningInBackground, work => ReferenceEquals(work, rest));
         first.End(Result());
         second.End(Result());
         await firstRun;
@@ -494,7 +501,7 @@ public class ExecutionStatusTests
     }
 
     [Fact]
-    public async Task ReportByConnection_MarksTheActivity_ButNotWhenTheWindowNotifiesItself()
+    public async Task ReportByConnection_IsTaken_ButNotWhenTheWindowNotifiesItself()
     {
         var harness = await B2Harness.CreateAsync();
         foreach (var windowNotifies in new[] { false, true })
@@ -509,7 +516,6 @@ public class ExecutionStatusTests
 
             execution.ReportByConnection();
 
-            Assert.Equal(!windowNotifies, activity.ReportsByConnection);
             Assert.Equal(!windowNotifies, execution.ReportsByConnection);
             Assert.False(execution.LeftWindow);
             work.End(Result());

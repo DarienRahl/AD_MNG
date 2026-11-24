@@ -510,6 +510,8 @@ public sealed class ResetPasswordStatusTests
         var window = new TestWindowHost(dialog);
         await dialog.InitializeAsync();
         harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
+        var toastedAfterTheClose = false;
+        harness.Notifications.OnShow = (_, _) => toastedAfterTheClose = window.IsClosed;
 
         using var held = new SemaphoreSlim(0);
         using var release = new ManualResetEventSlim();
@@ -530,6 +532,7 @@ public sealed class ResetPasswordStatusTests
             Assert.True(await held.WaitAsync(Limit, Ct));
             await B2Harness.WaitUntilAsync(() => harness.Activities.Activities is [{ IsRunning: true }]);
             Assert.True(dialog.Status.Operation is { Writes: OperationWrites.Changes, CanCancel: true });
+            harness.Notifications.Clear();
 
             // The operator closes the window during the reset: several accounts get generated passwords, which exist only in this
             // window - no background, and the question says why. Don't close: the window stays and nothing is stopped.
@@ -565,14 +568,22 @@ public sealed class ResetPasswordStatusTests
         harness.Session.BeforeOperation = null;
 
         // Closed after the end: the account that was on its way is complete, the other one was not started - and only then the
-        // window's own question, about the generated passwords nobody took, was asked. The connection reports nothing: the run
-        // stayed with its window.
+        // window's own question, about the generated passwords nobody took, was asked. The stop ended the way a Stop ends
+        // (attention, the window no longer busy).
         Assert.Equal(3, harness.Dialogs.Shown.Count);
         Assert.Equal("confirm:" + harness.Localizer[L.Batch.DiscardPasswords], harness.Dialogs.Shown[2]);
         Assert.Single(harness.Session.PasswordResets);
         Assert.DoesNotContain(harness.Session.Writes, w => w.DistinguishedName == harness.Company.LukaszWisniewski);
-        Assert.DoesNotContain(harness.Notifications.Items, n => n.Message.Contains("contoso.test", StringComparison.Ordinal));
+        Assert.False(dialog.IsBusy);
+        Assert.Equal(PageStatusKind.Attention, dialog.Status.Current.Kind);
         Assert.Equal(1, window.Disposals);
+
+        // The line goes with the window: once it closed, the connection says how far the stopped reset got - never a password.
+        var toast = Assert.Single(harness.Notifications.Items);
+        Assert.Equal(NotificationSeverity.Warning, toast.Severity);
+        Assert.Equal(
+            "Executing “Reset Password” in contoso.test was stopped: 1 of 2 objects done, failed: 0, the one that ran was finished.", toast.Message);
+        Assert.True(toastedAfterTheClose);
     }
 
     [Fact]
@@ -669,6 +680,66 @@ public sealed class ResetPasswordStatusTests
         Assert.Equal(
             "“Reset Password” was executed in contoso.test: 1 object changed. The report is in the list of background operations.",
             Assert.Single(harness.Notifications.Items).Message);
+    }
+
+    [Fact]
+    public async Task ATypedPassword_StopInTheLine_ThenTheWindowIsClosed_AsksNothing_AndTheConnectionSaysWhatFailed()
+    {
+        // Stop pressed in the line, then the window closed: nothing is left to ask, the window closes after the end. The DC refused
+        // the reset - which the window's own toast (full success only) would not have said: the connection says it, once the
+        // window closed.
+        var harness = await B2Harness.CreateAsync();
+        var dialog = harness.Factory.CreateResetPassword([harness.Company.ZanetaSzymanska]);
+        var window = new TestWindowHost(dialog);
+        await dialog.InitializeAsync();
+        dialog.PasswordInput = new TestPasswordInput(Typed);
+        dialog.ConfirmPasswordInput = new TestPasswordInput(Typed);
+        harness.Session.FailNext(FakeOperationKind.ResetPassword, harness.Company.ZanetaSzymanska, DirectoryErrorKind.AccessDenied);
+        using var held = new SemaphoreSlim(0);
+        using var release = new ManualResetEventSlim();
+        var hold = 1;
+        harness.Session.BeforeOperation = operation =>
+        {
+            if (operation.Kind == FakeOperationKind.ResetPassword && Interlocked.Exchange(ref hold, 0) == 1)
+            {
+                held.Release();
+                release.Wait(HoldLimit);
+            }
+        };
+        var reportedAfterTheClose = new List<bool>();
+        harness.Dialogs.OnError = (_, _) => reportedAfterTheClose.Add(window.IsClosed);
+        Task resetting;
+        Task<bool> closing;
+        try
+        {
+            resetting = dialog.ResetCommand.ExecuteAsync(null);
+            Assert.True(await held.WaitAsync(Limit, Ct));
+            await B2Harness.WaitUntilAsync(() => harness.Activities.Activities is [{ IsRunning: true }]);
+            dialog.Status.CancelCommand.Execute(null);
+            await B2Harness.WaitUntilAsync(() => harness.Activities.Activities[0].IsCancelling);
+            closing = window.CloseByTitleBarAsync();
+            Assert.Empty(harness.Dialogs.CloseQuestions);
+            Assert.False(closing.IsCompleted);
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        await resetting.WaitAsync(Limit, Ct);
+        Assert.True(await closing.WaitAsync(Limit, Ct));
+        harness.Session.BeforeOperation = null;
+
+        Assert.True(window.IsClosed);
+        Assert.Empty(harness.Session.PasswordResets);
+        var (title, message) = Assert.Single(harness.Dialogs.Errors);
+        Assert.Equal("Reset Password", title);
+        var lines = message.Split('\n');
+        Assert.Equal("Could not execute “Reset Password” in contoso.test: nothing was changed, failed: 1.", lines[0]);
+        Assert.Contains(lines, l => l.StartsWith("• Żaneta Szymańska: ", StringComparison.Ordinal));
+        Assert.Equal("Every change and its result are in the session log.", lines[^1]);
+        Assert.Equal([true], reportedAfterTheClose);
+        Assert.Empty(harness.Notifications.Items);
     }
 
     [Fact]

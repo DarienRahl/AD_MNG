@@ -26,7 +26,9 @@ namespace AdMng.Presentation.Changes;
 /// coordinator says how the run ended (a notification, or a dialog with the failures); the window's code sees
 /// <see cref="LeftWindow"/> after its await and leaves the result alone. A run whose result must stay with the window says
 /// why (<see cref="StaysWithWindow"/>): the generated passwords, the caller that waits for the result, the first account
-/// of the bulk wizard.</para>
+/// of the bulk wizard. A window that closes after the run ended - Stop and close, a Stop that came first, a result that came
+/// back under the question - hands the connection's report of it on once it closed (<see cref="WindowClosed"/>): its line,
+/// which said the result, goes with it.</para>
 /// <para>Stop <b>finishes the object in progress</b> (V2b-5b, the executor's rule): nothing new is started, but the
 /// objects that ran when it came get all their changes. The stopped result therefore says how many objects are done
 /// and that the ones that ran were finished (<see cref="BatchResult.FinishedAfterStopCount"/>) - never "half done".</para>
@@ -44,6 +46,9 @@ public sealed class ExecutionStatus : IWindowRun, IDisposable
     private readonly CancellationTokenRegistration _stop;
     private ActivityViewModel? _activity;
 
+    // The activity followed last: its result went back to this window, with the report the connection would make (D-A).
+    private ActivityViewModel? _last;
+
     // What was reported so far, and the part of it that the earlier activities of this execution did (see Follow).
     private int _done;
     private int _failed;
@@ -51,10 +56,13 @@ public sealed class ExecutionStatus : IWindowRun, IDisposable
     private int _failedBefore;
     private bool _stopRequested;
 
-    // Closing the window (D-A): why the run must stay with it, whether it left it, whether the connection reports it too.
+    // Closing the window (D-A): why the run must stay with it, whether it left it, whether a close asks about it or waits for
+    // it (the connection's report is kept then), whether the window closes right after it, and whether the code ended it.
     private string? _mustStayKey;
     private bool _left;
+    private bool _closePending;
     private bool _reportByConnection;
+    private bool _disposed;
 
     private ExecutionStatus(PageStatusHolder status, ILocalizer localizer, string title, string domain, int total)
     {
@@ -87,13 +95,14 @@ public sealed class ExecutionStatus : IWindowRun, IDisposable
 
     /// <summary>
     /// True when the connection says how this run ended: it left the window, or the window closes right after it
-    /// (<see cref="ReportByConnection"/>). A window that shows a notification of its own then leaves it out.
+    /// (<see cref="ReportByConnection"/>). A window then leaves out what only an open window needs: its own notification, a
+    /// re-read of its list.
     /// </summary>
     public bool ReportsByConnection => _left || _reportByConnection;
 
     /// <summary>
-    /// The window says the outcome itself outside its line, in a notification of the main window (the batch editor): a
-    /// Stop and close needs no report of the connection.
+    /// The window said the outcome itself outside its line, in a notification of the main window - the batch editor always,
+    /// the Recycle Bin and Reset Password when they showed theirs: the connection says nothing more when the window closes.
     /// </summary>
     public bool WindowNotifies { get; set; }
 
@@ -144,21 +153,18 @@ public sealed class ExecutionStatus : IWindowRun, IDisposable
         }
 
         activity.AttachWindow();
-        if (_reportByConnection)
-        {
-            activity.MarkReportsByConnection();
-        }
-
         if (_activity is { } previous)
         {
             // The numbers go on from what the earlier activity reported while it ran (its counters of afterwards are
-            // those of its outcome, which counts differently).
+            // those of its outcome, which counts differently). What the connection would say of that part alone is dropped.
             previous.PropertyChanged -= OnActivityChanged;
+            previous.TakeReport();
             _doneBefore = _done;
             _failedBefore = _failed;
         }
 
         _activity = activity;
+        _last = activity;
         activity.PropertyChanged += OnActivityChanged;
         if (_stopRequested)
         {
@@ -241,6 +247,9 @@ public sealed class ExecutionStatus : IWindowRun, IDisposable
     }
 
     /// <inheritdoc />
+    public void WindowMayClose() => _closePending = !_left;
+
+    /// <inheritdoc />
     public void ReportByConnection()
     {
         if (WindowNotifies || _left)
@@ -248,8 +257,38 @@ public sealed class ExecutionStatus : IWindowRun, IDisposable
             return;
         }
 
+        _closePending = true;
         _reportByConnection = true;
-        _activity?.MarkReportsByConnection();
+    }
+
+    /// <inheritdoc />
+    public void WindowStays()
+    {
+        _closePending = false;
+        _reportByConnection = false;
+        if (_disposed)
+        {
+            // The window's code said the result in the line already: nothing is kept for the connection.
+            _last?.TakeReport();
+        }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// Told only for a run a close looked at (<see cref="WindowMayClose"/>, <see cref="ReportByConnection"/>): the report is
+    /// still kept then - it is dropped as soon as the line said the result with no close waiting (<see cref="Dispose"/>) or the
+    /// window stayed (<see cref="WindowStays"/>).
+    /// </remarks>
+    public void WindowClosed()
+    {
+        var hand = !_left && !WindowNotifies;
+        _closePending = false;
+        _reportByConnection = false;
+        var report = _last?.TakeReport();
+        if (hand)
+        {
+            report?.Invoke();
+        }
     }
 
     /// <inheritdoc />
@@ -268,6 +307,13 @@ public sealed class ExecutionStatus : IWindowRun, IDisposable
         {
             activity.PropertyChanged -= OnActivityChanged;
             _activity = null;
+        }
+
+        _disposed = true;
+        if (!_closePending)
+        {
+            // The line said how the run ended, and no close of the window waits for it: the connection keeps nothing.
+            _last?.TakeReport();
         }
 
         // First the operation, then the registration: a token that is cancelled because the operation ended must not

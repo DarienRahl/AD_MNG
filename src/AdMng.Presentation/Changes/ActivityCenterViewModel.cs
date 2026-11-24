@@ -83,9 +83,6 @@ public sealed partial class ActivityCenterViewModel : ObservableObject, IDisposa
     /// </summary>
     public IReadOnlyList<IBackgroundWork> RunningInBackground => [.. Activities.Where(a => a.IsRunning && !a.HasWindow)];
 
-    /// <summary>The UI thread: the coordinator says how a run without its window ended in a later turn of it.</summary>
-    internal IUiDispatcher Dispatcher => _dispatcher;
-
     /// <summary>
     /// Starts a background batch execution. Must be called on the UI thread. The result is handed to the caller only
     /// through <see cref="ActivityRun.Execution"/>; the activity keeps just the counters it displays.
@@ -214,6 +211,10 @@ internal readonly record struct ActivityOutcome(int Executed, int Succeeded, int
 /// comes back - may meet on different threads (the tests), so the state changes atomically and exactly one side wins. An
 /// activity that no window ever followed (a simple action, a property sheet, a computer account reset) is its caller's,
 /// which says how it ended itself.</para>
+/// <para>A result that went back to its window also leaves the report the connection would make here
+/// (<see cref="KeepReport"/>): the window closes before its line said it when the close question was open or the window
+/// closes right after the run, and then the window hands it on once it closed. Only the texts are kept - never the result
+/// with its plan - and the window drops them when its line said the result.</para>
 /// </remarks>
 public sealed partial class ActivityViewModel : ObservableObject, IBackgroundWork
 {
@@ -250,8 +251,8 @@ public sealed partial class ActivityViewModel : ObservableObject, IBackgroundWor
     internal CancellationToken CancellationToken => _cancellation.Token;
 
     private int _window;
-    private volatile bool _reportsByConnection;
     private volatile bool _reportSuppressed;
+    private Action? _report;
 
     /// <summary>True while a window follows this activity in its status line (until it left it or its result came back).</summary>
     internal bool HasWindow => Volatile.Read(ref _window) == Followed;
@@ -261,12 +262,6 @@ public sealed partial class ActivityViewModel : ObservableObject, IBackgroundWor
 
     /// <summary>True once its result went back to the window that followed it.</summary>
     internal bool HasReturnedToWindow => Volatile.Read(ref _window) == Returned;
-
-    /// <summary>
-    /// The window that closed after this run (Stop and close) asked the connection to say how it ended too - its line goes
-    /// with the window.
-    /// </summary>
-    internal bool ReportsByConnection => _reportsByConnection;
 
     /// <summary>
     /// Its connection closes: how it ended is not reported in a notification or a dialog (the activity list and the session
@@ -308,8 +303,15 @@ public sealed partial class ActivityViewModel : ObservableObject, IBackgroundWor
     /// </summary>
     internal bool TryReturnToWindow() => Interlocked.CompareExchange(ref _window, Returned, Followed) != Left;
 
-    /// <summary>The connection says how it ended too (<see cref="ReportsByConnection"/>).</summary>
-    internal void MarkReportsByConnection() => _reportsByConnection = true;
+    /// <summary>
+    /// What the connection would say about how this run ended - a notification or a failure dialog, posted to a later turn of
+    /// the UI thread - kept for the window its result went back to, which hands it on if it closes before its line said it.
+    /// Set by the coordinator; the closure holds texts only, never the result.
+    /// </summary>
+    internal void KeepReport(Action report) => Volatile.Write(ref _report, report);
+
+    /// <summary>The kept report, taken once: null when there is none or it was taken (handed on, or dropped by the window).</summary>
+    internal Action? TakeReport() => Interlocked.Exchange(ref _report, null);
 
     /// <inheritdoc />
     public void StopBecauseTheConnectionCloses()

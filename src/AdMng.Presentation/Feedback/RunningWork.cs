@@ -37,17 +37,22 @@ public interface IHasPageStatusParts
 /// <para><b>What the answers do.</b> Stop and close stops every write through the holder's own Stop (and the run's, for an
 /// execution that lost the line) and the connection's background work, and the window closes <em>after they ended</em> -
 /// a write is never killed in the middle of a step: the object in progress is finished first, <c>BatchExecutor</c>'s
-/// rule; a run that may leave is reported by the connection too, because the line goes with the window. Close and continue
-/// lets every run leave its window at once (<see cref="IWindowRun.LeaveWindow"/>): the window closes and the connection
-/// says how the run ended. Don't close keeps the window and nothing is stopped. The window's own questions (unsaved
-/// changes, generated passwords) come after the answer and before a run leaves; for writes that stay they come after the
-/// end, when their results are visible.</para>
+/// rule. Close and continue lets every run leave its window at once (<see cref="IWindowRun.LeaveWindow"/>): the window closes
+/// and the connection says how the run ended. Don't close keeps the window and nothing is stopped. The window's own questions
+/// (unsaved changes, generated passwords) come after the answer and before a run leaves; for writes that stay they come after
+/// the end, when their results are visible.</para>
+/// <para><b>Who says how a run ended.</b> A window that closes after its run ended - Stop and close, a Stop that was pressed
+/// before the close and needs no question, a result that came back to the window while the question was open or while the
+/// window reads its list again - takes its line with it: the run is handed to the connection, which says how it ended once
+/// the window has closed (<see cref="IWindowRun.ReportByConnection"/>, <see cref="IWindowRun.WindowClosed"/>), unless the
+/// window said it in a notification of its own. Such a run never keeps the window open against the answer: there is nothing
+/// left to stop or to leave, the window closes once its code ended. The connection window hands nothing on: closing it ends
+/// the connection.</para>
 /// <para><b>What is looked at</b> is every write whose code has not ended (<see cref="PageStatusHolder.Writes"/>), not only
 /// the operation a line shows: a write that another operation took off the line still writes. And it is looked at again
 /// after the question and after the wait, because the window stays usable under both: a write that began meanwhile is
-/// asked about in its own right. A run whose result came back to its window while the question was open keeps the window,
-/// whatever the answer - its line shows the result; an answer that can no longer be honoured (the run cannot leave any
-/// more) is asked for again.</para>
+/// asked about in its own right. An answer that can no longer be honoured (a run that must stay with the window now) is asked
+/// for again.</para>
 /// </remarks>
 public static class RunningWork
 {
@@ -103,8 +108,8 @@ public static class RunningWork
     /// <summary>
     /// The close question of a window, over everything it holds (<see cref="HoldersOf"/>). True when the window may close:
     /// nothing writes, or the operator answered and what writes has ended or left the window - and the window's own
-    /// questions allowed it. False when the operator kept the window, an operation that cannot be stopped still runs (the
-    /// operator was told), or a run's result came back to the window while the question was open.
+    /// questions allowed it. False when the operator kept the window or an operation that cannot be stopped still runs (the
+    /// operator was told).
     /// </summary>
     /// <param name="localizer">Texts.</param>
     /// <param name="dialogs">The question and the notice.</param>
@@ -112,40 +117,114 @@ public static class RunningWork
     /// <param name="holders">The holders of the window: its own, its parts, the tabs of the main window, the windows it owns.</param>
     /// <param name="connection">
     /// The work of the connection that no window follows - for the connection window only, whose close ends the connection:
-    /// it is listed, it is stopped with the rest, and nothing is offered to continue in the background.
+    /// it is listed, it is stopped with the rest, nothing is offered to continue in the background, and nothing is handed to
+    /// the connection to report.
     /// </param>
     /// <param name="ownQuestions">The window's own questions (<c>CanCloseCoreAsync</c>), asked at the right moment; null: none.</param>
+    /// <param name="reportOnClose">
+    /// Where the runs this close looked at are put, for the window to tell them <see cref="IWindowRun.WindowClosed"/> once it
+    /// has closed (<c>WindowViewModelBase.Dispose</c>): the connection then says how those that ended in the window ended. They
+    /// are taken out again - and told <see cref="IWindowRun.WindowStays"/> - when the window stays. Null: the runs are told at
+    /// once when the window may close.
+    /// </param>
     public static async Task<bool> ConfirmCloseAsync(
         ILocalizer localizer,
         IDialogService dialogs,
         string title,
         IEnumerable<PageStatusHolder> holders,
         IConnectionWork? connection = null,
-        Func<Task<bool>>? ownQuestions = null)
+        Func<Task<bool>>? ownQuestions = null,
+        ICollection<IWindowRun>? reportOnClose = null)
     {
         ArgumentNullException.ThrowIfNull(localizer);
         ArgumentNullException.ThrowIfNull(dialogs);
         ArgumentNullException.ThrowIfNull(title);
         var holderList = holders as IReadOnlyCollection<PageStatusHolder> ?? [.. holders];
+        var runs = reportOnClose ?? new List<IWindowRun>();
+        var looked = new List<IWindowRun>();
+        var closes = false;
+        try
+        {
+            closes = await DecideAsync(localizer, dialogs, title, holderList, connection, ownQuestions, run =>
+            {
+                // A run this close looks at keeps the connection's report until the close is decided: should its result come
+                // back under the question, the window that then closes hands it on.
+                run.WindowMayClose();
+                if (!looked.Contains(run))
+                {
+                    looked.Add(run);
+                }
+
+                if (!runs.Contains(run))
+                {
+                    runs.Add(run);
+                }
+            }).ConfigureAwait(true);
+        }
+        finally
+        {
+            if (!closes)
+            {
+                // The window stays (also when the question could not be asked) and says the results in its lines itself.
+                foreach (var run in looked)
+                {
+                    run.WindowStays();
+                    runs.Remove(run);
+                }
+            }
+            else if (reportOnClose is null)
+            {
+                foreach (var run in looked)
+                {
+                    run.WindowClosed();
+                }
+            }
+        }
+
+        return closes;
+    }
+
+    private static async Task<bool> DecideAsync(
+        ILocalizer localizer,
+        IDialogService dialogs,
+        string title,
+        IReadOnlyCollection<PageStatusHolder> holders,
+        IConnectionWork? connection,
+        Func<Task<bool>>? ownQuestions,
+        Action<IWindowRun> look)
+    {
         var ownAsked = false;
 
         // The window stays usable under the question and during the wait, so what writes is read again after each of
         // them: a write that began meanwhile is asked about and waited for like the first, not closed over.
         while (true)
         {
-            var running = RunningWrites(holderList);
+            var running = RunningWrites(holders);
             var background = connection?.RunningInBackground ?? [];
+            if (connection is null)
+            {
+                foreach (var operation in running)
+                {
+                    if (operation.Run is { LeftWindow: false } run)
+                    {
+                        look(run);
+                    }
+                }
+            }
+
             if (running.Count == 0 && background.Count == 0)
             {
                 return ownAsked || ownQuestions is null || await ownQuestions().ConfigureAwait(true);
             }
 
-            if (running.Where(operation => operation.Run is { HasReturned: true }).Select(operation => operation.Finished).ToList() is { Count: > 0 } finishing)
+            if (running.Where(operation => operation.Run is { HasReturned: true }).ToList() is { Count: > 0 } finishing)
             {
-                // A run whose result came back to the window, which has not said it yet (it reads the list again first): nothing
-                // can be stopped or left any more. No question; the window waits for its code - and stays for the result.
-                await Task.WhenAll(finishing).ConfigureAwait(true);
-                return false;
+                // A run whose result came back to the window, which has not said it yet (it reads its list again first): nothing
+                // can be stopped or left any more. No question: the window closes once that code ended - and, as its line goes
+                // with it, the connection says how the run ended.
+                HandOn(finishing, connection);
+                await Task.WhenAll(finishing.Select(operation => operation.Finished)).ConfigureAwait(true);
+                continue;
             }
 
             if (running.Any(operation => !operation.CanCancel))
@@ -157,11 +236,13 @@ public static class RunningWork
             }
 
             // One that is stopping, or that lost the line (its token is cancelled already), is not asked about again - unless
-            // it is an execution, whose run can still be stopped. The window waits for those.
+            // it is an execution, whose run can still be stopped. The window waits for those: everything stops already (Stop
+            // in the line or in the list of background operations), and the lines go with the window.
             var toStop = running.Where(NeedsStop).ToList();
             var backgroundToStop = background.Where(work => !work.IsStopping).ToList();
             if (toStop.Count == 0 && backgroundToStop.Count == 0)
             {
+                HandOn(running, connection);
                 await WaitAsync(running, background).ConfigureAwait(true);
                 continue;
             }
@@ -174,17 +255,17 @@ public static class RunningWork
                 return false;
             }
 
-            // A run that came back to its window meanwhile: its line shows how it ended, and the window stays for it.
-            if (running.Any(operation => operation.Run is { LeftWindow: false } && operation.IsFinished))
-            {
-                return false;
-            }
+            // A run whose result came back to the window while the question was open: there is nothing to stop or to leave any
+            // more. The window closes as answered once its code ended, and the connection says how the run ended.
+            var cameBack = running.Where(operation => operation.Run is { LeftWindow: false } run && (operation.IsFinished || run.HasReturned)).ToList();
+            HandOn(cameBack, connection);
+            var stillRunning = running.Except(cameBack).ToList();
 
             if (answer == CloseAnswer.CloseAndContinue)
             {
-                if (!canContinue || !CanAllLeave(running))
+                if (stillRunning.Count > 0 && (!canContinue || !CanAllLeave(stillRunning)))
                 {
-                    // It cannot leave any more (its result is on its way back, or it must stay now): ask again.
+                    // An answer that was not offered, or one that cannot be honoured any more (a run that must stay now): ask again.
                     continue;
                 }
 
@@ -194,12 +275,12 @@ public static class RunningWork
                 }
 
                 ownAsked = true;
-                foreach (var operation in running)
+                foreach (var operation in stillRunning)
                 {
                     if (!operation.Run!.LeaveWindow())
                     {
-                        // Its result came back while the window's own question was open: it stays, and shows it.
-                        return false;
+                        // Its result came back while the window's own question was open: the window closes once its code ended.
+                        operation.Run.ReportByConnection();
                     }
                 }
 
@@ -218,17 +299,9 @@ public static class RunningWork
                 ownAsked = true;
             }
 
-            if (connection is null)
-            {
-                foreach (var operation in running.Where(o => o.Run is { CanLeave: true, MustStayReason: null }))
-                {
-                    // The window goes right after the run ended, and its line with it: the connection says how it ended. (The
-                    // connection window's own close ends the connection: nothing is reported then.)
-                    operation.Run!.ReportByConnection();
-                }
-            }
-
-            foreach (var operation in toStop)
+            // The window goes right after the end, its lines with it: the connection says how the runs ended.
+            HandOn(stillRunning, connection);
+            foreach (var operation in toStop.Except(cameBack))
             {
                 // The holder's own Stop: the line says "Stopping…" and the code that runs ends it the way it ends a Stop. An
                 // execution that lost the line is stopped through its run.
@@ -243,6 +316,23 @@ public static class RunningWork
 
             // After its code ended - never in the middle of a step: the object in progress is finished, the window closes then.
             await WaitAsync(running, background).ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// The window closes right after these runs ended: the connection says how they ended once it closed. Not for the connection
+    /// window, whose close ends the connection.
+    /// </summary>
+    private static void HandOn(IEnumerable<OperationScope> operations, IConnectionWork? connection)
+    {
+        if (connection is not null)
+        {
+            return;
+        }
+
+        foreach (var operation in operations)
+        {
+            operation.Run?.ReportByConnection();
         }
     }
 
@@ -274,14 +364,14 @@ public static class RunningWork
         var sentence = changes ? L.CloseWork.StopChanges
             : running.Any(o => o.Writes == OperationWrites.Messages) ? L.CloseWork.StopMessages
             : L.CloseWork.StopOther;
-        var reasons = running.Select(operation => operation.Run?.MustStayReason)
-            .OfType<string>()
-            .Distinct(StringComparer.Ordinal)
-            .ToList();
-        if (isConnection && changes)
-        {
-            reasons.Add(localizer[L.CloseWork.NoBackgroundConnection]);
-        }
+        // The connection window never offers the background, for one reason: its close ends the connection. The reasons of the
+        // windows it owns speak of "this window" and are not said under its title.
+        List<string> reasons = isConnection
+            ? changes ? [localizer[L.CloseWork.NoBackgroundConnection]] : []
+            : running.Select(operation => operation.Run?.MustStayReason)
+                .OfType<string>()
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
 
         var text = localizer.Format(sentence, what);
         return reasons.Count == 0 ? text : $"{text}\n\n{string.Join("\n", reasons)}";

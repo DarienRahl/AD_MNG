@@ -176,9 +176,13 @@ internal sealed class ScriptedDialogService : IDialogService
         return Task.CompletedTask;
     }
 
+    /// <summary>Called with every error dialog as it is shown - e.g. to see whether a window was closed by then.</summary>
+    public Action<string, string>? OnError { get; set; }
+
     public Task ShowErrorAsync(string title, string message)
     {
         Errors.Add((title, message));
+        OnError?.Invoke(title, message);
         return Task.CompletedTask;
     }
 

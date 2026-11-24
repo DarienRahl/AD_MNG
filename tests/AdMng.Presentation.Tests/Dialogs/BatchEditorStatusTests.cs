@@ -860,7 +860,7 @@ public class BatchEditorStatusTests
         var toast = Assert.Single(harness.Notifications.Items);
         Assert.Equal(NotificationSeverity.Warning, toast.Severity);
         Assert.StartsWith("Batch edit (2 objects)", toast.Message, StringComparison.Ordinal);
-        Assert.False(activity.ReportsByConnection);
+        Assert.Null(activity.TakeReport());
         Assert.Single(harness.Dialogs.CloseQuestions);
     }
 

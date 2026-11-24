@@ -380,7 +380,6 @@ public class RunningWorkTests
 
         Assert.Equal(1, asked);
         Assert.True(run.Activity.IsCancelling);
-        Assert.True(run.Activity.ReportsByConnection);
         Assert.True(run.Execution.ReportsByConnection);
         Assert.False(run.Execution.LeftWindow);
         Assert.Equal("Stopping…", run.Holder.Current.Message);
@@ -437,20 +436,100 @@ public class RunningWorkTests
     [Theory]
     [InlineData(CloseAnswer.StopAndClose)]
     [InlineData(CloseAnswer.CloseAndContinue)]
-    public async Task AnExecutionThatEndedWhileTheQuestionWasOpen_KeepsTheWindow(CloseAnswer answer)
+    public async Task AnExecutionThatEndedWhileTheQuestionWasOpen_ClosesAsAnswered_AndTheConnectionSaysHowItEnded(CloseAnswer answer)
     {
         var run = await RunAsync();
         run.Dialogs.CloseAnswers.Enqueue(answer);
         run.Dialogs.BeforeCloseAnswer = () => run.EndAsync(complete: true);
+        var reportOnClose = new List<IWindowRun>();
 
-        Assert.False(await Ask(run.Dialogs, run.Holder, run.Localizer).WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+        Assert.True(await RunningWork.ConfirmCloseAsync(run.Localizer, run.Dialogs, "Okno", [run.Holder], reportOnClose: reportOnClose)
+            .WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
 
-        // The result came back to the window while the operator read the question: the window stays, and its line says how it ended.
+        // The result came back to the window while the operator read the question. There is nothing to stop or to leave any more,
+        // but the operator asked to close: the window closes, and as its line said the result only for a moment, the run is
+        // handed to the connection, which says how it ended once the window has closed. Nothing is asked again.
         Assert.False(run.Execution.LeftWindow);
-        Assert.False(run.Activity.ReportsByConnection);
-        Assert.Equal(PageStatusKind.Done, run.Holder.Current.Kind);
-        Assert.Equal("“Disable 3 accounts” was executed in contoso.test: 0 objects changed. The report is in the list of background operations.", run.Holder.Current.Message);
+        Assert.True(run.Execution.ReportsByConnection);
+        Assert.Same(run.Execution, Assert.Single(reportOnClose));
         Assert.Single(run.Dialogs.CloseQuestions);
+    }
+
+    [Fact]
+    public async Task ARunStoppedInItsLine_ThenTheWindowIsClosed_AsksNothing_ClosesAfterTheEnd_AndTheConnectionSaysHowItEnded()
+    {
+        var run = await RunAsync();
+        run.Holder.CancelCommand.Execute(null);
+        Assert.True(run.Activity.IsCancelling);
+        var reportOnClose = new List<IWindowRun>();
+
+        var closing = RunningWork.ConfirmCloseAsync(run.Localizer, run.Dialogs, "Okno", [run.Holder], reportOnClose: reportOnClose);
+
+        // Nothing is left to ask: the window waits for the end - and its line goes with it, so the connection says how it ended.
+        Assert.Empty(run.Dialogs.CloseQuestions);
+        Assert.False(closing.IsCompleted);
+        Assert.True(run.Execution.ReportsByConnection);
+        await run.EndAsync(complete: true);
+        Assert.True(await closing.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+        Assert.Same(run.Execution, Assert.Single(reportOnClose));
+    }
+
+    [Fact]
+    public async Task ARunThatMustStay_StopAndClose_ClosesAfterTheEnd_AndTheConnectionSaysHowItEnded()
+    {
+        // The GPO plan preview: no background (its caller waits for the result), but Stop and close closes it after the end - and
+        // how far the stopped plan got would go with its line.
+        var run = await RunAsync();
+        run.Execution.StaysWithWindow(L.CloseWork.NoBackgroundCaller);
+        run.Dialogs.CloseAnswers.Enqueue(CloseAnswer.StopAndClose);
+        var reportOnClose = new List<IWindowRun>();
+
+        var closing = RunningWork.ConfirmCloseAsync(run.Localizer, run.Dialogs, "Okno", [run.Holder], reportOnClose: reportOnClose);
+
+        Assert.False(Assert.Single(run.Dialogs.CloseQuestions).CanContinue);
+        Assert.True(run.Activity.IsCancelling);
+        Assert.True(run.Execution.ReportsByConnection);
+        await run.EndAsync(complete: true);
+        Assert.True(await closing.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+        Assert.Same(run.Execution, Assert.Single(reportOnClose));
+    }
+
+    [Fact]
+    public async Task AWindowThatIsFinishing_AsksNothing_ClosesOnceItsCodeEnded_AndHandsTheRunToTheConnection()
+    {
+        // The result came back to the window, which reads its list again before it says it (the Recycle Bin): nothing can be
+        // stopped or left. The close is not refused: the window closes once its code ended, and its line goes with it.
+        var run = await RunAsync();
+        run.Work.End(Result());
+        var result = await run.Task;
+        Assert.True(run.Activity.TryReturnToWindow());
+        Assert.True(run.Execution.HasReturned);
+        var reportOnClose = new List<IWindowRun>();
+
+        var closing = RunningWork.ConfirmCloseAsync(run.Localizer, run.Dialogs, "Okno", [run.Holder], reportOnClose: reportOnClose);
+
+        Assert.Empty(run.Dialogs.Shown);
+        Assert.False(closing.IsCompleted);
+        Assert.True(run.Execution.ReportsByConnection);
+        run.Execution.Complete(result);
+        Assert.True(await closing.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+        Assert.Same(run.Execution, Assert.Single(reportOnClose));
+        run.Execution.Dispose();
+    }
+
+    [Fact]
+    public async Task AWindowThatStays_AfterTheQuestion_HandsNothingToTheConnection()
+    {
+        var run = await RunAsync();
+        run.Dialogs.CloseAnswers.Enqueue(CloseAnswer.KeepOpen);
+        var reportOnClose = new List<IWindowRun>();
+
+        Assert.False(await RunningWork.ConfirmCloseAsync(run.Localizer, run.Dialogs, "Okno", [run.Holder], reportOnClose: reportOnClose));
+
+        // The window stays and says the result in its line itself.
+        Assert.Empty(reportOnClose);
+        Assert.False(run.Execution.ReportsByConnection);
+        await run.EndAsync();
     }
 
     [Fact]
@@ -487,8 +566,8 @@ public class RunningWorkTests
         Assert.True(saving.IsCancelling);
         Assert.True(run.Activity.IsCancelling);
 
-        // The run could have left alone: the connection says how it ended, because its line goes with the window.
-        Assert.True(run.Activity.ReportsByConnection);
+        // The connection says how the run ended, because its line goes with the window.
+        Assert.True(run.Execution.ReportsByConnection);
         saving.Complete(null);
         await run.EndAsync(complete: true);
         Assert.True(await closing.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
@@ -564,7 +643,7 @@ public class RunningWorkTests
         Assert.True(simple.IsCancelling);
         Assert.True(left.Activity.IsReportSuppressed);
         Assert.True(simple.IsReportSuppressed);
-        Assert.False(run.Activity.ReportsByConnection);
+        Assert.False(run.Execution.ReportsByConnection);
         await run.EndAsync(complete: true);
         await left.EndAsync();
         await Task.Delay(50, TestContext.Current.CancellationToken);
@@ -572,6 +651,47 @@ public class RunningWorkTests
         applied.End(Result());
         await simpleRun;
         Assert.True(await closing.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task TheConnectionsQuestion_GivesOnlyItsOwnReason_NotThoseOfTheWindowsItOwns()
+    {
+        // A window this one owns runs an execution that must stay with it (generated passwords). The connection window never offers
+        // the background anyway; a sentence about "this window" under the connection window's title would point to the wrong one.
+        var run = await RunAsync();
+        run.Execution.StaysWithWindow(L.CloseWork.NoBackgroundPasswords);
+        run.Dialogs.CloseAnswers.Enqueue(CloseAnswer.KeepOpen);
+
+        Assert.False(await RunningWork.ConfirmCloseAsync(run.Localizer, run.Dialogs, "contoso.test", [run.Holder], run.Harness.Activities));
+
+        Assert.Equal(
+            run.Localizer.Format(L.CloseWork.StopChanges, "Executing “Disable 3 accounts” in contoso.test: 0 of 3…")
+            + "\n\nClosing this window ends its connection, so nothing can continue in the background.",
+            Assert.Single(run.Dialogs.CloseQuestions).Message);
+        await run.EndAsync();
+    }
+
+    [Fact]
+    public async Task TheConnectionWindow_WaitsForAWindowThatIsFinishing_ThenClosesWithoutAWord()
+    {
+        // A window this one owns got its result back and reads its list again before it says it (the Recycle Bin): nothing can
+        // be stopped. The connection window does not refuse the close without a word: it waits for that window's code, then
+        // closes - it ends the connection, and what that window showed goes with it, like any window it owns.
+        var run = await RunAsync();
+        run.Work.End(Result());
+        await run.Task;
+        Assert.True(run.Activity.TryReturnToWindow());
+        Assert.True(run.Execution.HasReturned);
+
+        var closing = RunningWork.ConfirmCloseAsync(run.Localizer, run.Dialogs, "contoso.test", [run.Holder], run.Harness.Activities);
+
+        Assert.Empty(run.Dialogs.CloseQuestions);
+        Assert.False(closing.IsCompleted);
+        run.Execution.Complete(await run.Task);
+        Assert.True(await closing.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+        Assert.Empty(run.Dialogs.Shown);
+        Assert.False(run.Execution.ReportsByConnection);
+        run.Execution.Dispose();
     }
 
     [Fact]

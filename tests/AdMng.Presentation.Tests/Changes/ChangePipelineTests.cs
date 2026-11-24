@@ -6,6 +6,7 @@ using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Tests.Lists;
 using AdMng.Presentation.Tests.TestDoubles;
+using AdMng.Presentation.Tests.Watchdog;
 using static AdMng.Presentation.Tests.TestDoubles.TestDirectory;
 
 namespace AdMng.Presentation.Tests.Changes;
@@ -301,7 +302,7 @@ public class ChangePipelineTests
     }
 
     [Fact]
-    public async Task ReportByConnection_ReportsWhileTheWindowFollows()
+    public async Task ARunWhoseWindowClosesAfterIt_IsReportedByTheConnection_OnlyOnceTheWindowClosed()
     {
         var harness = await TestHarness.ConnectedAsync();
         var (running, execution) = await StartFollowedAsync(harness, [Lukasz]);
@@ -311,11 +312,167 @@ public class ChangePipelineTests
         harness.Executor.Gate!.SetResult();
         var result = await running;
         execution.Complete(result);
+        execution.Dispose();
 
+        // Not while the window is still there - a dialog of the connection would be owned by the window that closes.
         Assert.False(execution.LeftWindow);
+        Assert.Empty(harness.Notifications.Items);
+
+        // The window closed (its view model is disposed): now the connection says it, once.
+        execution.WindowClosed();
+        execution.WindowClosed();
         var toast = Assert.Single(harness.Notifications.Items);
         Assert.Equal("“Disable accounts” was executed in contoso.test: 1 object changed. The report is in the list of background operations.", toast.Message);
+    }
+
+    [Fact]
+    public async Task ARunWhoseWindowStayedAfterAll_IsNotReported()
+    {
+        var harness = await TestHarness.ConnectedAsync();
+        var (running, execution) = await StartFollowedAsync(harness, [Lukasz]);
+        execution.ReportByConnection();
+        harness.Executor.Gate!.SetResult();
+        execution.Complete(await running);
         execution.Dispose();
+
+        // The window's own question kept it (generated passwords nobody took): its line says the result - the connection does not.
+        execution.WindowStays();
+        Assert.False(execution.ReportsByConnection);
+        execution.WindowClosed();
+        Assert.Empty(harness.Notifications.Items);
+        Assert.Empty(harness.Dialogs.Errors);
+    }
+
+    [Fact]
+    public async Task ARunWhoseWindowSaidTheOutcomeInItsOwnNotification_IsNotReportedAgain()
+    {
+        var harness = await TestHarness.ConnectedAsync();
+        var (running, execution) = await StartFollowedAsync(harness, [Lukasz]);
+        harness.Executor.Gate!.SetResult();
+        var result = await running;
+
+        // The Recycle Bin says a restore without failures in a toast of the main window, then reads its list again - and is
+        // closed during that read: its toast was the report.
+        execution.WindowNotifies = true;
+        execution.ReportByConnection();
+        execution.Complete(result);
+        execution.Dispose();
+        execution.WindowClosed();
+        Assert.Empty(harness.Notifications.Items);
+    }
+
+    [Fact]
+    public async Task ARunWhoseWindowClosedLater_WithoutAQuestionAboutIt_IsNotReported()
+    {
+        // The result came back, the line said it, the window's code ended - and only then the operator closed the window: they
+        // saw how it ended. Nothing was kept for the connection.
+        var harness = await TestHarness.ConnectedAsync();
+        var (running, execution) = await StartFollowedAsync(harness, [Lukasz]);
+        harness.Executor.Gate!.SetResult();
+        execution.Complete(await running);
+        execution.Dispose();
+
+        execution.ReportByConnection();
+        execution.WindowClosed();
+        Assert.Empty(harness.Notifications.Items);
+        Assert.Null(harness.Activities.Activities[0].TakeReport());
+    }
+
+    [Fact]
+    public async Task TheReportOfARunWhoseWindowCloses_IsAskedForAfterTheWindowClosed_OnTheRealUiThread()
+    {
+        // One UI thread, one queue - like WPF. Stop and close of a run that fails: the window closes after the end, and only then
+        // the connection asks for its failure dialog. The real dialog service owns a dialog by the active window of the connection;
+        // asked for while the closing window was still there, the dialog would be owned by it and close with it.
+        var harness = await TestHarness.ConnectedAsync();
+        using var ui = new TestUiThread();
+        var activities = new ActivityCenterViewModel(ui, harness.Localizer, harness.Errors, harness.Time, harness.Sessions);
+        var coordinator = new ChangeCoordinator(
+            harness.Sessions, harness.Planner, harness.Executor, harness.Dialogs, harness.Notifications, harness.Settings, activities, harness.Changes,
+            harness.Errors, harness.Localizer, ui);
+        using var started = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        harness.Executor.OnExecute = _ =>
+        {
+            started.Set();
+            release.Wait(TimeSpan.FromSeconds(30));
+        };
+        harness.Executor.StatusOf = _ => ObjectResultStatus.Failed;
+        var plan = RecordingChangePlanner.DefaultPlan(new BatchRequest([Lukasz], [new SetAccountEnabledOperation(false)]) { Title = "Disable accounts" });
+        var events = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        harness.Dialogs.OnError = (_, _) => events.Enqueue("error dialog");
+        PageStatusHolder holder = null!;
+        Task window = null!;
+        await ui.RunAsync(() =>
+        {
+            holder = new PageStatusHolder(harness.Localizer, ui);
+            window = WindowCodeAsync();
+            return Task.CompletedTask;
+        });
+        Assert.True(started.Wait(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+
+        harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.StopAndClose);
+        var closing = ui.RunAsync(async () =>
+        {
+            // What WindowViewModelBase and its host do: ask, close the window, then dispose the view model - which tells the runs.
+            var reportOnClose = new List<IWindowRun>();
+            var closes = await RunningWork.ConfirmCloseAsync(harness.Localizer, harness.Dialogs, "Window", [holder], reportOnClose: reportOnClose);
+            events.Enqueue("window closed");
+            foreach (var run in reportOnClose)
+            {
+                run.WindowClosed();
+            }
+
+            return closes;
+        });
+        await ui.IdleAsync();
+        Assert.Single(harness.Dialogs.CloseQuestions);
+        release.Set();
+
+        Assert.True(await closing.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+        await window.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+        await ui.IdleAsync(10);
+        Assert.Empty(ui.Errors);
+        Assert.Equal(["window closed", "error dialog"], events);
+
+        async Task WindowCodeAsync()
+        {
+            using var execution = ExecutionStatus.Begin(holder, harness.Localizer, "Disable accounts", "contoso.test", 1);
+            var result = await coordinator.ExecutePlanAsync(plan, "Disable accounts", harness.Sessions.Current!, execution.Follow);
+            if (!execution.LeftWindow)
+            {
+                execution.Complete(result);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task AChangeThatFailsAsAWhole_AfterItsConnectionWindowStoppedIt_IsNotReported()
+    {
+        // The main window's Stop and close stops a change of a simple action, and the execution then fails as a whole: nothing is
+        // shown over a window that goes - not even the failure.
+        var harness = await TestHarness.ConnectedAsync();
+        harness.Executor.Failure = new Core.Directory.DirectoryException(Core.Directory.DirectoryErrorKind.ServerUnavailable, "down");
+        harness.Executor.OnExecute = _ => harness.Activities.Activities[0].StopBecauseTheConnectionCloses();
+
+        var outcome = await harness.Coordinator.ApplyAsync(new ChangeRequest([Ewa], [new UnlockAccountOperation()], "Unlock"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(ChangeOutcome.Failed, outcome);
+        Assert.Empty(harness.Dialogs.Errors);
+        Assert.Empty(harness.Notifications.Items);
+    }
+
+    [Fact]
+    public async Task AChangeThatFailsAsAWhole_IsStillReportedByItsCaller()
+    {
+        // The control of the test above: without the connection window's stop, ApplyAsync says the failure.
+        var harness = await TestHarness.ConnectedAsync();
+        harness.Executor.Failure = new Core.Directory.DirectoryException(Core.Directory.DirectoryErrorKind.ServerUnavailable, "down");
+
+        var outcome = await harness.Coordinator.ApplyAsync(new ChangeRequest([Ewa], [new UnlockAccountOperation()], "Unlock"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(ChangeOutcome.Failed, outcome);
+        Assert.Single(harness.Dialogs.Errors);
     }
 
     [Fact]

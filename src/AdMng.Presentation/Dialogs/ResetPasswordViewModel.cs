@@ -397,8 +397,9 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase, IHasPa
 
             PasswordInput?.Clear();
             ConfirmPasswordInput?.Clear();
-            // The window closes right after (Stop and close): the connection says how it ended, not this window's toast.
-            ShowResults(result, operation.Mode == PasswordMode.GenerateUnique, toast: !execution.ReportsByConnection);
+            // The window closes right after (Stop and close): the connection says how it ended, not this window's toast. A toast
+            // the window showed is the report: the connection adds nothing to it.
+            execution.WindowNotifies = ShowResults(result, operation.Mode == PasswordMode.GenerateUnique, toast: !execution.ReportsByConnection);
 
             // Where the reasons are - said only when the result list has one (an account that a Stop kept from starting has none).
             execution.Complete(result, Results.Any(r => !r.Succeeded && r.Message.Length > 0) ? Localizer[L.ChangeStatus.ReasonsNext] : null);
@@ -534,7 +535,8 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase, IHasPa
         }
     }
 
-    private void ShowResults(BatchResult result, bool generated, bool toast)
+    /// <summary>Shows the result list; true when it also said the result in a toast of the main window.</summary>
+    private bool ShowResults(BatchResult result, bool generated, bool toast)
     {
         _result = result;
         Results.ReplaceAll(result.Objects.Select(o =>
@@ -557,7 +559,10 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase, IHasPa
         if (toast && result.FailedCount == 0 && !generated)
         {
             Services.Notifications.Show(NotificationSeverity.Success, Localizer.Format(L.ResetPassword.Done, result.SucceededCount));
+            return true;
         }
+
+        return false;
     }
 
     private string DescribeBlocked(ChangePlan plan, IDirectorySession session)

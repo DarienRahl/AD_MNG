@@ -96,12 +96,14 @@ public interface IChangeCoordinator
 /// <remarks>
 /// <para><b>A run whose window closed</b> (the owner's decision D-A): the execution of a window's plan is an activity of the
 /// connection, which the window only follows. When the window closed with "Close and continue in the background" - the
-/// activity left its window - or closes right after it (Stop and close: <see cref="ActivityViewModel.ReportsByConnection"/>),
-/// the coordinator says how it ended, with the sentence the window's line would have said and the domain: a notification
-/// when nothing failed, an error dialog with the failed objects and their reasons otherwise. It says it in a later turn of
-/// the UI thread, so the execution is never held by a modal dialog - the real dialog service shows a dialog inline when it
-/// is asked on the UI thread. A run the connection window stopped because it closes is not reported at all
-/// (<see cref="ActivityViewModel.IsReportSuppressed"/>).</para>
+/// activity left its window - the coordinator says how it ended, with the sentence the window's line would have said and the
+/// domain: a notification when nothing failed, an error dialog with the failed objects and their reasons otherwise. For a run
+/// whose result goes back to its window the same report is kept on the activity (<see cref="ActivityViewModel.KeepReport"/>):
+/// the window hands it on if it closes before its line said it (Stop and close, a result that came back under the close
+/// question) - once the window has closed, so that the dialog is never owned by the window that closes - and drops it
+/// otherwise. Either way it is posted to a later turn of the UI thread, so the execution is never held by a modal dialog - the
+/// real dialog service shows a dialog inline when it is asked on the UI thread. A run the connection window stopped because it
+/// closes is not reported at all (<see cref="ActivityViewModel.IsReportSuppressed"/>).</para>
 /// </remarks>
 public sealed class ChangeCoordinator : IChangeCoordinator
 {
@@ -308,64 +310,75 @@ public sealed class ChangeCoordinator : IChangeCoordinator
         }
         catch (Exception ex)
         {
-            if (ReportedByConnection(activity))
-            {
-                ReportLater(title, ConfirmationText.Domain(session), null, ex);
-            }
-
+            ReportWithoutWindow(activity, () => Describe(title, ConfirmationText.Domain(session), null, ex));
             throw;
         }
 
         _changes.Publish(DirectoryChanges.FromResult(result));
         _history?.Record(result, title, session.Schema, session.Info.DomainDnsName);
-        if (ReportedByConnection(activity))
-        {
-            ReportLater(title, ConfirmationText.Domain(session), result, null);
-        }
-
+        ReportWithoutWindow(activity, () => Describe(title, ConfirmationText.Domain(session), result, null));
         return result;
     }
 
     /// <summary>
-    /// True when the connection says how the run of <paramref name="activity"/> ended: it left its window, or the window that
-    /// closes after it asked for it - and its connection window does not close. The window state is decided once, atomically
-    /// against <see cref="ExecutionStatus.LeaveWindow"/>, so exactly one side reports.
+    /// The connection's side of how the run of <paramref name="activity"/> ended. A run that left its window is said now. A run
+    /// whose result goes back to the window that follows it keeps the report on its activity: the window hands it on if it
+    /// closes before its line said it (<see cref="ExecutionStatus.WindowClosed"/>). A run no window followed is its caller's
+    /// (<see cref="ApplyAsync"/>, the property sheet...), and one stopped because its connection window closes is not said at
+    /// all. The window state is decided once, atomically against <see cref="ExecutionStatus.LeaveWindow"/>, so exactly one side
+    /// reports.
     /// </summary>
-    private static bool ReportedByConnection(ActivityViewModel activity) =>
-        (!activity.TryReturnToWindow() || activity.ReportsByConnection) && !activity.IsReportSuppressed;
+    private void ReportWithoutWindow(ActivityViewModel activity, Func<Action> describe)
+    {
+        if (activity.IsReportSuppressed)
+        {
+            return;
+        }
+
+        if (!activity.TryReturnToWindow())
+        {
+            ReportLater(describe());
+        }
+        else if (activity.HasReturnedToWindow)
+        {
+            var report = describe();
+            activity.KeepReport(() => ReportLater(report));
+        }
+    }
 
     /// <summary>
-    /// Says how a run without its window ended, in a later turn of the UI thread: the execution and its caller go on at once,
-    /// whatever the operator does with a dialog. Toasts and dialogs of a connection window that closed meanwhile are dropped
-    /// by their services.
+    /// Says a report in a later turn of the UI thread: the execution and its caller - or the window that closes - go on at once,
+    /// whatever the operator does with a dialog. Toasts and dialogs of a connection window that closed meanwhile are dropped by
+    /// their services.
     /// </summary>
-    private void ReportLater(string title, string domain, BatchResult? result, Exception? failure) =>
-        _ = _dispatcher.InvokeAsync(() => ReportWithoutWindow(title, domain, result, failure));
+    private void ReportLater(Action report) => _dispatcher.InvokeAsync(report).Forget();
 
     /// <summary>
-    /// What the window's line would have said (<see cref="ExecutionOutcome"/>): a notification when nothing failed - done, or
-    /// stopped - and otherwise an error dialog with the failed objects, their reasons and where every change is. The
-    /// dialog is not awaited.
+    /// What the window's line would have said (<see cref="ExecutionOutcome"/>), made into the report of the connection: a
+    /// notification when nothing failed - done, or stopped - and otherwise an error dialog with the failed objects, their
+    /// reasons and where every change is (the dialog is not awaited). The texts are made now; the report holds only them, never
+    /// the result with its plan (ADR-0003, CLAUDE.md rule 2).
     /// </summary>
-    private void ReportWithoutWindow(string title, string domain, BatchResult? result, Exception? failure)
+    private Action Describe(string title, string domain, BatchResult? result, Exception? failure)
     {
         if (failure is not null)
         {
             if (failure is OperationCanceledException)
             {
-                _notifications.Show(NotificationSeverity.Warning, PageStatusText.Failure(_localizer.Format(L.ChangeStatus.Stopped, title, domain), null));
-                return;
+                var stopped = PageStatusText.Failure(_localizer.Format(L.ChangeStatus.Stopped, title, domain), null);
+                return () => _notifications.Show(NotificationSeverity.Warning, stopped);
             }
 
-            _dialogs.ShowErrorAsync(title, PageStatusText.Failure(ExecutionOutcome.FailedLead(_localizer, title, domain), _errors.Translate(failure))).Forget();
-            return;
+            var failedAsAWhole = PageStatusText.Failure(ExecutionOutcome.FailedLead(_localizer, title, domain), _errors.Translate(failure));
+            return () => _dialogs.ShowErrorAsync(title, failedAsAWhole).Forget();
         }
 
         var outcome = ExecutionOutcome.Of(_localizer, title, domain, result!);
         if (result!.FailedCount == 0)
         {
-            _notifications.Show(outcome.Kind == PageStatusKind.Done ? NotificationSeverity.Success : NotificationSeverity.Warning, outcome.Message);
-            return;
+            var severity = outcome.Kind == PageStatusKind.Done ? NotificationSeverity.Success : NotificationSeverity.Warning;
+            var message = outcome.Message;
+            return () => _notifications.Show(severity, message);
         }
 
         var text = new StringBuilder(outcome.Message).AppendLine();
@@ -383,7 +396,8 @@ public sealed class ChangeCoordinator : IChangeCoordinator
         }
 
         text.AppendLine().AppendLine().Append(_localizer[L.ChangeStatus.SessionLogNext]);
-        _dialogs.ShowErrorAsync(title, text.ToString()).Forget();
+        var failures = text.ToString();
+        return () => _dialogs.ShowErrorAsync(title, failures).Forget();
     }
 
     private static ChangeOutcome OutcomeOf(BatchResult result) => result.FailedCount == 0

@@ -45,10 +45,29 @@ public interface IWindowRun
     bool LeaveWindow();
 
     /// <summary>
-    /// The window will close right after the run ended (Stop and close): the connection says how it ended too, because the
-    /// window's line goes with the window. Nothing is done when the window says the outcome itself outside its line.
+    /// A close of the window asks about this run or waits for it: should the window close before its line said how the run
+    /// ended - the result came back while the question was open - the connection says it (<see cref="WindowClosed"/>).
+    /// </summary>
+    void WindowMayClose();
+
+    /// <summary>
+    /// The window will close right after the run ended (Stop and close, a Stop that came first, a result that came back under
+    /// the question): its line goes with the window, so the connection says how the run ended once the window closed
+    /// (<see cref="WindowClosed"/>). The window's code leaves out what only an open window needs - its own notification, a
+    /// re-read of its list. Nothing is reported when the window says the outcome itself in a notification.
     /// </summary>
     void ReportByConnection();
+
+    /// <summary>The close did not happen: the window says the result in its line itself, and nothing is kept for the connection.</summary>
+    void WindowStays();
+
+    /// <summary>
+    /// The window closed (its view model was disposed). When the close came before its line said how the run ended
+    /// (<see cref="WindowMayClose"/>, <see cref="ReportByConnection"/>), the connection says it now - in a later turn of the UI
+    /// thread, after the window is gone, so that a dialog of the connection is never owned by the window that closes. Only once;
+    /// nothing for a run that left the window (the connection said it already) or whose window said it in a notification.
+    /// </summary>
+    void WindowClosed();
 
     /// <summary>
     /// Stops the run (the executor finishes the object in progress and starts no other), also when its operation lost the
