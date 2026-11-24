@@ -76,7 +76,8 @@ the Watchdog package.
    lasting note for as long as it is on, and it is never remembered between windows or sessions. With a system lockdown
    (WDAC / AppLocker, `SystemPolicy.GetSystemLockdownPolicy`) the window stays in ConstrainedLanguage and the switch is
    disabled with the reason. In ConstrainedLanguage no command of the window runs code in another runspace or language
-   mode. The trusted mode changes the language mode only: it adds no command, and its .NET code runs in AD Manager's process,
+   mode (`LanguageModeTests` and `EscapeTests` try each known way – `-Parallel`, `[powershell]`, `[runspacefactory]`,
+   `[scriptblock]::Create`, jobs and the ways of the audit). The trusted mode changes the language mode only: it adds no command, and its .NET code runs in AD Manager's process,
    where it can reach anything – the window's directory session and its credentials included. **This is a protection
    against mistakes, not a security boundary** (README, "Security and data"): in FullLanguage any .NET code bypasses the
    change plan, and the operator can run `pwsh.exe` anyway. **Turning the trusted mode off gives the window a new
@@ -124,8 +125,8 @@ the Watchdog package.
    `APPDATA`, `TEMP` and `XDG_*` point at an empty folder, the child names the folders its engine keeps files in (read from
    the engine itself), and the test asserts that it watches each of them and that none holds a file afterwards – on Linux
    they all lie in the empty folder (observed); on Windows the engine finds its folders through the known-folder API, which
-   the variables need not move, so there the test also compares the user's own folders of the engine before and after the
-   run (the Windows part has not been seen to pass yet). On Windows the engine writes two files of its own accord that
+   the variables need not move, so there the test also compares the PowerShell folders of the user's profile before and
+   after the run (that part has not passed on Windows yet). On Windows the engine writes two files of its own accord that
    cannot be turned off: its AppLocker check writes `__PSScriptPolicyTest_<random>.ps1` and `.psm1` (a comment line, no
    directory data) into `%TEMP%` and deletes them at once, once per process (read in the engine's code); the test allows
    exactly these. In ConstrainedLanguage no script is known to reach the window's session or its credentials: no variable,

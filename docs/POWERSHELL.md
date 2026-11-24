@@ -204,7 +204,7 @@ połączenia i zamyka się razem z nim):
   przez `; `, wartości binarne jako `(binary, 12 bytes)`;
 - kliknięcie nagłówka kolumny sortuje (liczby jako liczby, puste komórki na końcu); pole filtra nad listą szuka tekstu w
   dowolnej kolumnie (wielkość liter i polskie znaki nie mają znaczenia);
-- **Enter** albo dwukrotne kliknięcie otwiera obiekt w programie (najwyżej 10 okien naraz); menu prawego przycisku ma *Otwórz w
+- **Enter** albo dwukrotne kliknięcie otwiera obiekt w programie (najwyżej 10 okien za jednym naciśnięciem); menu prawego przycisku ma *Otwórz w
   programie*, *Kopiuj wiersze*, *Kopiuj wiersze z nazwami kolumn*, *Kopiuj nazwę wyróżniającą* i *Eksportuj listę…*;
   **Ctrl+C** kopiuje zaznaczone wiersze (rozdzielone tabulatorami, formuły chronione jak w listach programu);
 - *Eksportuj listę…* zapisuje CSV do wybranego pliku – rozdział 5.
@@ -267,9 +267,9 @@ odrzuca wynik, a `2>&1` nadal łączy strumienie). Do CSV użyj `Export-AdmList`
   nigdy nie jest pokazywane.
 - **Program nie zapisuje niczego więcej.** PSReadLine nie jest ładowany (nie ma pliku historii), żaden profil nie jest
   uruchamiany (`$PROFILE` nigdy nie jest ładowany), telemetria i kanał diagnostyczny silnika są wyłączone, automatyczne
-  ładowanie modułów i pamięć podręczna analizy modułów są wyłączone, a test sprawdza, że praca w oknie nie zostawia pliku: na
-  Linuksie w każdym folderze, którego używa silnik, na Windows w folderze tymczasowym i w Twoich folderach PowerShella
-  (*AppData*, *Dokumenty*), porównanych przed i po. Jedyne pliki, które silnik zapisuje sam z siebie, są na Windows: żeby
+  ładowanie modułów i pamięć podręczna analizy modułów są wyłączone, a test sprawdza, że praca w oknie nie zostawia pliku w
+  żadnym folderze, w którym silnik trzyma pliki – folder tymczasowy jest obserwowany przez cały czas, a na Windows Twoje
+  foldery PowerShella (*AppData*, *Dokumenty*) są też porównywane przed i po. Jedyne pliki, które silnik zapisuje sam z siebie, są na Windows: żeby
   sprawdzić, czy działa AppLocker, zapisuje w Twoim folderze tymczasowym dwa małe pliki testowe,
   `__PSScriptPolicyTest_<losowo>.ps1` i `.psm1` (wiersz komentarza, żadnych danych z katalogu), i od razu je usuwa – raz na
   jedno uruchomienie AD Managera, gdy otwiera się pierwsze okno PowerShell. Dziennik diagnostyczny programu nigdy nie zawiera
@@ -364,7 +364,8 @@ od razu jako `SecureString`; pole jest puste po odpowiedzi.
 
 W ConstrainedLanguage żadne polecenie okna nie uruchamia kodu w innym trybie języka, a nic w sesji – żadna zmienna, parametr ani
 nic z `$Host` – nie przekazuje skryptowi sesji katalogu okna ani jej poświadczeń: polecenia AD Managera znajdują swoje okno
-w tablicy silnika, której skrypt nie odczyta.
+w tablicy silnika, której skrypt nie odczyta. Każdy znaleziony dotąd sposób obejścia tego – przez audyt R1 i trzy późniejsze
+próby obejścia okna – jest testem automatycznym, który musi pozostać odrzucony.
 
 Tryb języka i lista poleceń to **zabezpieczenie przed pomyłką, a nie granica bezpieczeństwa.** Granicą są uprawnienia konta okna
 w AD: okno nigdy nie daje więcej, niż konto ma, a zmiana wykonana z pominięciem planu nie ma w programie audytu ani cofnięcia

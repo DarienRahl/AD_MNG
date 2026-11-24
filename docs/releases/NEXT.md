@@ -81,13 +81,15 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   klucze, których edytor atrybutów nie pokazuje, są zamaskowane. Wyniki są czytane strumieniem – 100 000 obiektów nie blokuje
   okna, a **Stop** (przycisk albo Ctrl+C) przerywa odczyt na kontrolerze domeny. Okno przyjmuje wyniki porcjami, najwyżej jedną
   co 40 ms, i dopiero po klawiaturze, myszy i rysowaniu, więc polecenie, które pisze bez przerwy (`while ($true) { 'x' }`), nie
-  odbiera działania przyciskowi **Stop** ani Ctrl+C. Błędy i ostrzeżenia poleceń są w języku
+  odbiera działania Ctrl+C ani przyciskowi **Stop** (Ctrl+C sprawdza test automatyczny, kliknięcia na ekranie nikt jeszcze nie
+  próbował). Błędy i ostrzeżenia poleceń są w języku
   interfejsu (pomoc `Get-Help` i komunikaty samego silnika PowerShell są po angielsku), a odczyt, którego kontroler domeny nie
   wykonał (przekroczony czas, odmowa dostępu), jest jednym błędem tej przyczyny, nie także „nie znaleziono”. Okno zachowuje ostatnie 20 000 wierszy po
   najwyżej 8000 znaków (dłuższy tekst ciągnie się w następnym wierszu), a postęp pisany kropka po kropce
   (`Write-Host -NoNewline`) nie spowalnia go.
 - **Co jest w oknie.** Wiersz stanu na górze mówi, co robi polecenie, i ma **Stop**; błędy i ostrzeżenia mają ikonę
-  (nie tylko kolor), a czytnik ekranu słyszy przed nimi „Błąd:” albo „Ostrzeżenie:” (przed uwagą o zasadach – „Uwaga:”); nazwa wyróżniająca w wyniku jest odnośnikiem (*Otwórz w programie*, prawy przycisk: *Kopiuj nazwę
+  (nie tylko kolor), a nazwa takiego wiersza dla czytnika ekranu zaczyna się od „Błąd:” albo „Ostrzeżenie:” (uwagi o zasadach – od
+  „Uwaga:”); nazwa wyróżniająca w wyniku jest odnośnikiem (*Otwórz w programie*, prawy przycisk: *Kopiuj nazwę
   wyróżniającą*, Enter otwiera pierwszą nazwę zaznaczonego wiersza) – z wyjątkiem nazwy uciętej albo takiej, którą `Format-List`
   mógł złamać na szerokości okna, bo ta otworzyłaby inny obiekt. **Tab** uzupełnia (polecenia, parametry, zmienne, nazwy
   atrybutów ze schematu i kontenery, które okno już zna – bez odczytu z katalogu przy każdym znaku; nie ma uzupełniania nazw
@@ -159,7 +161,7 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
 - **`Out-AdmGrid`, `Open-AdmObject`, `Export-AdmList`.** `Out-AdmGrid` otwiera okno z siatką jak lista obiektów: kolumny z
   właściwości obiektów, sortowanie kliknięciem w nagłówek, filtr, kopiowanie (Ctrl+C), eksport CSV z ochroną formuł i otwieranie
   obiektu (Enter) – każde wywołanie to osobne okno. `Open-AdmObject` otwiera właściwości obiektu (nazwa wyróżniająca,
-  `objectGUID`, SID, nazwa konta; najwyżej 10 okien naraz). `Export-AdmList` zapisuje CSV tak jak eksport listy (formuły
+  `objectGUID`, SID, nazwa konta; najwyżej 10 okien w jednym poleceniu). `Export-AdmList` zapisuje CSV tak jak eksport listy (formuły
   chronione, separator z ustawień regionalnych, UTF-8 z BOM) tylko do pliku z `-Path` albo wybranego w oknie *Zapisz jako*;
   istniejący plik zastępuje tylko z `-Force`, a bez ścieżki i bez wybranego pliku nic nie zapisuje. Ścieżkę, `-Force` i
   separator sprawdza, zanim polecenie przed nim cokolwiek przeczyta. Kolumny z sekretami (hasło LAPS jawnym tekstem, hasło
@@ -168,11 +170,13 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   pliku, a wiersz stanu mówi to własnymi słowami.
 - **Nic na dysku.** Wynik, historia i zawartość okna są tylko w pamięci i znikają z oknem. Silnik (PowerShell 7.6 wbudowany w
   program) ma wyłączone: telemetrię, kanał diagnostyczny, sprawdzanie aktualizacji, automatyczne ładowanie modułów i zapis
-  pamięci podręcznej analizy modułów; test „bez plików” sprawdza, że praca w oknie nie zostawia pliku (na Windows także
-  w folderach PowerShella użytkownika). Na Windows silnik sam z siebie zapisuje w `%TEMP%` dwa pliki testowe
+  pamięci podręcznej analizy modułów; test „bez plików” sprawdza, że praca w oknie nie zostawia pliku w żadnym folderze, w
+  którym silnik trzyma pliki (na Windows także w folderach PowerShella w profilu użytkownika, porównanych przed i po). Na Windows silnik sam z siebie zapisuje w `%TEMP%` dwa pliki testowe
   `__PSScriptPolicyTest_…` (sprawdzenie AppLockera, bez danych z katalogu) i od razu je usuwa – raz na uruchomienie programu;
-  uprzedź o tym zespół bezpieczeństwa. W trybie ograniczonym skrypt nie dosięga sesji okna ani jej danych logowania: żadna zmienna, parametr ani `$Host` jej nie przekazuje (polecenia
-  znajdują swoje okno w tablicy silnika), a polecenia czytają przez widok tylko do odczytu tej sesji. Plik zapisują tylko
+  uprzedź o tym zespół bezpieczeństwa. W trybie ograniczonym nie jest znany żaden sposób, w jaki skrypt dosięgnąłby sesji okna
+  albo jej danych logowania: żadna zmienna, parametr ani `$Host` jej nie przekazuje (polecenia znajdują swoje okno w tablicy
+  silnika), polecenia czytają przez widok tylko do odczytu tej sesji, a każdy sposób znaleziony przez audyt i późniejsze próby
+  obejścia okna jest testem, który musi pozostać odrzucony. Plik zapisują tylko
   `Export-AdmList` (lista z ochroną formuł) i `Start-Transcript -Path` (zapis sesji do pliku, który wskażesz); `Start-Transcript`
   bez ścieżki – który zapisałby polecenia i ich wyniki do pliku w folderze *Dokumenty* – oraz `Out-File`, `Set-Content`,
   `Add-Content`, `Export-Csv`, `Export-Clixml` i przekierowanie `>` do pliku są odrzucane z komunikatem (`> $null` działa).
@@ -237,9 +241,9 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   w jasnym, ciemnym i wysokim kontraście, a także to, czy czytnik ekranu czyta okno sensownie (lista uzupełnień nie jest
   ogłaszana), czeka na pilotaż. Zachowanie silnika pod WDAC/AppLocker i przy włączonych zasadach transkrypcji nie zostało
   sprawdzone na prawdziwej maszynie z takimi zasadami, a polecenia nie były uruchamiane na prawdziwym Windows Server AD (tylko
-nad sztucznym katalogiem i kontrolerem Samba). Nie ma jeszcze poleceń zapisu ani modułów RSAT (etapy R2 i R3), uzupełniania
-nazw plików ani `N obiektów` w wierszu stanu (liczy wiersze danych wyjściowych); `LockedOut` nie uwzględnia czasu blokady z
-zasad domeny, gdy kontroler nie zwraca własnej flagi. W trybie ograniczonym `[pscustomobject]@{}` i wywołania metod typów spoza
+  nad sztucznym katalogiem i kontrolerem Samba). Nie ma jeszcze poleceń zapisu ani modułów RSAT (etapy R2 i R3), uzupełniania
+  nazw plików ani `N obiektów` w wierszu stanu (liczy wiersze danych wyjściowych); `LockedOut` nie uwzględnia czasu blokady z
+  zasad domeny, gdy kontroler nie zwraca własnej flagi. W trybie ograniczonym `[pscustomobject]@{}` i wywołania metod typów spoza
   rdzenia są odrzucane (`New-Object PSObject -Property` działa); skrypt w trybie zaufanym, który używa `System.Data.SqlClient`, nie
   znajdzie `sni.dll` (pakiet bez licencji OSI jest wyłączony).
 

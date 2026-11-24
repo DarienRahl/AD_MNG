@@ -202,7 +202,7 @@ by dot with `Write-Host -NoNewline`, which does not slow the window down).
   joined with `; `, binary values as `(binary, 12 bytes)`;
 - a click on a column header sorts (numbers as numbers, empty cells last); the filter box above the list finds text in any
   column (case and Polish letters do not matter);
-- **Enter** or a double click opens the object in the program (at most 10 windows at once); the right-click menu has *Open in
+- **Enter** or a double click opens the object in the program (at most 10 windows for one press); the right-click menu has *Open in
   the program*, *Copy rows*, *Copy rows with the column names*, *Copy distinguished name* and *Export list…*;
   **Ctrl+C** copies the selected rows (tab-separated, formulas protected as in the program's lists);
 - *Export list…* writes CSV to a file you choose – chapter 5.
@@ -268,8 +268,9 @@ that says so, and redirection to a file (`>`, `>>`, `2>`) is refused before the 
   password asked for by `Read-Host -AsSecureString` or a mandatory parameter is typed into a password box and never shown.
 - **The program writes nothing else.** PSReadLine is not loaded (no history file), no profile is run (`$PROFILE` is never
   loaded), the engine's telemetry and diagnostics channel are off, module auto-loading and the module analysis cache are
-  off, and a test checks that working in the window leaves no file behind: on Linux in every folder the engine uses, on Windows
-  in the temporary folder and in your PowerShell folders (*AppData*, *Documents*), compared before and after. The only files the
+  off, and a test checks that working in the window leaves no file behind in any folder where the engine keeps files – the
+  temporary folder is watched during the whole run, and on Windows your own PowerShell folders (*AppData*, *Documents*) are
+  also compared before and after. The only files the
   engine writes of its own accord are on Windows: to learn whether AppLocker is in force it writes two small test files,
   `__PSScriptPolicyTest_<random>.ps1` and `.psm1` (a comment line, no directory data), into your temporary folder and deletes
   them at once – once per run of AD Manager, when the first PowerShell window opens. The program's own diagnostic log never
@@ -366,7 +367,8 @@ from the password box goes to the command at once as a `SecureString`; the box i
 
 In ConstrainedLanguage no command of the window runs code in another language mode, and nothing in the session – no variable, no
 parameter, nothing of `$Host` – hands a script the window's directory session or its credentials: AD Manager's commands find
-their window in a table of the engine that a script cannot read.
+their window in a table of the engine that a script cannot read. Each way around this found so far – by the audit of R1 and by
+three later attempts to get around the window – is an automated test that must stay refused.
 
 The language mode and the list of commands are **a protection against mistakes, not a security boundary.** The boundary is the
 rights of the window's account in AD: the window never gives more than the account has, and a change made around the plan has no

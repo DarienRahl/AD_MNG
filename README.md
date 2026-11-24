@@ -215,8 +215,9 @@ Details: [Track E](#track-e--event-logs-reader-and-analysis--e1-and-part-of-e2-)
   to the connection window, with AD Manager's own read commands (`Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`,
   `Get-AdmGroupMember -Recursive`, `Search-AdmObject` …) that use the window's session – the same domain controller and
   account, every value escaped, results as ordinary objects that open in a grid and link to the object. Reads only for
-  now: ConstrainedLanguage by default (a trusted mode on request), a fixed list of commands without background jobs or
-  file writers, no profiles, no history on disk, a plain note when a Group Policy records PowerShell. Writes through the change plan and the RSAT modules are the next stages.
+  now: ConstrainedLanguage by default (a trusted mode on request), a fixed list of commands without background jobs and
+  without file writers except the exports the operator asks for (`Export-AdmList`, `Start-Transcript -Path`), no profiles,
+  no history on disk, a plain note when a Group Policy records PowerShell. Writes through the change plan and the RSAT modules are the next stages.
 
 Details: [Track R](#track-r--powershell-window--r1-), [docs/en/POWERSHELL.md](docs/en/POWERSHELL.md).
 
@@ -2707,10 +2708,11 @@ stages</summary>
   Editor.
 - **Results** are ordinary PowerShell objects – `Where-Object`, `Select-Object`, `Group-Object`, `Measure-Object` and
   the pipeline work on them – shown as a table or a list; `Out-AdmGrid` opens them in the program's grid (sorting,
-  filters, columns, copying), and every DN has *Open in the program* (properties, place in the tree; `Open-AdmObject` does
+  filters, columns, copying), and every DN has *Open in the program* (the object's properties; `Open-AdmObject` does
   the same for a DN or an `objectGUID`).
-- **Export** (`Export-Csv`, `Export-AdmList` with formula protection as in the list export) only to a file the operator
-  chooses – in the *Save As* dialog or with an explicit path in the command; the program itself saves nothing.
+- **Export** (`Export-AdmList` with formula protection as in the list export; `Export-Csv` and the other file writers of
+  PowerShell are refused) only to a file the operator chooses – in the *Save As* dialog or with an explicit path in the
+  command; the program itself saves nothing.
 
 #### Writes through the change plan
 
@@ -2776,8 +2778,10 @@ stages</summary>
 
 - **Nothing on disk (rule 1):** results, the command history and the window's content are only in memory and disappear
   when the window is closed. AD Manager does not save a command history or transcripts: PSReadLine is not loaded, and a
-  configuration file in the program folder turns off transcription and module logging turned on in the user's
-  `powershell.config.json`. Only what the operator explicitly exports goes to a file; the window rejects
+  configuration file in the program folder turns off transcription, script block logging and module logging turned on
+  in the user's `powershell.config.json`. Only what the operator explicitly exports goes to a file (the engine itself
+  writes, on Windows, only the two test files of its AppLocker check into `%TEMP%` – no directory data – and deletes them
+  at once); the window rejects
   `Start-Transcript` without `-Path` (by default a file in *Documents*) – transcription only to an explicitly specified
   file – and has no other command that writes a file (no `Out-File`, `Export-Csv`, `Set-Content`, no redirection to a
   file). Code snippets saved in the settings contain only code typed by the operator (like saved views: names, DNs,
@@ -2800,8 +2804,8 @@ stages</summary>
   installer or `RegisterManifest.ps1`) and module logging. Transcription covers every program with the PowerShell
   engine, so the commands and results – that is, directory data – end up in the file specified in the GPO. PowerShell 7
   reads its own policies (*PowerShell Core*, `HKLM`/`HKCU\Software\Policies\Microsoft\PowerShellCore`), and the Windows
-  PowerShell policies only with *Use Windows PowerShell Policy setting* turned on. The window checks both places when it
-  opens and points these policies out clearly – it does not try to get around them. AMSI checks every script block (the
+  PowerShell policies only for a policy whose *Use Windows PowerShell Policy setting* is turned on. The window reads them
+  by the engine's rules when it opens and points these policies out clearly – it does not try to get around them. AMSI checks every script block (the
   antivirus program sees its content). WDAC (App Control) and AppLocker enforce the ConstrainedLanguage mode – the
   window switches to this mode by itself, and AD Manager's commands keep working in it. Execution policies
   (`ExecutionPolicy`) apply to `.ps1` and `.psm1` files.
@@ -2855,7 +2859,9 @@ stages</summary>
   "Decided".
 - **The engine's environment**, set before its first use: no telemetry and no diagnostics channel
   (`POWERSHELL_TELEMETRY_OPTOUT`, `POWERSHELL_DIAGNOSTICS_OPTOUT`), module auto-loading off and the module analysis cache
-  pointed at a null device (so the engine writes no file of its own – checked on Linux, see the implementation note), a
+  pointed at a null device (so the engine writes no file of its own – observed on Linux; on Windows a test also compares
+  the PowerShell folders of the user's profile – that part has not passed yet – and the engine's AppLocker check writes two test files
+  into `%TEMP%` and deletes them at once, see the implementation note), a
   `powershell.config.json` file in the engine's folder (`$PSHOME`; it wins over a user's file, GPO settings take
   precedence over it), no PSReadLine, profiles, jobs or parallel runspaces.
 - **Tests:** the commands and the plan on `FakeDirectorySession` (unit tests – the package also works on Linux) and on
@@ -2898,7 +2904,8 @@ the implementation note is [docs/dev/r1-powershell-window.md](docs/dev/r1-powers
   engine files is published (the measured growth of `AdMng.exe` is about 38 MB).
 - **One runspace per window,** never shared between connection windows and disposed with the window's scope; a custom host
   routes text, prompts and confirmations into the window. The session has a fixed list of commands (an allow-list): no
-  jobs, parallel runspaces or remote sessions, no `Invoke-Expression`, no `Start-Process`, no command that writes a file;
+  jobs, parallel runspaces or remote sessions, no `Invoke-Expression`, no `Start-Process`, no command that writes a file
+  other than `Export-AdmList` and `Start-Transcript -Path` to a path the operator gives;
   no job outlives the command that started it. No profiles, no PSReadLine, module auto-loading off; no `.ps1` files in R1 (the
   window refuses them, whatever the execution policy says).
 - **Modules and scripts from disk:** `Import-Module` and `using module` only for the modules on a list, which is empty in R1
@@ -2915,7 +2922,8 @@ the implementation note is [docs/dev/r1-powershell-window.md](docs/dev/r1-powers
   the password in a `PSCredential` object: `PSCredential` is an allowed type in ConstrainedLanguage, so
   `$cred.GetNetworkCredential().Password` works there too (R1 creates no `PSCredential`).
 - **Names and shortcut:** the prefix `Adm`; R1 builds `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`,
-  `Get-AdmGroupMember` (`-Recursive`), `Search-AdmObject`, `Out-AdmGrid`, `Open-AdmObject` and `Export-AdmList`; the write
+  `Get-AdmGroupMember` (`-Recursive`), `Search-AdmObject`, `Get-AdmVersion`, `Out-AdmGrid`, `Open-AdmObject` and
+  `Export-AdmList`; the write
   names above stay reserved for R2. The window's shortcut is **Ctrl+Shift+P** (no existing binding uses it).
 - **The line editor:** our own WPF control without a new dependency; completion of commands, parameters and variables
   through the engine plus completers on AD Manager's parameters (attribute names from the session's in-memory schema, DNs
@@ -2924,13 +2932,17 @@ the implementation note is [docs/dev/r1-powershell-window.md](docs/dev/r1-powers
   the history only in the window's memory (Up/Down, Ctrl+R); a line with a plain-text password is not remembered.
 - **Output:** ordinary objects shown with the engine's own formatting as text with clickable DNs; errors, warnings and
   verbose messages in the window's colours; `Out-AdmGrid` sends the objects to the program's object list grid.
-- **Policies:** when the window opens it reads the PowerShell policies of GPOs (PowerShell Core, and Windows PowerShell with
-  `UseWindowsPowerShellPolicySetting`: transcription, script block logging, module logging, execution policy) and the
-  lockdown state, and a lasting note before the first command says plainly what is logged where; the program does not try
+- **Policies:** when the window opens it reads the PowerShell policies of GPOs by the engine's own rules (PowerShell Core
+  and, for a policy whose own `UseWindowsPowerShellPolicySetting` is on, Windows PowerShell: transcription, script block
+  logging, module logging, execution policy, each from the first hive that sets it) and the lockdown state, and a lasting note before the first command says plainly what is logged where; the program does not try
   to get around any policy.
-- **Nothing on disk:** the environment of the engine is set before its first use and a "no files" test proves that
-  working in the window leaves no file; in ConstrainedLanguage no script reaches the window's session or credentials (in the
-  trusted mode .NET code can); no write command exists in R1.
+- **Nothing on disk:** the environment of the engine is set before its first use and a "no files" test checks that
+  working in the window leaves no file in any folder where the engine keeps files – on Linux they all lie in the test's
+  folder (observed); on Windows the test also compares the PowerShell folders of the user's profile (that part has not passed yet),
+  and the engine's AppLocker check writes two test files into `%TEMP%` and deletes them at once; in ConstrainedLanguage no
+  way is known for a script to reach the window's session or credentials (the ways found by the audit of R1 and by three
+  later attempts to get around the window are tests that must stay refused; in the trusted mode .NET code can); no write
+  command exists in R1.
 
 #### To be agreed with the team
 

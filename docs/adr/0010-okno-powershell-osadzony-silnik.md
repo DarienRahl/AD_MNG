@@ -75,7 +75,9 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
    (dowolny kod .NET, zapisy z pominięciem planu zmian); tryb widać w tytule okna i w trwałej notatce, dopóki jest
    włączony; nie jest zapamiętywany między oknami ani sesjami. Przy blokadzie systemu (WDAC / AppLocker,
    `SystemPolicy.GetSystemLockdownPolicy`) okno zostaje w ConstrainedLanguage, a przełącznik jest wyłączony z podaniem
-   powodu. W ConstrainedLanguage żadne polecenie okna nie uruchamia kodu w innym runspace ani w innym trybie języka.
+   powodu. W ConstrainedLanguage żadne polecenie okna nie uruchamia kodu w innym runspace ani w innym trybie języka (każdą
+   znaną drogę – `-Parallel`, `[powershell]`, `[runspacefactory]`, `[scriptblock]::Create`, zadania i drogi audytu – próbują
+   `LanguageModeTests` i `EscapeTests`).
    Tryb zaufany zmienia tylko tryb języka: nie dodaje poleceń, a jego kod .NET działa w procesie AD Managera, gdzie może
    sięgnąć do wszystkiego – także do sesji katalogu okna i jej poświadczeń. **To ochrona przed pomyłką, nie granica
    bezpieczeństwa** (README, „Bezpieczeństwo i dane”): w FullLanguage dowolny kod .NET omija plan zmian, a operator może
@@ -124,7 +126,7 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
    foldery, w których jego silnik trzyma pliki (odczytane z samego silnika), a test sprawdza, że obserwuje każdy z nich i
    że w żadnym nie zostaje plik – na Linuksie wszystkie leżą w pustym folderze (zaobserwowane); na Windows silnik znajduje
    swoje foldery przez interfejs folderów znanych, którego zmienne nie muszą przesuwać, więc tam test porównuje też
-   własne foldery silnika użytkownika przed i po uruchomieniu (części na Windows nie widziano jeszcze przechodzącej). Na
+   foldery PowerShella w profilu użytkownika przed i po uruchomieniu (ta część jeszcze nie przeszła na Windows). Na
    Windows silnik sam z siebie zapisuje dwa pliki, których nie da się wyłączyć: jego sprawdzenie AppLockera zapisuje w
    `%TEMP%` pliki `__PSScriptPolicyTest_<losowo>.ps1` i `.psm1` (wiersz komentarza, żadnych danych z katalogu) i od razu
    je usuwa, raz na proces (odczytane z kodu silnika); test dopuszcza dokładnie te pliki. W ConstrainedLanguage nie jest

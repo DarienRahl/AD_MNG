@@ -836,7 +836,8 @@ has the picture.
 11. *`Out-AdmGrid` is a window of its own* (12.4 decision 8), built from the object list's column, sort and density pieces; it is not `ObjectListViewModel`.
 12. *Published layout* (12.4 decision 1, ADR-0010): the single-file `AdMng.exe` runs the engine (no folder fallback was needed); `powershell.config.json` and `AdMng.PowerShell.dll-Help.xml` sit beside it
     (`ExcludeFromSingleFile`); the engine falls back to the program folder as `$PSHOME`; the help file is found through `AppContext.BaseDirectory`.
-13. *Nothing on disk* (12.1, 4.2): the engine's environment is set before its first use and a probe program proves no file appears; the only writes of the window are operator-requested exports.
+13. *Nothing on disk* (12.1, 4.2): the engine's environment is set before its first use and a probe program shows that no file appears where its engine keeps files (on Linux observed; on Windows
+    not yet seen to pass; there the engine's AppLocker check writes and deletes two test files in `%TEMP%`); the only writes of the window are operator-requested exports.
 14. *A test seam:* `PowerShellSessionOptions.ExtraCommands` (internal) registers test-only commands outside the catalog.
 
 **Counts** (recounted by a script that reads the catalog, the git diff of the tests and both resx files; results of a local run on Linux):
@@ -871,7 +872,10 @@ the CI's Linux package job runs that .deb check too. `IPowerShellWindowActions` 
 - *Policies under a real GPO.* The registry keys and the rules come from the engine's decompiled code (`Utils.GetPolicySetting`, audit W-02) and the documented templates, and the reader's rules are tested on Linux;
   the Windows source is tested against a throwaway key of the current user (`WindowsPowerShellPolicySourceTests`, Windows CI). Whether the note matches what the engine records under a real GPO has not been seen.
 - *WDAC / AppLocker.* The lockdown probe is `SystemPolicy.GetSystemLockdownPolicy()` and its mapping is tested with a fake; the engine under a real lockdown has not been run.
-- *`PSModuleAnalysisCachePath` = `NUL\ModuleAnalysisCache` on Windows.* The opt-in 40 s proof (`ADMNG_POWERSHELL_SLOW_TESTS=1`) was run on Linux only; auto-loading is off, which stops the cache being written by discovery, and the path is the second line of defence.
+- *`PSModuleAnalysisCachePath` = `NUL\ModuleAnalysisCache` on Windows* (a relative path there, 4.2). The opt-in 40 s proof (`ADMNG_POWERSHELL_SLOW_TESTS=1`) was run on Linux only; the Windows CI job sets it since the audit,
+  not seen to pass yet; auto-loading is off, which stops the cache being written by discovery, and the path is the second line of defence.
+- *The "no files" test on Windows.* Its first Windows run (CI of 5cfead9c) failed its positive control, which showed that the test had not watched where the child's known-folder answers point; the
+  test now asks the child's engine for its folders and asserts that it watches each (12.1, "What could not be verified on Linux"); not seen to pass on Windows yet.
 - *A real Windows Server AD.* The commands ran over `FakeDirectorySession` and the Samba lab; the lab has no Windows-only behaviour (a hidden attribute, ranged retrieval differences, the DC's computed `msDS-User-Account-Control-Computed`).
 - *Running `AdMng.exe` as a person would.* The CI starts it with `--smoke-test` and the UI tests; the first runspace took 523-791 ms there and the second 9-12 ms.
 
