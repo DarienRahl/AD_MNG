@@ -41,23 +41,44 @@ the Watchdog package.
    **accepted**. If the engine cannot run in the single-file `AdMng.exe` (the SDK needs its module manifests beside the
    host), the engine's files will be published in a folder beside `AdMng.exe`; the smoke test in Windows CI decides (part
    4 of R1) – **it decided: the engine runs in the single-file `AdMng.exe` and no folder is needed** (section "The publish
-   layout"). The reason: only an in-process engine gives access to the
-   window's session and credentials without exposing them, objects handed to the program's grid and our own line editor;
-   an external `pwsh.exe` gives none of these (section "Alternatives considered").
-2. **One runspace per window (D2).** A runspace is never shared between connection windows; it is created and disposed with
-   the window's DI scope (`docs/dev/multi-window.md`). A custom `PSHost` / `PSHostUserInterface` routes text, prompts and
-   confirmations into the window. No profiles are loaded (`$PROFILE` is never read), there is no PSReadLine and no
-   `Start-Job`, module auto-loading is **off**, the execution policy is `Restricted` (R1 runs no `.ps1` files), and
-   `Import-Module` works only for the modules on a list, which is **empty** in R1 (RSAT comes with R3, the Microsoft 365
-   modules with track C). The reason: the window should do what the program knows, not what a profile, a module in
-   `PSModulePath` or a script on disk brought in.
+   layout"). The reason: only an in-process engine lets AD Manager's commands use the window's own session (the same DC
+   and account, no second sign-in), hand objects to the program's grid and work with our own line editor; an external
+   `pwsh.exe` gives none of these (section "Alternatives considered"). The price: code that runs in FullLanguage runs in
+   AD Manager's process and can reach its memory, the window's session and credentials included (decision 3); only an
+   engine out of process with a read bridge would not – the audit of R1 recommends weighing that again before R3 puts a
+   credential into the session.
+2. **One runspace per window (D2).** A runspace is never shared between connection windows; it is created and disposed
+   with the window's DI scope (`docs/dev/multi-window.md`). A custom `PSHost` / `PSHostUserInterface` routes text, prompts
+   and confirmations into the window. **The session's commands are an allow-list** – one list in the code
+   (`src/AdMng.PowerShell/Guards/CommandGuards.cs`), compared with a live session by a test: AD Manager's commands, the
+   engine's cmdlets for objects, formatting, variables, help and reading files, four replacements with fewer parameters
+   (`ForEach-Object` without `-Parallel` and `-AsJob`, `Tee-Object` into a variable only, `New-Object` without COM,
+   `Start-Transcript` only to a file named with `-Path`) and, for names typed out of habit, refusals with a message
+   (`Start-Job`, `Import-Module`, `Invoke-Command`, `Invoke-Expression`, `Get-Credential`, `Start-Process`,
+   `Out-GridView`, `Export-Csv`, `Export-Clixml`, `Out-File`, `Set-Content`, `Add-Content`). There are no jobs, parallel
+   runspaces, remote sessions, events, debugger, help updates, policy changes or commands that write a file (only
+   `Export-AdmList` and `Start-Transcript -Path` write one). What reaches the engine without a command name is refused
+   from the text before it runs: `using module` / `using assembly`, the background operator `&` and redirection to a file.
+   Script files do not run: the session lists none, a lookup hook drops one found from a script block, and on Windows the
+   window's authorization manager refuses every `.ps1` and `.psm1` whatever the execution policy says (it stays
+   `Restricted`; on Linux, where the window is not shipped, the engine asks no authorization manager). No job outlives the
+   command that started it: a job left in the session is stopped when the command ends, on Stop and on dispose. No
+   profiles are loaded (`$PROFILE` is never read), there is no PSReadLine, module auto-loading is **off**, and
+   `Import-Module` and `using module` work only for the modules on a list, which is **empty** in R1 (RSAT comes with R3,
+   the Microsoft 365 modules with track C). The reason: the window should do what the program knows, not what a profile, a
+   module in `PSModulePath` or a script on disk brought in, and it must not offer a way to run code outside its language
+   mode or past its own life – the audit of R1 found `ForEach-Object -Parallel` running FullLanguage in a constrained
+   window and `-AsJob` jobs outliving it, when the session was the engine's default minus two names.
 3. **Language mode (D3): ConstrainedLanguage by default.** AD Manager's commands work in it because they are compiled
    program code. The window's switch "Trusted mode (FullLanguage)" is turned on by the operator after a confirmation that
    says what it allows (any .NET code, writes around the change plan); the mode is shown in the window title and in a
    lasting note for as long as it is on, and it is never remembered between windows or sessions. With a system lockdown
    (WDAC / AppLocker, `SystemPolicy.GetSystemLockdownPolicy`) the window stays in ConstrainedLanguage and the switch is
-   disabled with the reason. **This is a protection against mistakes, not a security boundary** (README, "Security and
-   data"): in FullLanguage any .NET code bypasses the change plan, and the operator can run `pwsh.exe` anyway.
+   disabled with the reason. In ConstrainedLanguage no command of the window runs code in another runspace or language
+   mode. The trusted mode changes the language mode only: it adds no command, and its .NET code runs in AD Manager's process,
+   where it can reach anything – the window's directory session and its credentials included. **This is a protection
+   against mistakes, not a security boundary** (README, "Security and data"): in FullLanguage any .NET code bypasses the
+   change plan, and the operator can run `pwsh.exe` anyway.
 4. **Names and shortcut (D4): the prefix `Adm`.** R1 builds `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`,
    `Get-AdmComputer`, `Get-AdmGroupMember` (`-Recursive` for nested membership), `Search-AdmObject`, `Out-AdmGrid`,
    `Open-AdmObject` (opens an object's properties in the program by DN or `objectGUID`) and `Export-AdmList` (CSV with
@@ -89,12 +110,13 @@ the Watchdog package.
    memory only (rule 1). The engine's environment is set **before** its first use: `POWERSHELL_TELEMETRY_OPTOUT=1`,
    `POWERSHELL_DIAGNOSTICS_OPTOUT=1`, `POWERSHELL_UPDATECHECK=Off`, module auto-loading off and the module analysis cache
    pointed at a null device; a "no files" test runs commands in a process whose `HOME`, `LOCALAPPDATA`, `TEMP` and `XDG_*`
-   point at an empty folder and asserts that the folder is still empty. The window's credentials are never visible to a
-   script: the commands take the session object that the host injects, and R1 creates no `PSCredential` (rule 2). Filters
-   are built with `AdMng.Core.Ldap.LdapFilter` and DNs with `DistinguishedName` (rule 3). The commands read only from the
-   window's `IDirectorySession` – one DC, no `-Server` and no `-Credential` (rule 4). Every directory call is asynchronous
-   with the pipeline's cancellation token (`StopProcessing` cancels it); results are streamed and paged, and 100,000
-   results do not block the window (rule 6).
+   point at an empty folder and asserts that the folder is still empty. In ConstrainedLanguage no script reaches the
+   window's session or its credentials: no variable, parameter or member of `$Host` carries them (AD Manager's commands
+   find their window in a registry of the engine, keyed by the runspace), and R1 creates no `PSCredential` (rule 2); in
+   the trusted mode .NET reflection can (decision 3). Filters are built with `AdMng.Core.Ldap.LdapFilter` and DNs with
+   `DistinguishedName` (rule 3). The commands read only from the window's `IDirectorySession` – one DC, no `-Server` and
+   no `-Credential` (rule 4). Every directory call is asynchronous with the pipeline's cancellation token
+   (`StopProcessing` cancels it); results are streamed and paged, and 100,000 results do not block the window (rule 6).
 9. **Writes (D9): none in R1.** There is no `Set-`/`New-`/`Remove-`/`Move-`/`Rename-`/`Add-`/`Enable-`/`Disable-`/`Unlock-`/
    `Reset-Adm*` command, no `AD:` drive and no RSAT; a test asserts that the registered AD Manager command list contains
    only the read commands of item 4 (and `Get-AdmVersion`). The window has a place for the pending plan that R2 adds.
@@ -114,8 +136,8 @@ the Watchdog package.
   for `System.Management.Automation.dll`). The answers are the signed `AdMng.exe` (phase 7, certificate from P2) and
   information for the security team; documentation for them is part of R1. AMSI checks every script block, and script
   block logging and transcription from GPOs cover the window – hence the note before the first command (item 7).
-- **The security boundary.** ConstrainedLanguage, the module list, the `Restricted` policy and the missing `Start-Job`
-  protect against mistakes, not against a malicious operator; the only boundary is the account's rights in AD. Changes made
+- **The security boundary.** ConstrainedLanguage, the allow-list of commands, the empty module list and the refusal of
+  script files protect against mistakes, not against a malicious operator; the only boundary is the account's rights in AD. Changes made
   around the plan have no audit and no rollback in the program, but the Watchdog sees them like any other change in AD.
 - **Process state.** The engine's environment and the execution policy are process settings: on Windows
   `ISS.ExecutionPolicy` sets the *Process* scope policy, which according to the PowerShell documentation is stored in the
@@ -136,7 +158,8 @@ The result of part 4 of R1, checked in Windows CI (the step "Smoke test publishe
 
 - **The engine runs in the single-file, self-contained `AdMng.exe`.** The smoke test creates a runspace, runs `1 + 1` and
   `Get-AdmVersion`, checks the language mode (ConstrainedLanguage), the execution policy (`Restricted`), the list of the ten
-  commands, the refusal of `Import-Module` and the help of a command; the first runspace of the process takes about 0.5 s
+  commands, the refusal of `Import-Module` and the help of a command (since the fixes after the audit of R1 also the number of
+  the session's commands against the allow-list and the window's `ForEach-Object`); the first runspace of the process takes about 0.5 s
   (523 ms), the second about 10 ms (9 ms). The `System.Management.Automation` assembly is inside the file; the engine, finding
   no location of it (`Assembly.Location` is empty), takes the folder of the program for `$PSHOME` (observed: `$PSHOME` was the
   folder of `AdMng.exe`). **A folder with the engine's files beside the program is therefore not needed** and is not used; the
@@ -193,10 +216,20 @@ according to `project.assets.json` of the engine project, restored on 2026-11-16
 4. **One runspace for all windows.** The state of one window (variables, `$PSDefaultParameterValues`, the session) would leak
    into another connection, and the runspace could not be disposed with the window. Rejected; one window = one runspace.
 5. **Any modules and scripts from disk** (`Import-Module`, `.ps1` files, the user's module folder). Rejected in favour of
-   the module list (empty in R1) and the `Restricted` execution policy: the window should behave the same on every
-   workstation.
+   the module list (empty in R1) and the refusal of script files by the window itself (decision 2), whatever the execution
+   policy: the window should behave the same on every workstation.
 6. **Our own command language instead of PowerShell.** It would avoid many issues but would give no object pipeline, no
    `Where-Object`/`Select-Object`/`Group-Object` and none of the scripts administrators already use. Rejected.
 7. **A new third-party package for the line editor** (e.g. a code editor control). A new dependency with a license to check
    and maintain, while the needed features (highlighting from tokens, completion, multi-line input) can be built on what
    WPF and the engine already have. Rejected; a package only if a stage proves it unavoidable, with its license in the ADR.
+8. **The engine's default session state with a few names removed** (a deny-list: `CreateDefault()` without `Start-Job` and
+   `Import-Module`). What R1 first built. The audit of R1 found the ways out among what such a list does not name –
+   `ForEach-Object -Parallel` runs FullLanguage runspaces, `-AsJob` jobs outlive the window, `using module`, the background
+   operator and redirection never look a name up, and among its 233 cmdlets are ones that write files, start processes and
+   change the session. Rejected in favour of the allow-list of decision 2.
+9. **An engine out of process with a read bridge** (the commands of the window call back into AD Manager for reads). The
+   only design in which code of the trusted mode cannot reach AD Manager's memory, the window's session and its credentials;
+   weeks of work, a new ADR and no objects shared with the program's grid. Not taken for R1 (only the operator turns the
+   trusted mode on, after a question); to be weighed again before R3 hands the `ActiveDirectory` module a `PSCredential`
+   (decision 1).

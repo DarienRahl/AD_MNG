@@ -16,8 +16,8 @@ Rules that apply everywhere:
 - **No command writes to the directory.** Writes go through the change plan (preview, audit, rollback); the commands that
   will add operations to it are stage R2.
 - **One domain controller per window.** The commands read through the window's own session: the same domain controller and
-  the same account as the window they belong to. They have no `-Server` and no `-Credential` parameter, and a script
-  cannot read the window's password.
+  the same account as the window they belong to. They have no `-Server` and no `-Credential` parameter, and a script in the
+  default mode cannot reach the window's session or its password (chapter 7).
 - **Escaped values.** Whatever you type in a parameter is a value, never a piece of a filter (chapter 3).
 
 ## 1. What the window is and how to open it
@@ -104,9 +104,9 @@ looks for objects where any of the attributes has any of the values; `-Match Exa
 the value is compared; `-ObjectClass` narrows the type; `-Filter '(…)'` is a ready LDAP filter. It refuses to compare
 secret attributes (for example the LAPS password): a search could be used to guess them.
 
-**Other cmdlets work as in any PowerShell.** `Where-Object`, `Select-Object`, `Sort-Object`, `Group-Object`,
-`Measure-Object`, `Format-Table`, `Format-List`, `ForEach-Object`, variables, `if`, `foreach` and the like – within the
-limits of chapter 7. A script block is typed directly, e.g.
+**The usual cmdlets for objects work as in any PowerShell.** `Where-Object`, `Select-Object`, `Sort-Object`, `Group-Object`,
+`Measure-Object`, `Format-Table`, `Format-List`, `ForEach-Object`, variables, `if`, `foreach` and the like – the window has
+a fixed list of commands, given in chapter 7. A script block is typed directly, e.g.
 `Get-AdmUser -Enabled $true | Where-Object { $_.LockedOut } | Select-Object Name, sAMAccountName`.
 
 A real session (the sample company of the test directory):
@@ -200,7 +200,7 @@ and no window opens for it.
 
 ## 5. Exporting
 
-AD Manager writes a file in exactly two cases, and only when you ask:
+A file is written in exactly three cases, and only when you ask:
 
 - **`Export-AdmList`** writes the objects of the pipeline as CSV the way the program exports a list: **formulas are
   protected** (a value that starts with `=`, `+`, `-` or `@` cannot run in Excel), the separator is the one of the regional
@@ -209,10 +209,14 @@ AD Manager writes a file in exactly two cases, and only when you ask:
   existing file is replaced only with `-Force`; without a path and with the dialog cancelled it writes nothing and says so.
   It prints the path and the number of rows and columns, never the values.
 - ***Export list…*** in the grid window of `Out-AdmGrid`: the same CSV, to the file you choose.
+- **`Start-Transcript -Path <file>`** (or `-LiteralPath`) records the session – the commands and everything they show, so
+  directory data too – to the file you name, until `Stop-Transcript` or until the window closes. Without a path it is refused:
+  the engine would write to a file it names itself in your *Documents* folder. There is no formula protection; treat the file like an
+  export.
 
-Other cmdlets are ordinary PowerShell: `Export-Csv`, `Out-File`, `Set-Content` and `Start-Transcript` write where you tell them,
-without formula protection, and R1 does not intercept them. A file written that way is yours and holds directory data
-outside the program's control; for a CSV that is going to Excel use `Export-AdmList`.
+No other command writes a file. `Export-Csv`, `Export-Clixml`, `Out-File`, `Set-Content` and `Add-Content` answer with a message
+that says so, and redirection to a file (`>`, `>>`, `2>`) is refused before the command runs (`> $null` still discards output,
+`2>&1` still merges the streams). For a CSV use `Export-AdmList`.
 
 ## 6. History and what stays in memory
 
@@ -242,26 +246,65 @@ script blocks work; what is restricted is arbitrary .NET:
   (`Add-Type -TypeDefinition`) is refused;
 - `Format-*`, `Out-String`, `Select-Object`, `Sort-Object`, `Group-Object` and `Measure-Object` work.
 
-Besides the language mode the window is closed to a few commands: `Start-Job` (it needs a separate `pwsh.exe`) and
-`Import-Module` (it is limited to a list of modules, which is empty in R1) answer with a message that says so; `Get-Credential`
-is refused (the window works with the credentials of its connection); `.ps1` files do not run (the execution policy is
-`Restricted`); there is no profile and no PSReadLine. The commands that ask for something – `Read-Host`, a mandatory
-parameter, `-Confirm` – ask in the window, and *Stop* cancels the question.
+**The window has a fixed list of commands** – the same in both modes, on every workstation:
+
+- AD Manager's commands (chapter 2);
+- objects and the pipeline: `Where-Object`, `Select-Object`, `Sort-Object`, `Group-Object`, `Measure-Object`, `Compare-Object`,
+  `ForEach-Object` (without `-Parallel`, `-AsJob` and the other parallel parameters), `Tee-Object` (into a variable,
+  `-Variable`), `Get-Unique`, `Join-String`, `Get-Member`, `Add-Member`, `New-Object` (without `-ComObject`);
+- showing: `Format-Table`, `Format-List`, `Format-Wide`, `Format-Custom`, `Format-Hex`, `Out-String`, `Out-Host`, `Out-Null`,
+  `Out-Default`;
+- data in memory: `ConvertTo-Csv`, `ConvertFrom-Csv`, `ConvertTo-Json`, `ConvertFrom-Json`, `ConvertTo-SecureString`;
+- files and locations, reading only: `Get-Content`, `Import-Csv`, `Select-String`, `Test-Path`, `Get-ChildItem`, `Get-Item`,
+  `Resolve-Path`, `Join-Path`, `Split-Path`, `Get-Location`, `Set-Location`, `Push-Location`, `Pop-Location`, `Get-PSDrive`;
+- variables and aliases: `Get-Variable`, `Set-Variable`, `New-Variable`, `Remove-Variable`, `Clear-Variable`, `Get-Alias`,
+  `Set-Alias`, `New-Alias`;
+- help and values: `Get-Command`, `Get-Help` (also `help`, without a pager), `Get-Date`, `New-TimeSpan`, `Get-Random`, `New-Guid`,
+  `Get-Culture`, `Get-UICulture`, `Get-ExecutionPolicy`;
+- messages and questions: `Write-Host`, `Write-Output`, `Write-Error`, `Write-Warning`, `Write-Verbose`, `Write-Debug`,
+  `Write-Information`, `Write-Progress`, `Read-Host`;
+- scripts typed in the window: `Start-Sleep`, `Measure-Command`, `Set-StrictMode`, `Clear-Host` (`cls`); the record of the
+  session: `Start-Transcript -Path` and `Stop-Transcript` (chapter 5).
+
+Nothing else is there. There are no background jobs, threads or runspaces (`Start-Job`, `ForEach-Object -Parallel`, the `&` at
+the end of a pipeline), no remote sessions (`Invoke-Command`, `Enter-PSSession`), no `Invoke-Expression`, no `Start-Process`,
+no loading of modules or assemblies (`Import-Module`, `using module`, `using assembly`, `Add-Type`), no events, no debugger, no
+`Update-Help`, no `Set-ExecutionPolicy` and no command that writes a file (chapter 5). A few names that are easy to type out of
+habit answer with a message that says why and what to use instead: `Start-Job`, `Import-Module`, `Invoke-Command`,
+`Invoke-Expression`, `Get-Credential` (the window works with the credentials of its connection), `Start-Process`, `Out-GridView`
+(use `Out-AdmGrid`), `Export-Csv`, `Export-Clixml`, `Out-File`, `Set-Content` and `Add-Content`; the others are *not recognized*.
+`using module`, `using assembly`, the `&` at the end of a pipeline, redirection to a file and a typed `ForEach-Object -Parallel`
+are refused before anything of the command runs. Script files (`.ps1`) do not run – on Windows the window refuses them whatever
+the execution policy says. There is no profile and no PSReadLine. No job outlives the command that started it: a job left
+behind is stopped when the command ends, on *Stop* and when the window closes. Console programs (`whoami`, `nltest`,
+`repadmin`) run as in any console, as a separate process with your own Windows identity – never with the window's
+credentials.
+
+The commands that ask for something – `Read-Host`, a mandatory parameter, `-Confirm` – ask in the window, and *Stop* cancels the
+question.
 
 **The trusted mode (FullLanguage)** is a switch under the command line:
 
 - turning it **on** asks first. The question names the domain and says what the mode allows: any .NET code, and changes to the
   directory made directly, **around the change plan** – without AD Manager's preview, audit and rollback. Nothing in R1 stops a
-  script from writing in this mode (the commands of R1 only read, but .NET can do more);
+  script from writing in this mode (the commands of R1 only read, but .NET can do more): .NET code reaches anything in the
+  AD Manager process, the window's directory session and its credentials included;
+- it adds no command: the list above is the same. A job that .NET code puts into the session (the engine's own
+  `ForEach-Object -Parallel -AsJob`, reached through .NET) is stopped with its command like any other; a thread or a runspace
+  that .NET code makes for itself is beyond the window's reach, like the rest of the process;
 - while it is on, the title says *– trusted mode* and a note that lasts says the same; turning it off needs no question;
 - it applies to this window only and **is never remembered**: a new window starts in ConstrainedLanguage again;
 - it cannot be changed while a command runs, nor before PowerShell has started;
 - when the system enforces ConstrainedLanguage (WDAC or AppLocker), the window stays in it and the switch is **disabled** –
   its tool tip gives the reason.
 
-The language mode is **a protection against mistakes, not a security boundary.** The boundary is the rights of the window's
-account in AD: the window never gives more than the account has, and a change made around the plan has no audit or rollback in the
-program (the AdMng Watchdog sees it like any other change in AD).
+In ConstrainedLanguage no command of the window runs code in another language mode, and nothing in the session – no variable, no
+parameter, nothing of `$Host` – hands a script the window's directory session or its credentials: AD Manager's commands find
+their window in a table of the engine that a script cannot read.
+
+The language mode and the list of commands are **a protection against mistakes, not a security boundary.** The boundary is the
+rights of the window's account in AD: the window never gives more than the account has, and a change made around the plan has no
+audit or rollback in the program (the AdMng Watchdog sees it like any other change in AD).
 
 ## 8. What Group Policy logging does to the window
 
@@ -299,8 +342,8 @@ in a process other than `powershell.exe`* – the process is `AdMng.exe`; tell t
 - **No RSAT modules (stage R3).** `Import-Module ActiveDirectory` and `GroupPolicy` are refused, `Get-ADUser` and the other
   `…-AD…` commands do not exist in the window. Use `Get-AdmUser` and its relatives; R3 will add the modules, pointed at the
   window's domain controller, and translate their write commands into the change plan.
-- **No Microsoft 365 modules** (track C), no remote PowerShell sessions to servers, no scripts from files (`.ps1`) and no
-  scheduled scripts.
+- **No Microsoft 365 modules** (track C), no remote PowerShell sessions to servers, no background jobs, no scripts from files
+  (`.ps1`) and no scheduled scripts.
 - **No file system completion.** Tab completes commands, parameters, variables, attribute names and the window's containers,
   not file names; the window never reads the directory per keystroke.
 - **The status line counts lines, not objects.** The window shows the engine's formatted text, so it says *12 lines of
@@ -341,6 +384,7 @@ The editor colours the command as you type it: commands, parameters, variables, 
 | *The LDAP filter is not valid* | The syntax of `-LdapFilter` or `-Filter`: balanced parentheses, `(attribute=value)`. |
 | Nothing is returned | Check the filter and `-SearchBase`; with several filter parameters all of them must match. A missing search base is an error that names it. |
 | *Only core types are supported in this language mode* | See chapter 7: use `New-Object PSObject -Property`, or turn the trusted mode on. |
+| *… is not available in the AD Manager PowerShell window* / *The term '…' is not recognized* | The window has a fixed list of commands (chapter 7). The message says what to use instead – for a file, `Export-AdmList` or `Start-Transcript -Path` (chapter 5). |
 | The distinguished names end with `…` | Use `Format-List`, a wider window, or `Select-Object -ExpandProperty DistinguishedName`. |
 | The trusted mode switch is disabled | Its tool tip says why: a command is running, PowerShell is starting, or the system enforces ConstrainedLanguage (WDAC, AppLocker). |
 | A note says transcription or logging is on | Chapter 8. It is a Group Policy setting of this computer or account, not of AD Manager. |

@@ -16,7 +16,8 @@ Zasady, które obowiązują wszędzie:
 - **Żadne polecenie nie zapisuje w katalogu.** Zapisy przechodzą przez plan zmian (podgląd, audyt, cofnięcie); polecenia, które
   będą do niego dodawać operacje, to etap R2.
 - **Jeden kontroler domeny na okno.** Polecenia czytają przez własną sesję okna: ten sam kontroler domeny i to samo konto co
-  okno, do którego należą. Nie mają parametrów `-Server` ani `-Credential`, a skrypt nie może odczytać hasła okna.
+  okno, do którego należą. Nie mają parametrów `-Server` ani `-Credential`, a skrypt w trybie domyślnym nie dosięga sesji okna
+  ani jego hasła (rozdział 7).
 - **Wartości są zabezpieczane.** Cokolwiek wpiszesz w parametrze, jest wartością, nigdy kawałkiem filtra (rozdział 3).
 
 ## 1. Czym jest okno i jak je otworzyć
@@ -103,9 +104,9 @@ x,y` szuka obiektów, w których którykolwiek z atrybutów ma którąkolwiek z 
 mówi, jak wartość jest porównywana; `-ObjectClass` zawęża typ; `-Filter '(…)'` to gotowy filtr LDAP. Polecenie odmawia
 porównywania atrybutów tajnych (np. hasła LAPS): wyszukiwanie mogłoby posłużyć do ich zgadywania.
 
-**Pozostałe polecenia cmdlet działają jak w każdym PowerShellu.** `Where-Object`, `Select-Object`, `Sort-Object`,
-`Group-Object`, `Measure-Object`, `Format-Table`, `Format-List`, `ForEach-Object`, zmienne, `if`, `foreach` i podobne – w
-granicach rozdziału 7. Blok skryptu wpisuje się wprost, np.
+**Zwykłe cmdlety do pracy z obiektami działają jak w każdym PowerShellu.** `Where-Object`, `Select-Object`, `Sort-Object`,
+`Group-Object`, `Measure-Object`, `Format-Table`, `Format-List`, `ForEach-Object`, zmienne, `if`, `foreach` i podobne – okno ma
+zamkniętą listę poleceń, podaną w rozdziale 7. Blok skryptu wpisuje się wprost, np.
 `Get-AdmUser -Enabled $true | Where-Object { $_.LockedOut } | Select-Object Name, sAMAccountName`.
 
 Prawdziwa sesja (przykładowa firma z testowego katalogu):
@@ -199,7 +200,7 @@ polecenie otwiera najwyżej 10 okien właściwości; nazwa, która nie istnieje,
 
 ## 5. Eksport
 
-AD Manager zapisuje plik w dokładnie dwóch przypadkach i tylko wtedy, gdy o to prosisz:
+Plik powstaje w dokładnie trzech przypadkach i tylko wtedy, gdy o to prosisz:
 
 - **`Export-AdmList`** zapisuje obiekty potoku jako CSV tak jak program eksportuje listę: **formuły są chronione** (wartość
   zaczynająca się od `=`, `+`, `-` lub `@` nie może uruchomić się w Excelu), separator pochodzi z ustawień regionalnych
@@ -208,10 +209,14 @@ AD Manager zapisuje plik w dokładnie dwóch przypadkach i tylko wtedy, gdy o to
   miejscu domyślnym; istniejący plik zastępuje tylko z `-Force`; bez ścieżki i z anulowanym oknem nie zapisuje niczego i
   mówi o tym. Wypisuje ścieżkę oraz liczbę wierszy i kolumn, nigdy wartości.
 - ***Eksportuj listę…*** w oknie siatki `Out-AdmGrid`: ten sam CSV do wybranego pliku.
+- **`Start-Transcript -Path <plik>`** (albo `-LiteralPath`) zapisuje przebieg sesji – polecenia i wszystko, co pokazały, a więc
+  także dane z katalogu – do pliku, który wskażesz, aż do `Stop-Transcript` albo do zamknięcia okna. Bez ścieżki jest odrzucany:
+  silnik zapisałby wtedy plik o nadanej przez siebie nazwie w Twoim folderze *Dokumenty*. Nie ma tu ochrony formuł; traktuj ten plik
+  jak eksport.
 
-Pozostałe cmdlety to zwykły PowerShell: `Export-Csv`, `Out-File`, `Set-Content` i `Start-Transcript` zapisują tam, gdzie im każesz,
-bez ochrony formuł, a R1 ich nie przechwytuje. Plik zapisany w ten sposób jest Twój i zawiera dane z katalogu poza kontrolą
-programu; do CSV, który trafi do Excela, użyj `Export-AdmList`.
+Żadne inne polecenie nie zapisuje pliku. `Export-Csv`, `Export-Clixml`, `Out-File`, `Set-Content` i `Add-Content` odpowiadają
+komunikatem, który to mówi, a przekierowanie do pliku (`>`, `>>`, `2>`) jest odrzucane, zanim polecenie ruszy (`> $null` nadal
+odrzuca wynik, a `2>&1` nadal łączy strumienie). Do CSV użyj `Export-AdmList`.
 
 ## 6. Historia i to, co zostaje w pamięci
 
@@ -242,26 +247,64 @@ skryptów działają; ograniczony jest dowolny kod .NET:
   definiowanie nowego typu (`Add-Type -TypeDefinition`) jest odrzucane;
 - `Format-*`, `Out-String`, `Select-Object`, `Sort-Object`, `Group-Object` i `Measure-Object` działają.
 
-Poza trybem języka okno jest zamknięte na kilka poleceń: `Start-Job` (potrzebuje osobnego `pwsh.exe`) i `Import-Module` (jest
-ograniczony do listy modułów, która w R1 jest pusta) odpowiadają komunikatem, który to mówi; `Get-Credential` jest odrzucane
-(okno pracuje z poświadczeniami swojego połączenia); pliki `.ps1` się nie uruchamiają (polityka wykonywania to `Restricted`);
-nie ma profilu ani PSReadLine. Polecenia, które o coś pytają – `Read-Host`, parametr obowiązkowy, `-Confirm` – pytają w oknie, a
-*Zatrzymaj* anuluje pytanie.
+**Okno ma zamkniętą listę poleceń** – tę samą w obu trybach, na każdym komputerze:
+
+- polecenia AD Managera (rozdział 2);
+- obiekty i potok: `Where-Object`, `Select-Object`, `Sort-Object`, `Group-Object`, `Measure-Object`, `Compare-Object`,
+  `ForEach-Object` (bez `-Parallel`, `-AsJob` i pozostałych parametrów równoległych), `Tee-Object` (do zmiennej, `-Variable`),
+  `Get-Unique`, `Join-String`, `Get-Member`, `Add-Member`, `New-Object` (bez `-ComObject`);
+- wyświetlanie: `Format-Table`, `Format-List`, `Format-Wide`, `Format-Custom`, `Format-Hex`, `Out-String`, `Out-Host`, `Out-Null`,
+  `Out-Default`;
+- dane w pamięci: `ConvertTo-Csv`, `ConvertFrom-Csv`, `ConvertTo-Json`, `ConvertFrom-Json`, `ConvertTo-SecureString`;
+- pliki i lokalizacje, tylko do odczytu: `Get-Content`, `Import-Csv`, `Select-String`, `Test-Path`, `Get-ChildItem`, `Get-Item`,
+  `Resolve-Path`, `Join-Path`, `Split-Path`, `Get-Location`, `Set-Location`, `Push-Location`, `Pop-Location`, `Get-PSDrive`;
+- zmienne i aliasy: `Get-Variable`, `Set-Variable`, `New-Variable`, `Remove-Variable`, `Clear-Variable`, `Get-Alias`,
+  `Set-Alias`, `New-Alias`;
+- pomoc i wartości: `Get-Command`, `Get-Help` (także `help`, bez stronicowania), `Get-Date`, `New-TimeSpan`, `Get-Random`,
+  `New-Guid`, `Get-Culture`, `Get-UICulture`, `Get-ExecutionPolicy`;
+- komunikaty i pytania: `Write-Host`, `Write-Output`, `Write-Error`, `Write-Warning`, `Write-Verbose`, `Write-Debug`,
+  `Write-Information`, `Write-Progress`, `Read-Host`;
+- skrypty wpisywane w oknie: `Start-Sleep`, `Measure-Command`, `Set-StrictMode`, `Clear-Host` (`cls`); zapis przebiegu sesji:
+  `Start-Transcript -Path` i `Stop-Transcript` (rozdział 5).
+
+Nic poza tym. Nie ma zadań w tle, wątków ani osobnych runspace'ów (`Start-Job`, `ForEach-Object -Parallel`, `&` na końcu
+potoku), sesji zdalnych (`Invoke-Command`, `Enter-PSSession`), `Invoke-Expression`, `Start-Process`, ładowania modułów ani
+zestawów (`Import-Module`, `using module`, `using assembly`, `Add-Type`), zdarzeń, debugera, `Update-Help`, `Set-ExecutionPolicy`
+ani żadnego polecenia, które zapisuje plik (rozdział 5). Kilka nazw, które łatwo wpisać z przyzwyczajenia, odpowiada komunikatem,
+dlaczego ich nie ma i czego użyć zamiast nich: `Start-Job`, `Import-Module`, `Invoke-Command`, `Invoke-Expression`,
+`Get-Credential` (okno pracuje z poświadczeniami swojego połączenia), `Start-Process`, `Out-GridView` (użyj `Out-AdmGrid`),
+`Export-Csv`, `Export-Clixml`, `Out-File`, `Set-Content` i `Add-Content`; pozostałe są *nierozpoznane* (*not recognized*).
+`using module`, `using assembly`, `&` na końcu potoku, przekierowanie do pliku i wpisane `ForEach-Object -Parallel` są
+odrzucane, zanim ruszy cokolwiek z polecenia. Pliki skryptów (`.ps1`) się nie uruchamiają – na Windows okno odrzuca je
+niezależnie od polityki wykonywania. Nie ma profilu ani PSReadLine. Żadne zadanie nie trwa dłużej niż polecenie, które je
+uruchomiło: zadanie pozostawione w sesji jest zatrzymywane, gdy polecenie się kończy, po *Zatrzymaj* i przy zamknięciu okna.
+Programy konsolowe (`whoami`, `nltest`, `repadmin`) działają jak w każdej konsoli – jako osobny proces z Twoją tożsamością
+Windows, nigdy z poświadczeniami okna.
+
+Polecenia, które o coś pytają – `Read-Host`, parametr obowiązkowy, `-Confirm` – pytają w oknie, a *Zatrzymaj* anuluje pytanie.
 
 **Tryb zaufany (FullLanguage)** to przełącznik pod wierszem poleceń:
 
 - jego **włączenie** najpierw pyta. Pytanie wymienia domenę i mówi, na co tryb pozwala: na dowolny kod .NET i zmiany katalogu
   wykonywane bezpośrednio, **z pominięciem planu zmian** – bez podglądu, audytu i cofania AD Managera. Nic w R1 nie powstrzymuje
-  skryptu przed zapisem w tym trybie (polecenia R1 tylko czytają, ale .NET potrafi więcej);
+  skryptu przed zapisem w tym trybie (polecenia R1 tylko czytają, ale .NET potrafi więcej): kod .NET sięga do wszystkiego
+  w procesie AD Managera, także do sesji katalogu okna i jej poświadczeń;
+- nie dodaje poleceń: lista wyżej jest ta sama. Zadanie, które kod .NET umieści w sesji (własne `ForEach-Object -Parallel
+  -AsJob` silnika, osiągnięte przez .NET), jest zatrzymywane razem z poleceniem jak każde inne; wątek albo runspace,
+  który kod .NET utworzy sam, jest poza zasięgiem okna, jak reszta procesu;
 - dopóki jest włączony, tytuł okna ma dopisek *– tryb zaufany* i trwa uwaga, która mówi to samo; wyłączenie nie wymaga pytania;
 - dotyczy tylko tego okna i **nigdy nie jest zapamiętywany**: nowe okno znów zaczyna w ConstrainedLanguage;
 - nie można go zmienić, gdy polecenie trwa ani zanim PowerShell się uruchomi;
 - gdy system wymusza ConstrainedLanguage (WDAC albo AppLocker), okno w nim zostaje, a przełącznik jest **wyłączony** – podpowiedź
   podaje powód.
 
-Tryb języka to **zabezpieczenie przed pomyłką, a nie granica bezpieczeństwa.** Granicą są uprawnienia konta okna w AD: okno
-nigdy nie daje więcej, niż konto ma, a zmiana wykonana z pominięciem planu nie ma w programie audytu ani cofnięcia (AdMng
-Watchdog widzi ją jak każdą inną zmianę w AD).
+W ConstrainedLanguage żadne polecenie okna nie uruchamia kodu w innym trybie języka, a nic w sesji – żadna zmienna, parametr ani
+nic z `$Host` – nie przekazuje skryptowi sesji katalogu okna ani jej poświadczeń: polecenia AD Managera znajdują swoje okno
+w tablicy silnika, której skrypt nie odczyta.
+
+Tryb języka i lista poleceń to **zabezpieczenie przed pomyłką, a nie granica bezpieczeństwa.** Granicą są uprawnienia konta okna
+w AD: okno nigdy nie daje więcej, niż konto ma, a zmiana wykonana z pominięciem planu nie ma w programie audytu ani cofnięcia
+(AdMng Watchdog widzi ją jak każdą inną zmianę w AD).
 
 ## 8. Co robi z oknem rejestrowanie z zasad grupy
 
@@ -299,8 +342,8 @@ procesie innym niż `powershell.exe`* – tym procesem jest `AdMng.exe`; uprzed�
 - **Brak modułów RSAT (etap R3).** `Import-Module ActiveDirectory` i `GroupPolicy` są odrzucane, a `Get-ADUser` i inne polecenia
   `…-AD…` w oknie nie istnieją. Używaj `Get-AdmUser` i jego krewnych; R3 doda moduły skierowane na kontroler domeny okna i
   przetłumaczy ich polecenia zapisu na plan zmian.
-- **Brak modułów Microsoft 365** (ścieżka C), zdalnych sesji PowerShell do serwerów, skryptów z plików (`.ps1`) i skryptów
-  uruchamianych według harmonogramu.
+- **Brak modułów Microsoft 365** (ścieżka C), zdalnych sesji PowerShell do serwerów, zadań w tle, skryptów z plików (`.ps1`)
+  i skryptów uruchamianych według harmonogramu.
 - **Brak uzupełniania nazw plików.** Tab uzupełnia polecenia, parametry, zmienne, nazwy atrybutów i kontenery okna, nie nazwy
   plików; okno nigdy nie czyta katalogu na każdy klawisz.
 - **Wiersz stanu liczy wiersze, nie obiekty.** Okno pokazuje sformatowany tekst silnika, więc mówi *12 wierszy danych
@@ -341,6 +384,7 @@ Edytor koloruje polecenie w trakcie pisania: polecenia, parametry, zmienne, cią
 | *The LDAP filter is not valid* | Składnia `-LdapFilter` lub `-Filter`: zrównoważone nawiasy, `(atrybut=wartość)`. |
 | Nic nie wraca | Sprawdź filtr i `-SearchBase`; przy kilku parametrach filtra muszą pasować wszystkie. Nieistniejąca baza wyszukiwania to błąd, który ją nazywa. |
 | *Only core types are supported in this language mode* | Zob. rozdział 7: użyj `New-Object PSObject -Property` albo włącz tryb zaufany. |
+| *… is not available in the AD Manager PowerShell window* / *The term '…' is not recognized* | Okno ma zamkniętą listę poleceń (rozdział 7). Komunikat mówi, czego użyć zamiast – do pliku `Export-AdmList` albo `Start-Transcript -Path` (rozdział 5). |
 | Nazwy wyróżniające kończą się `…` | Użyj `Format-List`, szerszego okna albo `Select-Object -ExpandProperty DistinguishedName`. |
 | Przełącznik trybu zaufanego jest wyłączony | Podpowiedź mówi, dlaczego: trwa polecenie, PowerShell się uruchamia albo system wymusza ConstrainedLanguage (WDAC, AppLocker). |
 | Uwaga mówi, że włączono transkrypcję lub rejestrowanie | Rozdział 8. To ustawienie zasad grupy tego komputera lub konta, nie AD Managera. |

@@ -213,8 +213,8 @@ Szczegóły: [ścieżka E](#ścieżka-e--dzienniki-zdarzeń-czytnik-i-analiza--e
   oknie połączenia, z własnymi poleceniami odczytu AD Managera (`Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`,
   `Get-AdmGroupMember -Recursive`, `Search-AdmObject` …), które korzystają z sesji okna – ten sam kontroler domeny i to samo
   konto, każda wartość zabezpieczona, wyniki jako zwykłe obiekty otwierane w siatce i połączone z obiektem. Na razie tylko
-  odczyt: domyślnie ConstrainedLanguage (tryb zaufany na życzenie), bez profili, bez historii na dysku, wyraźna uwaga, gdy
-  zasady grupy rejestrują PowerShell. Zapisy przez plan zmian i moduły RSAT to następne etapy.
+  odczyt: domyślnie ConstrainedLanguage (tryb zaufany na życzenie), zamknięta lista poleceń bez zadań w tle i poleceń
+  zapisujących pliki, bez profili, bez historii na dysku, wyraźna uwaga, gdy zasady grupy rejestrują PowerShell. Zapisy przez plan zmian i moduły RSAT to następne etapy.
 
 Szczegóły: [ścieżka R](#ścieżka-r--okno-powershell--r1-), [docs/POWERSHELL.md](docs/POWERSHELL.md).
 
@@ -2709,7 +2709,8 @@ etapy</summary>
   okna. AD Manager nie zapisuje historii poleceń ani transkrypcji: PSReadLine nie jest ładowany, a plik konfiguracji w
   folderze programu wyłącza transkrypcję i rejestrowanie modułów włączone w pliku `powershell.config.json` użytkownika.
   Do pliku trafia tylko to, co operator jawnie wyeksportuje; `Start-Transcript` bez `-Path` (domyślnie plik w
-  *Dokumentach*) okno odrzuca – transkrypcja tylko do pliku wskazanego jawnie. Fragmenty kodu zapisane w ustawieniach
+  *Dokumentach*) okno odrzuca – transkrypcja tylko do pliku wskazanego jawnie – i nie ma innego polecenia, które zapisuje
+  plik (bez `Out-File`, `Export-Csv`, `Set-Content` i przekierowania do pliku). Fragmenty kodu zapisane w ustawieniach
   zawierają tylko kod wpisany przez operatora (jak zapisane widoki: nazwy, DN, filtry) – bez wyników i wartości
   odczytanych z katalogu; fragmentu z hasłem zwykłym tekstem program nie zapisze. Profile (`$PROFILE`) nie są nigdy
   ładowane.
@@ -2784,7 +2785,8 @@ etapy</summary>
   (`POWERSHELL_TELEMETRY_OPTOUT`, `POWERSHELL_DIAGNOSTICS_OPTOUT`), automatyczne ładowanie modułów wyłączone, a pamięć
   podręczna analizy modułów skierowana na urządzenie puste (silnik nie zapisuje żadnego własnego pliku – sprawdzone na
   Linuksie, zob. notatka wykonawcza), plik `powershell.config.json` w folderze silnika (`$PSHOME`; ma pierwszeństwo przed
-  plikiem użytkownika, a ustawienia z GPO przed nim), bez PSReadLine, profili i `Start-Job` (wymaga `pwsh.exe`).
+  plikiem użytkownika, a ustawienia z GPO przed nim), bez PSReadLine, profili, zadań w tle i równoległych
+  runspace'ów.
 - **Testy:** polecenia i plan na `FakeDirectorySession` (testy jednostkowe – pakiet działa także na Linuksie) i na
   laboratorium Samba; host i okno w testach UI na Windows; moduły RSAT (ADWS) tylko na Windows Server – w CI na Windows
   z kontrolerem albo w pilotażu; test „żadnych plików” sprawdza, że po pracy w oknie PowerShell nie powstał żaden plik z
@@ -2824,15 +2826,18 @@ Właściciel rozstrzygnął te sprawy dla R1 (uzasadnienie i alternatywy:
   Windows rozstrzygnął: pojedynczy plik `AdMng.exe` uruchamia silnik, więc folder z plikami silnika nie jest publikowany
   (zmierzony przyrost `AdMng.exe` to ok. 38 MB).
 - **Jeden runspace na okno,** nigdy niewspółdzielony między oknami połączeń i zwalniany z zakresem okna; własny host kieruje
-  tekst, pytania i potwierdzenia do okna. Bez profili, PSReadLine i `Start-Job`, automatyczne ładowanie modułów wyłączone,
-  polityka wykonywania `Restricted` (w R1 bez plików `.ps1`).
-- **Moduły i skrypty z dysku:** `Import-Module` tylko dla modułów z listy, która w R1 jest pusta (moduły RSAT przychodzą w
-  R3, moduły Microsoft 365 ze ścieżką C).
+  tekst, pytania i potwierdzenia do okna. Sesja ma zamkniętą listę poleceń (listę dozwolonych): bez zadań w tle, równoległych
+  runspace'ów i sesji zdalnych, bez `Invoke-Expression`, `Start-Process` i poleceń zapisujących pliki; żadne
+  zadanie nie trwa dłużej niż polecenie, które je uruchomiło. Bez profili i PSReadLine, automatyczne ładowanie modułów wyłączone; w R1 bez
+  plików `.ps1` (okno je odrzuca niezależnie od polityki wykonywania).
+- **Moduły i skrypty z dysku:** `Import-Module` i `using module` tylko dla modułów z listy, która w R1 jest pusta (moduły RSAT
+  przychodzą w R3, moduły Microsoft 365 ze ścieżką C).
 - **Tryb języka:** domyślnie ConstrainedLanguage (polecenia AD Managera w nim działają); przełącznik okna *Tryb zaufany
   (FullLanguage)* operator włącza po potwierdzeniu, które mówi, na co pozwala (dowolny kod .NET, zapisy z pominięciem planu
   zmian); tryb widać w tytule okna i w trwałej notatce, dopóki jest włączony, i nie jest zapamiętywany między oknami ani
   sesjami; przy blokadzie systemu (WDAC / AppLocker) okno zostaje w ConstrainedLanguage, a przełącznik jest wyłączony z
-  podaniem powodu. To ochrona przed pomyłką, nie granica bezpieczeństwa. Hasła w obiekcie `PSCredential` nie chroni żaden
+  podaniem powodu. Tryb zaufany nie dodaje poleceń; jego kod .NET sięga do całego procesu AD Managera, także do sesji okna
+  i jej poświadczeń. To ochrona przed pomyłką, nie granica bezpieczeństwa. Hasła w obiekcie `PSCredential` nie chroni żaden
   tryb: `PSCredential` jest typem dozwolonym w ConstrainedLanguage, więc `$cred.GetNetworkCredential().Password` działa
   także tam (R1 nie tworzy żadnego `PSCredential`).
 - **Nazwy i skrót:** przedrostek `Adm`; R1 buduje `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`,
@@ -2851,8 +2856,8 @@ Właściciel rozstrzygnął te sprawy dla R1 (uzasadnienie i alternatywy:
   blokady systemu, a trwała notatka przed pierwszym poleceniem mówi wprost, co i gdzie jest zapisywane; program nie próbuje
   obejść żadnej zasady.
 - **Niczego na dysku:** środowisko silnika jest ustawiane przed jego pierwszym użyciem, a test „żadnych plików” dowodzi, że
-  praca w oknie nie zostawia pliku; poświadczenia okna nigdy nie są widoczne dla skryptu; w R1 nie ma żadnego polecenia
-  zapisu.
+  praca w oknie nie zostawia pliku; w ConstrainedLanguage żaden skrypt nie dosięga sesji okna ani jej poświadczeń (w trybie
+  zaufanym kod .NET może); w R1 nie ma żadnego polecenia zapisu.
 
 #### Do ustalenia z zespołem
 

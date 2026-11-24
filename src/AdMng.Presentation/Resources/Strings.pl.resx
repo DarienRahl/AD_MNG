@@ -25627,7 +25627,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>{0} – {1} – {2} – PowerShell – tryb zaufany</value>
   </data>
   <data name="PowerShell.Welcome.Mode" xml:space="preserve">
-    <value>Tryb ConstrainedLanguage: polecenia AD Manager i zwykłe polecenia cmdlet działają; wywołania .NET i skrypty są ograniczone. Przełącznik trybu zaufanego zdejmuje ograniczenia po potwierdzeniu.</value>
+    <value>Tryb ConstrainedLanguage: polecenia AD Managera i zwykłe polecenia cmdlet działają; wywołania .NET są ograniczone. Okno ma zamkniętą listę poleceń (rozdział 7 instrukcji); przełącznik trybu zaufanego po potwierdzeniu zdejmuje ograniczenia .NET, ale nie tę listę.</value>
   </data>
   <data name="PowerShell.Welcome.Help" xml:space="preserve">
     <value>Get-Command *-Adm* wyświetla polecenia AD Manager, Get-Help &lt;polecenie&gt; opisuje jedno z nich. Shift+Enter dodaje wiersz, Ctrl+C zatrzymuje uruchomione polecenie, Ctrl+L czyści to okno. Instrukcja: docs/POWERSHELL.md.</value>

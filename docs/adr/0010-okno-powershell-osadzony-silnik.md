@@ -40,23 +40,45 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
    PowerShell są **zaakceptowane**. Jeśli silnik nie działa w jednoplikowym `AdMng.exe` (SDK potrzebuje manifestów
    modułów obok hosta), pliki silnika zostaną opublikowane w folderze obok `AdMng.exe`; rozstrzyga test dymny w CI na
    Windows (część 4 R1) – **rozstrzygnął: silnik działa w jednoplikowym `AdMng.exe`, folder nie jest potrzebny** (rozdział
-   „Układ publikacji”). Powód: tylko silnik w procesie daje dostęp do sesji
-   i poświadczeń okna bez ich ujawniania, obiekty przekazywane do siatki programu i własny edytor wiersza; zewnętrzne
-   `pwsh.exe` nie daje żadnej z tych rzeczy (rozdział „Rozważone alternatywy”).
+   „Układ publikacji”). Powód: tylko silnik w procesie pozwala poleceniom AD Managera korzystać z własnej sesji okna (ten
+   sam DC i to samo konto, bez ponownego logowania), przekazywać obiekty do siatki programu i pracować z własnym edytorem
+   wiersza; zewnętrzne `pwsh.exe` nie daje żadnej z tych rzeczy (rozdział „Rozważone alternatywy”). Cena: kod działający
+   w FullLanguage działa w procesie AD Managera i może sięgnąć do jego pamięci, także do sesji okna i jej poświadczeń (punkt
+   3); nie mógłby tego tylko silnik poza procesem z mostem do odczytu – audyt R1 zaleca ponownie to rozważyć, zanim R3
+   umieści poświadczenia w sesji.
 2. **Jeden runspace na okno (D2).** Runspace nigdy nie jest współdzielony między oknami połączeń; powstaje i jest
    zwalniany razem z zakresem DI okna (`docs/dev/multi-window.md`). Własny `PSHost` / `PSHostUserInterface` kieruje tekst,
-   pytania i potwierdzenia do okna. Nie ładujemy profili (`$PROFILE` nie jest nigdy wczytywany), nie ma PSReadLine ani
-   `Start-Job`, automatyczne ładowanie modułów jest **wyłączone**, polityka wykonywania to `Restricted` (w R1 nie
-   uruchamiamy plików `.ps1`), a `Import-Module` działa tylko dla modułów z listy, która w R1 jest **pusta** (RSAT
-   przychodzą w R3, moduły Microsoft 365 ze ścieżką C). Powód: okno ma robić to, co zna program, a nie to, co przyniósł
-   profil, moduł w `PSModulePath` albo skrypt na dysku.
+   pytania i potwierdzenia do okna. **Polecenia sesji to lista dozwolonych** – jedna lista w kodzie
+   (`src/AdMng.PowerShell/Guards/CommandGuards.cs`), porównywana testem z żywą sesją: polecenia AD Managera, cmdlety
+   silnika do pracy z obiektami, formatowania, zmiennych, pomocy i odczytu plików, cztery zamienniki z mniejszą liczbą
+   parametrów (`ForEach-Object` bez `-Parallel` i `-AsJob`, `Tee-Object` tylko do zmiennej, `New-Object` bez COM,
+   `Start-Transcript` tylko do pliku wskazanego w `-Path`) oraz – dla nazw wpisywanych z przyzwyczajenia – odmowy z
+   komunikatem (`Start-Job`, `Import-Module`, `Invoke-Command`, `Invoke-Expression`, `Get-Credential`, `Start-Process`,
+   `Out-GridView`, `Export-Csv`, `Export-Clixml`, `Out-File`, `Set-Content`, `Add-Content`). Nie ma zadań w tle,
+   równoległych runspace'ów, sesji zdalnych, zdarzeń, debugera, aktualizacji pomocy, zmian polityki ani poleceń
+   zapisujących pliki (plik zapisują tylko `Export-AdmList` i `Start-Transcript -Path`). To, co trafia do silnika bez
+   nazwy polecenia, jest odrzucane z tekstu, zanim ruszy: `using module` / `using assembly`, operator tła `&` i
+   przekierowanie do pliku. Pliki skryptów się nie uruchamiają: sesja nie zna żadnego, hak wyszukiwania odrzuca plik
+   znaleziony z bloku skryptu, a na Windows własny zarządca autoryzacji okna odrzuca każdy `.ps1` i `.psm1` niezależnie od
+   polityki wykonywania (ta pozostaje `Restricted`; na Linuksie, gdzie okna się nie dostarcza, silnik nie pyta zarządcy
+   autoryzacji). Żadne zadanie nie trwa dłużej niż polecenie, które je uruchomiło: zadanie pozostawione w sesji jest
+   zatrzymywane, gdy polecenie się kończy, po Zatrzymaj i przy zwolnieniu sesji. Nie ładujemy profili (`$PROFILE` nie jest
+   nigdy wczytywany), nie ma PSReadLine, automatyczne ładowanie modułów jest **wyłączone**, a `Import-Module` i `using
+   module` działają tylko dla modułów z listy, która w R1 jest **pusta** (RSAT przychodzą w R3, moduły Microsoft 365 ze
+   ścieżką C). Powód: okno ma robić to, co zna program, a nie to, co przyniósł profil, moduł w `PSModulePath` albo skrypt
+   na dysku, i nie może dawać sposobu na uruchomienie kodu poza swoim trybem języka ani poza własnym czasem życia – audyt
+   R1 znalazł `ForEach-Object -Parallel` działające w FullLanguage w oknie ograniczonym i zadania `-AsJob` przeżywające
+   okno, gdy sesją była domyślna sesja silnika bez dwóch nazw.
 3. **Tryb języka (D3): ConstrainedLanguage domyślnie.** Polecenia AD Managera działają w nim, bo to skompilowany kod
    programu. Przełącznik okna „Tryb zaufany (FullLanguage)” operator włącza po potwierdzeniu, które mówi, na co pozwala
    (dowolny kod .NET, zapisy z pominięciem planu zmian); tryb widać w tytule okna i w trwałej notatce, dopóki jest
    włączony; nie jest zapamiętywany między oknami ani sesjami. Przy blokadzie systemu (WDAC / AppLocker,
    `SystemPolicy.GetSystemLockdownPolicy`) okno zostaje w ConstrainedLanguage, a przełącznik jest wyłączony z podaniem
-   powodu. **To ochrona przed pomyłką, nie granica bezpieczeństwa** (README, „Bezpieczeństwo i dane”): w FullLanguage
-   dowolny kod .NET omija plan zmian, a operator może i tak uruchomić `pwsh.exe`.
+   powodu. W ConstrainedLanguage żadne polecenie okna nie uruchamia kodu w innym runspace ani w innym trybie języka.
+   Tryb zaufany zmienia tylko tryb języka: nie dodaje poleceń, a jego kod .NET działa w procesie AD Managera, gdzie może
+   sięgnąć do wszystkiego – także do sesji katalogu okna i jej poświadczeń. **To ochrona przed pomyłką, nie granica
+   bezpieczeństwa** (README, „Bezpieczeństwo i dane”): w FullLanguage dowolny kod .NET omija plan zmian, a operator może
+   i tak uruchomić `pwsh.exe`.
 4. **Nazwy i skrót (D4): przedrostek `Adm`.** R1 buduje `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`,
    `Get-AdmComputer`, `Get-AdmGroupMember` (`-Recursive` dla członkostwa zagnieżdżonego), `Search-AdmObject`,
    `Out-AdmGrid`, `Open-AdmObject` (otwiera właściwości obiektu w programie według DN lub `objectGUID`) i
@@ -86,13 +108,15 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
 8. **Nic na dysku, hasła, jeden DC, interfejs nie blokuje (D8).** Zawartość okna, wyniki i historia żyją tylko w pamięci
    (zasada 1). Środowisko silnika ustawiamy **przed** jego pierwszym użyciem: `POWERSHELL_TELEMETRY_OPTOUT=1`,
    `POWERSHELL_DIAGNOSTICS_OPTOUT=1`, `POWERSHELL_UPDATECHECK=Off`, wyłączone automatyczne ładowanie modułów i pamięć
-   podręczna analizy modułów skierowana na urządzenie puste; test „żadnych plików” uruchamia polecenia w procesie z `HOME`,
-   `LOCALAPPDATA`, `TEMP` i `XDG_*` wskazującymi pusty folder i sprawdza, że folder jest nadal pusty. Poświadczenia okna nie
-   są widoczne dla skryptu: polecenia dostają obiekt sesji, który wstrzykuje host, a w R1 nie powstaje żaden `PSCredential`
-   (zasada 2). Filtry budujemy przez `AdMng.Core.Ldap.LdapFilter`, a DN przez `DistinguishedName` (zasada 3). Polecenia
-   czytają wyłącznie z `IDirectorySession` okna – jeden DC, bez `-Server` i `-Credential` (zasada 4). Każde wywołanie
-   katalogu jest asynchroniczne z tokenem anulowania potoku (`StopProcessing` go anuluje); wyniki są strumieniowane i
-   stronicowane, 100 000 wyników nie blokuje okna (zasada 6).
+   podręczna analizy modułów skierowana na urządzenie puste; test „żadnych plików” uruchamia polecenia w procesie z
+   `HOME`, `LOCALAPPDATA`, `TEMP` i `XDG_*` wskazującymi pusty folder i sprawdza, że folder jest nadal pusty. W
+   ConstrainedLanguage żaden skrypt nie dosięga sesji okna ani jej poświadczeń: nie przenosi ich żadna zmienna, parametr
+   ani składowa `$Host` (polecenia AD Managera znajdują swoje okno w rejestrze silnika, według runspace'u), a w R1 nie
+   powstaje żaden `PSCredential` (zasada 2); w trybie zaufanym może to zrobić odbicie .NET (punkt 3). Filtry budujemy
+   przez `AdMng.Core.Ldap.LdapFilter`, a DN przez `DistinguishedName` (zasada 3). Polecenia czytają wyłącznie z
+   `IDirectorySession` okna – jeden DC, bez `-Server` i `-Credential` (zasada 4). Każde wywołanie katalogu jest
+   asynchroniczne z tokenem anulowania potoku (`StopProcessing` go anuluje); wyniki są strumieniowane i stronicowane, 100
+   000 wyników nie blokuje okna (zasada 6).
 9. **Zapisy (D9): w R1 nie ma żadnych.** Nie istnieje żadne polecenie `Set-`/`New-`/`Remove-`/`Move-`/`Rename-`/`Add-`/
    `Enable-`/`Disable-`/`Unlock-`/`Reset-Adm*`, nie ma dysku `AD:` ani RSAT; test sprawdza, że lista zarejestrowanych
    poleceń AD Managera zawiera tylko polecenia odczytu z punktu 4 (i `Get-AdmVersion`). Okno ma miejsce na oczekujący plan,
@@ -113,8 +137,8 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
   `System.Management.Automation.dll`). Odpowiedzią są podpisany `AdMng.exe` (faza 7, certyfikat z P2) i informacja dla
   zespołu bezpieczeństwa; dokumentacja dla nich jest częścią R1. AMSI sprawdza każdy blok skryptu, a rejestrowanie bloków
   skryptów i transkrypcja z GPO obejmują okno – dlatego notatka przed pierwszym poleceniem (punkt 7).
-- **Granica bezpieczeństwa.** ConstrainedLanguage, lista modułów, polityka `Restricted` i brak `Start-Job` chronią przed
-  pomyłką, a nie przed złośliwym operatorem; jedyną granicą są prawa konta w AD. Zmiany wykonane z pominięciem planu nie
+- **Granica bezpieczeństwa.** ConstrainedLanguage, lista dozwolonych poleceń, pusta lista modułów i odrzucanie plików skryptów
+  chronią przed pomyłką, a nie przed złośliwym operatorem; jedyną granicą są prawa konta w AD. Zmiany wykonane z pominięciem planu nie
   mają audytu ani cofnięcia w programie, ale Watchdog widzi je jak każdą zmianę w AD.
 - **Stan procesu.** Środowisko silnika i polityka wykonywania są ustawieniami procesu: `ISS.ExecutionPolicy` w Windows
   ustawia politykę zakresu *Process*, która według dokumentacji PowerShell jest przechowywana w zmiennej środowiskowej
@@ -134,7 +158,7 @@ Wynik części 4 R1, sprawdzony w CI na Windows (krok „Smoke test published ap
 
 - **Silnik działa w jednoplikowym, samodzielnym `AdMng.exe`.** Test dymny tworzy runspace, wykonuje `1 + 1`, `Get-AdmVersion`, sprawdza
   tryb języka (ConstrainedLanguage), politykę wykonywania (`Restricted`), listę dziesięciu poleceń, odrzucenie `Import-Module` i
-  pomoc polecenia; pierwszy runspace procesu trwa ok. 0,5 s (523 ms), drugi ok. 10 ms (9 ms). Zestaw `System.Management.Automation`
+  pomoc polecenia (od poprawek po audycie R1 także liczbę poleceń sesji względem listy dozwolonych i `ForEach-Object` okna); pierwszy runspace procesu trwa ok. 0,5 s (523 ms), drugi ok. 10 ms (9 ms). Zestaw `System.Management.Automation`
   jest w pliku; silnik, nie mając jego lokalizacji (`Assembly.Location` jest pusty), przyjmuje za `$PSHOME` folder programu
   (zaobserwowane: `$PSHOME` = folder `AdMng.exe`). **Folder z plikami silnika obok programu nie jest więc potrzebny** i nie
   jest stosowany; zapasowe rozwiązanie z punktu 1 pozostaje opisane na wypadek zmiany silnika.
@@ -189,9 +213,19 @@ zatwierdzona przez OSI i zgodna z Apache-2.0):
 4. **Jeden runspace dla wszystkich okien.** Stan jednego okna (zmienne, `$PSDefaultParameterValues`, sesja) przeciekałby do
    innego połączenia, a runspace nie dałoby się zwolnić razem z oknem. Odrzucona; jedno okno = jeden runspace.
 5. **Dowolne moduły i skrypty z dysku** (`Import-Module`, pliki `.ps1`, folder modułów użytkownika). Odrzucona na rzecz
-   listy modułów (pusta w R1) i `ExecutionPolicy` `Restricted`: okno ma zachowywać się tak samo na każdej stacji.
+   listy modułów (pusta w R1) i odrzucania plików skryptów przez samo okno (punkt 2), niezależnie od polityki wykonywania:
+   okno ma zachowywać się tak samo na każdej stacji.
 6. **Własny język poleceń zamiast PowerShell.** Pozwalałby uniknąć wielu zagadnień, ale nie dawałby potoku obiektów,
    `Where-Object`/`Select-Object`/`Group-Object` ani skryptów, których administratorzy już używają. Odrzucona.
 7. **Nowy pakiet zewnętrzny na edytor wiersza** (np. kontrolka edytora kodu). Nowa zależność z licencją do sprawdzenia i
    utrzymania, a potrzebne funkcje (kolorowanie z tokenów, uzupełnianie, wiele wierszy) da się zbudować na tym, co WPF i
    silnik już mają. Odrzucona; pakiet tylko wtedy, gdy etap udowodni, że jest niezbędny, z licencją w ADR.
+8. **Domyślna sesja silnika bez kilku nazw** (lista zakazów: `CreateDefault()` bez `Start-Job` i `Import-Module`). Tak
+   zbudowano R1 na początku. Audyt R1 znalazł wyjścia wśród tego, czego taka lista nie nazywa – `ForEach-Object -Parallel`
+   uruchamia runspace'y w FullLanguage, zadania `-AsJob` przeżywają okno, `using module`, operator tła i przekierowanie
+   w ogóle nie szukają nazwy, a wśród jej 233 cmdletów są takie, które zapisują pliki, uruchamiają procesy i zmieniają
+   sesję. Odrzucona na rzecz listy dozwolonych z punktu 2.
+9. **Silnik poza procesem z mostem do odczytu** (polecenia okna proszą AD Managera o odczyty). Jedyny układ, w którym kod
+   trybu zaufanego nie sięga do pamięci AD Managera, sesji okna i jej poświadczeń; tygodnie pracy, nowy ADR i brak obiektów
+   wspólnych z siatką programu. Niewybrany dla R1 (tryb zaufany włącza tylko operator, po pytaniu); do ponownego
+   rozważenia, zanim R3 przekaże modułowi `ActiveDirectory` obiekt `PSCredential` (punkt 1).

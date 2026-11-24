@@ -25627,7 +25627,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>{0} – {1} – {2} – PowerShell – trusted mode</value>
   </data>
   <data name="PowerShell.Welcome.Mode" xml:space="preserve">
-    <value>ConstrainedLanguage mode: AD Manager's commands and the usual cmdlets work; .NET calls and scripts are limited. The trusted mode switch lifts the limits after a confirmation.</value>
+    <value>ConstrainedLanguage mode: AD Manager's commands and the usual cmdlets work; .NET calls are limited. The window has a fixed list of commands (chapter 7 of the guide); the trusted mode switch lifts the .NET limits after a confirmation, not the list.</value>
   </data>
   <data name="PowerShell.Welcome.Help" xml:space="preserve">
     <value>Get-Command *-Adm* lists AD Manager's commands, Get-Help &lt;command&gt; describes one. Shift+Enter adds a line, Ctrl+C stops a running command, Ctrl+L clears this window. The guide: docs/en/POWERSHELL.md.</value>

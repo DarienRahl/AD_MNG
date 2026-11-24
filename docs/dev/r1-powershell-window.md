@@ -20,13 +20,13 @@ The owner's decisions D1–D9 (the full text and the reasons are in ADR-0010):
 | | Decision |
 |---|---|
 | D1 engine | Embedded PowerShell 7 (`Microsoft.PowerShell.SDK` 7.6.x LTS; built on 7.6.10, `net10.0`; 7.7 targets .NET 11) in the new project `src/AdMng.PowerShell`, used by `AdMng.App` only, never in the Watchdog package. Size (+19…54 MB) and a release with each security update accepted. If the single-file `AdMng.exe` cannot run the engine, its files are published in a folder beside `AdMng.exe` (Windows CI decides in part 4). |
-| D2 runspace | One runspace per window, created and disposed with the window's DI scope; a custom `PSHost` / `PSHostUserInterface`; no profiles, no PSReadLine, no `Start-Job`, module auto-loading off, execution policy `Restricted`, `Import-Module` only for a list of modules that is empty in R1. |
+| D2 runspace | One runspace per window, created and disposed with the window's DI scope; a custom `PSHost` / `PSHostUserInterface`; an allow-list of commands (4.6: no jobs, parallel runspaces, remote sessions, `Invoke-Expression`, `Start-Process` or file writers; no job outlives its command); no profiles, no PSReadLine, module auto-loading off, no script files (execution policy `Restricted` and, on Windows, the window's own authorization manager), `Import-Module` and `using module` only for a list of modules that is empty in R1. |
 | D3 language mode | ConstrainedLanguage by default; a per-window switch *Trusted mode (FullLanguage)* after a confirmation, shown in the title and in a lasting note, never remembered; with a system lockdown the window stays in ConstrainedLanguage and the switch is disabled with the reason. A protection against mistakes, not a security boundary. |
 | D4 names | Prefix `Adm`: `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`, `Get-AdmGroupMember` (`-Recursive`), `Search-AdmObject`, `Out-AdmGrid`, `Open-AdmObject`, `Export-AdmList` (+ `Get-AdmVersion`). Shortcut **Ctrl+Shift+P** (grep of `KeyBinding`, `InputBindings`, the command descriptors of `ShellViewModel.Palette.cs` and the docs found no use of it); menu *Tools → PowerShell…*; a command palette entry. |
 | D5 line editor | Own WPF control, no new dependency; completion through `CommandCompletion.CompleteInput` plus parameter completers (attribute names from the session's in-memory schema, DNs from what the session knows – no directory read per keystroke); highlighting from `Parser.ParseInput` tokens; Shift+Enter inserts a line, Enter runs a complete command, Ctrl+C / Stop cancels; history in the window's memory only (Up/Down, Ctrl+R); a line with a plain-text password is not remembered; no file system completion. |
 | D6 output | Ordinary PowerShell objects; the window renders them with the engine's own formatting as text with clickable DNs; errors, warnings and verbose messages in the window's colours with the status line's glyphs; `Out-AdmGrid` sends the objects to the program's object list grid; nothing is written unless the operator exports. |
 | D7 policies | When the window opens it reads the PowerShell policies from the registry (PowerShell Core, and Windows PowerShell when `UseWindowsPowerShellPolicySetting` is on: transcription, script block logging, module logging, execution policy) and the lockdown state; a lasting note (the status line's Attention) before the first command says what is logged where; the program does not try to get around any policy; the registry reader is behind an interface. |
-| D8 nothing on disk | Memory only; the engine's environment is set before its first use (section 4.2); a "no files" test; the window's credentials are never visible to a script; `LdapFilter` and `DistinguishedName`; one DC; async with the pipeline's token. |
+| D8 nothing on disk | Memory only; the engine's environment is set before its first use (section 4.2); a "no files" test; in ConstrainedLanguage no script reaches the window's session or credentials (4.3; in the trusted mode .NET reflection can); `LdapFilter` and `DistinguishedName`; one DC; async with the pipeline's token. |
 | D9 writes | None. A test asserts that the registered AD Manager commands are exactly the read commands (section 4.8). |
 
 ## 2. Rules (CLAUDE.md) applied
@@ -35,10 +35,10 @@ The owner's decisions D1–D9 (the full text and the reasons are in ADR-0010):
    in R1 (code snippets are R3, and only code typed by the operator). The engine's own files are prevented, not tolerated
    (section 4.2): no telemetry identifier, no module analysis cache, no transcript of the program's own making, no PSReadLine
    history, no `$PROFILE`. The cmdlets and the host never write a file; `Export-AdmList` writes only the path the operator named
-   or chose in *Save As*.
+   or chose in *Save As*, and `Start-Transcript` only to the file named with `-Path`; no other command writes a file (4.6).
 2. **No passwords.** The window's credentials stay in the session object; the commands get a `ReadOnlyDirectoryReader` that
-   cannot be cast back to the session (so neither its write methods nor the connector's credential reuse), and R1 creates no
-   `PSCredential`. A prompt for a credential (`Get-Credential`) is refused in R1. A line with a plain-text password does not
+   cannot be cast back to the session (so neither its write methods nor the connector's credential reuse), find it in the
+   engine's window registry, which no script in ConstrainedLanguage can read (4.3), and R1 creates no `PSCredential`. A prompt for a credential (`Get-Credential`) is refused in R1. A line with a plain-text password does not
    reach the history (section 4.9). `ToString()` of every type that carries a secret is value-free.
 3. **Escape everything.** Every filter the commands build goes through `AdMng.Core.Ldap.LdapFilter`, every DN through
    `DistinguishedName` (`-Name`, `-Attribute`, `-Value`, `-SearchBase`, `-Scope`); a raw `-LdapFilter` parameter is passed
@@ -81,16 +81,21 @@ connection's DI scope (`IPowerShellSessionFactory`, App; part 3 defines the cont
 scope. `PowerShellSession.CreateAsync(options)` builds it on a pool thread: the first runspace of a process costs about
 0.4 s, the second about 10 ms (measured, section 12.1), so the window shows "Starting PowerShell…" only once.
 
-- **Initial session state:** `InitialSessionState.CreateDefault()` (not `Create()`: the formatting, `Out-Default` and the
-  utility cmdlets are needed), then
+- **Initial session state:** `InitialSessionState.CreateDefault()` (not `Create()`: it brings the formatting and type data, the
+  providers and the built-in variables) reduced to the window's allow-list of commands (4.6), then
   - `LanguageMode = ConstrainedLanguage` (always the start mode, also without a lockdown);
   - `ExecutionPolicy = Restricted` **on Windows only** (`InitialSessionState.ExecutionPolicy` throws
-    `PlatformNotSupportedException` on Linux and macOS – there is no execution policy there, so no `.ps1` guard exists on
-    those systems; the window is Windows only);
+    `PlatformNotSupportedException` on Linux and macOS – there is no execution policy there); script files are refused by
+    `ScriptFileGuard` regardless (4.6), on Linux in a weaker form (the window is Windows only);
   - `ThrowOnRunspaceOpenError = true`; `ThreadOptions = ReuseThread` and, on Windows, the apartment `STA` (one dedicated
     thread per runspace, as the console host has, so COM-backed cmdlets work);
   - the variable `PSModuleAutoLoadingPreference = None` (module auto-loading off; section 4.2 shows what it prevents);
-  - the commands of AD Manager (`AdmCommands.Entries`, 4.5) and the command guards (4.6).
+  - the window's authorization manager (`WindowAuthorizationManager`, 4.6: no script file runs on Windows);
+  - the commands of AD Manager (`AdmCommands.Entries`, 4.5) and the allow-list with its replacements and refusals (4.6).
+- **Set-up after `Open`:** the lookup hook that drops a script file (`ScriptFileGuard.DropScriptFiles` as the engine's
+  `PostCommandLookupAction`), then `WindowSetupCommand` runs once, invoked through its `CmdletInfo` with the session briefly in
+  FullLanguage: it makes the bridge of the replacement commands (4.6) and hands over the session's job repository; the session is
+  constrained again before anything of the operator runs, and the window's entry (context and bridge) goes into `WindowRegistry`.
 - **One run at a time.** `RunAsync` on a busy session throws `InvalidOperationException` (when the enumeration starts); the
   window's command is disabled while a run is active. Completion returns nothing and the language switch throws while a run
   is active; a completion in flight delays the start of a run by its own duration (one gate).
@@ -100,9 +105,14 @@ scope. `PowerShellSession.CreateAsync(options)` builds it on a pool thread: the 
   **grace period** (`StopGracePeriod`, 5 s). A run that ends ends with `PowerShellRunEndItem(Stopped)`. A pipeline stuck in
   .NET code cannot be interrupted: after the grace period the enumeration ends anyway with a synthetic
   `PowerShellRunEndItem(Stopped)`, `IsRunning` stays true until the thread returns and a new run is refused meanwhile.
-- **`DisposeAsync`:** stops the running pipeline, waits for it (at most the grace period), closes and disposes the runspace
-  (only closes it when the pipeline is abandoned), is safe to call twice, and makes later `RunAsync` calls throw
-  `ObjectDisposedException`.
+- **Jobs.** No job outlives its command: every job left in the session's job repository is stopped (on a pool thread,
+  not waited for) and removed when the command ends, on `StopAsync` and on dispose. No command of the window creates a job; .NET
+  code of the trusted mode can (`ForEach-Object -Parallel -AsJob` through the engine's cmdlet object). A thread or a runspace that
+  such code makes for itself is not a job, and nothing in the window ends it (12.6 decision 6). The transcript of
+  `Start-Transcript -Path` ends with `Stop-Transcript` or when the runspace closes (its end lines are written then).
+- **`DisposeAsync`:** stops the running pipeline, waits for it (at most the grace period), ends the jobs, removes the window's
+  registry entry, closes and disposes the runspace (only closes it when the pipeline is abandoned), is safe to call twice, and
+  makes later `RunAsync` calls throw `ObjectDisposedException`.
 
 ### 4.2 The engine's environment (D8, proven)
 
@@ -177,12 +187,14 @@ PSHostRawUserInterface` (minimal: buffer and window size from the session's widt
 - `Name` is "AD Manager PowerShell", `Version` the program's version, `CurrentCulture` and `CurrentUICulture` follow the
   `Culture` option (the window's UI language); `SupportsVirtualTerminal` is false (no ANSI sequences: the window colours
   text itself).
-- **How a command reaches the window's services** (without a global): `PSCmdlet.Host` is the engine's wrapper of the host,
-  not the host, but the wrapper hands out the host's `PrivateData`. `WindowHost.PrivateData` is an object of an internal type
-  with **no public member** that holds the `IAdmWindowContext`; `AdmCmdlet.ContextOrNull` reads it. A script sees
-  `$Host.PrivateData` (the type name, nothing to read – a test asserts that `Get-Member` finds no member), no variable and no
-  parameter carries the context, so a script in ConstrainedLanguage cannot reach it. In FullLanguage reflection can, which is
-  the boundary ADR-0010 states.
+- **How a command reaches the window's services:** `WindowRegistry`, a table inside the engine keyed by the runspace
+  (`Runspace.DefaultRunspace` on the pipeline thread); `AdmCmdlet.ContextOrNull` and the completers' `AdmCompletionContext` read
+  it. The host carries nothing of the window: its `PrivateData` is empty (until the audit of R1 it held the context in an object
+  without a public member, and a `ForEach-Object -Parallel` runspace - FullLanguage whatever the window's mode - reached the
+  window's `IDirectorySession` through `$using:Host` and wrote around the change plan). No variable, parameter or member of the
+  session hands the context to a script, and a script in ConstrainedLanguage cannot read a static member of a type that is not a
+  core type, nor run code in another language mode (4.6). In FullLanguage reflection can reach anything in the process, this
+  table included - the boundary ADR-0010 states.
 
 ### 4.4 Output items and streaming
 
@@ -213,7 +225,7 @@ tests can derive from it):
 ```csharp
 public abstract class AdmCmdlet : PSCmdlet
 {
-    protected IAdmWindowContext? ContextOrNull { get; }         // from the host's private data (4.3)
+    protected IAdmWindowContext? ContextOrNull { get; }         // from the window registry of the runspace (4.3)
     protected IAdmWindowContext RequireContext();                // throws a clear error outside a window
     protected CancellationToken StopToken { get; }               // cancelled by StopProcessing
     protected T Wait<T>(Task<T> task);                           // blocks the pipeline thread (never the UI thread); a stop becomes PipelineStoppedException
@@ -235,18 +247,59 @@ account of the window's session – a useful command and the end-to-end proof of
 fake directory (`TestSessions.CreateAsync(new FakeWindowContext(session))` and `RunObjectsAsync` for the objects, `RunAsync`
 for what the window shows).
 
-### 4.6 The command guards (D2)
+### 4.6 The allow-list and the guards (D2)
 
-`CommandGuards.Apply` removes `Start-Job` and `Import-Module` from the initial session state and registers, under the same
-names, functions that write an error naming the command (`Start-Job: Background jobs are not available in the AD Manager
-PowerShell window: …`, `Import-Module: Import-Module is limited to a list of modules …`) with the error id
-`AdmCommandNotAvailable`. A function has no parameters of its own, so whatever the operator typed binds to it and the message
-is what is shown; a call through an alias (`ipmo`) or with the module name (`Microsoft.PowerShell.Core\Import-Module`, which
-is not recognized because the cmdlet is gone) meets the refusal too. Like any failed command it does not stop the script
-unless `$ErrorActionPreference` says so. `CommandGuards.AllowedModules` is the list `Import-Module` may load: **empty** in R1
-(R3 fills it with the RSAT modules and replaces the function by a command that checks the list; track C adds the Microsoft 365
-ones). A guard is a protection against mistakes, like the language mode – not a sandbox. `.ps1` files are refused by the
-`Restricted` execution policy on Windows; there is no guard on Linux (no execution policy exists there).
+Rebuilt after the audit of R1 (PS-01, PS-03, ps-commands-5): until then the session was `CreateDefault()` with 233 cmdlets minus
+`Start-Job` and `Import-Module`, and a window that said ConstrainedLanguage ran `ForEach-Object -Parallel` in FullLanguage, reached the
+directory session through the host and wrote around the change plan; `-AsJob` jobs outlived Stop and the window; `using module` loaded
+modules; `Out-File`, `Export-Csv`, `Set-Content`, `>` and `Start-Transcript` without a path wrote files. What the window has now:
+
+- **One list** - `Guards/CommandGuards.cs` - and `CommandGuards.Apply` removes every command entry of `CreateDefault()` that is not
+  on it. Kept unchanged: 68 engine cmdlets (`EngineCmdlets`: objects and the pipeline, formatting, data in memory, files and
+  locations read only, variables and aliases, `Get-Command` / `Get-Help`, values, messages and `Read-Host`, `Start-Sleep`,
+  `Measure-Command`, `Set-StrictMode`, `Get-ExecutionPolicy`, `Stop-Transcript`) and two engine functions (`Clear-Host`,
+  `TabExpansion2`, which completion calls by name). Added: four **replacements** (below), twelve **refusals** - functions that write
+  an error of the command's own name with the id `AdmCommandNotAvailable` (`Start-Job`, `Import-Module`, `Invoke-Command`,
+  `Invoke-Expression`, `Get-Credential`, `Start-Process`, `Out-GridView`, `Export-Csv`, `Export-Clixml`, `Out-File`, `Set-Content`,
+  `Add-Content`) - and the alias `help` → `Get-Help` (the engine's `help` function pipes into a pager). Of the engine's aliases only
+  those that point at a kept, replaced or refused name stay. The application entry stays (console programs run as their own
+  process with the operator's identity); the script entry goes; the `Function` provider goes (a string assigned to `function:x`
+  becomes code). `SessionCommandsTests` lists a new session's cmdlets and functions and compares them exactly with a copy of the
+  list in the test; the smoke test of the published `AdMng.exe` compares the count.
+- **Replacements** (`Guards/ReplacementCommands.cs`, internal): `ForEach-Object` without `-Parallel`, `-AsJob`, `-ThrottleLimit`,
+  `-TimeoutSeconds` and `-UseNewRunspace`; `Tee-Object` into a variable only; `New-Object` without `-ComObject`; `Start-Transcript`
+  only with `-Path` / `-LiteralPath` (without one it writes the refusal; `-OutputDirectory` is not a parameter). Each declares only
+  the allowed parameters and runs the engine's cmdlet - which is in the session under no name - through a steppable pipeline built
+  from the window's **bridge** (`param($command, $parameters) & $command @parameters`, made by `WindowSetupCommand` while the session
+  is briefly FullLanguage; a steppable pipeline built from a constrained script block refuses to evaluate the command object). The
+  cmdlet therefore runs in the **caller's** language mode and scope. Two designs that were tried and rejected: a FullLanguage proxy
+  function in the global session state (`$count++` in the script block was lost, `$wrappedCmd` - the real cmdlet with `-Parallel`
+  - was readable from the script block's scope, 8x slower) and the same in a dynamic module (semantics right, but the proxy
+  switched the context to FullLanguage, so `ForEach-Object -MemberName` called any .NET method from ConstrainedLanguage:
+  `Get-Item / | % -MemberName GetFiles` worked). The compiled replacement keeps `$count++`, scopes, `return` and `continue` as the
+  engine's cmdlet does; `1..100000 | ForEach-Object { $n++ }` takes about 0.22 s against 0.13 s for the engine's cmdlet (Release
+  build on Linux, warm; the first run of a session about 0.6 s).
+- **`InputGuard`** refuses from the parsed text of a command, before anything of it runs (an error and a `Failed` end item, like a
+  parse error), what reaches the engine without a command name: `using module` and `using assembly` (the engine imports through
+  `ImportModuleCommand` directly; a binary module runs .NET code even in ConstrainedLanguage), the background operator `&` (it starts
+  the engine's `StartJobCommand` directly), and redirection to a file (`>`, `>>`, `2>`, `*>`: the engine's `Out-File`; `> $null`
+  and `2>&1` stay). Nested script blocks are searched. A typed `ForEach-Object -Parallel` (also `%`, `foreach`, `-AsJob` and the
+  other parallel parameters, abbreviated as far as the engine accepts) gets a message saying why; the protection is that the
+  replacement has no such parameter (a splatted one fails in parameter binding). Text cannot become code past this check: there
+  is no `Invoke-Expression` (in ConstrainedLanguage it would stay constrained, but it compiles text this check never saw), no
+  `function:` drive, and `[scriptblock]'text'` is refused in ConstrainedLanguage.
+- **`ScriptFileGuard`**: no script file runs. The session lists no script, so one called by name or path from the command line is
+  not found; the engine's `PostCommandLookupAction` (set from C#; a constrained script cannot change it) drops a script file that a
+  lookup from inside a script block or a function found; on Windows the engine asks the window's `WindowAuthorizationManager`
+  before it runs any script file or loads a script module, and it refuses every `.ps1`, `.psm1` and `.cdxml` whatever the execution
+  policy says (the policy stays `Restricted`). On Linux the engine asks no authorization manager, so there a script file obtained as
+  a command object (`Get-Command` inside a script block, then `&`) still runs; the window is not shipped on Linux.
+- **Jobs** end with their command (4.1).
+
+`CommandGuards.AllowedModules` is the list `Import-Module` may load: **empty** in R1 (R3 fills it, replaces the `Import-Module`
+refusal by a command that checks the list, and has to decide what `InputGuard` does with `using module` of an allowed module; track C
+adds the Microsoft 365 ones). The list is a protection against mistakes, like the language mode - not a sandbox: in the trusted mode
+.NET code reaches the engine's cmdlet objects (`[CmdletInfo]::new(...)`) and anything else in the process.
 
 ### 4.7 Language mode (D3)
 
@@ -258,6 +311,11 @@ ones). A guard is a protection against mistakes, like the language mode – not 
 - Switching sets `Runspace.SessionStateProxy.LanguageMode`; it is refused while a run is active. The mode never leaves the
   session object: nothing persists it, and a new window starts in ConstrainedLanguage (a test creates a session after a
   trusted one).
+- ConstrainedLanguage holds for every command of the window: no command runs code in another runspace or language mode
+  (`LanguageModeTests` tries each way - `-Parallel` typed, as `%` and splatted, `[powershell]`, `[runspacefactory]`, `InvokeScript`,
+  `[scriptblock]::Create` and the cast, `Invoke-Expression`, a `function:` assignment, `Add-Type`, jobs). The trusted mode changes
+  the language mode only; it adds no command. Code defined while it was on keeps FullLanguage after the switch back (audit PS-02;
+  the fix - a fresh runspace when the mode is turned off - is a separate change).
 - The confirmation dialog, the title suffix and the lasting note are the window's (parts 3 and 4); the engine only says what is
   possible.
 
@@ -268,7 +326,8 @@ engine assembly with a `[Cmdlet]` attribute and fails if one is not in the catal
 write verb (`Set`, `New`, `Remove`, `Move`, `Rename`, `Add`, `Enable`, `Disable`, `Unlock`, `Reset`, `Clear`, `Restore`,
 `Update`, `Write`, `Invoke`, `Grant`, `Revoke`, `Copy`, `Import`, … – the full list is in the test); a run-time test lists
 `Get-Command -Name *-Adm*` in a live session and compares it with the catalog, and checks that there is no `AD:` drive and no
-`*-AD*` command. R2 changes the list and that test together.
+`*-AD*` command. R2 changes the list and that test together. The rest of the session's commands are pinned by
+`SessionCommandsTests` (4.6): every cmdlet and function of a new session, compared exactly with the list written out in the test.
 
 ### 4.9 History, syntax and completion
 
@@ -423,16 +482,28 @@ This is the plan of the parts; the files that exist are in the records of 12.1-1
   stopped (`StopAsync`, and the cancellation token, no sleep); a command that waits on `StopToken` ends at Stop; a stop the
   pipeline does not obey ends the enumeration after the grace period (a `FakeTimeProvider`, no real wait); dispose stops a
   run and throws on later runs; two sessions share no runspace; `OutputWidth` decides the wrapping.
-- **`LanguageModeTests`** – ConstrainedLanguage by default and the language-mode error for a .NET call; the program's commands
-  work in it; the switch to FullLanguage and back; refused under a fake lockdown (at the start and when it appears later);
-  `Audit` does not block; refused while a run is active; a new session starts constrained after a trusted one.
+- **`LanguageModeTests`** – ConstrainedLanguage by default and the language-mode error for a .NET call; no way of the window runs
+  code in another language mode (4.7); the program's commands work in it; the switch to FullLanguage and a command typed after
+  the switch back; refused under a fake lockdown (at the start and when it appears later); `Audit` does not block; refused while
+  a run is active; a new session starts constrained after a trusted one.
 - **`HostRoutingTests`** – each stream arrives as text of its own stream; `Write-Host` colours without duplicates; progress;
   `Read-Host` (text and secret), a missing mandatory parameter, `-Confirm` (both answers) as prompt items with the answer
   going back; a cancelled prompt and a stopped run at a prompt end the run; `Get-Credential` is refused; no nested prompt; the
   host's name and culture.
-- **`GuardTests`** – `Start-Job` and `Import-Module` (also `ipmo`) are refused with the message and the script goes on; the
-  module-qualified names are not recognized; the guarded names are functions; no profile and no PSReadLine; auto-loading off;
-  the execution policy `Restricted` (Windows only).
+- **`GuardTests`** – `Start-Job` and `Import-Module` are refused with the message and the script goes on; every way to a refused
+  command meets the refusal (the name, the alias, a string, the command object of `Get-Command`, the module-qualified name, the
+  background operator, `using module`); the refused names are functions; no profile and no PSReadLine; auto-loading off; the
+  execution policy `Restricted` (Windows only).
+- **`SessionCommandsTests`** – the exact command list of a new session (4.6), the same list in the code, every alias points at a
+  command of the session, no script file runs (from the command line, a script block, a function, ForEach-Object) and there is no
+  `function:` drive; on Windows a script file reached as a command object is refused by the authorization manager.
+- **`EscapeTests`** – the probe scripts of the audit of R1, in ConstrainedLanguage and in the trusted mode: the `-Parallel`
+  reflection chain to the directory session (the object survives, no file is written), the `-AsJob` variant, a job the trusted mode
+  starts through the engine's cmdlet object ends with its command and when the window closes, `using module` of a script and of a
+  binary module and `using assembly`, the background operator, every file writer and redirection, `Start-Transcript` with and
+  without a path, the commands that run code elsewhere or load it, `$Host.PrivateData` and the audit's reflection chain, and that
+  `ForEach-Object -MemberName` and `New-Object` keep the language mode.
+- **`InputGuardTests`** – what `InputGuard` refuses and what it must not (the call operator, strings, `&&`, `> $null`, `2>&1`).
 - **`EnvironmentTests`** – the variables of 4.2 are set and visible to a script; no `PSHost.*` pipe exists (Windows
   `\\.\pipe\`, Unix the temp folder).
 - **`NoFilesTests`** – the **"no files" test** and the measurement: the probe program (`AdMng.PowerShell.Probe`, a small console
@@ -448,7 +519,9 @@ This is the plan of the parts; the files that exist are in the records of 12.1-1
   completion test has a mutation check (it fails when the file system matches are not dropped).
 - **`CommandCatalogTests`** – section 4.8, and the context mechanism: `Get-AdmVersion` reports the fake session's domain, DC and
   account, follows the trusted mode, answers without a window, and a command that needs the window says so; the reader a command
-  gets is not the session; two sessions give each command its own services; a script finds no member on `$Host.PrivateData`.
+  gets is not the session; two sessions give each command its own services; `$Host.PrivateData` is empty and no variable of the
+  session holds the context, the reader or the session; every command class is either in the catalog or one of the internal
+  replacements and the set-up command.
 - **`PackageLicenseTests`** – the output has no `sni.dll` and its deps file names none.
 
 ### 9.2 Part 2 – the commands
@@ -486,8 +559,9 @@ The criteria of the README that concern reads, plus the ones this design adds:
 4. When a WDAC policy applies, the window works in ConstrainedLanguage mode and AD Manager's commands work; without it
    ConstrainedLanguage is the default and the trusted mode needs a confirmation and is shown.
 5. No write command exists, no `AD:` drive and no RSAT: the **command list test** passes.
-6. No PSReadLine, no profile, no `Start-Job`, `Import-Module` limited to the (empty) list, telemetry and the diagnostics channel
-   off, no module analysis cache.
+6. No PSReadLine, no profile, an allow-list of commands without jobs, parallel runspaces or file writers (4.6), `Import-Module`
+   and `using module` limited to the (empty) list, no script file runs, telemetry and the diagnostics channel off, no module
+   analysis cache.
 7. The window opens from *Tools → PowerShell…*, the command palette and **Ctrl+Shift+P**, belongs to its connection, shows the
    domain, the DC and the account, and its runspace is disposed with the connection's scope.
 8. The published single-file `AdMng.exe` runs the engine (or the fallback layout does), proven by the smoke test in Windows CI.
@@ -504,12 +578,13 @@ What was open when the design was written and what became of it (the state at th
 - `NUL\ModuleAnalysisCache` as the analysis cache path on Windows: the opt-in proof was run on Linux only; **still unconfirmed on Windows**.
 - The stage S readiness item for the policies and the language mode: **not built**; the reader and the note are ready to be reused.
 - The two R3 questions of the README ("To be agreed with the team"): the list of translated RSAT commands and the window's credentials for the `ActiveDirectory` module - **open**.
-- New at the end of R1: the README promises that the window rejects `Start-Transcript` without `-Path`; nothing in R1 does (12.0).
+- New at the end of R1: the README promises that the window rejects `Start-Transcript` without `-Path`; nothing in R1 did. Built after
+  the audit of R1 (4.6).
 
 ## 12. R1 as built
 
 Section 12.0 reads the whole of R1 as one text. Sections 12.1 to 12.4 are the records the four parts wrote when they were done (the source comments cite them by number), and 12.5 records part 5. Where a
-record says "not yet" or ends with a question, 12.0 says what became of it. The blocks win over the design above.
+record says "not yet" or ends with a question, 12.0 says what became of it. 12.6 records the repair of the engine's security composition after the audit of R1; where it differs from 12.0-12.5, 12.6 wins. The blocks win over the design above.
 
 ### 12.0 R1 in one text
 
@@ -520,8 +595,8 @@ question, this block says what became of it.
 
 **What exists.** *Tools > PowerShell...*, **Ctrl+Shift+P** and the command palette entry `tools.powershell` open one PowerShell window
 per connection window (a singleton per scope, key `tools:powershell`). It runs an embedded PowerShell 7.6.10
-(`Microsoft.PowerShell.SDK`; 7.7 targets .NET 11) in one runspace of its own, in ConstrainedLanguage, with ten commands of AD Manager and
-our own line editor. The ten commands are all reads or window actions: `Get-AdmVersion`, `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`,
+(`Microsoft.PowerShell.SDK`; 7.7 targets .NET 11) in one runspace of its own, in ConstrainedLanguage, with ten commands of AD Manager, an
+allow-list of the engine's commands (4.6, 12.6) and our own line editor. The ten commands are all reads or window actions: `Get-AdmVersion`, `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`,
 `Get-AdmComputer`, `Get-AdmGroupMember` (`-Recursive`, `-ExcludeGroups`), `Search-AdmObject`, `Out-AdmGrid`, `Open-AdmObject`,
 `Export-AdmList`. The window has the status line with Stop, the notes that last (what Group Policy records, the trusted mode, the cut
 scrollback), the output (a virtualised list with distinguished names as links), the empty place of the pending plan, the editor
@@ -562,14 +637,18 @@ has the picture.
 
 1. *Contracts in Core, the engine App-only* (12.1 decision 1): `AdMng.Presentation` never references an engine project, the Watchdog package never has one
    (`EngineBoundaryTests` in source, a CI step on the publish output), and every consumer of the engine imports `PowerShellEngineConsumer.props` (the non-OSI `sni` packages).
-2. *The window context reaches a command through the host's `PrivateData`* and holds a `ReadOnlyDirectoryReader` (12.1 decisions 2 and 3). A command cannot write or reach the
-   connector's credential. **R2's writes must come to a command the same way - a separate object of the context that adds operations to the window's pending plan - never the session.**
+2. *The window context reaches a command through the window registry of its runspace* (12.6; until the audit through the host's `PrivateData`, 12.1 decision 2) and holds a
+   `ReadOnlyDirectoryReader` (12.1 decision 3). A command cannot write or reach the connector's credential. **R2's writes must come to a command the same way - a separate object of the context
+   that adds operations to the window's pending plan - never the session.**
 3. *The catalog is the one list* (`AdmCommands.Catalog`); `CommandCatalogTests` pins the ten names and allows the verbs Get, Search, Out, Open and Export, and the same test checks that
    there is no `AD:` drive and no `*-AD*` command. R2 changes the list and the verb test together; R3 flips the `AD:` assertion. `PowerShellRulesTests` pins that the window's presentation code names no
    write API and that only two files write (the grid's export and the window actions' export).
 4. *The commands do not leave the pipeline thread* (`AdmCmdlet.Wait` / `WriteAll`): any R2 command that waits for the window (a confirmation) does it the same way and passes the stop token.
-5. *Guards are functions* (`Start-Job`, `Import-Module`) over removed cmdlets, so the module-qualified name cannot bypass them; `CommandGuards.AllowedModules` is **empty** and R3 fills it and
-   replaces the `Import-Module` function by a command that checks it. `Get-Credential` is refused and R1 creates no `PSCredential`: R3's credential for the `ActiveDirectory` module is a decision the README still lists.
+5. *The session is an allow-list* (4.6, 12.6): `CommandGuards` is the one list of its commands, pinned by `SessionCommandsTests`; refusals are functions over cmdlets that are not in the
+   session; what bypasses a command name (`using`, `&`, `>`) is refused from the text; no script file runs; jobs end with their command. `CommandGuards.AllowedModules` is **empty** and R3
+   fills it, replaces the `Import-Module` refusal by a command that checks it and decides what `InputGuard` does with `using module` of an allowed module. `Get-Credential` is refused and R1
+   creates no `PSCredential`: R3's credential for the `ActiveDirectory` module is a decision the README still lists. A new command of R2 or R3 goes into the catalog or the allow-list, and
+   the list in the test changes with it.
 6. *The formatted mode is text* (12.1 decision 4): the window shows the engine's formatting, so it has lines, not objects; the objects are real up to `Out-Default`. A count of objects needs a
    field on `PowerShellRunEndItem` (open point below).
 7. *Read semantics R3 maps to* (12.2): identities are classified, the type of the command is part of the filter, values are typed by the program's own formatter, secrets are masked as the Attribute
@@ -591,12 +670,12 @@ has the picture.
 |---|---|
 | Commands in the catalog | 10: 6 `Get-` (`Get-AdmVersion` among them), `Search-`, `Out-`, `Open-`, `Export-`; no write verb |
 | Strings | 92 keys in each of `Strings.resx` and `Strings.pl.resx`: 75 `PowerShell.*`, 16 `PowerShellGrid.*`, 1 `Commands.PowerShell`; 91 constants in `L.PowerShell.cs` |
-| Engine tests (`AdMng.PowerShell.Tests`, Linux and Windows) | 239: 237 passed, 2 skipped by design on each platform (Linux: the Windows-only execution-policy test and the opt-in 40 s cache proof; Windows: the Unix-only positive control and the same opt-in proof) |
+| Engine tests (`AdMng.PowerShell.Tests`, Linux and Windows) | 239 at the end of R1: 237 passed, 2 skipped by design on each platform (Linux: the Windows-only execution-policy test and the opt-in 40 s cache proof; Windows: the Unix-only positive control and the same opt-in proof). 373 after the repair of 12.6: on Linux 370 passed and 3 skipped (the two above and the Windows-only authorization-manager test) |
 | Presentation tests (Linux) | 253 in `AdMng.Presentation.Tests.PowerShell` (one of them is part 5's test that the window's first lines name the guide), +1 in `ShellViewModelTests`; the project has 3,920 |
 | Core tests (Linux) | 8 of `PowerShellGridTableTests`, 10 cases of `LdapFilter.Pattern` / `EqualBinary`; the project has 5,544 |
 | Lab tests against Samba | 5 (`PowerShellReadLabTests`), skipped without `ADMNG_TEST_LDAP_*`, run by the CI lab job |
 | UI tests (Windows only) | 25 test methods (+6 data rows): 20 of the window, 5 of the editor's parts; the lists of `XamlSourceTests`, `HostTests`, `DesignTokenTests` |
-| Published app | `SmokeTest.PowerShell.cs`: a runspace, `1 + 1`, `Get-AdmVersion`, the ten commands, `Import-Module` refused, the help of a command; both windows rendered in both languages |
+| Published app | `SmokeTest.PowerShell.cs`: a runspace, `1 + 1`, `Get-AdmVersion`, the ten commands, `Import-Module` refused, the help of a command, and since 12.6 the number of the session's commands against the allow-list and the window's `ForEach-Object`; both windows rendered in both languages |
 | Sizes (`-r win-x64 --self-contained -p:PublishSingleFile=true`, MB = 10^6 bytes) | `AdMng.exe` 143.5 -> 181.9 MB (+38.4 MB; CI prints 173.5, which is MiB); publish folder 164.7 -> 204.3 MB (+39.6 MB); CI artifact 68.8 -> 82.4 MB (+13.6 MB); the base is the commit of 0.16.0 |
 
 **Checks at the end of R1.** `dotnet build AdMng.slnx -c Release`: 0 warnings, 0 errors. `dotnet test` of `AdMng.PowerShell.Tests`, `AdMng.Presentation.Tests` and `AdMng.Core.Tests`: all pass (numbers above).
@@ -622,12 +701,13 @@ the published-app smoke test that starts the engine and the two CI steps that ch
 3. *The size*: `AdMng.exe` grew by +38.4 MB uncompressed (the README's 19 / 54 MB were estimates; an empty program measured +17.0 / +48.4 MB, part 1).
 4. *`Out-AdmGrid` opens a window of its own*, not the program's object list (D6; 12.4 decision 8).
 5. *The policy types are in Presentation*, not Core (12.3 decision 1); the raw reader interface is `IPowerShellPolicySource`.
-6. *No `.ps1` guard on Linux* (the execution policy exists on Windows only; the window is Windows only).
+6. *A weaker script-file guard on Linux* (12.6): a script file called by name or path is not found there either, but the engine asks no authorization manager on Linux, so one obtained
+   as a command object from `Get-Command` inside a script block runs (the window is Windows only).
 7. *`Get-AdmGroupMember -Recursive` includes the nested groups* (the program's *All (nested)* list) instead of the leaves `Get-ADGroupMember -Recursive` returns; `-ExcludeGroups` gives that.
 8. *The operator-readable secrets are shown* (the clear-text LAPS password, a BitLocker recovery password): "as the Attribute Editor" was read literally; the guide and the policy note warn.
 9. *The editor is a `UserControl`* with a `TextBox` for editing (12.4 deviation 2), and the monospace font is a new design token `Ad.Font.Mono`.
 10. *Extra commands and parameters beyond D4:* `Get-AdmVersion`, `-ExcludeGroups`, `-ObjectClass`, `-Match`, the identity forms `<GUID=...>` and `<SID=...>`.
-11. *Parts of the README's "Security and data" are promises of later stages*: the window rejecting `Start-Transcript` without `-Path` is not built (below).
+11. *Parts of the README's "Security and data" are promises of later stages*: the window rejecting `Start-Transcript` without `-Path` was not built in R1; it was built after the audit (12.6).
 
 **Open for R2** (writes through the change plan):
 
@@ -635,7 +715,6 @@ the published-app smoke test that starts the engine and the two CI steps that ch
 - the panel in `PendingPlanArea` (count, *Preview...*, *Execute*, *Clear*) and `Show-AdmPlan`, `Clear-AdmPlan`, `Invoke-AdmPlan` (the last only opens the preview); execution through `IChangePlanner` / `IBatchExecutor` with audit, report, retry and rollback, and `writes:` set on the status line;
 - passwords in write commands only as `SecureString` or generated by the program; a warning before `-AsPlainText` (the history already refuses such a line);
 - copying an operation from the history of equivalent PowerShell commands into the window;
-- the guard on `Start-Transcript` without `-Path` that the README promises (today `Start-Transcript`, `Export-Csv` and `Out-File` write where the operator points them - checked: they work in the window);
 - `CommandCatalogTests` (names, verbs), `PowerShellRulesTests` (no write API in the presentation code) and `EngineBoundaryTests` change together with the commands.
 
 **Open for R3** (RSAT modules):
@@ -659,7 +738,8 @@ the published-app smoke test that starts the engine and the two CI steps that ch
 3. Should the behaviour under a real WDAC / AppLocker and a real recording GPO get a pilot on a managed machine before R2 adds writes?
 4. Should `sni.dll` be offered in some OSI-compatible way for trusted-mode scripts that need SqlClient, or is the documented limit enough?
 5. Should the operator-readable secrets (LAPS, BitLocker) be masked in the window too (one line in `AdmValueConverter`; the Attribute Editor would then differ), or is the warning enough?
-6. Should `Start-Transcript` without `-Path` be refused in R1.x rather than waiting for R2?
+6. `Start-Transcript` without `-Path` is refused since 12.6, and with `-Path` it writes the named file (the README: "transcription only to an explicitly specified file"), while every
+   other file writer except `Export-AdmList` is gone from the window. Should transcription to a named file stay, or be refused like the others?
 7. The flaky connector timeout and DNS tests of the Windows runner (fixed twice in the CI history by widening bounds) may need a shared helper.
 
 ### 12.1 Part 1 – decisions and the engine
@@ -679,7 +759,7 @@ engine until part 4, and there was no release note); 12.0 has the whole.
 1. *Contracts in Core, the engine is App-only.* `AdMng.Presentation` never references an engine project (the `AdMng.Remote`
    pattern), so the view model is tested against fakes of `IPowerShellSession` and, in a few tests, the real engine. The Core
    types name no PowerShell type (`PowerShellObjectItem.Value` is an `object`).
-2. *The window context reaches a command through the host's `PrivateData`* – `PSCmdlet.Host` is the engine's wrapper, not our
+2. *(Replaced after the audit of R1 by the window registry, 12.6.)* *The window context reaches a command through the host's `PrivateData`* – `PSCmdlet.Host` is the engine's wrapper, not our
    host, so `Host as WindowHost` is null (found by running `Get-AdmVersion`); the wrapper does hand out `PrivateData`. The
    object has no public member (a test asserts `Get-Member` shows none). No static registry, no variable.
 3. *The context holds a `ReadOnlyDirectoryReader`* (built by `AdmWindowContext`, so the engine decides it, not the caller):
@@ -691,7 +771,7 @@ engine until part 4, and there was no release note); 12.0 has the whole.
    programmatic callers; the window never needs it.
 6. *Prompts are items of the same stream*, answered through the item; a stop or a `Cancel` ends the pipeline like Ctrl+C.
    `Get-Credential` is refused in R1.
-7. *Guards are functions that write a non-terminating error with the command's name* (`Start-Job: …`), and the cmdlet is
+7. *(Extended after the audit of R1 to the allow-list of 4.6 and 12.6; the refusals keep this form.)* *Guards are functions that write a non-terminating error with the command's name* (`Start-Job: …`), and the cmdlet is
    removed from the session state so that the module-qualified name cannot bypass it. A `throw` printed the guard's own source
    line; `-ErrorAction Stop` printed "The running command stopped because …"; `Write-Error -CategoryActivity <name>` printed
    exactly `Start-Job: <message>`.
@@ -1119,9 +1199,72 @@ this block of the design note (12.0 as the one text, the open questions of 12.1-
 2. *Sizes are measured again, with one method*: the same `dotnet publish` as CI for the commit of 0.16.0 (`76a4de49`) and for the head of R1 - `AdMng.exe` 143.5 -> 181.9 MB; part 4's 157.5 -> 194.8 for the folder look like MiB under the name MB (this measurement gives 157.1 -> 194.9 MiB), and
    the ADR pair now says which unit is which. CI prints MiB under the name "MB" (`1MB` of PowerShell), so its 173.5 is the 181.9 here.
 3. *The guide says what the code does, not what the README promises*: `Start-Transcript`, `Export-Csv` and `Out-File` work in the window and write where they are pointed (checked by running them); the README's sentence that the window rejects
-   `Start-Transcript` without `-Path` belongs to a later stage and is listed in 12.0 as open.
+   `Start-Transcript` without `-Path` belongs to a later stage and is listed in 12.0 as open. *(Since 12.6 the code keeps the README's promise and the guide says so.)*
 4. *The recount is a script* that reads the catalog, the git diff of the tests (declared `[Fact]`/`[Theory]`, `[InlineData]` rows) and both resx files, and leaves out the two test-stabilisation commits that are not R1; the numbers of 12.0 come from it and from
    `dotnet test` of the three projects.
 
 **What could not be verified.** The guide's Polish text was written by the engineer of this part and read for diacritics and terms against `Strings.pl.resx`, not by a native editor; the "real session" in it comes from the test directory
 (`contoso.test`, the sample company), not from a domain.
+
+### 12.6 After the audit of R1 - the engine's security composition
+
+The audit of the R1 commits (PS-01, PS-03, PS-08, ps-commands-5, the job part of PS-12, DLR-2) ran probe scripts against the engine and
+found the composition wrong: the session was `InitialSessionState.CreateDefault()` minus `Start-Job` and `Import-Module`. In a window that
+said ConstrainedLanguage, `1 | ForEach-Object -Parallel { ... }` ran in FullLanguage (the engine makes the parallel runspaces itself, with
+the system's lockdown policy only), took the host through `$using:Host`, reflected from its `PrivateData` to the context, the reader's
+`_inner` field and the real `IDirectorySession`, and deleted an object around the change plan; with `-AsJob` the job outlived Stop and
+the session; `using module` loaded a module past the `Import-Module` guard; the background operator started the engine's Start-Job;
+`Start-Transcript` without a path, `Out-File`, `Export-Csv`, `Set-Content` and `>` wrote files. What was built (4.1, 4.3, 4.6):
+
+- `CommandGuards` - the one list: 68 engine cmdlets, two engine functions, four replacements, twelve refusals, the `help` alias,
+  the aliases of these, no script entry, no `Function` provider. `SessionCommandsTests` pins it against a live session.
+- The replacements run the engine's cmdlet through a FullLanguage bridge made at set-up (`WindowSetupCommand`), so the cmdlet runs
+  in the caller's language mode and scope.
+- `InputGuard`: `using module` / `using assembly`, the background operator and redirection to a file are refused from the text
+  before anything runs; a typed `ForEach-Object -Parallel` gets a message.
+- `ScriptFileGuard`: no script file is found by name or path at any depth; on Windows `WindowAuthorizationManager` refuses every
+  script file whatever the execution policy.
+- `WindowRegistry`: the context is found by the runspace; the host's `PrivateData` is empty.
+- Jobs left in the session's repository are stopped when their command ends, on Stop and on dispose.
+- Tests: `EscapeTests` (the audit's probe scripts, in both modes), `SessionCommandsTests`, `InputGuardTests`, the rewritten
+  `LanguageModeTests` (every way to another language mode) and `GuardTests` (every way to a refused command), a stop test of a
+  script that keeps writing. Run against the code before the change (`f429fbe9`), 41 of the 82 cases of `EscapeTests` and
+  `LanguageModeTests` fail (`using module` of a binary module, written by the test, ran .NET code in ConstrainedLanguage - worse
+  than the audit's script module); `SessionCommandsTests` and `InputGuardTests` do not compile there. The engine tests also run in
+  the Linux CI job now (DLR-2).
+- A second probe of the rebuilt session tried the paths that need no command of the session: the runspace object and an advanced
+  function's `$PSCmdlet` to set the language mode, the provider intrinsics of `$ExecutionContext` that create and write files,
+  `NewScriptBlock`, a method object's `Invoke()`, reflection from the window's `ForEach-Object` to the engine's cmdlet it wraps,
+  `[type]::GetType` of the registry, variables left by the bridge in a script block's scope, and the module-qualified names of the
+  engine's `ForEach-Object`, `Export-Csv`, `Out-File`, `Set-Content`, `Copy-Item`. All were refused; they are tests of
+  `EscapeTests` now (the bridge and module-qualified cases fail against `f429fbe9`, the constrained-language ones were closed by the
+  language mode already and are kept as guards).
+
+**Decisions taken here** (the reasons are in 4.6):
+
+1. *The list comes from what the README and the guide promise and what a read-only console needs*: reading, shaping and showing
+   objects, reading files (a list of names from `Get-Content` or `Import-Csv`), variables, help, messages. `ConvertTo-SecureString` is
+   kept (the guide's history rules name it; a test needs a secure string); `Get-Module`, `Get-Process`, the clipboard cmdlets,
+   `Invoke-WebRequest` and the history cmdlets are not on the list - nothing of R1 needs them.
+2. *`Invoke-Expression` is dropped.* In ConstrainedLanguage it stays constrained, so it is no language escape by itself, but it
+   compiles text that `InputGuard` never saw (`using module`, `&`, `>`); nothing a read console does needs it.
+3. *`Start-Transcript -Path` stays* - the README's "transcription only to an explicitly specified file" - while `Start-Transcript`
+   without a path is refused; every other file writer is gone. Question 6 of 12.0 asks the owner whether the named-file transcript
+   should stay.
+4. *Console programs stay* (the application entry): they run as their own process with the operator's identity, never with the
+   window's credentials - like `pwsh.exe`, which ADR-0010 already names. Their output still bypasses the window (audit PS-06, a
+   separate change).
+5. *Jobs end with their command* rather than only at Stop or dispose: no command of the window creates one, and the window cannot
+   show a job's output (no `Receive-Job`), so a job left behind would be invisible work.
+6. *Trusted mode*: the same list; the trusted mode adds no command. Its .NET code can still reach anything in the process,
+   including the window's session and credentials, and can start threads or runspaces of its own that nothing in the window stops
+   (only jobs in the session's repository are ended). Code defined while it was on keeps FullLanguage after the switch back (PS-02,
+   a separate change).
+
+**What could not be verified here.** Nothing ran on Windows: the authorization manager (the engine asks it on Windows only;
+`SessionCommandsTests.A_script_file_reached_as_a_command_object_is_refused_on_windows` and the smoke test of the published file are the
+first checks, in Windows CI), the allow-list on a Windows session (the 68 cmdlet names and the four replaced ones exist in the Windows build of the engine -
+checked by listing the `[Cmdlet]` attributes of its five assemblies; the live test compares them in Windows CI), the replacements in the single-file `AdMng.exe` (the smoke test runs `ForEach-Object`), and the set-up
+under a WDAC/AppLocker lockdown (it switches the session to FullLanguage for one internal command before the operator's first command;
+the engine has no lockdown check on that switch, but nobody has run it under a lockdown). One run of the audit's 62-command probe battery
+showed a later command with no output after a stopped prompt; three repeats and the isolated sequence did not reproduce it.

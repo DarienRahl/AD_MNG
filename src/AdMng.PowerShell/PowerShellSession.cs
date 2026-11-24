@@ -17,8 +17,8 @@ namespace AdMng.PowerShell;
 /// One window's PowerShell session (docs/dev/r1-powershell-window.md 4.1): one runspace made from the AD Manager initial
 /// session state - an allow-list of commands (<see cref="CommandGuards"/>) - never shared with another window, with the custom host
 /// and AD Manager's commands. It refuses what the text of a command would do past that list (<see cref="InputGuard"/>), runs one
-/// pipeline at a time and streams what the pipeline produces as <see cref="PowerShellOutputItem"/>s, in memory only. Nothing a
-/// command starts outlives it: a job left in the session's job repository is stopped when the command ends, on Stop and on dispose.
+/// pipeline at a time and streams what the pipeline produces as <see cref="PowerShellOutputItem"/>s, in memory only. No job
+/// outlives its command: a job left in the session's job repository is stopped when the command ends, on Stop and on dispose.
 /// Disposing it stops the pipeline and closes the runspace.
 /// </summary>
 public sealed class PowerShellSession : IPowerShellSession
@@ -603,7 +603,7 @@ public sealed class PowerShellSession : IPowerShellSession
             state = PowerShellRunState.Stopped;
         }
 
-        // Nothing the command started outlives it.
+        // No job the command left in the session outlives it.
         EndJobs();
 
         // The session is idle before the consumer sees the end item, so it can run the next command at once.

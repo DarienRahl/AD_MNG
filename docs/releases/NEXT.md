@@ -87,12 +87,22 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   pionowy), **Shift+Enter** zawsze dodaje wiersz, **Góra/Dół** chodzą po wierszach, a potem po historii, **Ctrl+R** przeszukuje
   historię, **Esc** zamyka listę, **Ctrl+L** czyści okno. Historia jest tylko w pamięci okna; wiersz z hasłem jawnym
   (`-AsPlainText`, `ConvertTo-SecureString '…'`, parametr `…Password` z wartością wpisaną wprost) nie trafia do niej.
-- **Tryb ograniczony i tryb zaufany.** Okno zaczyna w ConstrainedLanguage: polecenia programu działają, wywołania .NET i
-  skrypty są ograniczone, nie ma profili, PSReadLine, `Start-Job` ani ładowania modułów, a pliki `.ps1` odrzuca polityka
-  wykonywania `Restricted`. Przełącznik **Tryb zaufany (FullLanguage)** po potwierdzeniu, które mówi, co daje (dowolny kod .NET,
-  zapis do katalogu z pominięciem planu zmian – bez podglądu, dziennika i cofania), włącza pełny język tylko w tym oknie, na
-  stałej uwadze i w tytule okna; nie jest pamiętany. Gdy system wymusza ConstrainedLanguage (WDAC, AppLocker), przełącznik jest
-  wyłączony z podanym powodem. To ochrona przed pomyłką, nie granica bezpieczeństwa: granicą są uprawnienia konta w AD.
+- **Lista poleceń, tryb ograniczony i tryb zaufany.** Okno zaczyna w ConstrainedLanguage i ma zamkniętą listę poleceń: polecenia
+  programu oraz zwykłe cmdlety do pracy z obiektami (`Where-Object`, `Select-Object`, `Sort-Object`, `Group-Object`,
+  `Measure-Object`, `ForEach-Object` – bez `-Parallel` i `-AsJob`), formatowania, zmiennych i odczytu plików (`Get-Content`,
+  `Import-Csv`); pełna lista jest w instrukcji. Nie ma w nim zadań w tle, wątków i osobnych runspace'ów (`-Parallel`,
+  `Start-Job`, operator `&` na końcu potoku), sesji zdalnych, `Invoke-Expression`, `Start-Process`, ładowania modułów
+  (`Import-Module`, `using module`) ani zestawów (`using assembly`, `Add-Type`), profili ani PSReadLine, a pliki skryptów
+  (`.ps1`) się nie uruchamiają – na Windows okno odrzuca je niezależnie od polityki wykonywania. Kilka nazw, które łatwo wpisać
+  odruchowo (`Start-Job`, `Export-Csv`, `Out-GridView` i inne), odpowiada komunikatem, czego użyć zamiast nich. Żadne zadanie
+  nie działa dłużej niż polecenie, które je uruchomiło: zadanie zostawione w sesji okno zatrzymuje, gdy polecenie się kończy,
+  przy **Stop** i przy zamknięciu okna.
+  Przełącznik **Tryb zaufany (FullLanguage)** po potwierdzeniu, które mówi, co daje (dowolny kod .NET, zapis do katalogu
+  z pominięciem planu zmian – bez podglądu, dziennika i cofania), włącza pełny język tylko w tym oknie, na stałej uwadze i
+  w tytule okna; nie jest pamiętany. Nie dodaje poleceń – tylko kod .NET, a ten sięga do całego procesu AD Managera, także do
+  sesji okna i jej danych logowania. Gdy system wymusza ConstrainedLanguage (WDAC, AppLocker), przełącznik jest wyłączony
+  z podanym powodem. To ochrona przed pomyłką, nie granica bezpieczeństwa: granicą są uprawnienia konta w AD, a programy
+  konsolowe (`whoami`, `nltest`) działają jak w każdej konsoli – jako osobny proces z tożsamością operatora.
 - **Zasady PowerShella tego komputera.** Przy otwarciu okno czyta zasady grupy PowerShella (transkrypcję, rejestrowanie bloków
   skryptów i modułów) oraz oba pliki `powershell.config.json` i, zanim uruchomisz pierwsze polecenie, mówi stałą uwagą, co jest
   gdzie zapisywane („transkrypcja jest włączona zasadą komputera: polecenia i wyniki zapisuje Windows w …”). Program niczego
@@ -108,10 +118,12 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   istniejący plik zastępuje tylko z `-Force`, a bez ścieżki i bez wybranego pliku nic nie zapisuje.
 - **Nic na dysku.** Wynik, historia i zawartość okna są tylko w pamięci i znikają z oknem. Silnik (PowerShell 7.6 wbudowany w
   program) ma wyłączone: telemetrię, kanał diagnostyczny, sprawdzanie aktualizacji, automatyczne ładowanie modułów i zapis
-  pamięci podręcznej analizy modułów; test „bez plików” sprawdza, że praca w oknie nie zostawia pliku. Dane logowania okna nie
-  są widoczne dla skryptu (polecenia czytają przez widok tylko do odczytu sesji okna). Zwykłe cmdlety PowerShella (`Export-Csv`,
-  `Out-File`, `Start-Transcript`) zapisują tam, gdzie je skierujesz – program ich w R1 nie przechwytuje; plik, który
-  zapiszesz, jest Twój.
+  pamięci podręcznej analizy modułów; test „bez plików” sprawdza, że praca w oknie nie zostawia pliku. W trybie ograniczonym
+  skrypt nie dosięga sesji okna ani jej danych logowania: żadna zmienna, parametr ani `$Host` jej nie przekazuje (polecenia
+  znajdują swoje okno w tablicy silnika), a polecenia czytają przez widok tylko do odczytu tej sesji. Plik zapisują tylko
+  `Export-AdmList` (lista z ochroną formuł) i `Start-Transcript -Path` (zapis sesji do pliku, który wskażesz); `Start-Transcript`
+  bez ścieżki – który zapisałby polecenia i ich wyniki do pliku w folderze *Dokumenty* – oraz `Out-File`, `Set-Content`,
+  `Add-Content`, `Export-Csv`, `Export-Clixml` i przekierowanie `>` do pliku są odrzucane z komunikatem (`> $null` działa).
 - **Rozmiar.** Silnik zwiększa `AdMng.exe` (jeden plik, bez kompresji) o około 38 MB – z 143,5 MB w {{PREVIOUS}} do 181,9 MB
   (173,5 MiB) – a folder publikacji o około 40 MB (z 164,7 do 204,3 MB); spakowane archiwum rośnie o około 14 MB (z 68,8 do
   82,4 MB w artefakcie CI). Silnik działa w samym `AdMng.exe`; obok niego leżą tylko `powershell.config.json` i plik pomocy.

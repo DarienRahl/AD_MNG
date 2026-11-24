@@ -215,8 +215,8 @@ Details: [Track E](#track-e--event-logs-reader-and-analysis--e1-and-part-of-e2-)
   to the connection window, with AD Manager's own read commands (`Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`,
   `Get-AdmGroupMember -Recursive`, `Search-AdmObject` …) that use the window's session – the same domain controller and
   account, every value escaped, results as ordinary objects that open in a grid and link to the object. Reads only for
-  now: ConstrainedLanguage by default (a trusted mode on request), no profiles, no history on disk, a plain note when a
-  Group Policy records PowerShell. Writes through the change plan and the RSAT modules are the next stages.
+  now: ConstrainedLanguage by default (a trusted mode on request), a fixed list of commands without background jobs or
+  file writers, no profiles, no history on disk, a plain note when a Group Policy records PowerShell. Writes through the change plan and the RSAT modules are the next stages.
 
 Details: [Track R](#track-r--powershell-window--r1-), [docs/en/POWERSHELL.md](docs/en/POWERSHELL.md).
 
@@ -2779,7 +2779,8 @@ stages</summary>
   configuration file in the program folder turns off transcription and module logging turned on in the user's
   `powershell.config.json`. Only what the operator explicitly exports goes to a file; the window rejects
   `Start-Transcript` without `-Path` (by default a file in *Documents*) – transcription only to an explicitly specified
-  file. Code snippets saved in the settings contain only code typed by the operator (like saved views: names, DNs,
+  file – and has no other command that writes a file (no `Out-File`, `Export-Csv`, `Set-Content`, no redirection to a
+  file). Code snippets saved in the settings contain only code typed by the operator (like saved views: names, DNs,
   filters) – without results or values read from the directory; the program does not save a snippet with a plain-text
   password. Profiles (`$PROFILE`) are never loaded.
 - **Passwords (rule 2):** the window's credentials are only in memory and do not appear in the history or in the
@@ -2856,7 +2857,7 @@ stages</summary>
   (`POWERSHELL_TELEMETRY_OPTOUT`, `POWERSHELL_DIAGNOSTICS_OPTOUT`), module auto-loading off and the module analysis cache
   pointed at a null device (so the engine writes no file of its own – checked on Linux, see the implementation note), a
   `powershell.config.json` file in the engine's folder (`$PSHOME`; it wins over a user's file, GPO settings take
-  precedence over it), no PSReadLine, profiles or `Start-Job` (it requires `pwsh.exe`).
+  precedence over it), no PSReadLine, profiles, jobs or parallel runspaces.
 - **Tests:** the commands and the plan on `FakeDirectorySession` (unit tests – the package also works on Linux) and on
   the Samba lab; the host and the window in UI tests on Windows; the RSAT modules (ADWS) only on Windows Server – in
   Windows CI with a domain controller or in the pilot; a "no files" test checks that working in the PowerShell window
@@ -2896,16 +2897,19 @@ the implementation note is [docs/dev/r1-powershell-window.md](docs/dev/r1-powers
   the program's grid – is rejected. Windows CI decided: the single-file `AdMng.exe` runs the engine, so no folder of
   engine files is published (the measured growth of `AdMng.exe` is about 38 MB).
 - **One runspace per window,** never shared between connection windows and disposed with the window's scope; a custom host
-  routes text, prompts and confirmations into the window. No profiles, no PSReadLine, no `Start-Job`, module
-  auto-loading off, the execution policy `Restricted` (no `.ps1` files in R1).
-- **Modules and scripts from disk:** `Import-Module` only for the modules on a list, which is empty in R1 (the RSAT
-  modules come with R3, the Microsoft 365 modules with track C).
+  routes text, prompts and confirmations into the window. The session has a fixed list of commands (an allow-list): no
+  jobs, parallel runspaces or remote sessions, no `Invoke-Expression`, no `Start-Process`, no command that writes a file;
+  no job outlives the command that started it. No profiles, no PSReadLine, module auto-loading off; no `.ps1` files in R1 (the
+  window refuses them, whatever the execution policy says).
+- **Modules and scripts from disk:** `Import-Module` and `using module` only for the modules on a list, which is empty in R1
+  (the RSAT modules come with R3, the Microsoft 365 modules with track C).
 - **Language mode:** ConstrainedLanguage by default (AD Manager's commands work in it); a per-window switch *Trusted mode
   (FullLanguage)* the operator turns on after a confirmation that says what it allows (any .NET code, writes around the
   change plan), shown in the window title and in a lasting note while on and never remembered between windows or
   sessions; with a system lockdown (WDAC / AppLocker) the window stays in ConstrainedLanguage and the switch is
-  disabled with the reason. It is a protection against mistakes, not a security boundary. No mode protects the password in a
-  `PSCredential` object: `PSCredential` is an allowed type in ConstrainedLanguage, so
+  disabled with the reason. The trusted mode adds no command; its .NET code reaches the whole AD Manager process, the
+  window's session and credentials included. It is a protection against mistakes, not a security boundary. No mode protects
+  the password in a `PSCredential` object: `PSCredential` is an allowed type in ConstrainedLanguage, so
   `$cred.GetNetworkCredential().Password` works there too (R1 creates no `PSCredential`).
 - **Names and shortcut:** the prefix `Adm`; R1 builds `Get-AdmObject`, `Get-AdmUser`, `Get-AdmGroup`, `Get-AdmComputer`,
   `Get-AdmGroupMember` (`-Recursive`), `Search-AdmObject`, `Out-AdmGrid`, `Open-AdmObject` and `Export-AdmList`; the write
@@ -2922,8 +2926,8 @@ the implementation note is [docs/dev/r1-powershell-window.md](docs/dev/r1-powers
   lockdown state, and a lasting note before the first command says plainly what is logged where; the program does not try
   to get around any policy.
 - **Nothing on disk:** the environment of the engine is set before its first use and a "no files" test proves that
-  working in the window leaves no file; the window's credentials are never visible to a script; no write command exists
-  in R1.
+  working in the window leaves no file; in ConstrainedLanguage no script reaches the window's session or credentials (in the
+  trusted mode .NET code can); no write command exists in R1.
 
 #### To be agreed with the team
 
