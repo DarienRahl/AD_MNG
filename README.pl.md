@@ -2739,12 +2739,17 @@ etapy</summary>
   rejestrowania bloków skryptów (decyzja po audycie, PS-04): decyduje o nim GPO, potem własny `powershell.config.json`
   użytkownika, jak w zwykłym pwsh, a gdy nie ustawia go żadne z nich, silnik i tak zapisuje w tym samym dzienniku polecenie,
   które uznaje za podejrzane, jako ostrzeżenie 4104 – takie ze słowem z jego wbudowanej listy (`Add-Type`,
-  `FromBase64String`, `GetMethod`…, także `Properties`, a więc `-Properties` poleceń odczytu okna) albo z konstrukcją,
+  `EncodedCommand`, `GetMethod`…, także `Properties`, a więc `-Properties` poleceń odczytu okna; silnik patrzy tylko na
+  litery i łączniki, więc pięć słów listy z cyfrą, takich jak `FromBase64String`, nigdy się nie liczy, a ostatnie litery
+  polecenia liczą się nawet ze spacjami, kropkami albo cudzysłowami między nimi: `Get-AdmUser 'grace mit'` kończy się na
+  *Emit*, `Get-AdmUser by.pass` na *Bypass*) albo z konstrukcją,
   którą oznacza jego parser: składową o nazwie niewpisanej wprost (`$u.$a`, `$u.('mail')` – a więc odczyt atrybutów po nazwie
   ze zmiennej), składową statyczną czegoś innego niż typ w nawiasach kwadratowych (`$t::Now`) albo typ `[type]`; GPO, które
   wyłącza rejestrowanie bloków skryptów, wyłącza też to. Zespół bezpieczeństwa widzi z okna to samo, co z `pwsh.exe` na tym
   samym komputerze – poza ustawieniem rejestrowania w pliku `powershell.config.json` samego zainstalowanego PowerShell 7
-  (`C:\Program Files\PowerShell\7`), które czyta tylko `pwsh.exe`. PowerShell 7 czyta
+  (`C:\Program Files\PowerShell\7`), które czyta tylko `pwsh.exe`, oraz transkrypcją i rejestrowaniem modułów (zdarzenie
+  4103) włączonymi we własnym `powershell.config.json` użytkownika, za którymi idzie `pwsh.exe`, a okno nie (zob.
+  „Niczego na dysku” wyżej). PowerShell 7 czyta
   własne zasady (*PowerShell Core*, `HKLM`/`HKCU\Software\Policies\Microsoft\PowerShellCore`), a zasady Windows
   PowerShell tylko dla zasady, w której włączono *Use Windows PowerShell Policy setting*. Okno odczytuje je przy otwarciu
   według reguł silnika i mówi o tych zasadach wyraźnie – nie próbuje ich obejść. AMSI sprawdza każdy blok skryptu (program antywirusowy widzi

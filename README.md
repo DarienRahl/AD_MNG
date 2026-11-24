@@ -2808,13 +2808,17 @@ stages</summary>
   engine, so the commands and results – that is, directory data – end up in the file specified in the GPO. AD Manager does
   not set script block logging (decision after the audit, PS-04): a GPO decides it, then the user's own
   `powershell.config.json`, as in a plain pwsh, and when neither does, the engine still writes a command it finds suspicious
-  to the same log as a warning 4104 – one with a word of its built-in list (`Add-Type`, `FromBase64String`, `GetMethod`…,
-  also `Properties`, so `-Properties` of the window's read commands) or with a construct its parser marks: a member
+  to the same log as a warning 4104 – one with a word of its built-in list (`Add-Type`, `EncodedCommand`, `GetMethod`…,
+  also `Properties`, so `-Properties` of the window's read commands; the engine looks only at letters and hyphens, so the
+  five words of the list with a digit, such as `FromBase64String`, never count, and the last letters of a command count
+  even with spaces, dots or quotes between them: `Get-AdmUser 'grace mit'` ends in *Emit*, `Get-AdmUser by.pass` in
+  *Bypass*) or with a construct its parser marks: a member
   whose name is not written out (`$u.$a`, `$u.('mail')` – so reading attributes by a name in a variable), a static member of
   something other than a type in square brackets (`$t::Now`) or the type `[type]`; a GPO that turns script block logging off
   stops that too. The security team sees of the window what it sees of `pwsh.exe` on the same computer – except for a
   logging setting in the `powershell.config.json` of the installed PowerShell 7 itself (`C:\Program Files\PowerShell\7`), which
-  only `pwsh.exe` reads. PowerShell 7
+  only `pwsh.exe` reads, and for transcription and module logging (event 4103) turned on by the user's own
+  `powershell.config.json`, which `pwsh.exe` follows and the window does not (see "Nothing on disk" above). PowerShell 7
   reads its own policies (*PowerShell Core*, `HKLM`/`HKCU\Software\Policies\Microsoft\PowerShellCore`), and the Windows
   PowerShell policies only for a policy whose *Use Windows PowerShell Policy setting* is turned on. The window reads them
   by the engine's rules when it opens and points these policies out clearly – it does not try to get around them. AMSI checks every script block (the

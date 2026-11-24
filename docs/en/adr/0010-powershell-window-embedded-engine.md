@@ -171,8 +171,10 @@ the Watchdog package.
   sees of a plain pwsh 7 – every script block with the policy on, none with it set to off, and without a policy the ones the
   engine finds suspicious (a warning 4104; `-Properties` of the window's read commands is one of the engine's words, and the
   engine marks reading a property by a name in a variable, e.g. `$u.$a`, when it parses the command), where the PowerShell 7
-  event provider is registered. The one difference: a logging setting in the `powershell.config.json` in the folder of an
-  installed PowerShell 7 applies to `pwsh.exe` only, because the window's engine reads the file beside `AdMng.exe`.
+  event provider is registered. Two differences: a logging setting in the `powershell.config.json` in the folder of an
+  installed PowerShell 7 applies to `pwsh.exe` only, because the window's engine reads the file beside `AdMng.exe`; and a
+  user's own `powershell.config.json` that turns on transcription or module logging (event 4103) works in `pwsh.exe` but not in
+  the window, because the file beside `AdMng.exe` turns both off (a GPO turns them on in both).
 - **The security boundary.** ConstrainedLanguage, the allow-list of commands, the empty module list and the refusal of
   script files protect against mistakes, not against a malicious operator; the only boundary is the account's rights in AD. Changes made
   around the plan have no audit and no rollback in the program, but the Watchdog sees them like any other change in AD.

@@ -388,9 +388,12 @@ these policies and does not get around them.
 block logging, PowerShell 7 writes a command it finds suspicious to the same event log anyway, as a warning (event 4104). A
 command is suspicious to it when it:
 
-- contains a word of its built-in list – `Add-Type`, `FromBase64String`, `GetMethod`, `NonPublic`, `Bypass` and over a hundred
+- contains a word of its built-in list – `Add-Type`, `EncodedCommand`, `GetMethod`, `NonPublic`, `Bypass` and over a hundred
   more, also inside a longer word, so also `Properties`, which is in `-Properties` of AD Manager's read commands
-  (`Get-AdmUser jan -Properties mail` is logged, `Get-AdmUser jan` is not), or
+  (`Get-AdmUser jan -Properties mail` is logged, `Get-AdmUser jan` is not). PowerShell looks only at letters and hyphens: the
+  five words of the list with a digit (`FromBase64String`, `kernel32` and three more) never count, and the last letters of a
+  command count even with spaces, dots, quotes or digits between them – `Get-AdmUser 'grace mit'` ends in *Emit*,
+  `Get-AdmUser by.pass` in *Bypass* and `Get-AdmUser marshall` in *Marshal*, so each of them is logged, or
 - has one of the constructs PowerShell marks when it parses the command: a property or method whose name is not written out
   (`$u.$a`, `$u.('mail')`, `$u."$name"` – so also reading attributes by a name in a variable, e.g.
   `foreach ($a in 'mail', 'department') { $u.$a }`), a static member of something other than a type in square brackets
@@ -398,9 +401,11 @@ command is suspicious to it when it:
 
 The text of other commands – e.g. `$u.mail`, `$u.'mail'`, `Get-AdmUser jan | Select-Object -Property mail` – is not written.
 That is the engine's own behaviour in every PowerShell 7 – `pwsh.exe`, an editor, this window – and AD Manager leaves it as it
-is: the security team sees of the window what it sees of a plain pwsh 7 on the same computer, with one exception – a logging
+is: the security team sees of the window what it sees of a plain pwsh 7 on the same computer, with two differences. A logging
 setting in the `powershell.config.json` of the installed PowerShell 7 itself (in its folder, e.g. `C:\Program Files\PowerShell\7`)
-applies to `pwsh.exe` only, because AD Manager reads the file beside `AdMng.exe` instead. The log exists where PowerShell 7's
+applies to `pwsh.exe` only, because AD Manager reads the file beside `AdMng.exe` instead; and your own `powershell.config.json`
+that turns on transcription or module logging (event 4103) works in `pwsh.exe` but not in the window, because the file beside
+`AdMng.exe` turns both off (below; a Group Policy turns them on in both). The log exists where PowerShell 7's
 event provider is registered: the MSI installer of PowerShell 7 does it (its option *Register Windows Event Logging Manifest*,
 ticked by default), or the script `RegisterManifest.ps1` from PowerShell 7's folder run as an administrator; the zip and MSIX
 (Microsoft Store) packages do not register it, and AD Manager registers nothing. Where it is not registered, the event reaches no

@@ -235,21 +235,30 @@ published `AdMng.exe`.
 section: it is not the program's to decide. Until D-B it set `EnableScriptBlockLogging: false`, and what that did is in the
 engine's code (`System.Management.Automation` 7.6.10, `engine/runtime/CompiledScriptBlock.cs`):
 
-- `PerformSecurityChecks` runs when a script block is compiled. It returns at once only when the compiled AST is not a
+- `PerformSecurityChecks` runs when a script block is compiled. It returns at once when the compiled AST is not a
   `ScriptBlockAst` - a function definition's body - under the comment "Checks are only needed at the top level"; a nested `{ }`
   is a `ScriptBlockAst` and is checked when it is compiled (what is recorded does not change: its text is in the text of the
-  block around it, and a mark of the parser is set on every parent). It runs AMSI and then
+  block around it, and a mark of the parser is set on every parent). It also skips AMSI and the check below for a block from a
+  `.psd1` file whose content is a safe hashtable (`IsScriptBlockInFactASafeHashtable`; a line typed in the window has no file).
+  Otherwise it runs AMSI and then
   `if (ScriptBlock.CheckSuspiciousContent(scriptBlockAst) != null) { HasSuspiciousContent = true; }`. The check has two parts
-  (`CheckSuspiciousContent`): a word of `SuspiciousContentChecker.Match`, one of 119 in the text, case-insensitively and also
-  inside longer words - `Add-Type`, `FromBase64String`, `GetMethod`, `NonPublic`, `Marshal`, `Bypass`, `ScriptBlockLogging`, and
-  `Properties`, which `-Properties` of the window's own read commands contains -, **or** `scriptBlockAst.HasSuspiciousContent`,
-  which the parser sets on every parse in the default mode (`Parser.cs`: `PerformPostParseChecks`, `SemanticChecks.CheckAst`)
-  through `SemanticChecks.MarkAstParentsAsSuspicious` on the AST and all its parents: `CheckMemberAccess` (for
-  `VisitMemberExpression` and `VisitInvokeMemberExpression`) when the member is not a `ConstantExpressionAst` - `$u.$a`,
-  `$u.('mail')`, `$u."$n"`, `$u.$m()`, so an operator's `foreach ($a in 'mail', 'department') { $u.$a }` - and when a static
-  member (`::`) is taken of something that is not a `TypeExpressionAst` - `$t::Now` -, `VisitTypeExpression` and
-  `VisitConvertExpression` for the type `System.Type` itself (`[type]`, `[type]'System.String'`). `$u.mail`, `$u.'mail'` and
-  `[datetime]::Now` are not marked;
+  (`CheckSuspiciousContent`): a word of `SuspiciousContentChecker.Match` in the text (`LookupHash` holds 119 words; 114 of them
+  can match), case-insensitively and also inside longer words - `Add-Type`, `EncodedCommand`, `GetMethod`, `NonPublic`, `Marshal`,
+  `Bypass`, `ScriptBlockLogging`, and `Properties`, which `-Properties` of the window's own read commands contains. `Match` hashes
+  only `a-z`, `A-Z` and `-`, a running hash for each length up to 29; any other character sets the length of the current run to 0,
+  so while it reads it tests only words inside one run of letters and hyphens, and the five words of the list with a digit
+  (`FromBase64String`, `ToBase64String`, `kernel32`, `WriteInt32`, `SHA1Managed`) never match -
+  `$x = [Convert]::FromBase64String('eA==')` is not marked. The other character does not reset the running hashes, though, and at
+  the end `Match` tests every length (`CheckForMatches(runningHash, 0)`), so the last letters of the text, read without the
+  characters between them, count as well: `Get-AdmUser 'grace mit'` is marked for `Emit`, `Get-AdmUser by.pass` for `Bypass`,
+  `Get-AdmUser marshall` for `Marshal`, and `Get-AdmUser jkowalski` is not marked. The second part is
+  `scriptBlockAst.HasSuspiciousContent`, which the parser sets on every parse in the default mode (`Parser.cs`:
+  `PerformPostParseChecks`, `SemanticChecks.CheckAst`) through `SemanticChecks.MarkAstParentsAsSuspicious` on the AST and all its
+  parents: `CheckMemberAccess` (for `VisitMemberExpression` and `VisitInvokeMemberExpression`) when the member is not a
+  `ConstantExpressionAst` - `$u.$a`, `$u.('mail')`, `$u."$n"`, `$u.$m()`, so an operator's
+  `foreach ($a in 'mail', 'department') { $u.$a }` - and when a static member (`::`) is taken of something that is not a
+  `TypeExpressionAst` - `$t::Now` -, `VisitTypeExpression` and `VisitConvertExpression` for the type `System.Type` itself
+  (`[type]`, `[type]'System.String'`). `$u.mail`, `$u.'mail'` and `[datetime]::Now` are not marked;
 - `LogScriptBlockStart` (when a script block starts: `CompiledScriptBlock.cs` for an invoked block, `ScriptCommandProcessor.cs`
   for a script the window runs and `& $block`) calls `LogScriptBlockCreation(scriptBlock, force: HasSuspiciousContent)`;
 - `LogScriptBlockCreation`: `if (force || logSetting?.EnableScriptBlockLogging == true) { if (logSetting?.EnableScriptBlockLogging
@@ -271,17 +280,19 @@ own, as a warning, and no script block it did not mark (a text it compiled befor
 suspicious ones. The program's old file was such a file: in the window not even `Add-Type` reached the event log unless a
 Group Policy turned the logging on. Without the section the window behaves as a plain pwsh 7 on the same workstation: Group Policy
 decides, then a user's own `powershell.config.json` (which can now turn the logging on, or off), and with neither the engine's
-default. One difference stays: a `pwsh.exe` reads the `powershell.config.json` of its own `$PSHOME` (e.g.
+default. For script block logging one difference stays: a `pwsh.exe` reads the `powershell.config.json` of its own `$PSHOME` (e.g.
 `C:\Program Files\PowerShell\7`) as its all-users file, the window the program's file (`Utils.DefaultPowerShellAppBase`,
 `PSConfiguration.cs`), so a `ScriptBlockLogging` section there - or `ProtectedEventLogging`, read from the all-users file only
 (`Utils.SystemWideOnlyConfig`) - applies to `pwsh.exe` and not to the window; the file of a PowerShell 7 install sets neither.
 `ScriptBlockLoggingTests` shows it with the real engine in child processes (the probe's
 `script-block-logging:<all-users file>|<user's file>` mode sets the all-users file as `pwsh -SettingsFile` does,
 `PowerShellConfig.SetSystemConfigFilePath`, the user's file by `PowerShellConfig.perUserConfigFile`, and reads the internal
-`HasLogged` / `SkipLogging` of eight lines): an empty file and the program's file both give `setting=null`, the six marked lines
-(`$properties = …`, `$u.$a` in a `foreach`, `$u.('mail')`, `$u."$n"`, `$t::Now`, `[type]`) logged and the two others
-(`$attributes = …`; `$u.mail; $u.'mail'; [datetime]::Now`) skipped; a file with the old section gives `False` and skips all
-eight; the program's file with a user's file that says `true` gives `True` and logs all eight. The test reads internal
+`HasLogged` / `SkipLogging` of eleven lines): an empty file and the program's file both give `setting=null`, the seven marked
+lines (`$properties = …`, `$u.$a` in a `foreach`, `$u.('mail')`, `$u."$n"`, `$t::Now`, `[type]`, `Get-AdmUser 'grace mit'`)
+logged and the four others (`$attributes = …`; `$u.mail; $u.'mail'; [datetime]::Now`; `$x = [Convert]::FromBase64String('eA==')`;
+`Get-AdmUser jkowalski`) skipped; a file with the old section gives `False` and skips all eleven; the program's file with a
+user's file that says `true` gives `True` and logs all eleven. On Linux, which has no Group Policy, the setting of the first two
+must be `null`; on Windows the test is skipped when the machine's own policy sets it. The test reads internal
 members on purpose: an engine update that changes them fails it, and this paragraph is read again. The window's note says what
 the policies record (D7) and makes no sentence of the engine's default (12.13).
 
@@ -1901,3 +1912,16 @@ pwsh. The transcription and the module logging stay off in the program's file (a
   provider comes from says which packages register it (the MSI by default, not the zip or MSIX). The note stays as it is, for
   the reason above: a marked line is the engine's default in every PowerShell 7 process, and no string of the window says that
   nothing is recorded.
+- **After the second verification of D-B** (against the engine's code and the real engine). The word examples named
+  `FromBase64String`, which never matches: `SuspiciousContentChecker.Match` hashes only letters and `-`, so the five words of
+  the list with a digit never do (114 of the 119 can). The texts understated the rest: `Match` keeps its running hashes over the
+  other characters and tests every length at the end, so the last letters of a command, read without what lies between them,
+  count too (`Get-AdmUser 'grace mit'` - `Emit`). The guide, the README and 4.2 now give words that match (`Add-Type`,
+  `EncodedCommand`, `GetMethod`…) and say both; the pilot's PW12 runs `Get-AdmUser <account>` with an account whose letters end
+  in no listed word (`jkowalski`); `ScriptBlockLoggingTests` runs eleven lines (+ `Get-AdmUser 'grace mit'` marked,
+  `[Convert]::FromBase64String(…)` and `Get-AdmUser jkowalski` not) and asserts on Linux, which has no Group Policy, instead of
+  skipping when the setting is not null (the skip stays on Windows). "The same as `pwsh.exe`" now names two differences in
+  the guide, the README and the ADR: besides the file of an installed PowerShell 7's `$PSHOME`, a user's own file that turns on
+  transcription or module logging (4103) works in `pwsh.exe` but not in the window, whose file turns both off (both are read
+  `SystemWideThenCurrentUser`). The release notes say that the event reaches a log only where the PowerShell 7 event provider is
+  registered. 4.2 also names the `.psd1` early return of `PerformSecurityChecks`.
