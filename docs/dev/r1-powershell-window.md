@@ -227,9 +227,10 @@ unhandled exceptions (`ExceptionHandling.SetUnhandledExceptionHandler`, .NET 9 a
 – the callback ends, its thread goes on – and every other exception ends the process as before (the predicate is
 `IsLeftoverScriptBlockCall`). .NET allows one handler per process (a second call throws; the method then does nothing, and
 `LeftoverScriptBlocksContained` stays false), so the program's module initializer sets it next to the regular expression limit,
-and the engine's tests do the same. `EscapeTests` proves it in child processes (the probe's `leftover-callback` and its control,
-which still crashes), `HostTests` checks that the program's module sets it, and the smoke test leaves such a timer behind in the
-published `AdMng.exe`.
+and the engine's tests do the same. `EscapeTests` proves it in child processes (the probe's `leftover-callback`, which waits until
+the handler has counted the callback - `ContainedLeftoverScriptBlockCalls` - and its control, which still crashes; neither waits a
+time of its own for the timer, 12.14), `HostTests` checks that the program's module sets it, and the smoke test leaves such a timer
+behind in the published `AdMng.exe`.
 
 **Script block logging (decision D-B, audit PS-04).** The program's `powershell.config.json` has no `ScriptBlockLogging`
 section: it is not the program's to decide. Until D-B it set `EnableScriptBlockLogging: false`, and what that did is in the
@@ -1964,3 +1965,21 @@ and the module logging stay off in the program's file (a transcript is directory
   gave a 4104 (a verbose one, and a warning for a line the engine marks, as without the setting); with module logging for `*`, the 4103 events of 4.2 (the outer pipeline with `Out-Default` for every line,
   `CommandInvocation(Get-AdmUser)` without parameters beside `Select-Object`, nothing of the window's `ForEach-Object` itself).
   The comments of `ScriptBlockLoggingTests` and of the probe say the same.
+
+### 12.14 The Windows CI of the audit fixes - tests that counted on the runner
+
+The fixes of the audit were pushed without waiting for the Windows CI job; its runs (and one of the Linux lab job) failed in tests
+that counted on how the runner behaves. What failed, and what became of it:
+
+- **A fixed wait let the control of the leftover script block survive.** The control child of 12.8 (`leftover-callback-control`)
+  set the timer of 1.5 s, disposed its session, waited a fixed 4 s, wrote "survived" and returned 0. A runner that stalls a process
+  for 8-20 s under load lets both come due at once: on Linux (CI of f219a3e7) the child wrote "survived" before the crash, on Windows
+  (CI of ea9c4c5d and 7cc6191b) it printed the crash and still exited 0 - the process was already ending. Reproduced here by
+  freezing the child (`SIGSTOP`) 1-2 s after its start for 8 s: six of six runs wrote "survived" and exited 0 without the crash;
+  not frozen, it crashes about 2.4 s after its start. The contained child had the same flaw, unseen: it passed whether or not its
+  callback had run (frozen the same way it reported "survived" with nothing contained). Now neither child waits a time of its own:
+  the control waits up to a minute for its crash and only then reports that it survived; the contained child waits until its
+  handler has counted the callback (`PowerShellEnvironment.ContainedLeftoverScriptBlockCalls`, internal, counted by the handler of
+  4.2) and reports the count, which the test expects to be 1. The probe also holds the timer, so that a collection of the closed
+  window's variables cannot cancel it before it fires. Frozen the same way, the control crashed and the contained child reported
+  `contained=1` in every run.

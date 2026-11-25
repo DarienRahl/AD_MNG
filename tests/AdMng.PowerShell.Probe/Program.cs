@@ -207,7 +207,10 @@ internal static class Program
     /// The second red team of R1 (goal d): in the trusted mode a script leaves a timer whose callback is a script block; the window closes
     /// before it fires, and the script block then runs on a timer thread without a runspace and throws - unhandled, which ends the
     /// process and every window of the program with it. <paramref name="contained"/> sets up the process the way the program does
-    /// (src/AdMng.App/ProcessStart.cs); the control does not, and the parent expects it to end with the crash.
+    /// (src/AdMng.App/ProcessStart.cs) and waits until its handler has contained the callback; the control does not, and waits for the
+    /// crash the parent expects. Neither waits a time of its own for the timer: a runner that stalls the child fires the timer late (the
+    /// fixed wait of 4 s this had let the control report "survived" and return 0 before its timer fired). The probe holds the timer, so
+    /// that no collection of the closed window's variables cancels it before it fires.
     /// </summary>
     private static async Task<string> LeftoverCallbackAsync(bool contained)
     {
@@ -216,15 +219,36 @@ internal static class Program
             PowerShellEnvironment.ContainLeftoverScriptBlocks();
         }
 
+        object? timer = null;
         await using (var session = await CreateAsync())
         {
             await session.SetLanguageModeAsync(PowerShellLanguageMode.Full, CancellationToken.None);
             var late = Path.Combine(Environment.CurrentDirectory, "late.txt").Replace("'", "''", StringComparison.Ordinal);
-            await RunAsync(session, "$global:tmr = [System.Threading.Timer]::new([System.Threading.TimerCallback]{ [System.IO.File]::WriteAllText('" + late + "', 'x') }, $null, 1500, -1); 'started'");
+            var script = "$global:tmr = [System.Threading.Timer]::new([System.Threading.TimerCallback]{ [System.IO.File]::WriteAllText('" + late + "', 'x') }, $null, 1500, -1); $global:tmr";
+            await foreach (var item in session.RunObjectsAsync(script))
+            {
+                if (item is PowerShellObjectItem { Value: PSObject { BaseObject: Timer left } })
+                {
+                    timer = left;
+                }
+            }
         }
 
-        await Task.Delay(TimeSpan.FromSeconds(4));
-        return "survived\ndone\n";
+        if (timer is null)
+        {
+            return "timer=none\n";
+        }
+
+        // The control ends here with the crash; that it survived a minute is the failure the parent reports.
+        var watch = Stopwatch.StartNew();
+        while (watch.Elapsed < TimeSpan.FromSeconds(60) && !(contained && PowerShellEnvironment.ContainedLeftoverScriptBlockCalls > 0))
+        {
+            await Task.Delay(100);
+        }
+
+        GC.KeepAlive(timer);
+        var report = contained ? string.Create(CultureInfo.InvariantCulture, $"contained={PowerShellEnvironment.ContainedLeftoverScriptBlockCalls}\n") : string.Empty;
+        return report + "survived\ndone\n";
     }
 
     /// <summary>
