@@ -394,6 +394,10 @@ The existing flow stays and only affects its own scope:
      (`WaitAsync(RequestTimeout + 5 s)`) and abandoned activities are logged by type.
 3. **Close the session.** The manager closes the session off the UI thread with a bound
    (`Task.Run(() => sessions.DisposeAsync()).WaitAsync(5 s)`; a hanging unbind is abandoned and logged by type only).
+   The session's connection pool cancels its requests in flight and waits at most 2 s for them
+   (`LdapConnectionPool.DisposeAsync`); a connection whose request still runs then is disposed when that request ends,
+   never under it - S.DS.P frees memory twice when a connection is disposed while it builds a response (audit finding
+   DLR-4, `tools/testlab/README.md`).
    It then awaits `scope.DisposeAsync()` on the UI thread. `SessionManager.DisposeAsync` is idempotent, so the
    scope's second call is a no-op and never blocks the UI (rule 6). An abandoned unbind must not keep the
    credential: `LdapDirectorySession.DisposeAsync` clears it **before** it awaits the watchers and the pool (9).

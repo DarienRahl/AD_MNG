@@ -208,13 +208,17 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
 
 ## AdMng Watchdog {{VERSION}}
 
-- Bez zmian w działaniu usługi i bez migracji bazy.
+- Usługa, która zamykała sesję LDAP (przy zatrzymaniu, restarcie lub aktualizacji pakietu albo po chwilowym błędzie
+  kontrolera domeny) w chwili, gdy inne zadanie odbierało wynik wyszukiwania, mogła się zakończyć sygnałem SIGABRT lub
+  SIGSEGV (kod wyjścia 134 lub 139; biblioteka .NET zwalniała wtedy dwa razy tę samą pamięć) albo zawiesić – teraz
+  połączenie jest zamykane dopiero po zakończeniu żądania, które na nim trwa; bez migracji bazy.
 
 ## Aktualizacja z {{PREVIOUS}}
 
 - **AD Manager:** rozpakuj archiwum w miejsce poprzedniego; ustawienia w `%APPDATA%\AdMng` zostają bez zmian.
-- **AdMng Watchdog:** aktualizacja nie jest potrzebna (bez zmian w działaniu); pakiet {{VERSION}} można zainstalować
-  `apt install ./admng-watchdog_{{VERSION}}-1_amd64.deb`.
+- **AdMng Watchdog:** aktualizacja zalecana (usuwa awaryjne zakończenie usługi opisane wyżej); na serwerze, jako root:
+  `apt install ./admng-watchdog_{{VERSION}}-1_amd64.deb` (pakiet OpenWEC nie wymaga aktualizacji). Usługa działa dalej
+  z dotychczasową konfiguracją i bazą.
 - **Powrót do {{PREVIOUS}}:** bez ograniczeń (starsza wersja pomija nowe ustawienia).
 
 ## Znane ograniczenia

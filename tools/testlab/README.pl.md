@@ -107,6 +107,55 @@ ldapsearch -x -H ldap://127.0.0.1 -D 'Administrator@contoso.test' -w 'P@ssw0rd!2
 ldapdelete -x -H ldap://127.0.0.1 -D 'Administrator@contoso.test' -w 'P@ssw0rd!2026' -r 'OU=WatchdogIT-…,DC=contoso,DC=test'
 ```
 
+### Przebieg, który kończy się kodem wyjścia 134 (DLR-4)
+
+Testy integracyjne Watchdoga w przebiegu CI 45409758368 (commit `7e13cff6`) skończyły się po ok. 9 s komunikatem
+`Catastrophic failure: Test process crashed with exit code 134` (SIGABRT), bez żadnego nieudanego testu. Raport awarii
+wskazał przyczynę: `__libc_free` ← `LdapConnection.ConstructEntry` ← `ldap_next_attribute` ← `ConstructEntry` ←
+`SendRequest` ← `AdMng.Directory.LdapAsync` (wątek roboczy, który wykonuje wyszukiwanie). System.DirectoryServices.Protocols
+zwalnia każdą nazwę atrybutu wpisu odpowiedzi (`ldap_memfree`), a potem wywołuje `ldap_next_attribute` z uchwytem
+połączenia; gdy połączenie zostało w międzyczasie zwolnione (Dispose), to wywołanie rzuca wyjątek, a blok `finally` metody
+zwalnia tę samą nazwę drugi raz ([dotnet/runtime#35189](https://github.com/dotnet/runtime/issues/35189), otwarte od 2020).
+glibc przerywa proces (`free(): double free detected in tcache 2`, `corrupted double-linked list`) albo sterta zostaje
+uszkodzona i proces kończy się później sygnałem SIGSEGV (kod wyjścia 139) lub zawiesza się w `malloc`. AD Manager zwalniał
+połączenia z puli, gdy wyszukiwanie na nich jeszcze budowało odpowiedź: na Linuksie wyszukiwanie wykonuje blokujące
+`SendRequest` na wątku roboczym, które trwa dalej po anulowaniu wywołującego, a zamknięcie sesji zwalniało od razu
+wszystkie połączenia – host Watchdoga, który się zatrzymuje (każdy host testowy, `systemctl stop` lub `restart`,
+aktualizacja pakietu), sesja porzucana przez usługę po chwilowym błędzie, gdy inne zadanie czyta, połączenie anulowane
+lub nieudane w trakcie pierwszych odczytów. Ten sam kod działa na Windows (sesja okna połączenia); tam błędu nie
+odtworzono.
+
+Od tej poprawki połączenie nigdy nie jest zwalniane, gdy trwa na nim żądanie (`src/AdMng.Directory/LdapConnectionPool.cs`).
+Żądanie trwa, dopóki S.DS.P z nim nie skończy, także gdy wywołujący dawno przestał czekać; połączenie, które opuszcza pulę
+(zerwane, bezczynne albo sesja się zamyka), nie przyjmuje nowych żądań i jest zwalniane po zakończeniu ostatniego z nich.
+Zamknięcie sesji anuluje jej żądania (wywołujący dostają od razu `ObjectDisposedException`), zamyka gniazdo zajętego
+połączenia (żądanie czekające na serwer wraca) i czeka najwyżej 2 s; połączenie, na którym żądanie trwa dłużej, jest
+zwalniane po jego zakończeniu. Tak samo nawiązywanie połączenia postępuje ze swoim pierwszym połączeniem.
+
+Sprawdza to `tests/AdMng.Directory.IntegrationTests`: `Unit/PoolCloseTests` ze sztucznym nadawcą (bez laboratorium) oraz
+`Integration/CloseWhileRequestRunsTests` przeciw laboratorium w procesie potomnym – program `tests/AdMng.Directory.DisposeProbe`
+zamyka sesję w wielu chwilach wyszukiwania wszystkich użytkowników i komputerów ze wszystkimi atrybutami, a chwilę, w której
+S.DS.P buduje wpisy, rozpoznaje po pamięci, którą przydziela (`ldap_result` czekając nie przydziela żadnej). Kontrola
+pozytywna zwalnia w ten sam sposób zwykłe połączenia S.DS.P i ten proces potomny musi zginąć. W laboratorium, 20 przebiegów
+po 20 zamknięć na przypadek: przed poprawką żaden z 60 procesów potomnych nie przetrwał (zwolnienie w trakcie wyszukiwania
+6 × 134, 10 × 139 i 4 × żądanie na zwolnionym połączeniu; anulowanie, potem zwolnienie 6 × 134 i 14 × 139; anulowane
+nawiązywanie połączenia 16 × 134 i 4 × 139), po niej każdy z 60 zakończył się kodem wyjścia 0 (1200 zamknięć). Z biblioteką
+System.DirectoryServices.Protocols 10.0.13, którą dostarcza Watchdog (ten projekt testów dostaje 10.0.15 przez PowerShell
+SDK), wynik jest ten sam: 15 z 15 przebiegów trzech przypadków przetrwało, 5 z 5 przebiegów kontroli pozytywnej zginęło.
+Same testy integracyjne Watchdoga przed poprawką nie wywróciły się w 20 lokalnych przebiegach – przerwanie wymaga, by
+zamknięcie trafiło w pętlę wpisów dużej odpowiedzi, a to wymusza dopiero ten program – a po niej przeszły w 20 z 20
+przebiegów. Ręcznie:
+
+```bash
+dotnet build tests/AdMng.Directory.IntegrationTests -c Release
+cd tests/AdMng.Directory.IntegrationTests/bin/Release/net10.0
+dotnet AdMng.Directory.DisposeProbe.dll dispose-during-search 20   # także cancel-then-dispose, cancel-connect: kod wyjścia 0
+dotnet AdMng.Directory.DisposeProbe.dll raw 60                     # kontrola pozytywna: ginie (134 lub 139) albo się zawiesza
+```
+
+Gdyby przebieg znów skończył się kodem wyjścia 134, zadanie CI „Integration tests” wypisuje raport awarii procesu (krok
+„Crash reports”, `crash-report-summary.py`: wątek, który się wywrócił, z ramkami natywnymi i zarządzanymi).
+
 ## AdMng Watchdog
 
 Usługę monitorującą **AdMng Watchdog** uruchamia się przeciwko temu laboratorium skryptami z

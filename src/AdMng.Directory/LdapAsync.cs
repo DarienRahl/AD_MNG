@@ -12,6 +12,27 @@ namespace AdMng.Directory;
 internal readonly record struct PendingResponse<TResponse>(Task<TResponse> Response, Task Completion)
     where TResponse : DirectoryResponse
 {
+    private readonly Task? _finished;
+
+    /// <param name="response">See <see cref="Response"/>.</param>
+    /// <param name="completion">See <see cref="Completion"/>.</param>
+    /// <param name="finished">See <see cref="Finished"/>, when it can end later than <paramref name="completion"/>.</param>
+    public PendingResponse(Task<TResponse> response, Task completion, Task finished)
+        : this(response, completion)
+    {
+        _finished = finished;
+    }
+
+    /// <summary>
+    /// Completes when S.DS.P no longer uses the connection for this request: the blocking call returned, or (APM path) the
+    /// task in which S.DS.P polls for the response and builds it has ended - also after an abort, which completes
+    /// <see cref="Completion"/> at once while that task can still be building the entries of a response it already
+    /// received. Only then may the connection be disposed: S.DS.P frees an attribute name twice when its connection is
+    /// disposed while it builds an entry (<c>LdapConnection.ConstructEntry</c>, dotnet/runtime#35189), which aborts the
+    /// process on Linux (audit finding DLR-4). The same task as <see cref="Completion"/> unless given.
+    /// </summary>
+    public Task Finished => _finished ?? Completion;
+
     /// <summary>
     /// Awaits <see cref="Response"/> and calls <paramref name="finished"/> once, with <see cref="Completion"/>, when the
     /// request finished: before this method returns (or throws) when the request finished with its response, otherwise -
@@ -73,6 +94,10 @@ internal readonly record struct PendingResponse<TResponse>(Task<TResponse> Respo
 /// timeout is therefore also enforced here (<see cref="TimeoutException"/>); the request itself may keep running
 /// on a connection that then has to be dropped.
 /// </para>
+/// <para>
+/// On both paths the connection must not be disposed before <see cref="PendingResponse{TResponse}.Finished"/>: S.DS.P
+/// frees memory twice when its connection is disposed while it builds a response (audit finding DLR-4).
+/// </para>
 /// </remarks>
 internal static class LdapAsync
 {
@@ -108,6 +133,31 @@ internal static class LdapAsync
         return request is SearchRequest && !OperatingSystem.IsWindows()
             ? SendBlocking<TResponse>(connection, request, timeout, cancellationToken)
             : SendWithAbort<TResponse>(connection, request, timeout, cancellationToken);
+    }
+
+    /// <summary>
+    /// Disposes <paramref name="connection"/> once <paramref name="finished"/> (a request's
+    /// <see cref="PendingResponse{TResponse}.Finished"/>) has completed: at once when it has, otherwise after the request
+    /// that still runs - woken first when it waits for the server - has ended. Never under a running request (see
+    /// <see cref="PendingResponse{TResponse}.Finished"/>).
+    /// </summary>
+    public static void DisposeWhenFinished(this LdapConnection connection, Task finished)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        ArgumentNullException.ThrowIfNull(finished);
+        if (finished.IsCompleted)
+        {
+            connection.Dispose();
+            return;
+        }
+
+        LdapRequestSender.Instance.Interrupt(connection);
+        _ = finished.ContinueWith(
+            static (_, state) => ((LdapConnection)state!).Dispose(),
+            connection,
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
     }
 
     /// <summary>Sends one request on a connection nobody else uses concurrently.</summary>
@@ -175,7 +225,7 @@ internal static class LdapAsync
         }
 
         pending.RegisterCancellation(asyncResult);
-        return new PendingResponse<TResponse>(pending.Completion, pending.Completion);
+        return new PendingResponse<TResponse>(pending.Completion, pending.Completion, pending.Finished);
     }
 
     private sealed class PendingRequest<TResponse>
@@ -184,6 +234,7 @@ internal static class LdapAsync
         private readonly LdapConnection _connection;
         private readonly CancellationToken _cancellationToken;
         private readonly TaskCompletionSource<TResponse> _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _finished = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public PendingRequest(LdapConnection connection, CancellationToken cancellationToken)
         {
@@ -192,6 +243,9 @@ internal static class LdapAsync
         }
 
         public Task<TResponse> Completion => _completion.Task;
+
+        /// <summary>S.DS.P's task of this request has ended (see <see cref="PendingResponse{TResponse}.Finished"/>).</summary>
+        public Task Finished => _finished.Task;
 
         public void RegisterCancellation(IAsyncResult asyncResult)
         {
@@ -217,21 +271,39 @@ internal static class LdapAsync
                 TaskScheduler.Default);
         }
 
+        /// <summary>S.DS.P's callback: its task has built the response (or failed) and calls back as its last step.</summary>
         public void Complete(IAsyncResult asyncResult)
         {
+            DirectoryResponse? response = null;
+            Exception? error = null;
+            var cancelled = false;
             try
             {
-                var response = _connection.EndSendRequest(asyncResult);
-                _completion.TrySetResult((TResponse)response);
+                response = _connection.EndSendRequest(asyncResult);
             }
             catch (ArgumentException) when (_cancellationToken.IsCancellationRequested)
             {
                 // Abort raced with the completion callback and already removed the request.
-                _completion.TrySetCanceled(_cancellationToken);
+                cancelled = true;
             }
             catch (Exception ex)
             {
-                _completion.TrySetException(ex);
+                error = ex;
+            }
+
+            // Done with the connection before the caller (and the pool's accounting) sees the outcome.
+            _finished.TrySetResult();
+            if (cancelled)
+            {
+                _completion.TrySetCanceled(_cancellationToken);
+            }
+            else if (error is not null)
+            {
+                _completion.TrySetException(error);
+            }
+            else
+            {
+                _completion.TrySetResult((TResponse)response!);
             }
         }
 
@@ -248,6 +320,27 @@ internal static class LdapAsync
             }
 
             _completion.TrySetCanceled(_cancellationToken);
+
+            // The caller is released, but S.DS.P's task can still run - polling for the abandoned message, or building the
+            // entries of a response it received just before - and the abort suppressed its callback. The task sets the
+            // result's wait handle as it ends, in every case.
+            WhenSignalled(asyncResult.AsyncWaitHandle, _finished);
+        }
+
+        private static void WhenSignalled(WaitHandle handle, TaskCompletionSource done)
+        {
+            var registration = ThreadPool.RegisterWaitForSingleObject(
+                handle,
+                static (state, _) => ((TaskCompletionSource)state!).TrySetResult(),
+                done,
+                Timeout.Infinite,
+                executeOnlyOnce: true);
+            _ = done.Task.ContinueWith(
+                static (_, state) => ((RegisteredWaitHandle)state!).Unregister(null),
+                registration,
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
         }
     }
 }
