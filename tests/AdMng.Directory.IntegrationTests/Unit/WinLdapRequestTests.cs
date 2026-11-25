@@ -38,6 +38,9 @@ public sealed class WinLdapRequestTests
         // test instead of hanging it.
         var caller = Task.Run(() => lease.SendAsync<SearchResponse>(Search(), requestTimeout, CancellationToken.None));
         var search = await server.WaitForAsync(SilentLdapServer.SearchRequest, caller);
+
+        // The request can reach the server before BeginSendRequest returned and the recorder kept its Finished.
+        await sender.Sent.WaitAsync(Generous, TestContext.Current.CancellationToken);
         var finished = sender.FinishedOf(connection);
         Assert.False(finished.IsCompleted, "The search finished although the server never answered.");
 
@@ -84,8 +87,10 @@ public sealed class WinLdapRequestTests
             Assert.True(LdapErrors.IsClientTimeout(error), error.ToString());
             await server.WaitForAsync(message => message.Operation == SilentLdapServer.AbandonRequest && message.AbandonedId == search.Id);
 
-            // ... after S.DS.P's task had ended (the completion callback is its last step) ...
-            Assert.True(sender.FinishedOf(connection).IsCompleted, "The caller saw the timeout before S.DS.P's task of the request ended.");
+            // ... and S.DS.P's task has ended (the completion callback is its last step; it sets Finished before the caller's
+            // outcome). This sees only that both are done, not their order: the caller's continuation runs asynchronously, and
+            // the test waited for the abandon on the wire first. The guarantee that matters is the disposal after Finished, below.
+            Assert.True(sender.FinishedOf(connection).IsCompleted, "The caller saw the timeout, but S.DS.P's task of the request has not ended.");
 
             // ... and the connection, which did not answer in time, left the pool; the lease still holds it.
             Assert.Equal(0, pool.Count);
@@ -117,12 +122,17 @@ public sealed class WinLdapRequestTests
     private sealed class FinishedRecorder : ILdapRequestSender
     {
         private readonly ConcurrentDictionary<LdapConnection, Task> _finished = new();
+        private readonly TaskCompletionSource _sent = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>Completes once the first request was handed to S.DS.P and its Finished kept.</summary>
+        public Task Sent => _sent.Task;
 
         public PendingResponse<TResponse> Send<TResponse>(LdapConnection connection, DirectoryRequest request, TimeSpan timeout, CancellationToken cancellationToken)
             where TResponse : DirectoryResponse
         {
             var pending = LdapRequestSender.Instance.Send<TResponse>(connection, request, timeout, cancellationToken);
             _finished[connection] = pending.Finished;
+            _sent.TrySetResult();
             return pending;
         }
 

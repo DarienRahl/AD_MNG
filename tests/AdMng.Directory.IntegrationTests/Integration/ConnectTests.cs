@@ -176,7 +176,7 @@ public sealed class ConnectTests(LabFixture lab)
             isWindows: false);
         var factory = new LdapConnectionFactory(settings, LabSettings.Server!, LabSettings.DomainDns, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
         var target = await factory.OpenAsync(probeReachability: false, ct);
-        var other = await factory.OpenAsync(probeReachability: false, ct);
+        System.DirectoryServices.Protocols.LdapConnection? other = null;
         var targetFinished = Task.CompletedTask;
         var otherFinished = Task.CompletedTask;
         var rootDse = new System.DirectoryServices.Protocols.SearchRequest(
@@ -186,6 +186,8 @@ public sealed class ConnectTests(LabFixture lab)
             "1.1");
         try
         {
+            other = await factory.OpenAsync(probeReachability: false, ct);
+
             // Guards the reflection on S.DS.P's handle field and the libldap / libc imports.
             Assert.True(OpenLdapTls.TryShutdownSocket(target));
 
@@ -202,7 +204,7 @@ public sealed class ConnectTests(LabFixture lab)
         {
             // Not under a request S.DS.P still runs (DLR-4): the response can end before the request does (a timeout).
             target.DisposeWhenFinished(targetFinished);
-            other.DisposeWhenFinished(otherFinished);
+            other?.DisposeWhenFinished(otherFinished);
         }
     }
 

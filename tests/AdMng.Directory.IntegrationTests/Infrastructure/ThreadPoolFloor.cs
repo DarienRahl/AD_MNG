@@ -9,8 +9,8 @@ namespace AdMng.Directory.IntegrationTests.Infrastructure;
 /// host that accepts and never answers, a held call): on a machine with four processors the pool then has four threads and
 /// starts a new one only every half second. On a Windows runner that starved the in-process servers of the TLS probe tests -
 /// "5 workers busy, 1 item waiting" in the failure, the connection accepted twelve seconds after the server started, a
-/// timeout of 400 ms that took 12.6 s. A floor of threads the pool creates without waiting takes the starvation away; it
-/// changes nothing a test asserts.
+/// timeout of 400 ms that took 12.6 s. A floor of threads the pool creates without waiting takes the starvation away; no
+/// expected value changes with it, but it also hides a starvation the product itself could cause (see the remarks).
 /// </summary>
 /// <remarks>
 /// <para>
