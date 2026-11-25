@@ -18,7 +18,12 @@
 
 ## Inne zmiany
 
-<!-- TODO: lista mniejszych zmian widocznych dla użytkownika (albo usuń ten rozdział) -->
+- **Połączenie z kontrolerem domeny, które właśnie się zerwało, nie wysyła już kolejnego żądania.** Okno połączenia
+  rozkłada równoczesne operacje na kilka połączeń z tym samym kontrolerem domeny. Gdy jedno z nich zostało zerwane albo
+  przestało odpowiadać pod innym żądaniem, żądanie, które w tej samej chwili miało nim wyjść, mogło jeszcze zostać nim
+  wysłane i skończyć się błędem: od razu – przy zapisie, którego program nie powtarza, gdy ten mógł dotrzeć do serwera –
+  albo dopiero po upływie limitu czasu żądania. Teraz takie żądanie nie wychodzi zerwanym połączeniem, tylko innym
+  połączeniem z tym samym kontrolerem domeny. Był to rzadki wyścig, możliwy przy kilku operacjach naraz w jednym oknie.
 
 ## AdMng Watchdog {{VERSION}}
 

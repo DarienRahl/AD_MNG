@@ -11,7 +11,8 @@ namespace AdMng.Directory.IntegrationTests.Unit;
 /// twice when its connection is disposed while it builds the entries of a response (<c>LdapConnection.ConstructEntry</c>,
 /// dotnet/runtime#35189) - on Linux glibc aborts the process. The requests here never reach a server: the sender is a fake
 /// whose requests end when the test says so, and each connection records whether a request of it still ran when it was
-/// disposed. <c>CloseWhileRequestRunsTests</c> shows the same against the lab.
+/// disposed. <c>CloseWhileRequestRunsTests</c> shows the same against the lab. Audit finding LDAP-MARKBROKEN-WINDOW: a request
+/// never goes out on a connection that has just been dropped under another request (it moves to another connection).
 /// </summary>
 public sealed class PoolCloseTests
 {
@@ -206,17 +207,107 @@ public sealed class PoolCloseTests
         Assert.Equal(0, connection.DisposedWhileRunning);
     }
 
-    private static LdapConnectionPool NewPool(FakeSender sender, RecordingConnection connection, TimeSpan closeWait, TimeProvider? clock = null)
+    [Fact]
+    public async Task AWriteWhoseConnectionBreaksAfterItPassedTheGate_IsNotSentThere_ButOnAnotherConnection()
+    {
+        // MarkBroken marks a connection broken under the pool's lock and wakes the connection's waiters only after it. A request
+        // that had passed the connection's gate and its "dropped" check in that moment (Windows: eight requests share a
+        // connection) was sent on the broken connection - a write the session must never repeat once sent then failed, or
+        // waited for its whole timeout on a connection that no longer answered. The seam breaks the connection in that moment.
+        var sender = new FakeSender();
+        var first = new RecordingConnection(sender);
+        var second = new RecordingConnection(sender);
+        var broke = 0;
+        // A short close wait: had the delete gone out on the broken connection, its fake request would never end.
+        var pool = NewPool(sender, [first, second], closeWait: TimeSpan.FromMilliseconds(200), gateEntered: lease =>
+        {
+            if (ReferenceEquals(lease.Connection, first) && Interlocked.Exchange(ref broke, 1) == 0)
+            {
+                lease.MarkBroken("server down");
+            }
+        });
+        await using var session = NewSession(pool);
+
+        var delete = session.DeleteAsync("CN=Grzegorz Brzęczyszczykiewicz,OU=Księgowość,DC=contoso,DC=test", subtree: false, TestContext.Current.CancellationToken);
+        var request = await sender.NextAsync();
+
+        Assert.Equal(1, Volatile.Read(ref broke));
+        Assert.True(ReferenceEquals(request.Connection, second), "The delete went out on the connection that had just broken.");
+        request.End();
+        await delete.WaitAsync(Soon, TestContext.Current.CancellationToken);
+        Assert.Equal(1, sender.Sent);
+
+        // The broken connection left the pool and was disposed once its lease was returned, nothing running on it.
+        Assert.Equal(1, pool.Count);
+        Assert.Equal(1, first.Disposals);
+        Assert.Equal(0, first.DisposedWhileRunning);
+    }
+
+    [Fact]
+    public async Task APagedSearchWhoseConnectionBreaksAfterItPassedTheGate_StillTriesItsOwnConnection()
+    {
+        // A paged search cannot move: the server keeps its result set on this connection. It sends on it and learns of the
+        // failure from its own request, as before.
+        var sender = new FakeSender();
+        var connection = new RecordingConnection(sender);
+        var pool = NewPool(sender, [connection], closeWait: TimeSpan.FromSeconds(30), gateEntered: lease => lease.MarkBroken("server down"));
+        using (var lease = await pool.AcquireAsync(LeaseKind.PagedSearch, TestContext.Current.CancellationToken))
+        {
+            var page = lease.SendAsync<SearchResponse>(Search(), TimeSpan.FromMinutes(1), CancellationToken.None);
+            var request = await sender.NextAsync();
+
+            Assert.Same(connection, request.Connection);
+            request.Fail(new LdapException(LdapErrors.ServerDown, "server down"));
+            await Assert.ThrowsAsync<LdapException>(() => page.WaitAsync(Soon, TestContext.Current.CancellationToken));
+        }
+
+        Assert.Equal(0, pool.Count);
+        Assert.Equal(1, connection.Disposals);
+        Assert.Equal(0, connection.DisposedWhileRunning);
+        await pool.DisposeAsync();
+    }
+
+    private static LdapConnectionPool NewPool(FakeSender sender, RecordingConnection connection, TimeSpan closeWait, TimeProvider? clock = null) =>
+        NewPool(sender, [connection], closeWait, clock);
+
+    private static LdapConnectionPool NewPool(
+        FakeSender sender,
+        RecordingConnection[] connections,
+        TimeSpan closeWait,
+        TimeProvider? clock = null,
+        Action<LdapConnectionPool.ConnectionLease>? gateEntered = null)
     {
         var settings = ConnectionSettings.Create(new ConnectionOptions { Server = "dc1.contoso.test" }, credential: null, OperatingSystem.IsWindows());
         var factory = new LdapConnectionFactory(settings, "dc1.contoso.test", "contoso.test", NullLogger.Instance);
-        var pool = new LdapConnectionPool(factory, maxConnections: 1, NullLogger.Instance, clock ?? TimeProvider.System)
+        var pool = new LdapConnectionPool(factory, maxConnections: connections.Length, NullLogger.Instance, clock ?? TimeProvider.System)
         {
             Sender = sender,
             CloseWait = closeWait,
+            RequestGateEntered = gateEntered,
         };
-        pool.Add(connection);
+        foreach (var connection in connections)
+        {
+            pool.Add(connection);
+        }
+
         return pool;
+    }
+
+    /// <summary>A session over <paramref name="pool"/>, as the connector hands it out (its retries and error handling).</summary>
+    private static LdapDirectorySession NewSession(LdapConnectionPool pool)
+    {
+        var info = new SessionInfo
+        {
+            Server = "dc1.contoso.test",
+            Port = 389,
+            DomainDnsName = "contoso.test",
+            DefaultNamingContext = "DC=contoso,DC=test",
+            ConfigurationNamingContext = "CN=Configuration,DC=contoso,DC=test",
+            SchemaNamingContext = "CN=Schema,CN=Configuration,DC=contoso,DC=test",
+            BoundIdentity = "łukasz.wójcik@contoso.test",
+            Authentication = AuthenticationMode.Credentials,
+        };
+        return new LdapDirectorySession(info, pool, channelEncrypted: true, NullLogger.Instance, TimeProvider.System);
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition)
@@ -277,7 +368,7 @@ public sealed class PoolCloseTests
         public PendingResponse<TResponse> Send<TResponse>(LdapConnection connection, DirectoryRequest request, TimeSpan timeout, CancellationToken cancellationToken)
             where TResponse : DirectoryResponse
         {
-            var fake = new FakeRequest(cancellationToken, this);
+            var fake = new FakeRequest(connection, cancellationToken, this);
             _running[fake] = connection;
             Interlocked.Increment(ref _count);
             _requests.Enqueue(fake);
@@ -320,9 +411,12 @@ public sealed class PoolCloseTests
     }
 
     /// <summary>One request of <see cref="FakeSender"/>.</summary>
-    private sealed class FakeRequest(CancellationToken cancelled, FakeSender sender)
+    private sealed class FakeRequest(LdapConnection connection, CancellationToken cancelled, FakeSender sender)
     {
         private readonly TaskCompletionSource _work = new();
+
+        /// <summary>The connection the request was sent on.</summary>
+        public LdapConnection Connection { get; } = connection;
 
         public CancellationToken Cancelled { get; } = cancelled;
 

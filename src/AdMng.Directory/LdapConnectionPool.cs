@@ -102,6 +102,13 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
     /// <summary>The bound of <see cref="DisposeAsync"/>'s wait for requests in flight.</summary>
     internal TimeSpan CloseWait { get; init; } = DefaultCloseWait;
 
+    /// <summary>
+    /// Test seam: runs when a lease's request has passed its connection's request gate and the check that the connection
+    /// was not dropped, just before the pool admits it - where a connection that breaks under another request must still
+    /// turn it away (the pool's unit tests break the connection here).
+    /// </summary>
+    internal Action<ConnectionLease>? RequestGateEntered { get; init; }
+
     public LdapConnectionFactory Factory => _factory;
 
     /// <summary>Upper bound of pooled connections.</summary>
@@ -411,18 +418,30 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
         }
     }
 
-    /// <summary>Admits a request that is about to be sent; false when the connection must not take one any more.</summary>
-    private bool TryStartRequest(PooledConnection pooled)
+    /// <summary>Admits a request that is about to be sent, or says why the connection must not take it.</summary>
+    /// <remarks>
+    /// <see cref="MarkBroken"/> sets <see cref="PooledConnection.IsBroken"/> under the lock but signals
+    /// <see cref="PooledConnection.Dropped"/> only after it, so a request can pass the lease's check of
+    /// <see cref="PooledConnection.Dropped"/> while the connection is already broken (on Windows several requests share a
+    /// connection). The lock decides: a request lease is turned away and moves to another connection; a paged search still
+    /// tries its own (its result set lives there) and learns of the failure from its request.
+    /// </remarks>
+    private Admission TryStartRequest(PooledConnection pooled, LeaseKind kind)
     {
         lock (_gate)
         {
             if (pooled.IsClosed || pooled.IsDisposed)
             {
-                return false;
+                return Admission.Closed;
+            }
+
+            if (kind == LeaseKind.Request && pooled.IsBroken)
+            {
+                return Admission.Dropped;
             }
 
             pooled.InFlight++;
-            return true;
+            return Admission.Admitted;
         }
     }
 
@@ -575,6 +594,19 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
         {
             Log.PoolConnectionOpened(_logger, _factory.Host, count, _maxConnections);
         }
+    }
+
+    /// <summary>The answer of <see cref="TryStartRequest"/>.</summary>
+    private enum Admission
+    {
+        /// <summary>The request is in flight from now on.</summary>
+        Admitted,
+
+        /// <summary>The pool closed: nothing is sent.</summary>
+        Closed,
+
+        /// <summary>The connection broke: a request lease's request is not sent and moves to another connection.</summary>
+        Dropped,
     }
 
     /// <summary>Book-keeping of one pooled connection; counters are guarded by the pool lock.</summary>
@@ -730,11 +762,17 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
                     throw ConnectionDropped();
                 }
 
-                if (!_pool.TryStartRequest(_pooled))
+                _pool.RequestGateEntered?.Invoke(this);
+                switch (_pool.TryStartRequest(_pooled, _kind))
                 {
-                    // The pool closed: the connection is disposed (or will be once its requests ended), nothing is sent.
-                    _pooled.RequestGate.Release();
-                    throw new ObjectDisposedException(nameof(LdapConnectionPool), "The directory session was closed.");
+                    case Admission.Closed:
+                        // The pool closed: the connection is disposed (or will be once its requests ended), nothing is sent.
+                        _pooled.RequestGate.Release();
+                        throw new ObjectDisposedException(nameof(LdapConnectionPool), "The directory session was closed.");
+                    case Admission.Dropped:
+                        // The connection broke under another request after the check above: not sent, retried elsewhere.
+                        _pooled.RequestGate.Release();
+                        throw ConnectionDropped();
                 }
             }
             catch
