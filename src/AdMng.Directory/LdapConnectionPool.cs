@@ -238,8 +238,9 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
     /// give up (unsent). Requests in flight are cancelled - their callers get an <see cref="ObjectDisposedException"/> at
     /// once, WinLDAP abandons them, and on Linux/macOS a blocking request that waits for the server is woken by a shutdown of
     /// its socket - and each connection is disposed as soon as no request runs on it any more. The wait for that is bounded
-    /// by <see cref="CloseWait"/>; a connection whose request still runs then is disposed when that request ends (bounded by
-    /// the request's own timeout), never under it (see remarks of the class).
+    /// by <see cref="CloseWait"/>; a connection whose request still runs then is disposed when that request ends, never under
+    /// it (see remarks of the class). On Linux/macOS a blocking request is not bounded by its own timeout: it ends when the
+    /// socket delivers data or fails, which the shutdown of the socket makes happen.
     /// </summary>
     public async ValueTask DisposeAsync()
     {

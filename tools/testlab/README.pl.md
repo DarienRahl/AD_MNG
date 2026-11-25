@@ -128,8 +128,8 @@ odtworzono.
 Od tej poprawki połączenie nigdy nie jest zwalniane, gdy trwa na nim żądanie (`src/AdMng.Directory/LdapConnectionPool.cs`).
 Żądanie trwa, dopóki S.DS.P z nim nie skończy, także gdy wywołujący dawno przestał czekać; połączenie, które opuszcza pulę
 (zerwane, bezczynne albo sesja się zamyka), nie przyjmuje nowych żądań i jest zwalniane po zakończeniu ostatniego z nich.
-Zamknięcie sesji anuluje jej żądania (wywołujący dostają od razu `ObjectDisposedException`), zamyka gniazdo zajętego
-połączenia (żądanie czekające na serwer wraca) i czeka najwyżej 2 s; połączenie, na którym żądanie trwa dłużej, jest
+Zamknięcie sesji anuluje jej żądania (wywołujący dostają od razu `ObjectDisposedException`), wyłącza (shutdown) gniazdo
+zajętego połączenia (żądanie czekające na serwer wraca) i czeka najwyżej 2 s; połączenie, na którym żądanie trwa dłużej, jest
 zwalniane po jego zakończeniu. Tak samo nawiązywanie połączenia postępuje ze swoim pierwszym połączeniem.
 
 Sprawdza to `tests/AdMng.Directory.IntegrationTests`: `Unit/PoolCloseTests` ze sztucznym nadawcą (bez laboratorium) oraz
