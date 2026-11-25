@@ -38,6 +38,14 @@ internal enum LeaseKind
 /// a bind while a connection exists. Broken connections are dropped; idle ones are recycled before the DC's idle
 /// timeout (MaxConnIdleTime, 15 minutes by default) or a firewall can silently close them.
 /// </para>
+/// <para>
+/// A connection is never disposed while a request runs on it (audit finding DLR-4): S.DS.P frees an attribute name twice
+/// when its connection is disposed while it builds the entries of a response (<c>LdapConnection.ConstructEntry</c>,
+/// dotnet/runtime#35189) - glibc aborts the process (SIGABRT, exit code 134) or the heap is corrupted. Every request counts
+/// as in flight from the moment it is admitted until S.DS.P is done with it (<see cref="PendingResponse{TResponse}.Finished"/>
+/// - also when its caller stopped waiting long before). A connection that leaves the pool (broken, idle, or the pool closes)
+/// takes no new request at once and is disposed when its last request in flight has ended.
+/// </para>
 /// </remarks>
 internal sealed class LdapConnectionPool : IAsyncDisposable
 {
@@ -53,7 +61,13 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
     private readonly TimeProvider _timeProvider;
     private readonly Lock _gate = new();
     private readonly List<PooledConnection> _connections = [];
+
+    /// <summary>Broken connections that left the pool and wait for their requests or leases to end before they are disposed.</summary>
+    private readonly List<PooledConnection> _retiring = [];
     private readonly CancellationTokenSource _disposeCts = new();
+
+    /// <summary>Cancelled when the pool closes: the growth and every request in flight (captured, so it outlives the source).</summary>
+    private readonly CancellationToken _closing;
     private TaskCompletionSource _changed = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private Task? _growth;
     private DirectoryException? _lastGrowthError;
@@ -70,10 +84,23 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
         _maxConnections = maxConnections;
         _logger = logger;
         _timeProvider = timeProvider;
+        _closing = _disposeCts.Token;
     }
 
     /// <summary>Requests in flight per connection (see remarks).</summary>
     public static int RequestsPerConnection { get; } = OperatingSystem.IsWindows() ? 8 : 1;
+
+    /// <summary>
+    /// How long <see cref="DisposeAsync"/> waits for the requests in flight it cancelled - below the 5 s after which a
+    /// connection window abandons the close of its session (docs/dev/multi-window.md 3.4).
+    /// </summary>
+    public static readonly TimeSpan DefaultCloseWait = TimeSpan.FromSeconds(2);
+
+    /// <summary>Sends the requests of the leases (replaced by the pool's unit tests).</summary>
+    internal ILdapRequestSender Sender { get; init; } = LdapRequestSender.Instance;
+
+    /// <summary>The bound of <see cref="DisposeAsync"/>'s wait for requests in flight.</summary>
+    internal TimeSpan CloseWait { get; init; } = DefaultCloseWait;
 
     public LdapConnectionFactory Factory => _factory;
 
@@ -117,7 +144,7 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
         {
             lock (_gate)
             {
-                return _growth is null && _connections.TrueForAll(c => c.Load == 0 && c.PagedSearches == 0);
+                return _growth is null && _connections.TrueForAll(c => c.Load == 0 && c.PagedSearches == 0 && c.InFlight == 0);
             }
         }
     }
@@ -206,9 +233,19 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Closes the pool: no connection is handed out any more and requests waiting for a connection or for a request slot
+    /// give up (unsent). Requests in flight are cancelled - their callers get an <see cref="ObjectDisposedException"/> at
+    /// once, WinLDAP abandons them, and on Linux/macOS a blocking request that waits for the server is woken by a shutdown of
+    /// its socket - and each connection is disposed as soon as no request runs on it any more. The wait for that is bounded
+    /// by <see cref="CloseWait"/>; a connection whose request still runs then is disposed when that request ends, never under
+    /// it (see remarks of the class). On Linux/macOS a blocking request is not bounded by its own timeout: it ends when the
+    /// socket delivers data or fails, which the shutdown of the socket makes happen.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         List<PooledConnection> connections;
+        List<PooledConnection> unused = [];
         Task? growth;
         lock (_gate)
         {
@@ -218,24 +255,50 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
             }
 
             _disposed = true;
-            connections = [.. _connections];
+            connections = [.. _connections, .. _retiring.Where(c => !c.IsDisposed)];
             _connections.Clear();
+            _retiring.Clear();
             foreach (var pooled in connections)
             {
-                pooled.IsDisposed = true;
+                pooled.IsClosed = true;
+                if (RetireIfUnused(pooled))
+                {
+                    unused.Add(pooled);
+                }
             }
 
             growth = _growth;
             SignalChanged();
         }
 
+        // Releases the callers of the requests in flight (the token is linked into every request) and stops the growth.
         await _disposeCts.CancelAsync().ConfigureAwait(false);
 
-        // In-flight requests on these connections fail with ObjectDisposedException; queued ones give up.
+        // Queued requests give up; connections without a request in flight close now.
         foreach (var pooled in connections)
         {
             pooled.SignalDropped();
-            pooled.Connection.Dispose();
+        }
+
+        foreach (var pooled in unused)
+        {
+            DisposeConnection(pooled);
+        }
+
+        var running = connections.FindAll(c => !unused.Contains(c));
+        if (running.Count > 0)
+        {
+            foreach (var pooled in running)
+            {
+                Sender.Interrupt(pooled.Connection);
+            }
+
+            var released = Task.WhenAll(running.Select(c => c.Released));
+            await released.WaitAsync(CloseWait).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+            if (!released.IsCompleted)
+            {
+                Log.PoolClosedWithRequestsRunning(_logger, _factory.Host, running.Count(c => !c.Released.IsCompleted));
+            }
         }
 
         if (growth is not null)
@@ -293,7 +356,7 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
 
         if (dispose)
         {
-            pooled.Connection.Dispose();
+            DisposeConnection(pooled);
         }
     }
 
@@ -302,7 +365,8 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
         bool dispose;
         lock (_gate)
         {
-            if (pooled.IsBroken)
+            // A closed pool has dropped all of its connections already.
+            if (pooled.IsBroken || pooled.IsClosed)
             {
                 return;
             }
@@ -310,6 +374,13 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
             pooled.IsBroken = true;
             _connections.Remove(pooled);
             dispose = RetireIfUnused(pooled);
+            if (!dispose)
+            {
+                // Still used: closing the pool must still reach it (to wake its request and dispose it afterwards).
+                _retiring.RemoveAll(c => c.IsDisposed);
+                _retiring.Add(pooled);
+            }
+
             SignalChanged();
         }
 
@@ -319,7 +390,7 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
         pooled.SignalDropped();
         if (dispose)
         {
-            pooled.Connection.Dispose();
+            DisposeConnection(pooled);
         }
     }
 
@@ -336,23 +407,75 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
         // A broken connection whose last request (e.g. one the caller stopped waiting for) just ended.
         if (dispose)
         {
-            pooled.Connection.Dispose();
+            DisposeConnection(pooled);
+        }
+    }
+
+    /// <summary>Admits a request that is about to be sent; false when the connection must not take one any more.</summary>
+    private bool TryStartRequest(PooledConnection pooled)
+    {
+        lock (_gate)
+        {
+            if (pooled.IsClosed || pooled.IsDisposed)
+            {
+                return false;
+            }
+
+            pooled.InFlight++;
+            return true;
+        }
+    }
+
+    /// <summary>S.DS.P is done with a request (<see cref="PendingResponse{TResponse}.Finished"/>).</summary>
+    private void EndRequest(PooledConnection pooled)
+    {
+        bool dispose;
+        lock (_gate)
+        {
+            pooled.InFlight--;
+            dispose = RetireIfUnused(pooled);
+        }
+
+        // A connection that left the pool while this request ran.
+        if (dispose)
+        {
+            DisposeConnection(pooled);
         }
     }
 
     /// <summary>
-    /// Marks a broken connection disposed once nothing uses it any more (the caller holds the lock).
-    /// Returns true when the caller must dispose it (outside the lock).
+    /// Marks a connection that left the pool disposed once nothing may use it any more (the caller holds the lock): never
+    /// while a request runs on it; a broken one also not while a lease holds it (the holder learns of the failure from its
+    /// own request), one of a closed pool regardless of leases (they cannot send any more). Returns true when the caller
+    /// must dispose it (outside the lock, <see cref="DisposeConnection"/>).
     /// </summary>
     private static bool RetireIfUnused(PooledConnection pooled)
     {
-        if (!pooled.IsBroken || pooled.IsDisposed || pooled.Load != 0 || pooled.PagedSearches != 0)
+        if (pooled.IsDisposed || pooled.InFlight != 0)
+        {
+            return false;
+        }
+
+        if (!pooled.IsClosed && !(pooled.IsBroken && pooled.Load == 0 && pooled.PagedSearches == 0))
         {
             return false;
         }
 
         pooled.IsDisposed = true;
         return true;
+    }
+
+    /// <summary>Disposes a connection that <see cref="RetireIfUnused"/> or <see cref="RemoveIdle"/> retired (outside the lock).</summary>
+    private static void DisposeConnection(PooledConnection pooled)
+    {
+        try
+        {
+            pooled.Connection.Dispose();
+        }
+        finally
+        {
+            pooled.MarkReleased();
+        }
     }
 
     private List<PooledConnection>? RemoveIdle()
@@ -362,7 +485,8 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
         for (var i = _connections.Count - 1; i >= 0; i--)
         {
             var pooled = _connections[i];
-            if (pooled.Load == 0 && pooled.PagedSearches == 0 && now - pooled.LastUsed >= IdleRecycleAfter)
+            // Not while S.DS.P still runs a request on it (WinLDAP: one its caller abandoned).
+            if (pooled.Load == 0 && pooled.PagedSearches == 0 && pooled.InFlight == 0 && now - pooled.LastUsed >= IdleRecycleAfter)
             {
                 _connections.RemoveAt(i);
                 pooled.IsDisposed = true;
@@ -383,7 +507,7 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
         foreach (var pooled in expired)
         {
             Log.PoolConnectionRecycled(_logger, _factory.Host);
-            pooled.Connection.Dispose();
+            DisposeConnection(pooled);
         }
     }
 
@@ -457,6 +581,7 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
     internal sealed class PooledConnection(int id, LdapConnection connection, DateTimeOffset created)
     {
         private readonly CancellationTokenSource _dropped = new();
+        private readonly TaskCompletionSource _released = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         /// <summary>Identifies the connection within the pool (never reused).</summary>
         public int Id { get; } = id;
@@ -475,11 +600,27 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
         /// <summary>Open paged result sets.</summary>
         public int PagedSearches { get; set; }
 
+        /// <summary>
+        /// Requests S.DS.P may still run on the connection: admitted and not yet <see cref="PendingResponse{TResponse}.Finished"/>
+        /// (also ones whose callers stopped waiting). The connection is never disposed while this is above zero.
+        /// </summary>
+        public int InFlight { get; set; }
+
         public DateTimeOffset LastUsed { get; set; } = created;
 
+        /// <summary>Left the pool after a failure; disposed once no lease and no request uses it.</summary>
         public bool IsBroken { get; set; }
 
+        /// <summary>The pool closed; takes no request any more and is disposed once no request runs on it.</summary>
+        public bool IsClosed { get; set; }
+
+        /// <summary>Retired: disposed (or about to be, outside the lock).</summary>
         public bool IsDisposed { get; set; }
+
+        /// <summary>Completes once the connection was disposed.</summary>
+        public Task Released => _released.Task;
+
+        public void MarkReleased() => _released.TrySetResult();
 
         /// <summary>Wakes requests waiting for <see cref="RequestGate"/> (call outside the pool lock).</summary>
         public void SignalDropped()
@@ -521,22 +662,36 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
         /// again when a request that finished returns to its caller, so the caller's next request finds the
         /// connection idle (no needless growth, idle recycling sees it).
         /// </summary>
+        /// <exception cref="ObjectDisposedException">The pool closed before or while the request ran (the caller is released at
+        /// once; the request itself may end later - its connection is disposed only then).</exception>
         public async Task<TResponse> SendAsync<TResponse>(DirectoryRequest request, TimeSpan timeout, CancellationToken cancellationToken)
             where TResponse : DirectoryResponse
         {
             var scope = await EnterAsync(cancellationToken).ConfigureAwait(false);
             PendingResponse<TResponse> pending;
+
+            // Closing the pool cancels the request too. Kept until S.DS.P is done with the request (RequestScope).
+            var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _pool._closing);
             try
             {
-                pending = Connection.Send<TResponse>(request, timeout, cancellationToken);
+                pending = _pool.Sender.Send<TResponse>(Connection, request, timeout, cancellation.Token);
             }
             catch
             {
+                cancellation.Dispose();
                 scope.Dispose();
                 throw;
             }
 
-            return await pending.ReceiveAsync(scope.Complete).ConfigureAwait(false);
+            scope.Sent(pending.Finished, cancellation);
+            try
+            {
+                return await pending.ReceiveAsync(scope.Complete).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested && _pool._closing.IsCancellationRequested)
+            {
+                throw new ObjectDisposedException("The directory session was closed while the request ran.", ex);
+            }
         }
 
         /// <summary>The connection failed at transport level; drop it from the pool.</summary>
@@ -574,6 +729,13 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
                     _pooled.RequestGate.Release();
                     throw ConnectionDropped();
                 }
+
+                if (!_pool.TryStartRequest(_pooled))
+                {
+                    // The pool closed: the connection is disposed (or will be once its requests ended), nothing is sent.
+                    _pooled.RequestGate.Release();
+                    throw new ObjectDisposedException(nameof(LdapConnectionPool), "The directory session was closed.");
+                }
             }
             catch
             {
@@ -605,10 +767,23 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
         }
     }
 
-    /// <summary>One request in flight on a connection; releases the gate and its share of the load.</summary>
+    /// <summary>
+    /// One request on a connection: releases the request slot and its share of the load when the request finished for its
+    /// caller, and ends the request in flight when S.DS.P is done with it (mostly the same moment).
+    /// </summary>
     private sealed class RequestScope(LdapConnectionPool pool, PooledConnection pooled) : IDisposable
     {
-        private int _disposed;
+        private int _slotReleased;
+        private int _ended;
+        private Task? _finished;
+        private IDisposable? _cancellation;
+
+        /// <summary>The request was sent: it is in flight until <paramref name="finished"/> completes.</summary>
+        public void Sent(Task finished, IDisposable cancellation)
+        {
+            _finished = finished;
+            _cancellation = cancellation;
+        }
 
         /// <summary>
         /// The request finished (also one the caller stopped waiting for). A transport failure or a client timeout
@@ -628,18 +803,52 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
                 }
             }
 
-            Dispose();
+            ReleaseSlot();
+
+            // Already completed unless the caller's request ended before S.DS.P's work on it (WinLDAP: an abort).
+            var finished = _finished ?? request;
+            if (finished.IsCompleted)
+            {
+                End();
+            }
+            else
+            {
+                _ = finished.ContinueWith(
+                    static (_, state) => ((RequestScope)state!).End(),
+                    this,
+                    CancellationToken.None,
+                    TaskContinuationOptions.ExecuteSynchronously,
+                    TaskScheduler.Default);
+            }
         }
 
+        /// <summary>The request was not sent after all.</summary>
         public void Dispose()
         {
-            if (Interlocked.Exchange(ref _disposed, 1) == 1)
+            ReleaseSlot();
+            End();
+        }
+
+        private void ReleaseSlot()
+        {
+            if (Interlocked.Exchange(ref _slotReleased, 1) == 1)
             {
                 return;
             }
 
             pooled.RequestGate.Release();
             pool.ChangeLoad(pooled, -1);
+        }
+
+        private void End()
+        {
+            if (Interlocked.Exchange(ref _ended, 1) == 1)
+            {
+                return;
+            }
+
+            _cancellation?.Dispose();
+            pool.EndRequest(pooled);
         }
     }
 }

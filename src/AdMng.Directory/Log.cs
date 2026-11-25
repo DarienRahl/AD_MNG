@@ -111,6 +111,10 @@ internal static partial class Log
         Message = "Idle LDAP connection to {Server} recycled")]
     public static partial void PoolConnectionRecycled(ILogger logger, string server);
 
+    [LoggerMessage(EventId = 1105, Level = LogLevel.Warning,
+        Message = "Session to {Server} closed while {Count} LDAP request(s) still ran; their connections close when they end")]
+    public static partial void PoolClosedWithRequestsRunning(ILogger logger, string server, int count);
+
     [LoggerMessage(EventId = 1200, Level = LogLevel.Information,
         Message = "{Operation} completed in {ElapsedMs} ms")]
     public static partial void OperationCompleted(ILogger logger, OperationKind operation, long elapsedMs);

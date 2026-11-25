@@ -78,6 +78,7 @@ Code, comments, commit messages and these notes are in English.
 | `tests/AdMng.Testing` | net10.0 | Shared test library: `FakeDirectorySession` (in-memory directory with real LDAP modify semantics), `FakeDirectoryBuilder.AddSampleCompany()` |
 | `tests/AdMng.Core.Tests`, `tests/AdMng.Presentation.Tests` | net10.0 | Unit tests (view models run against the real Core engines + fake directory) |
 | `tests/AdMng.Directory.IntegrationTests` | net10.0 | Unit tests + integration tests against the lab DC (skipped without `ADMNG_TEST_LDAP_*`) |
+| `tests/AdMng.Directory.DisposeProbe` | net10.0 | Child process of `CloseWhileRequestRunsTests` (audit finding DLR-4): closes sessions and plain S.DS.P connections against the lab DC while a large search builds its entries; exit code 134/139 means the double free of S.DS.P (`tools/testlab/README.md`) |
 | `tests/AdMng.App.UiTests` | net10.0-windows | WPF UI tests (STA, off-screen windows, binding-error listener); run on Windows only |
 | `src/AdMng.Watchdog.Contracts` | net10.0 | AdMng Watchdog event model, API DTOs, runtime configuration, routes, JSON (`WatchdogJson.Options`); no references |
 | `src/AdMng.Watchdog.Core` | net10.0 | Watchdog engine (detection, attribution, rules, notification planning, formatters) against `Abstractions/` + `Model/` (frozen); `AddWatchdogCore()` |

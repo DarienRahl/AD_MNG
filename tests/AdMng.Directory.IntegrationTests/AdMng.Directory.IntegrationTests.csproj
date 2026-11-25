@@ -15,6 +15,8 @@
     <ProjectReference Include="..\AdMng.Testing\AdMng.Testing.csproj" />
     <!-- The read commands of the PowerShell window over a real session (Integration/PowerShellReadLabTests, R1 part 2). -->
     <ProjectReference Include="..\..\src\AdMng.PowerShell\AdMng.PowerShell.csproj" />
+    <!-- Started as a child process by Integration/CloseWhileRequestRunsTests (copied beside this assembly; DLR-4). -->
+    <ProjectReference Include="..\AdMng.Directory.DisposeProbe\AdMng.Directory.DisposeProbe.csproj" />
   </ItemGroup>
   <!-- The same exclusion every consumer of the engine imports (ADR-0010, "Package licenses"). -->
   <Import Project="..\..\src\AdMng.PowerShell\PowerShellEngineConsumer.props" />
