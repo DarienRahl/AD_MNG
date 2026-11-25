@@ -3299,8 +3299,10 @@ and what nobody has seen on a screen yet.
     window closes); stopped, "The backup was stopped: 1 of 3 GPOs were written to the folder. Press “Back Up” to try again."
     with the button that backs up; failed, "Could not back up 1 of 3 GPOs: reason. (code)" (the reason of the first
     failure; it was only a count); SYSVOL not available before anything was written, "The backup was not made: …" with
-    Retry; a stopped read of the folder, with Retry (a result: the list is as it was); the plan as in 4 above. **States:** a
-    folder that could not be read ("Could not list the backups: The folder could not be read or written. Press Retry to try
+    Retry; a stopped read of the folder, with Retry (a result: the list is as it was); the plan as in 4 above – about the
+    backup it was made for: selecting another backup takes it and its Retry off the line (a plan that still runs keeps the
+    line), and a plan that ends after another backup was selected says how it ended without Retry, which would plan the
+    backup selected now. **States:** a folder that could not be read ("Could not list the backups: The folder could not be read or written. Press Retry to try
     again. (ArgumentException)") and a backup that could not be read or was stopped ("Could not read the backup of “…”: …
     (GpoBackupException)", "Reading the backup was stopped: it cannot be used yet. Press “Retry” to read it again.") –
     the second is the state of that selection and goes with it; the end of the session, or no session.
@@ -4990,7 +4992,11 @@ releases.
   - *The rule.* A status of the kind Working that arrives while the line shows anything else - the summary, nothing, or a result - is
     held for the delay. The line keeps showing what it showed; if the operation ends first (a result, the summary, nothing), the line goes
     straight to that and the working look is never shown: not the kind, not `IsWorking`, not the ring, no announcement (asserted by
-    recording every change of `Kind`, `IsWorking` and the ring). A second Working status during the delay (a new count, a new text) only
+    recording every change of `Kind`, `IsWorking` and the ring). What it ended as is a new message - the entrance and the announcement -
+    unless it is the summary, also when it is the same message as the one shown: a Retry that fails the same way within the delay, "Saved
+    1 object." twice, a state that lasts and is back (audit ACV-1: as first built, such a result was "the same message", so the operator
+    neither saw nor heard that the operation ran - before the delay, the Working look in between made it new). The summary stays quiet,
+    as a summary that changed is told after its quiet time. A second Working status during the delay (a new count, a new text) only
     replaces the first; the delay runs on from the first moment, it is not restarted. A Working status that is already shown is not
     delayed again by a new message, another stage or "Stopping…" (they are shown at once); the next operation, after anything that is
     not Working, is delayed again.
@@ -5026,11 +5032,14 @@ releases.
     `await` in between: this was the only one).
   - *New tests.* `StatusFlowTests` (17, pure logic, they run on Linux too - proved through a scratch project that compiled the same files):
     the delay at the millisecond (149 ms not yet, 150 ms shown), an operation that ends within it as a result or as the summary, two
-    Working statuses, the stages of a shown operation, the operation after a result, no token, `Cancel`. `StatusLineTimingUiTests`:
-    the same through the real control and its parts, the empty band and the content under it at each step, the entrance of the working
-    look (motion on) played when it is shown and not before, and one test over the **real clock** with a held operation: the model is
-    Working and the line is not at the same turn of the dispatcher, the line is Working a moment later and stays so, and an operation that
-    ends in the same turn never shows it.
+    Working statuses, the stages of a shown operation, the operation after a result, no token, `Cancel`; with the fix of ACV-1 five
+    more (22): an error, a done and an attention that end an operation within the delay as the message shown, a state that lasts and is
+    back as the same object, and the same message without an operation in between or as the summary, which stay quiet.
+    `StatusLineTimingUiTests`: the same through the real control and its parts, the empty band and the content under it at each step, the
+    entrance of the working look (motion on) played when it is shown and not before, the same error after a Retry within the delay entering
+    (motion on) and told again, assertively, and "done" twice told again, politely (ACV-1; run by the Windows job), and one test over the
+    **real clock** with a held operation: the model is Working and the line is not at the same turn of the dispatcher, the line is Working
+    a moment later and stays so, and an operation that ends in the same turn never shows it.
 - **The announcement of a summary (decision 2, unit 2).** A summary whose text changes while the page stays as it is - the count of a
   search, a number of rows, a selection - is announced to a screen reader politely, once, after a quiet time.
   - *The rule* (`StatusFlow`, token `Motion.SummaryThrottle`, 800 ms, also in `Motion.xaml`). When the line shows a summary and the page says
@@ -5124,7 +5133,16 @@ releases.
     a line that collapses, so nothing moves when a list becomes empty or gets rows.
   - *`Skeleton`* (`RowCount` 1 to 12, 8 by default; `RowHeight`, 26 by default; `IsActive`; read-only `IsShown`). The style holds only the host
     panel `PART_Rows`; the control builds the rows (a 16 px picture and three bars of lengths that differ from row to row, the same ones every
-    time) as `Border`s with the brush `CardStrokeColorDefaultBrush` as a dynamic resource, and rebuilds them when the count or the height change.
+    time) as `Border`s of the style `Ad.Skeleton.Bar` (Themes/Controls.xaml, a resource reference), and rebuilds them when the count or the
+    height change. *The brush of the bars* (audit ACV-2): as first built they were `CardStrokeColorDefaultBrush` - 6 % of black in light and
+    10 % of *black* in dark, about 1.14:1 and 1.04:1 against the surface of a list, so a dark list showed blank space - and the test
+    compared the key with itself. Now the fill is `ControlStrongFillColorDisabledBrush` (`#51000000` light, `#3FFFFFFF` dark: about 2.2:1 on
+    the window background and on the layer of the document panel, values of the theme dictionaries of `PresentationFramework.Fluent`
+    10.0.15), with a 1 px outline of `ControlStrokeColorDefaultBrush`: in High Contrast every fill is the button face, which the contrast
+    themes make the window colour, and the outline - the button text colour - draws the bar (the pattern of the icon buttons, *V1c as
+    built*). The closed set of Fluent brush keys has 29 keys with it. `SkeletonUiTests` loads the light, the dark and the High Contrast
+    dictionary into a window and measures every bar against both surfaces (at least 2:1 in light and dark, the outline at least 3:1 in High
+    Contrast with the runner's system colours).
     Collapsed while it is not active; **the bars appear after `Motion.WorkingDelay`** (150 ms, the delay of decision 5, on the same
     `IStatusScheduler` seam as the status line, so a test moves it with a `ManualStatusScheduler`): a read that ends at once never flashes
     placeholder rows, as it never flashes "Working". Without motion the rows stand still; with motion `Motion.Pulse` runs one opacity animation
@@ -5145,15 +5163,16 @@ releases.
     strings of both languages (`List.EmptyFiltered`, `List.ClearFilter`, `GpEditing.GpoNone`, `GpEditing.ClearSearch`, `PkiTpl.EmptyNone`,
     `PkiTpl.EmptyFiltered`, `PkiTpl.ClearFilters`; the first sentence and "Refresh" are `List.Empty` and `Commands.Refresh` of before).
   - *Tests.* `StatusPillUiTests`, `EmptyStateUiTests`, `SkeletonUiTests` (parts, properties, the automation name and peer, the manual clock,
-    `MotionScope.On()` for the pulse, nothing left running); `ObjectListEmptyStateUiTests` (an empty container with its Refresh, a filter and
-    its action, the held first read with the placeholder rows after the manual delay and a reload without them, a read that ends before the
-    delay, a failed read), the Group Policy list in `GroupPolicyEditingUiTests`, the PKI templates in `PkiOverviewUiTests`, the pills in
-    `ReadinessStatusUiTests` (one pill per area and per check, the words, the kinds, one column, no old glyph, no word said twice) and
-    `WatchdogViewTests`; Presentation: `ObjectListEmptyStateTests`, `StatusPillKindTests`, the empty states in `GroupPolicyEditingComfortTests` and
-    `PkiTemplatesTests`; and two source rules in `XamlSourceTests` (the three styles have no colour of their own; every pill, empty state and
-    skeleton in the views is bound to what makes it complete). The keys of the new styles were proved with a script over the real XAML
-    files (every `Ad.*` key defined, the closed set of Fluent brushes unchanged and all dynamic, the `StaticResource` order of
-    `Controls.xaml`).
+    `MotionScope.On()` for the pulse, nothing left running, and since ACV-2 the contrast of the bars in the three dictionaries of the
+    theme); `ObjectListEmptyStateUiTests` (an empty container with its Refresh, a filter and its action, the held first read with the
+    placeholder rows after the manual delay and a reload without them, a read that ends before the delay, a failed read), the Group Policy
+    list in `GroupPolicyEditingUiTests`, the PKI templates in `PkiOverviewUiTests`, the pills in `ReadinessStatusUiTests` (one pill per area
+    and per check, the words, the kinds, one column, no old glyph, no word said twice) and `WatchdogViewTests`; Presentation:
+    `ObjectListEmptyStateTests`, `StatusPillKindTests`, the empty states in `GroupPolicyEditingComfortTests` and `PkiTemplatesTests`; and
+    two source rules in `XamlSourceTests` (the three styles have no colour of their own; every pill, empty state and skeleton in the views
+    is bound to what makes it complete). The keys of the new styles were proved with a script over the real XAML files (every `Ad.*` key
+    defined, the closed set of Fluent brushes unchanged - the fix of ACV-2 later added one, see *`Skeleton`* - and all dynamic, the
+    `StaticResource` order of `Controls.xaml`).
 - **Taskbar progress and the close question (decision 6, unit 4).** Two answers to "this window works", both made of what the holder
   already says: the taskbar button of every window shows the progress of its line, and a window that is closed while it writes asks one
   question. Neither adds a status: they read the holder (`Current`, `Operation`) and the flag of the operation.

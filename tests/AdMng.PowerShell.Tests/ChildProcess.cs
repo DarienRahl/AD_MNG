@@ -10,12 +10,24 @@ namespace AdMng.PowerShell.Tests;
 /// </summary>
 internal static class ChildProcess
 {
+    /// <summary>
+    /// The runtime's settings for a mini dump and a crash report of a process that crashes. The CI sets them for its lab job (a test
+    /// process that dies without a managed stack leaves both for the "Crash reports" step), and a child inherits them: a child that is
+    /// meant to crash starts without them (<c>crashDumps: false</c>), or every run leaves a dump and a crash report of the probe, which
+    /// hide a crash that is not meant. A child that is not meant to crash keeps them.
+    /// </summary>
+    public static IReadOnlyList<string> CrashDumpVariables { get; } =
+        [.. from prefix in new[] { "DOTNET_", "COMPlus_" }
+            from name in new[] { "DbgEnableMiniDump", "DbgMiniDumpType", "DbgMiniDumpName", "EnableCrashReport", "EnableCrashReportOnly" }
+            select prefix + name];
+
     public static async Task<ChildResult> RunAsync(
         string mode,
         string home,
         string report,
         IReadOnlyDictionary<string, string?>? extraEnvironment = null,
-        TimeSpan? timeout = null)
+        TimeSpan? timeout = null,
+        bool crashDumps = true)
     {
         var probe = Path.Combine(AppContext.BaseDirectory, "AdMng.PowerShell.Probe.dll");
         Assert.True(File.Exists(probe), "The probe program is not beside the test assembly: " + probe);
@@ -51,6 +63,14 @@ internal static class ChildProcess
             else
             {
                 start.Environment[name] = value;
+            }
+        }
+
+        if (!crashDumps)
+        {
+            foreach (var name in CrashDumpVariables)
+            {
+                start.Environment.Remove(name);
             }
         }
 

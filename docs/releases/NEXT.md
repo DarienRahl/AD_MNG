@@ -23,12 +23,13 @@ się nie zmienia, a zapisy do katalogu nadal idą wyłącznie przez plan zmian z
   postępu pojawia się dopiero po około 0,15 s od początku operacji: operacja, która kończy się od razu (np. odczyt jednej
   zakładki właściwości albo przygotowanie zmian przed podglądem), nie miga już wierszem stanu. Do tego czasu wiersz
   pokazuje to, co pokazywał – a pusty zostaje pustym paskiem, więc zawartość pod nim się nie przesuwa; przycisk, którym
-  uruchomiono operację, zmienia się na *Anuluj* od razu. Zmieniająca się liczba w podsumowaniu strony – np. liczba
-  ustawień znalezionych w wyszukiwarce ustawień zasad grupy – jest odczytywana przez czytnik ekranu uprzejmie (bez
-  przerywania mowy) i tylko raz, około 0,8 s po ostatniej zmianie, a nie po każdym wpisanym znaku; nie jest odczytywana,
-  gdy okno nie jest aktywne ani gdy strona nie jest na wierzchu, i nie jest odczytywane pierwsze podsumowanie otwartej
-  strony. Uwaga o replikacji w wynikach kreatora zakładania kont jest informacją, więc ma ikonę informacji zamiast
-  ostrzeżenia (kolor uwagi bez zmian).
+  uruchomiono operację, zmienia się na *Anuluj* od razu. Wynik takiej szybkiej operacji pojawia się i jest odczytywany jak
+  każdy nowy wynik, także wtedy, gdy brzmi tak samo jak poprzedni (np. *Ponów*, które znów się nie udało), więc zawsze
+  widać i słychać, że operacja się odbyła. Zmieniająca się liczba w podsumowaniu strony – np. liczba ustawień znalezionych
+  w wyszukiwarce ustawień zasad grupy – jest odczytywana przez czytnik ekranu uprzejmie (bez przerywania mowy) i tylko raz,
+  około 0,8 s po ostatniej zmianie, a nie po każdym wpisanym znaku; nie jest odczytywana, gdy okno nie jest aktywne ani gdy
+  strona nie jest na wierzchu, i nie jest odczytywane pierwsze podsumowanie otwartej strony. Uwaga o replikacji w wynikach
+  kreatora zakładania kont jest informacją, więc ma ikonę informacji zamiast ostrzeżenia (kolor uwagi bez zmian).
 - **Puste listy mówią, dlaczego są puste, i podpowiadają następny krok; pierwszy odczyt pokazuje szare wiersze zastępcze;
   wyniki sprawdzeń są plakietkami.** Lista obiektów (okno główne i okno *Znajdź*), lista obiektów zasad grupy i lista
   szablonów certyfikatów, które zostały odczytane i nie mają wierszy, pokazują duży obrazek, jedno zdanie i jedno
@@ -39,9 +40,10 @@ się nie zmienia, a zapisy do katalogu nadal idą wyłącznie przez plan zmian z
   zniknął – zdanie jest jedno. Lista, którą odczytywano z błędem albo zatrzymano, nie jest „pusta”: mówi o tym wiersz
   stanu, jak dotąd. Gdy lista obiektów czyta kontener po raz pierwszy (nie przy odświeżeniu, które ma już wiersze), pod
   nagłówkami kolumn pokazują się szare wiersze zastępcze (najwyżej 12) – po około 0,15 s, więc odczyt, który kończy się od
-  razu, ich nie pokazuje; bez ruchu stoją nieruchomo, z ruchem delikatnie „oddychają”. Wynik każdego sprawdzenia w raporcie
-  gotowości środowiska i stan każdego sprawdzenia na karcie *Stan* AdMng Watchdog to teraz plakietka: obrazek stanu i
-  słowo (OK, Ostrzeżenie, Błąd, Nie sprawdzono…), w jednej kolumnie przed tytułem; obszary raportu mają plakietkę swojego
+  razu, ich nie pokazuje; odcinają się od tła listy w motywie jasnym, ciemnym i w wysokim kontraście (tam rysuje je
+  obrys); bez ruchu stoją nieruchomo, z ruchem delikatnie „oddychają”. Wynik każdego sprawdzenia w raporcie gotowości
+  środowiska i stan każdego sprawdzenia na karcie *Stan* AdMng Watchdog to teraz plakietka: obrazek stanu i słowo (OK,
+  Ostrzeżenie, Błąd, Nie sprawdzono…), w jednej kolumnie przed tytułem; obszary raportu mają plakietkę swojego
   najgorszego wyniku. Stan nie jest już podawany samym kolorem ani powtórzony za tytułem.
 - **Przycisk okna na pasku zadań pokazuje postęp, a zamknięcie okna w trakcie zapisu najpierw pyta.** Okno AD Managera, które
   ma własny przycisk na pasku zadań – okno główne, edytor zbiorczy, Kosz AD, *Korespondencja*, wiadomości do użytkowników,
@@ -157,6 +159,9 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   trybu zaufanego zmienił poza sesją – wątek albo licznik czasu, który uruchomił, składowa dodana przez `Add-Member` do typu .NET
   całego procesu (np. `[string]`) – zostaje do zamknięcia programu, także w innych oknach. Blok skryptu, który zostawiony przez
   taki kod licznik czasu wywoła po zamknięciu okna, kończy się błędem, ale nie zamyka już całego programu z pozostałymi oknami.
+  Zadanie `ForEach-Object -Parallel -AsJob`, które taki kod zostawi w sesji, okno kończy razem z poleceniem bez ryzyka dla
+  programu: zatrzymane w chwili, gdy silnik otwierał jeszcze runspace dla jego zadania podrzędnego, mogło wcześniej zamknąć cały
+  program.
   Wyłączony przełącznik zawsze podaje powód: trwa polecenie, PowerShell się uruchamia, wyłącza tryb zaufany albo nie dał się
   uruchomić, sesja połączenia się skończyła albo system wymusza ConstrainedLanguage (WDAC, AppLocker) – wtedy okno w nim
   zostaje. Wydanie bez silnika PowerShella mówi, żeby użyć standardowego pakietu, a powód, dla którego PowerShella nie można
@@ -164,13 +169,21 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   konsolowe (`whoami`, `nltest`) działają jak w każdej konsoli – jako osobny proces z tożsamością operatora; to, co wypisują,
   także na wyjście błędów, jest w oknie (wcześniej program na końcu polecenia pisał poza nie, do niewidocznej konsoli).
 - **Zasady PowerShella tego komputera.** Przy otwarciu okno czyta zasady grupy PowerShella (transkrypcję, rejestrowanie bloków
-  skryptów i modułów) oraz oba pliki `powershell.config.json` i, zanim uruchomisz pierwsze polecenie, mówi stałą uwagą, co jest
-  gdzie zapisywane („transkrypcja jest włączona zasadą komputera: polecenia i wyniki zapisuje Windows w …”). Czyta je według
+  skryptów i modułów) oraz oba pliki `powershell.config.json` i, zanim uruchomisz pierwsze polecenie, mówi stałą uwagą, co i
+  gdzie zapisują zasady („transkrypcja jest włączona zasadą komputera: polecenia i wyniki zapisuje Windows w …”). Czyta je według
   reguł samego silnika: każdą zasadę osobno, najpierw z zasad komputera, potem użytkownika, a zasadę z zaznaczonym *Use Windows
   PowerShell Policy setting* – z klucza Windows PowerShell; pliki liczą się dopiero wtedy, gdy zasady grupy jej nie ustawiają.
   Gdy klucza albo pliku nie da się odczytać, uwaga mówi który i że nie wiadomo, czy polecenia są rejestrowane. Program niczego
-  nie zmienia i niczego nie obchodzi; plik `powershell.config.json` obok `AdMng.exe` wyłącza tylko to, co włączył plik
-  użytkownika (zasada komputera ma pierwszeństwo przed nim). Wyniki pokazują te same sekrety, które pokazuje Edytor atrybutów
+  nie zmienia i niczego nie obchodzi; plik `powershell.config.json` obok `AdMng.exe` wyłącza tylko transkrypcję i rejestrowanie
+  modułów, które włączył plik użytkownika (zasada komputera ma pierwszeństwo przed nim). Rejestrowania bloków skryptów nie
+  ustawia: decydują o nim zasady grupy, potem plik użytkownika, a gdy jest włączone, do dziennika trafia treść każdego polecenia,
+  jak w `pwsh.exe`. Gdy nic go nie ustawia, PowerShell sam zapisuje jako ostrzeżenie 4104 w dzienniku
+  *PowerShellCore/Operational* polecenia, które jego wbudowane sprawdzenie uznaje za podejrzane (lista słów i pewne
+  konstrukcje); które, decyduje silnik, i mogą to być zwykłe polecenia, więc każdy wiersz wpisany w oknie może trafić do
+  dziennika – nie wpisuj w nim sekretu jawnym tekstem. Zdarzenia trafiają do dziennika tylko tam, gdzie zarejestrowano dostawcę
+  zdarzeń PowerShell 7 (robi to domyślnie instalator MSI PowerShell 7 albo `RegisterManifest.ps1` uruchomiony jako
+  administrator; pakiety zip i MSIX go nie rejestrują). Znane różnice wobec zwykłego `pwsh.exe` wymienia rozdział 8 instrukcji
+  okna (POWERSHELL.md). Wyniki pokazują te same sekrety, które pokazuje Edytor atrybutów
   (np. hasło LAPS jawnym tekstem), więc przy włączonej transkrypcji trafią one do transkrypcji – uwaga o zasadach mówi to z
   góry.
 - **`Out-AdmGrid`, `Open-AdmObject`, `Export-AdmList`.** `Out-AdmGrid` otwiera okno z siatką jak lista obiektów: kolumny z
@@ -252,7 +265,8 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
 - Odczytywanie zmienionego podsumowania i opóźnienie stanu *Trwa* sprawdzono testami automatycznymi i na podstawie kodu;
   nie sprawdzono ich z prawdziwym czytnikiem ekranu (Narrator, NVDA) ani na ekranie.
 - Plakietki stanu, puste listy i szare wiersze zastępcze sprawdzono testami automatycznymi (właściwości, zasoby, stan
-  modeli widoku), ale nikt ich jeszcze nie oglądał na ekranie: wygląd w jasnym, ciemnym i wysokim kontraście oraz szerokość
+  modeli widoku; kontrast szarych wierszy wobec tła listy test liczy z barw motywu jasnego, ciemnego i wysokiego
+  kontrastu), ale nikt ich jeszcze nie oglądał na ekranie: wygląd w jasnym, ciemnym i wysokim kontraście oraz szerokość
   plakietek w wąskich oknach czeka na pilotaż. Plakietki stanu kanałów i kontrolerów domeny na karcie *Stan* Watchdoga nie
   zostały wprowadzone (te kolumny są wąskie) – zostają przy ikonie z podpowiedzią.
 - Postęp na pasku zadań i pytanie o zamknięcie okna sprawdzono testami automatycznymi (model na Linuksie, okna na Windows),

@@ -86,6 +86,12 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
     /// <summary>Why the list is empty after a read of the folder that failed (null: nothing wrong).</summary>
     private PageStatus? _listState;
 
+    /// <summary>
+    /// How the last plan of a restore or an import ended when nothing came of it (null: it was previewed, or there was
+    /// none): it is about the backup selected then, so it goes with that selection.
+    /// </summary>
+    private PageStatus? _planResult;
+
     public GpoBackupViewModel(GroupPolicyServices services, GpoBackupMode mode, IReadOnlyList<GpoInfo> gpos)
         : base((services ?? throw new ArgumentNullException(nameof(services))).Ui)
     {
@@ -253,7 +259,19 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
 
     partial void OnFolderChanged(string value) => OnPropertyChanged(nameof(PowerShell));
 
-    partial void OnSelectedBackupChanged(GpoBackupRowViewModel? value) => ReadSelectedAsync(value).Forget();
+    partial void OnSelectedBackupChanged(GpoBackupRowViewModel? value)
+    {
+        // What the line says about a restore or an import that did not happen is about the backup selected then, and
+        // its Retry would plan the one selected now: it goes with the selection. A plan that still runs keeps the line.
+        var said = _planResult;
+        _planResult = null;
+        if (said is not null && ReferenceEquals(Status.Own, said))
+        {
+            Status.Clear();
+        }
+
+        ReadSelectedAsync(value).Forget();
+    }
 
     [RelayCommand(CanExecute = nameof(IsIdle))]
     private async Task BrowseAsync()
@@ -626,8 +644,10 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
     /// Plans the restore (or import) of the selected backup and shows the preview. Making the plan is the operation of the
     /// window - "Restore “…”: preparing the changes…" with Stop - until the change plan preview opens: that window says its
     /// own status, and the line is the window's again. When nothing comes of it - SYSVOL is not available, the plan could not
-    /// be made, the operator stopped it - the line says why, with Retry, which makes the plan again. Stop must hold: a
-    /// plan that was made although Stop was pressed is not previewed.
+    /// be made, the operator stopped it - the line says why, with Retry, which makes the plan again; that is about the
+    /// backup it was made for, so another selection takes it off the line, and a plan that ends after another backup was
+    /// selected says how it ended without Retry (which would plan the other backup). Stop must hold: a plan that was made
+    /// although Stop was pressed is not previewed.
     /// </summary>
     private async Task RestoreOrImportAsync()
     {
@@ -639,6 +659,7 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
         }
 
         var folder = Folder.Trim();
+        var row = SelectedBackup;
         var title = Mode == GpoBackupMode.Import
             ? Localizer.Format(L.GroupPolicy.TitleImport, Gpos.FirstOrDefault()?.DisplayName ?? string.Empty)
             : Localizer.Format(L.GroupPolicy.TitleRestore, backup.DisplayName);
@@ -647,6 +668,18 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(preparing.Token, _gp.Lifetime);
         var token = linked.Token;
         var retry = new PageStatusAction(Localizer[L.Common.Retry], RunCommand);
+        _planResult = null;
+
+        // Retry plans what is selected: it is offered only while that is still the backup of this plan.
+        void EndWithoutPlan(PageStatusKind kind, string reason, PageStatusLog log, ResultCode code = default)
+        {
+            var again = ReferenceEquals(SelectedBackup, row) ? retry : null;
+            var message = NotChanged(title, reason, retryable: again is not null, code);
+            var result = kind == PageStatusKind.Error ? PageStatus.Error(message, log, again) : PageStatus.Attention(message, log, again);
+            _planResult = result;
+            preparing.Complete(result);
+        }
+
         ChangePlan plan;
         try
         {
@@ -654,7 +687,7 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
             if (access.Connection is not { } sysvol)
             {
                 Error = _gp.SysvolText(access.Reason ?? SysvolUnavailableReason.Failed, session.Info.Server);
-                preparing.CompleteAttention(NotChanged(title, Error, retryable: true), new PageStatusLog(L.GroupPolicy.SysvolFailedShort), retry);
+                EndWithoutPlan(PageStatusKind.Attention, Error, new PageStatusLog(L.GroupPolicy.SysvolFailedShort));
                 return;
             }
 
@@ -668,7 +701,7 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
             if (preparing.IsCancelling)
             {
                 // Stop must hold: a planner that finished although Stop was pressed does not lead to the preview.
-                PlanningStopped(preparing, title, retry);
+                EndWithoutPlan(PageStatusKind.Attention, Localizer[L.GroupPolicyStatus.PreparingStopped], new PageStatusLog(L.GroupPolicyStatus.PreparingStopped));
                 return;
             }
         }
@@ -677,7 +710,7 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
             // Only a plan the operator stopped says so: nothing was changed.
             if (preparing.IsCancelling)
             {
-                PlanningStopped(preparing, title, retry);
+                EndWithoutPlan(PageStatusKind.Attention, Localizer[L.GroupPolicyStatus.PreparingStopped], new PageStatusLog(L.GroupPolicyStatus.PreparingStopped));
             }
 
             return;
@@ -686,7 +719,7 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
         {
             Error = GroupPolicyText.Error(Localizer, Errors, ex);
             var code = ResultCode.Of(ex);
-            preparing.CompleteError(NotChanged(title, Error, retryable: true, code), new PageStatusLog(L.GroupPolicyStatus.NotChanged).WithCode(code), retry);
+            EndWithoutPlan(PageStatusKind.Error, Error, new PageStatusLog(L.GroupPolicyStatus.NotChanged).WithCode(code), code);
             return;
         }
         finally
@@ -706,12 +739,6 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
     /// <summary>"Restore “…” – nothing was changed: why. Press Retry to try again. (code)".</summary>
     private string NotChanged(string title, string reason, bool retryable, ResultCode code = default) =>
         PageStatusText.Failure(Localizer.Format(L.GroupPolicyStatus.NotChanged, title), reason, retryable ? Localizer[L.Feedback.RetryNext] : null, code);
-
-    /// <summary>The operator stopped the plan: nothing was changed, and Retry makes the plan again.</summary>
-    private void PlanningStopped(OperationScope preparing, string title, PageStatusAction retry) => preparing.CompleteAttention(
-        NotChanged(title, Localizer[L.GroupPolicyStatus.PreparingStopped], retryable: true),
-        new PageStatusLog(L.GroupPolicyStatus.PreparingStopped),
-        retry);
 
     /// <summary>
     /// Reads the selected backup (its files into memory, checked) for the details and the plan - the operation of the list,
