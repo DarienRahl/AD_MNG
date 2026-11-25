@@ -195,7 +195,9 @@ jobs:
     needs: plan
     if: needs.plan.outputs.mode == 'full'
     runs-on: windows-latest
-    timeout-minutes: 45
+    # As the CI job: the two test steps have their own limits (15 and 45 minutes), and this one leaves room for one test step
+    # at its limit and the rest of the job.
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4
         with:
@@ -216,9 +218,20 @@ jobs:
       - name: Restore
         run: dotnet restore AdMng.slnx
       - name: Build
+        id: build
         run: dotnet build AdMng.slnx -c Release --no-restore -p:Version=${{ needs.plan.outputs.version }}
-      - name: Tests (unit and UI)
-        run: dotnet test AdMng.slnx -c Release --no-build
+      # The tests in two steps as in CI: the solution but the UI tests, then the UI tests, each with its own limit. Any red
+      # test step fails this job, and the release job needs this job to succeed.
+      - name: Unit tests
+        timeout-minutes: 15
+        run: dotnet test AdMng.slnx -c Release --no-build -p:AdMngSkipUiTests=true
+        env:
+          ADMNG_UI_TESTS: "1"
+      - name: UI tests
+        # Also after a red unit test step, as when both ran in one call.
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 45
+        run: dotnet test tests/AdMng.App.UiTests -c Release --no-build
         env:
           ADMNG_UI_TESTS: "1"
       - name: Publish (self-contained single file)

@@ -1,14 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- WPF UI tests: real windows over the real host, backed by the in-memory FakeDirectorySession, rendered off-screen
        on a dedicated STA thread. Windows only: on other systems the project is compiled but `dotnet test` skips it
-       (and every test also skips itself at runtime). -->
+       (and every test also skips itself at runtime). `dotnet test AdMng.slnx -p:AdMngSkipUiTests=true` skips it on
+       Windows too: the workflows run the other test projects in one step and these tests in a step of their own. -->
   <PropertyGroup>
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
     <RootNamespace>AdMng.App.UiTests</RootNamespace>
-    <IsTestProject Condition="!$([MSBuild]::IsOSPlatform('Windows'))">false</IsTestProject>
+    <IsTestProject Condition="!$([MSBuild]::IsOSPlatform('Windows')) or '$(AdMngSkipUiTests)' == 'true'">false</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\AdMng.App\AdMng.App.csproj" />
