@@ -1,9 +1,17 @@
 admng-watchdog (@VERSION@) unstable; urgency=medium
 
-  * No change in how the service works and no database migration.
-  * Rebuilt for AD Manager 0.16.0.
+  * The service no longer aborts with SIGABRT or SIGSEGV (exit code 134 or
+    139: the .NET LDAP library freed the same memory twice) or hangs when
+    it closes an LDAP session – on stop, restart or package upgrade, or
+    after a transient domain controller error – while another job is
+    receiving a search result. A connection is now closed only after the
+    request running on it has ended. No database migration.
+  * A signal that interrupts libldap's wait for an answer no longer ends
+    the LDAP connection with "server down" (LDAP 81); the wait goes on.
+  * Rebuilt for AD Manager 0.16.0 (the interface renewal and the read-only
+    PowerShell window – AD Manager features that do not use the service).
 
- -- AD_MNG contributors <admng-watchdog@contoso.com>  Sun, 15 Nov 2026 00:35:07 +0000
+ -- AD_MNG contributors <admng-watchdog@contoso.com>  Wed, 25 Nov 2026 12:00:00 +0000
 
 admng-watchdog (0.15.0-1) unstable; urgency=medium
 
