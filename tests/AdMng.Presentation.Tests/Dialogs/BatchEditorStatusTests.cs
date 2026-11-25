@@ -915,7 +915,7 @@ public class BatchEditorStatusTests
         Assert.True(window.IsClosed);
         var (title, message) = Assert.Single(harness.Dialogs.Errors);
         Assert.Equal("Batch edit (5 objects)", title);
-        var lines = message.Split('\n');
+        var lines = message.Split(Environment.NewLine);
         Assert.StartsWith(
             "Executing “Batch edit (5 objects)” in contoso.test was stopped: 0 of 5 objects done, failed: 1", lines[0], StringComparison.Ordinal);
         Assert.Contains(
@@ -1084,7 +1084,7 @@ public class BatchEditorStatusTests
         // The window closed as answered; the failure is said once - by the connection, with the reason - and not in a toast too.
         Assert.True(window.IsClosed);
         var (_, message) = Assert.Single(harness.Dialogs.Errors);
-        var lines = message.Split('\n');
+        var lines = message.Split(Environment.NewLine);
         Assert.Equal("Could not execute “Batch edit (1 objects)” in contoso.test: nothing was changed, failed: 1.", lines[0]);
         Assert.Contains("• Jan Kowalski: " + harness.Errors.TranslateFailure(DirectoryErrorKind.AccessDenied, null), lines);
         Assert.Equal([true], reportedAfterTheClose);

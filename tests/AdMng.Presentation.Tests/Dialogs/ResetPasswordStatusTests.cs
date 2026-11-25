@@ -734,7 +734,7 @@ public sealed class ResetPasswordStatusTests
         Assert.Empty(harness.Session.PasswordResets);
         var (title, message) = Assert.Single(harness.Dialogs.Errors);
         Assert.Equal("Reset Password", title);
-        var lines = message.Split('\n');
+        var lines = message.Split(Environment.NewLine);
         Assert.Equal("Could not execute “Reset Password” in contoso.test: nothing was changed, failed: 1.", lines[0]);
         Assert.Contains(lines, l => l.StartsWith("• Żaneta Szymańska: ", StringComparison.Ordinal));
         Assert.Equal("Every change and its result are in the session log.", lines[^1]);

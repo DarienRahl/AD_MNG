@@ -797,7 +797,7 @@ public sealed class RecycleBinStatusTests
         Assert.Single(harness.Dialogs.CloseQuestions);
         var (title, message) = Assert.Single(harness.Dialogs.Errors);
         Assert.Equal("Restore from the AD Recycle Bin (2)", title);
-        var lines = message.Split('\n');
+        var lines = message.Split(Environment.NewLine);
         Assert.Equal("Could not execute “Restore from the AD Recycle Bin (2)” in contoso.test: nothing was changed, failed: 2.", lines[0]);
         Assert.Contains(lines, l => l.StartsWith("• " + sales + ": ", StringComparison.Ordinal));
         Assert.Contains(lines, l => l.StartsWith("• Paweł Lewandowski: ", StringComparison.Ordinal));
@@ -849,7 +849,7 @@ public sealed class RecycleBinStatusTests
 
         Assert.True(window.IsClosed);
         var (_, message) = Assert.Single(harness.Dialogs.Errors);
-        var lines = message.Split('\n');
+        var lines = message.Split(Environment.NewLine);
         Assert.StartsWith("Executing “Restore from the AD Recycle Bin (2)” in contoso.test was stopped: 0 of 2 objects done, failed: 1", lines[0], StringComparison.Ordinal);
         Assert.Contains(lines, l => l.StartsWith("• " + sales + ": ", StringComparison.Ordinal));
         Assert.Equal("Every change and its result are in the session log.", lines[^1]);
@@ -1027,7 +1027,7 @@ public sealed class RecycleBinStatusTests
         // reasons, and where every change is. The window that is gone said nothing.
         var (title, message) = Assert.Single(harness.Dialogs.Errors);
         Assert.Equal("Restore from the AD Recycle Bin (2)", title);
-        var lines = message.Split('\n');
+        var lines = message.Split(Environment.NewLine);
         Assert.Equal("Could not execute “Restore from the AD Recycle Bin (2)” in contoso.test: nothing was changed, failed: 2.", lines[0]);
         Assert.Equal(2, lines.Count(l => l.StartsWith("• ", StringComparison.Ordinal)));
         Assert.Contains(lines, l => l.StartsWith("• Sprzedaż: ", StringComparison.Ordinal) && l.Length > "• Sprzedaż: ".Length);

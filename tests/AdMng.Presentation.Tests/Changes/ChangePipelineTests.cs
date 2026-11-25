@@ -259,7 +259,7 @@ public class ChangePipelineTests
         Assert.Empty(harness.Notifications.Items);
         var (title, message) = Assert.Single(harness.Dialogs.Errors);
         Assert.Equal("Disable accounts", title);
-        var lines = message.Split('\n');
+        var lines = message.Split(Environment.NewLine);
         Assert.Equal("“Disable accounts” was executed only in part in contoso.test: 1 object changed, failed: 12.", lines[0]);
         Assert.Equal(string.Empty, lines[1]);
         Assert.Equal(10, lines.Count(l => l.StartsWith("• Masowy ", StringComparison.Ordinal)));
