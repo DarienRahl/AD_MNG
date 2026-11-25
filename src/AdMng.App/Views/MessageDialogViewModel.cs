@@ -1,5 +1,6 @@
 using AdMng.App.Controls;
 using AdMng.Presentation.Localization;
+using AdMng.Presentation.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -17,7 +18,9 @@ public enum MessageKind
 /// <summary>
 /// Information, error and confirmation dialogs (the shell's replacement for MessageBox: Fluent styled, localized
 /// buttons, copyable text). A typed confirmation enables the confirm button only after the operator typed
-/// <see cref="ExpectedText"/> exactly.
+/// <see cref="ExpectedText"/> exactly. The close question of a window that works (<see cref="CloseQuestion"/>; the owner's
+/// decision D-A) has labelled buttons - "Stop and close", optionally "Close and continue in the background", and
+/// "Don't close" - and says which one was pressed in <see cref="Answer"/>.
 /// </summary>
 public sealed partial class MessageDialogViewModel : ObservableObject
 {
@@ -54,6 +57,17 @@ public sealed partial class MessageDialogViewModel : ObservableObject
     public string? CancelText { get; }
 
     public bool HasCancel => CancelText is not null;
+
+    /// <summary>Text of the third button of a close question ("Close and continue in the background"); null without one.</summary>
+    public string? ContinueText { get; private init; }
+
+    public bool HasContinue => ContinueText is not null;
+
+    /// <summary>True for the close question of a window that works: Enter and Esc both mean "Don't close".</summary>
+    public bool IsCloseQuestion { get; private init; }
+
+    /// <summary>The answer to a close question (<see cref="CloseAnswer.KeepOpen"/> until a button other than "Don't close" was pressed).</summary>
+    public CloseAnswer Answer { get; private set; }
 
     /// <summary>The confirm button performs a destructive action (red, and Enter/Esc both decline).</summary>
     public bool IsDestructive { get; private init; }
@@ -95,6 +109,18 @@ public sealed partial class MessageDialogViewModel : ObservableObject
             IsDestructive = destructive,
         };
 
+    /// <summary>
+    /// The close question of a window that works: "Stop and close" (destructive), "Close and continue in the background" when
+    /// <paramref name="canContinue"/>, and "Don't close" (Enter and Esc).
+    /// </summary>
+    public static MessageDialogViewModel CloseQuestion(string title, string message, bool canContinue, ILocalizer localizer) =>
+        new(title, message, MessageKind.Warning, Text(localizer, L.CloseWork.StopAndClose), Text(localizer, L.CloseWork.KeepOpen))
+        {
+            IsDestructive = true,
+            IsCloseQuestion = true,
+            ContinueText = canContinue ? Text(localizer, L.CloseWork.CloseAndContinue) : null,
+        };
+
     public static MessageDialogViewModel TypedConfirmation(string title, string message, string expectedText, ILocalizer localizer)
     {
         ArgumentNullException.ThrowIfNull(expectedText);
@@ -106,12 +132,28 @@ public sealed partial class MessageDialogViewModel : ObservableObject
     }
 
     [RelayCommand(CanExecute = nameof(CanConfirm))]
-    private void Confirm() => CloseRequested?.Invoke(this, true);
+    private void Confirm()
+    {
+        Answer = CloseAnswer.StopAndClose;
+        CloseRequested?.Invoke(this, true);
+    }
+
+    /// <summary>"Close and continue in the background" of a close question.</summary>
+    [RelayCommand]
+    private void Continue()
+    {
+        Answer = CloseAnswer.CloseAndContinue;
+        CloseRequested?.Invoke(this, true);
+    }
 
     private bool CanConfirm() => ExpectedText is null || string.Equals(TypedText.Trim(), ExpectedText, StringComparison.Ordinal);
 
     [RelayCommand]
-    private void Cancel() => CloseRequested?.Invoke(this, false);
+    private void Cancel()
+    {
+        Answer = CloseAnswer.KeepOpen;
+        CloseRequested?.Invoke(this, false);
+    }
 
     private static string Text(ILocalizer localizer, string key)
     {

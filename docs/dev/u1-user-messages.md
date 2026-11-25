@@ -190,8 +190,9 @@ mode, inputs, recipients list with *Dodaj…* / *Usuń*, library menu: save as, 
 (filter, list with include check boxes, details of the selected message, *Wyślij wiadomość testową do mnie*,
 *Wyślij*), **Wysyłka / raport** (progress, *Przerwij*, report list, *Ponów nieudane*, *Eksportuj CSV…*). The SMTP
 password box appears only when the authentication needs it and no password is cached. Closing the window while sending
-asks the one question of every window that writes (V2b-5b, `RunningWork`): Yes stops the run after the message it is at and the window
-closes after the run ended.
+asks the one question of every window that writes (V2b-5b, `RunningWork`, labelled answers since D-A): *Stop and close* stops the run
+after the message it is at and the window closes after the run ended; *Don't close* keeps both (a send never continues in the
+background).
 
 Settings window: a new tab *Wiadomości e-mail* (sender, reply-to, CC, test address, language, rate, daily limit,
 threshold, allowed domains, transport choice, SMTP host/port/TLS/certificate/authentication/user name, test buttons).

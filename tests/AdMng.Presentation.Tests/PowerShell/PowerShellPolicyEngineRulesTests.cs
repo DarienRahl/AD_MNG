@@ -1,3 +1,5 @@
+using System.Globalization;
+using AdMng.Presentation.Localization;
 using AdMng.Presentation.PowerShell;
 
 namespace AdMng.Presentation.Tests.PowerShell;
@@ -19,10 +21,72 @@ public sealed class PowerShellPolicyEngineRulesTests
     private static readonly string WindowsTranscription = PowerShellPolicyKeys.Sub(PowerShellPolicyKeys.WindowsRoot, PowerShellPolicyKeys.TranscriptionKey);
     private static readonly string CoreScriptBlockLogging = PowerShellPolicyKeys.Sub(PowerShellPolicyKeys.CoreRoot, PowerShellPolicyKeys.ScriptBlockLoggingKey);
 
-    /// <summary>The program's own all-users file (src/AdMng.App/powershell.config.json): transcription and script block logging off.</summary>
-    private const string ShippedFile = """{ "PowerShellPolicies": { "Transcription": { "EnableTranscripting": false }, "ScriptBlockLogging": { "EnableScriptBlockLogging": false } } }""";
+    /// <summary>
+    /// The program's own all-users file as it ships (src/AdMng.App/powershell.config.json): transcription and module logging off, script
+    /// block logging not set (decision D-B) - read from the repository, so that these scenarios follow the file.
+    /// </summary>
+    private static readonly string ShippedFile = File.ReadAllText(Path.Combine(RepositoryRoot(), "src", "AdMng.App", "powershell.config.json"));
+
+    /// <summary>A user's own powershell.config.json that turns on all three recordings.</summary>
+    private const string UserFileThatRecords =
+        """{ "PowerShellPolicies": { "Transcription": { "EnableTranscripting": true }, "ScriptBlockLogging": { "EnableScriptBlockLogging": true }, "ModuleLogging": { "EnableModuleLogging": true } } }""";
 
     private static PowerShellPolicies Read(FakePowerShellPolicySource source) => new PowerShellPolicyReader(source).Read();
+
+    private static string RepositoryRoot()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "AdMng.slnx")))
+        {
+            root = root.Parent;
+        }
+
+        Assert.NotNull(root);
+        return root.FullName;
+    }
+
+    [Fact]
+    public void TheProgramsFileAlone_DecidesTheTranscriptionAndTheModuleLogging_AndLeavesScriptBlockLoggingNotSet()
+    {
+        var policies = Read(new FakePowerShellPolicySource().SetFile(Computer, ShippedFile));
+
+        Assert.False(policies.IsRecording);
+        Assert.Equal(new PowerShellTranscriptionPolicy(false, null, false, new(PowerShellPolicyStore.ConfigFile, Computer)), policies.Transcription);
+        Assert.False(policies.ModuleLogging.Enabled);
+        Assert.Equal(new PowerShellPolicyOrigin(PowerShellPolicyStore.ConfigFile, Computer), policies.ModuleLogging.Origin);
+
+        // D-B: no policy and no file sets it - the engine's default, which still logs the script blocks it finds suspicious
+        // (ScriptBlockLoggingTests). The window shows no note then: the note says what the policies record and makes no sentence
+        // of that default (docs/dev/r1-powershell-window.md 12.13); the guide, chapter 8, says it.
+        Assert.Equal(PowerShellScriptBlockLoggingPolicy.NotSet, policies.ScriptBlockLogging);
+        Assert.Null(PowerShellPolicyNotes.For(policies, new ResxLocalizer(CultureInfo.GetCultureInfo("en-US"))));
+    }
+
+    [Fact]
+    public void AUsersFile_TurnsOnScriptBlockLogging_ButNotTheTranscriptionOrTheModuleLogging()
+    {
+        var policies = Read(new FakePowerShellPolicySource().SetFile(Computer, ShippedFile).SetFile(User, UserFileThatRecords));
+
+        Assert.True(policies.IsRecording);
+        Assert.Equal(new PowerShellScriptBlockLoggingPolicy(true, false, new(PowerShellPolicyStore.ConfigFile, User)), policies.ScriptBlockLogging);
+        Assert.False(policies.Transcription.Enabled);
+        Assert.Equal(new PowerShellPolicyOrigin(PowerShellPolicyStore.ConfigFile, Computer), policies.Transcription.Origin);
+        Assert.False(policies.ModuleLogging.Enabled);
+        Assert.Equal(new PowerShellPolicyOrigin(PowerShellPolicyStore.ConfigFile, Computer), policies.ModuleLogging.Origin);
+    }
+
+    [Fact]
+    public void AGpoThatTurnsScriptBlockLoggingOff_DecidesItOverTheUsersFile()
+    {
+        var source = new FakePowerShellPolicySource()
+            .Core(Computer, PowerShellPolicyKeys.ScriptBlockLoggingKey, PowerShellPolicyKeys.EnableScriptBlockLogging, 0)
+            .SetFile(Computer, ShippedFile)
+            .SetFile(User, UserFileThatRecords);
+
+        var logging = Read(source).ScriptBlockLogging;
+
+        Assert.Equal(new PowerShellScriptBlockLoggingPolicy(false, false, new(PowerShellPolicyStore.PowerShellCore, Computer)), logging);
+    }
 
     [Fact]
     public void A_TheSwitchOfTheExecutionPolicy_DoesNotHideThePowerShell7TranscriptionAndScriptBlockLogging()

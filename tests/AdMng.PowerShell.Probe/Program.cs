@@ -16,15 +16,16 @@ namespace AdMng.PowerShell.Probe;
 /// environment (HOME, TEMP, XDG_*, the user's own PowerShell settings) and looks at the folders afterwards. Modes:
 /// <c>files</c> (the window's session, a script that touches the formatter, module discovery, completion, syntax and the
 /// history policy, then a measurement; the report names the engine's folders, <see cref="EngineFolders"/>), <c>control</c> (an
-/// ordinary runspace of the SDK and a file of the probe in the engine's cache folder: the parent expects to see that file and the
-/// engine's telemetry.uuid where it watches), <c>cache-control</c> and <c>cache-window</c> (the module analysis cache, about 40 s each), <c>left-run</c> (a
+/// ordinary runspace of the SDK and a file of the probe in the engine's cache folder: the parent expects to see that file and, when the
+/// engine sends telemetry, the engine's telemetry.uuid where it watches), <c>cache-control</c> and <c>cache-window</c> (the module analysis cache, about 40 s each), <c>left-run</c> (a
 /// run the session left: the process still ends), <c>leftover-callback</c> and <c>leftover-callback-control</c> (a script block
 /// that trusted-mode code left behind runs after its window closed: the process survives it, the control crashes), <c>deep-input:&lt;case&gt;</c>
 /// (a line nested deeper than the engine can walk, checked, highlighted, completed and run from a thread with the stack of the window's UI
 /// thread: the process survives it and the window runs the next command), <c>parallel-job-open</c> (the window ends a parallel job of the
 /// trusted mode while the engine still opens its child's runspace: the process survives it), <c>parallel-job-children</c> (the same for a
 /// job of several children: while the engine opens the runspace of a later child, and when a child ends by itself at the moment the job
-/// is stopped), <c>environment</c> (the runtime's crash dump and crash report settings the child got).
+/// is stopped), <c>environment</c> (the runtime's crash dump and crash report settings the child got), <c>script-block-logging:&lt;file&gt;|&lt;file&gt;</c>
+/// (what the engine logs of the operator's script blocks with that all-users and that user's configuration file, <see cref="ScriptBlockLoggingProbe"/>).
 /// </summary>
 internal static class Program
 {
@@ -32,7 +33,7 @@ internal static class Program
     {
         if (args.Length != 2)
         {
-            await Console.Error.WriteLineAsync("usage: probe <files|control|cache-control|cache-window|left-run|leftover-callback|leftover-callback-control|deep-input:<case>|parallel-job-open|parallel-job-children|environment> <report file>");
+            await Console.Error.WriteLineAsync("usage: probe <files|control|cache-control|cache-window|left-run|leftover-callback|leftover-callback-control|deep-input:<case>|parallel-job-open|parallel-job-children|environment|script-block-logging:<all-users file>|<user's file>> <report file>");
             return 2;
         }
 
@@ -75,6 +76,9 @@ internal static class Program
                     break;
                 case "environment":
                     await File.WriteAllTextAsync(report, CrashSettings());
+                    break;
+                case var logging when logging.StartsWith("script-block-logging:", StringComparison.Ordinal):
+                    await File.WriteAllTextAsync(report, ScriptBlockLoggingProbe.Run(logging["script-block-logging:".Length..]));
                     break;
                 default:
                     await Console.Error.WriteLineAsync("unknown mode " + args[0]);
@@ -125,9 +129,12 @@ internal static class Program
 
     private static string Control()
     {
-        // No AdMng code: an ordinary runspace of the SDK with telemetry on, as a plain pwsh-like host would start - its first command
-        // writes the engine's telemetry.uuid into the engine's cache folder. The probe also writes a file of its own there, so the parent
-        // sees a new file even when the user already has a telemetry.uuid in a folder it watches (audit TI-1).
+        // No AdMng code: an ordinary runspace of the SDK with telemetry on, as a plain pwsh-like host would start - when the engine sends
+        // telemetry, its first command writes the engine's telemetry.uuid into the engine's cache folder. Whether it does is the engine's
+        // ApplicationInsightsTelemetry.CanSendTelemetry, which the report gives: the Windows build of the engine also asks Windows'
+        // diagnostic data setting (off on the CI runner, where no telemetry.uuid is written). The probe also writes a file of its own
+        // there, so the parent sees a new file even when the engine writes none or the user already has a telemetry.uuid in a folder it
+        // watches (audit TI-1).
         using var runspace = RunspaceFactory.CreateRunspace();
         runspace.Open();
         using var ps = SmaPowerShell.Create();
@@ -142,7 +149,8 @@ internal static class Program
         Directory.CreateDirectory(folders.Cache);
         var control = Path.Combine(folders.Cache, EngineFolders.ControlFilePrefix + Guid.NewGuid().ToString("N") + ".tmp");
         File.WriteAllText(control, "x");
-        return folders.ToReport() + "control=" + control + "\n";
+        var telemetry = Microsoft.PowerShell.Telemetry.ApplicationInsightsTelemetry.CanSendTelemetry;
+        return folders.ToReport() + "control=" + control + "\ntelemetry=" + telemetry.ToString(CultureInfo.InvariantCulture) + "\n";
     }
 
     private static async Task CacheControlAsync()
@@ -203,7 +211,10 @@ internal static class Program
     /// The second red team of R1 (goal d): in the trusted mode a script leaves a timer whose callback is a script block; the window closes
     /// before it fires, and the script block then runs on a timer thread without a runspace and throws - unhandled, which ends the
     /// process and every window of the program with it. <paramref name="contained"/> sets up the process the way the program does
-    /// (src/AdMng.App/ProcessStart.cs); the control does not, and the parent expects it to end with the crash.
+    /// (src/AdMng.App/ProcessStart.cs) and waits until its handler has contained the callback; the control does not, and waits for the
+    /// crash the parent expects. Neither waits a time of its own for the timer: a runner that stalls the child fires the timer late (the
+    /// fixed wait of 4 s this had let the control report "survived" and return 0 before its timer fired). The probe holds the timer, so
+    /// that no collection of the closed window's variables cancels it before it fires.
     /// </summary>
     private static async Task<string> LeftoverCallbackAsync(bool contained)
     {
@@ -212,15 +223,36 @@ internal static class Program
             PowerShellEnvironment.ContainLeftoverScriptBlocks();
         }
 
+        object? timer = null;
         await using (var session = await CreateAsync())
         {
             await session.SetLanguageModeAsync(PowerShellLanguageMode.Full, CancellationToken.None);
             var late = Path.Combine(Environment.CurrentDirectory, "late.txt").Replace("'", "''", StringComparison.Ordinal);
-            await RunAsync(session, "$global:tmr = [System.Threading.Timer]::new([System.Threading.TimerCallback]{ [System.IO.File]::WriteAllText('" + late + "', 'x') }, $null, 1500, -1); 'started'");
+            var script = "$global:tmr = [System.Threading.Timer]::new([System.Threading.TimerCallback]{ [System.IO.File]::WriteAllText('" + late + "', 'x') }, $null, 1500, -1); $global:tmr";
+            await foreach (var item in session.RunObjectsAsync(script))
+            {
+                if (item is PowerShellObjectItem { Value: PSObject { BaseObject: Timer left } })
+                {
+                    timer = left;
+                }
+            }
         }
 
-        await Task.Delay(TimeSpan.FromSeconds(4));
-        return "survived\ndone\n";
+        if (timer is null)
+        {
+            return "timer=none\n";
+        }
+
+        // The control ends here with the crash; that it survived a minute is the failure the parent reports.
+        var watch = Stopwatch.StartNew();
+        while (watch.Elapsed < TimeSpan.FromSeconds(60) && !(contained && PowerShellEnvironment.ContainedLeftoverScriptBlockCalls > 0))
+        {
+            await Task.Delay(100);
+        }
+
+        GC.KeepAlive(timer);
+        var report = contained ? string.Create(CultureInfo.InvariantCulture, $"contained={PowerShellEnvironment.ContainedLeftoverScriptBlockCalls}\n") : string.Empty;
+        return report + "survived\ndone\n";
     }
 
     /// <summary>

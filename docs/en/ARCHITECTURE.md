@@ -106,9 +106,12 @@ window ([dev/multi-window.md](../dev/multi-window.md)):
 - **Writes only in the plan's session.** `ChangeCoordinator.ApplyAsync` executes a plan in the session in which it was planned; if the
   session has changed (Disconnect, reconnect), nothing is written. Confirmations name the domain of the session that
   will execute the operation.
-- **Closing a window:** the end of `Lifetime`, closed dialogs and notifications of the window (remaining background work will show nothing),
-  cancelling its operations and closing the session off the UI thread (with a timeout), then disposing the scope;
-  the last window ends the program, and `App.OnExit` closes the sessions of the windows that are still left.
+- **Closing a window:** the connection window first asks one question about everything that writes in its tabs, in its
+  windows and in the background of the connection (no background answer – closing ends the connection), and *Stop and close*
+  waits for the objects in progress to end; then the end of `Lifetime`, closed dialogs and notifications of the window
+  (remaining background work will show nothing), cancelling what is still left and closing the session off the UI thread
+  (with a timeout), then disposing the scope; the last window ends the program, and `App.OnExit` closes the sessions of
+  the windows that are still left.
 - **Settings** are shared; `JsonSettingsStore` changes a copy (copy-on-write) under a lock and saves snapshots with a
   generation number, so windows do not overwrite each other's changes and a reader never sees a list being modified.
 - **Comparing objects across connections** is read-only. The comparison window (scope of window A) receives from
@@ -157,7 +160,12 @@ limit is an outage: a request that got no answer (time-out, broken connection) i
 further attempt could cost a whole request time-out (60 s by default) – so that object ends with this error once the
 request in flight has ended. `BatchResult.FinishedAfterStopCount` counts the objects that the stop found running and
 that were finished; `BatchResult.WasCutShort` says whether the stop left anything undone (a stop that comes while the
-last objects run does not, and that result is an ordinary one).
+last objects run does not, and that result is an ordinary one). A window closed during the execution with *Close and
+continue in the background* hands the report to the connection's coordinator: the execution goes on to its end, its outcome
+comes as a notification of the main window (failures as a dialog with their reasons), and every change is in the session log.
+So does a window that closes right after the execution ended (*Stop and close*, a result that came back while the question
+was open): the coordinator keeps the report with the activity and the window hands it on once it has closed, so the failure
+dialog is never owned by the window that closes.
 Values in a plan are text; binary attributes are not edited in bulk – the exception is `logonHours` (the "Logon
 hours" window), which in the plan, the log and the rollback is a hexadecimal string, and reaches the DC as 21 bytes
 (`PipelineValues`).

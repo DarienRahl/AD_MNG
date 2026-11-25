@@ -60,6 +60,15 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
     /// <summary>The DC of the session that replaced the window's session by "Change domain controller", else null.</summary>
     private string? _movedTo;
 
+    /// <summary>The close question that is open or waiting for a stop: a second close joins it (one question, one wait).</summary>
+    private Task<bool>? _closing;
+
+    /// <summary>
+    /// The executions a close looked at (D-A): told once the window closed, so that the connection says how those that ended
+    /// in the window ended - its line goes with it (<see cref="Feedback.IWindowRun.WindowClosed"/>).
+    /// </summary>
+    private readonly List<Feedback.IWindowRun> _reportOnClose = [];
+
     protected WindowViewModelBase(DialogServices services)
     {
         Services = services ?? throw new ArgumentNullException(nameof(services));
@@ -144,19 +153,47 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
 
     /// <summary>
     /// The window is about to be closed by the operator. First the one question of every window that works
-    /// (<see cref="Feedback.RunningWork"/>, track V stage V2b-5b): an operation that writes and can be stopped is asked
-    /// about - "Stop the running operation and close the window?" - and stopped on Yes, and the window closes after it
-    /// ended; one that cannot be stopped keeps the window open and says so; a read is cancelled without a question. Then
-    /// the window's own questions (<see cref="CanCloseCoreAsync"/>: unsaved changes, generated passwords).
+    /// (<see cref="Feedback.RunningWork"/>, track V stage V2b-5b and the owner's decision D-A): an operation that writes and
+    /// can be stopped is asked about - Stop and close, Close and continue in the background (the execution of a plan that
+    /// may go on without the window), Don't close - and the window closes after a stopped operation ended, or at once when the
+    /// execution left it; one that cannot be stopped keeps the window open and says so; a read is cancelled without a
+    /// question. The window's own questions (<see cref="CanCloseCoreAsync"/>: unsaved changes, generated passwords) come
+    /// with it. A second close while the first one asks or waits - the title bar, then the Close button - joins it. A window that
+    /// closes after an execution ended in it - stopped, or its result came back under the question - hands the connection's
+    /// report of it on once it has closed (<see cref="Dispose()"/>).
     /// </summary>
-    public async Task<bool> CanCloseAsync()
+    public Task<bool> CanCloseAsync()
     {
-        if (!await Feedback.RunningWork.ConfirmCloseAsync(Services.Localizer, Services.Dialogs, WindowTitle, Feedback.RunningWork.HoldersOf(this)).ConfigureAwait(true))
+        if (_closing is { IsCompleted: false } pending)
         {
-            return false;
+            return pending;
         }
 
-        return await CanCloseCoreAsync().ConfigureAwait(true);
+        var closing = AskCloseAsync();
+        _closing = closing.IsCompleted ? null : closing;
+        return closing;
+    }
+
+    private async Task<bool> AskCloseAsync()
+    {
+        try
+        {
+            var closes = await Feedback.RunningWork.ConfirmCloseAsync(
+                Services.Localizer, Services.Dialogs, WindowTitle, Feedback.RunningWork.HoldersOf(this), ownQuestions: CanCloseCoreAsync,
+                reportOnClose: _reportOnClose).ConfigureAwait(true);
+            if (closes && IsDisposed)
+            {
+                // Closed by force while the question waited (the owner window closed): the runs are told now.
+                TellRunsTheWindowClosed();
+            }
+
+            return closes;
+        }
+        finally
+        {
+            // Kept, or allowed: the next close asks again.
+            _closing = null;
+        }
     }
 
     /// <summary>
@@ -173,6 +210,26 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
         }
 
         IsDisposed = true;
+
+        // A close that was not asked (the owner window closed, the program ends): an execution that still runs leaves the
+        // window - whatever would have kept it - so that the connection says how it ended; nothing of the window is touched
+        // by it any more. One whose result came back already, while the window's code finishes (it reads its list again),
+        // cannot leave: the connection says how it ended all the same, as the line goes with the window.
+        foreach (var operation in Feedback.RunningWork.RunningWrites(Feedback.RunningWork.HoldersOf(this)))
+        {
+            if (operation.Run is { } run && !run.LeaveWindow())
+            {
+                run.ReportByConnection();
+                if (!_reportOnClose.Contains(run))
+                {
+                    _reportOnClose.Add(run);
+                }
+            }
+        }
+
+        // The window is gone now: what the connection says of the executions that ended in it comes after it, never owned by it.
+        TellRunsTheWindowClosed();
+
         Services.Localizer.CultureChanged -= OnLocalizerCultureChanged;
         Services.Sessions.SessionChanged -= OnSessionsChanged;
         Dispose(true);
@@ -182,6 +239,16 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
     /// <summary>Releases subscriptions of the derived view model.</summary>
     protected virtual void Dispose(bool disposing)
     {
+    }
+
+    private void TellRunsTheWindowClosed()
+    {
+        var runs = _reportOnClose.ToList();
+        _reportOnClose.Clear();
+        foreach (var run in runs)
+        {
+            run.WindowClosed();
+        }
     }
 
     /// <summary>

@@ -27,7 +27,14 @@ internal sealed class ScriptedDialogService : IDialogService
         return Task.CompletedTask;
     }
 
-    public Task ShowErrorAsync(string title, string message) => Task.CompletedTask;
+    /// <summary>The texts of the error dialogs shown so far (<see cref="ShowErrorAsync"/>).</summary>
+    public List<string> ErrorMessages { get; } = [];
+
+    public Task ShowErrorAsync(string title, string message)
+    {
+        ErrorMessages.Add(message);
+        return Task.CompletedTask;
+    }
 
     public Task<bool> ConfirmAsync(string title, string message, bool destructive)
     {
@@ -40,6 +47,18 @@ internal sealed class ScriptedDialogService : IDialogService
     {
         Confirmations.Add(title);
         return Task.FromResult(ConfirmAnswer);
+    }
+
+    /// <summary>Answers of <see cref="AskCloseAsync"/>, in order ("Don't close" when empty).</summary>
+    public Queue<CloseAnswer> CloseAnswers { get; } = new();
+
+    /// <summary>The close questions asked so far: the message and whether "Close and continue in the background" was offered.</summary>
+    public List<(string Message, bool CanContinue)> CloseQuestions { get; } = [];
+
+    public Task<CloseAnswer> AskCloseAsync(string title, string message, bool canContinue)
+    {
+        CloseQuestions.Add((message, canContinue));
+        return Task.FromResult(CloseAnswers.Count > 0 ? CloseAnswers.Dequeue() : CloseAnswer.KeepOpen);
     }
 
     public Task<string?> PickContainerAsync(IDirectorySession session, string? startDn) => Task.FromResult<string?>(null);

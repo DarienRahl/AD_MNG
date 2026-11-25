@@ -24,6 +24,7 @@ public static class PowerShellEnvironment
     private static readonly object Gate = new();
     private static bool _applied;
     private static bool _contained;
+    private static long _containedCalls;
 
     /// <summary>The null device of this platform: <c>/dev/null</c>, or <c>NUL</c> on Windows.</summary>
     public static string NullDevice => OperatingSystem.IsWindows() ? "NUL" : "/dev/null";
@@ -107,6 +108,12 @@ public static class PowerShellEnvironment
     }
 
     /// <summary>
+    /// How many script blocks left behind by trusted-mode code the handler of <see cref="ContainLeftoverScriptBlocks"/> has kept from
+    /// ending this process. The engine's tests wait for it instead of for a time of their own (a stalled runner fires a timer late).
+    /// </summary>
+    internal static long ContainedLeftoverScriptBlockCalls => Interlocked.Read(ref _containedCalls);
+
+    /// <summary>
     /// Keeps a script block that trusted-mode code left behind from ending the process (second red team of R1, goal d): a
     /// <c>[System.Threading.Timer]</c> or a thread whose callback is a script block fires after its window closed, the script block
     /// finds no runspace on that thread and throws (<see cref="IsLeftoverScriptBlockCall"/>), and an exception nobody handles on a timer
@@ -129,7 +136,7 @@ public static class PowerShellEnvironment
 
             try
             {
-                ExceptionHandling.SetUnhandledExceptionHandler(IsLeftoverScriptBlockCall);
+                ExceptionHandling.SetUnhandledExceptionHandler(ContainLeftoverScriptBlockCall);
             }
             catch (InvalidOperationException)
             {
@@ -140,6 +147,17 @@ public static class PowerShellEnvironment
 
             _contained = true;
         }
+    }
+
+    private static bool ContainLeftoverScriptBlockCall(Exception exception)
+    {
+        if (!IsLeftoverScriptBlockCall(exception))
+        {
+            return false;
+        }
+
+        Interlocked.Increment(ref _containedCalls);
+        return true;
     }
 
     /// <summary>

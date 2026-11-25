@@ -484,8 +484,11 @@ public sealed class EscapeTests : IDisposable
     /// It fires after the window closed, finds no runspace on its timer thread and throws; unhandled, that ended the whole process
     /// (exit 134 here) - on the workstation every connection window of the program. In child processes: the control, started without
     /// the program's set-up, still crashes; the one set up as the program is (<see cref="PowerShellEnvironment.ContainLeftoverScriptBlocks"/>)
-    /// lives on, and the callback wrote nothing. Constrained mode refuses the timer itself (<c>[System.Threading.Timer]</c> is not a
-    /// core type).
+    /// lives on, its handler contained the callback once, and the callback wrote nothing. Constrained mode refuses the timer itself
+    /// (<c>[System.Threading.Timer]</c> is not a core type). Neither child counts on the timer firing within a time of its own: the
+    /// control waits for the crash (up to a minute) and only then reports that it survived, the contained one waits until its handler
+    /// counted the callback - with a fixed wait of 4 s, a runner that stalled the child past it (CI of f219a3e7 and 7cc6191b) let the
+    /// control write "survived" and return 0 before its timer fired, and the contained child passed without its callback having run.
     /// </summary>
     [Fact]
     public async Task A_script_block_the_trusted_mode_left_behind_does_not_end_the_process_after_its_window_closed()
@@ -501,7 +504,7 @@ public sealed class EscapeTests : IDisposable
         Assert.Contains("There is no Runspace available to run scripts in this thread", results[0].Output, StringComparison.Ordinal);
         Assert.DoesNotContain("survived", results[0].Report, StringComparison.Ordinal);
         Assert.True(results[1].ExitCode == 0, "The process ended with the left script block:\n" + results[1].Output);
-        Assert.Contains("survived\ndone", results[1].Report, StringComparison.Ordinal);
+        Assert.Contains("contained=1\nsurvived\ndone", results[1].Report, StringComparison.Ordinal);
         Assert.Equal(string.Empty, string.Join('\n', window.Files()));
     }
 

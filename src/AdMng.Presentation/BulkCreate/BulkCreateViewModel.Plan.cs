@@ -351,18 +351,47 @@ public sealed partial class BulkCreateViewModel
         WasStoppedAfterCanary = false;
         var coordinator = Services.Coordinator;
         var executable = plan.IsBlocked ? [] : plan.Objects.Where(o => !o.HasErrors && !o.IsNoOp).ToList();
-        if (!UsesCanary || executable.Count <= 1)
+        try
         {
-            return await coordinator.ExecutePlanAsync(plan, title, session, started).ConfigureAwait(true);
-        }
+            if (!UsesCanary || executable.Count <= 1)
+            {
+                ExecutingPart = BulkExecutionPart.Whole;
+                return await coordinator.ExecutePlanAsync(plan, title, session, started).ConfigureAwait(true);
+            }
 
+            return await ExecuteWithCanaryAsync(plan, title, session, started, executable).ConfigureAwait(true);
+        }
+        finally
+        {
+            ExecutingPart = BulkExecutionPart.None;
+        }
+    }
+
+    /// <summary>
+    /// The part of a create plan that is executing now (the owner's decision D-A): while the first account (the canary) runs,
+    /// this view model decides whether the others are started, so the execution cannot go on without the window yet.
+    /// </summary>
+    internal BulkExecutionPart ExecutingPart { get; private set; }
+
+    private async Task<BatchResult> ExecuteWithCanaryAsync(
+        ChangePlan plan, string title, IDirectorySession session, Action<ActivityViewModel>? started, IReadOnlyList<ObjectPlan> executable)
+    {
+        var coordinator = Services.Coordinator;
         var ran = new HashSet<ObjectPlan>(ReferenceEqualityComparer.Instance);
         BatchResult? done = null;
         var passed = false;
         for (var attempt = 0; attempt < MaxCanaries && attempt < executable.Count; attempt++)
         {
+            if (done is not null && IsDisposedState)
+            {
+                // The window was closed by force while the first account ran: no other one is started for a window that is gone.
+                WasStoppedAfterCanary = true;
+                return WithNotRun(done, plan, ran);
+            }
+
             var canary = executable[attempt];
             ran.Add(canary);
+            ExecutingPart = BulkExecutionPart.FirstAccount;
             var result = await coordinator.ExecutePlanAsync(plan with { Objects = [canary] }, title, session, started).ConfigureAwait(true);
             done = BulkCreateResults.Merge(done, result);
             if (result.Objects.FirstOrDefault() is not { } outcome || result.WasCancelled)
@@ -391,6 +420,7 @@ public sealed partial class BulkCreateViewModel
         }
 
         var rest = plan with { Objects = [.. plan.Objects.Where(o => !ran.Contains(o))] };
+        ExecutingPart = BulkExecutionPart.Rest;
         var restResult = await coordinator.ExecutePlanAsync(rest, title, session, started).ConfigureAwait(true);
         return BulkCreateResults.Merge(done, restResult);
     }
@@ -976,4 +1006,20 @@ public sealed partial class BulkCreateViewModel
         RetryConfirmPasswordInput = null;
         SharedPasswordReader = null;
     }
+}
+
+/// <summary>Which part of a create plan of the wizard is executing (<see cref="BulkCreateViewModel.ExecutingPart"/>).</summary>
+internal enum BulkExecutionPart
+{
+    /// <summary>Nothing is executing.</summary>
+    None,
+
+    /// <summary>The whole plan at once (no first account: a retry, the undo, one object, an OU or a group).</summary>
+    Whole,
+
+    /// <summary>The first account (the canary): the others are started only when it was created.</summary>
+    FirstAccount,
+
+    /// <summary>The others, after the first account was created.</summary>
+    Rest,
 }

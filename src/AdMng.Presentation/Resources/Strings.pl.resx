@@ -1247,7 +1247,7 @@ Profil: {2}</value>
     <value>Sesja pozostaje połączona z {0}.</value>
   </data>
   <data name="ChangeDc.RunningOperations" xml:space="preserve">
-    <value>Operacje w tle nadal trwają. Zostaną anulowane, gdy sesja przejdzie na inny kontroler domeny. Kontynuować?</value>
+    <value>Operacje w tle nadal trwają. Zostaną zatrzymane, zanim sesja przejdzie na inny kontroler domeny: nic nowego nie zostanie rozpoczęte, a obiekty, które są właśnie zmieniane, zostaną najpierw dokończone. Kontynuować?</value>
   </data>
   <data name="ChangeDc.ProfileNotSaved" xml:space="preserve">
     <value>Kontroler domeny został zmieniony, ale nie udało się zapisać profilu połączenia: {0}</value>
@@ -1786,9 +1786,6 @@ Profil: {2}</value>
   <data name="Shell.BoundAs" xml:space="preserve">
     <value>Zalogowano jako: {0}</value>
   </data>
-  <data name="Shell.CloseWindowWhileRunning" xml:space="preserve">
-    <value>Operacje w tle w oknie {0} nadal trwają. Czy mimo to zamknąć okno? Trwające operacje zostaną przerwane.</value>
-  </data>
   <data name="Shell.CommandPalettePlaceholder" xml:space="preserve">
     <value>Wpisz polecenie…</value>
   </data>
@@ -1802,7 +1799,7 @@ Profil: {2}</value>
     <value>Szczegóły</value>
   </data>
   <data name="Shell.DisconnectWhileRunning" xml:space="preserve">
-    <value>Operacje w tle w domenie {0} nadal trwają. Czy mimo to rozłączyć? Trwające operacje zostaną przerwane.</value>
+    <value>Operacje w tle w domenie {0} nadal trwają. Zatrzymać je i rozłączyć? Nic nowego nie zostanie rozpoczęte, a obiekty, które są właśnie zmieniane, zostaną najpierw dokończone; rozłączenie poczeka, aż się zakończą.</value>
   </data>
   <data name="Shell.WindowTitleConnection" xml:space="preserve">
     <value>{0} – {1} – {2}</value>
@@ -24417,6 +24414,12 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="Changes.Status.ReasonsNext" xml:space="preserve">
     <value>Przyczyny są na liście wyników.</value>
   </data>
+  <data name="Changes.Status.CountsPartly" xml:space="preserve">
+    <value>zmieniono {0}, w tym tylko częściowo: {1:N0}, niepowodzenia: {2:N0}</value>
+  </data>
+  <data name="Changes.Status.SessionLogNext" xml:space="preserve">
+    <value>Każda zmiana i jej wynik są w dzienniku sesji.</value>
+  </data>
   <data name="Batch.Status.ReadingTargets" xml:space="preserve">
     <value>Wczytywanie wybranych obiektów ({0:N0})…</value>
   </data>
@@ -25572,6 +25575,33 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   </data>
   <data name="CloseWork.Wait" xml:space="preserve">
     <value>{0}&#10;&#10;Tej operacji nie można zatrzymać po jej rozpoczęciu. Poczekaj, aż się zakończy, i zamknij okno.</value>
+  </data>
+  <data name="CloseWork.Changes" xml:space="preserve">
+    <value>{0}&#10;&#10;Okno wykonuje zmiany.&#10;Zatrzymaj i zamknij: nic nowego nie zostanie rozpoczęte, obiekt, który jest właśnie zmieniany, zostanie najpierw dokończony (żaden nie zostanie przerwany w połowie), obiekty, do których wykonanie nie dotarło, pozostaną bez zmian, a okno zamknie się po zakończeniu wykonania.&#10;Zamknij i kontynuuj w tle: okno zamknie się od razu, a wykonanie potrwa do końca. Jego postęp będzie widać na liście operacji w tle, wynik pojawi się jako powiadomienie (niepowodzenia – w oknie z przyczynami), a każda zmiana trafi do dziennika sesji.</value>
+  </data>
+  <data name="CloseWork.StopAndClose" xml:space="preserve">
+    <value>Zatrzymaj i zamknij</value>
+  </data>
+  <data name="CloseWork.CloseAndContinue" xml:space="preserve">
+    <value>Zamknij i kontynuuj w tle</value>
+  </data>
+  <data name="CloseWork.KeepOpen" xml:space="preserve">
+    <value>Nie zamykaj</value>
+  </data>
+  <data name="CloseWork.NoBackground.Passwords" xml:space="preserve">
+    <value>Nie można jej kontynuować w tle: wygenerowane hasła istnieją tylko w tym oknie.</value>
+  </data>
+  <data name="CloseWork.NoBackground.Caller" xml:space="preserve">
+    <value>Nie można jej kontynuować w tle: okno, z którego je otwarto, czeka na wynik.</value>
+  </data>
+  <data name="CloseWork.NoBackground.FirstAccount" xml:space="preserve">
+    <value>Kontynuowanie w tle będzie możliwe po utworzeniu pierwszego konta: tworzenie pozostałych kont rozpoczyna to okno.</value>
+  </data>
+  <data name="CloseWork.NoBackground.Connection" xml:space="preserve">
+    <value>Zamknięcie tego okna kończy jego połączenie, więc nic nie może być kontynuowane w tle.</value>
+  </data>
+  <data name="CloseWork.BackgroundLine" xml:space="preserve">
+    <value>W tle: „{0}”, {1}</value>
   </data>
   <!-- V interface renewal (V2): end -->
   <!-- R1 PowerShell window: begin -->

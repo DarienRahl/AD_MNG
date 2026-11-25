@@ -245,10 +245,12 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase, IHasPa
     /// <summary>Reads the object and fills all pages (discarding pending changes). Never throws.</summary>
     public Task LoadAsync() => LoadCoreAsync(keepMessages: false);
 
-    /// <remarks>The window stays open while changes are being applied (their outcome is shown on the sheet).</remarks>
+    /// <remarks>
+    /// The window stays open while changes are being applied: the save is a write that cannot be stopped, so the close
+    /// question says that the window is still working (<see cref="Feedback.RunningWork"/>) before this is asked.
+    /// </remarks>
     protected override async Task<bool> CanCloseCoreAsync() =>
-        !IsApplying
-        && (!HasChanges || await Services.Dialogs.ConfirmAsync(WindowTitle, Localizer[L.PropertySheet.DiscardChanges], destructive: true).ConfigureAwait(true));
+        !HasChanges || await Services.Dialogs.ConfirmAsync(WindowTitle, Localizer[L.PropertySheet.DiscardChanges], destructive: true).ConfigureAwait(true);
 
     /// <summary>Applies the pending changes. Returns true when everything was written (or there was nothing to write).</summary>
     public async Task<bool> ApplyChangesAsync()

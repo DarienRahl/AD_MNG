@@ -1,6 +1,7 @@
 using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
+using AdMng.Presentation.Services;
 using AdMng.Presentation.Shell;
 using AdMng.Presentation.Tests.TestDoubles;
 using static AdMng.Presentation.Tests.TestDoubles.TestDirectory;
@@ -88,15 +89,16 @@ public class ShellRunningWorkTests
         var second = shell.SelectedDocument!;
         using var write = second.Status.Begin("Aktualizowanie…", new PageStatusLog("A"), writes: OperationWrites.Other);
 
-        // No: the tab stays and the operation runs on.
-        harness.Dialogs.ConfirmAnswers.Enqueue(false);
+        // Don't close: the tab stays and the operation runs on.
+        harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.KeepOpen);
         await shell.CloseTabCommand.ExecuteAsync(second);
         Assert.Contains(second, shell.Documents);
         Assert.False(write.IsCancelling);
-        Assert.StartsWith("confirm:Aktualizowanie…\n\n", Assert.Single(harness.Dialogs.Shown), StringComparison.Ordinal);
+        Assert.StartsWith("close:Aktualizowanie…\n\n", Assert.Single(harness.Dialogs.Shown), StringComparison.Ordinal);
+        Assert.False(Assert.Single(harness.Dialogs.CloseQuestions).CanContinue);
 
-        // Yes: Stop through the holder, the tab goes when the operation has ended - not before.
-        harness.Dialogs.ConfirmAnswers.Enqueue(true);
+        // Stop and close: Stop through the holder, the tab goes when the operation has ended - not before.
+        harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.StopAndClose);
         var closing = shell.CloseTabCommand.ExecuteAsync(second);
         Assert.True(write.IsCancelling);
         Assert.False(closing.IsCompleted);

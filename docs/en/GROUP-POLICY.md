@@ -151,6 +151,15 @@ Saving a GPO is a transaction on one domain controller – the one the window wo
 Versions always increase (also on rollback), so clients always fetch the new state. *Undo* in the preview window shows
 the reverse plan and executes it the same way.
 
+Closing the preview during the execution – with the title bar, the *Close* button or Esc – asks: *Stop and close* or
+*Don't close*. The execution cannot continue in the background, because the window the preview was opened from (e.g. a
+settings editor) waits for its result: right after the close it reads the GPO again or marks its changes as saved. *Stop
+and close* starts no further object of the plan and finishes the one in progress. How the execution ended is said by the
+main window once the preview has closed: in a notification when nothing failed (for a stopped one, how many objects were
+done), and when something failed, in a dialog with the reasons. A plan of several objects (e.g. a new GPO with its containers and link)
+stopped between them leaves a part to undo, and the preview's *Undo* goes with the window – the undo then has to be prepared
+again (e.g. delete the incomplete GPO).
+
 ## 5. Backups, restore and import
 
 **GPMC-compatible format**: `manifest.xml` (merged with the existing one), in the `{BackupId}` folder the files

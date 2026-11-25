@@ -48,6 +48,36 @@ public static partial class L
 
         /// <summary>An operation that cannot be stopped: the window stays open until it ends.</summary>
         public const string Wait = "CloseWork.Wait";
+
+        /// <summary>
+        /// The execution of changes that may go on without the window (the owner's decision D-A): the three answers - stop and
+        /// close, close and continue in the background, do not close - and what each of them does.
+        /// </summary>
+        public const string Changes = "CloseWork.Changes";
+
+        /// <summary>The button that stops what runs and closes the window once it ended.</summary>
+        public const string StopAndClose = "CloseWork.StopAndClose";
+
+        /// <summary>The button that closes the window at once and lets the execution go on to its end.</summary>
+        public const string CloseAndContinue = "CloseWork.CloseAndContinue";
+
+        /// <summary>The button that keeps the window (also Enter and Esc).</summary>
+        public const string KeepOpen = "CloseWork.KeepOpen";
+
+        /// <summary>Why the execution cannot go on without the window: it generates passwords that only the window shows.</summary>
+        public const string NoBackgroundPasswords = "CloseWork.NoBackground.Passwords";
+
+        /// <summary>Why not: the window it was opened from waits for its result (the change plan preview of a GPO).</summary>
+        public const string NoBackgroundCaller = "CloseWork.NoBackground.Caller";
+
+        /// <summary>Why not yet: the bulk creation wizard creates its first account, and starts the others itself.</summary>
+        public const string NoBackgroundFirstAccount = "CloseWork.NoBackground.FirstAccount";
+
+        /// <summary>Why not in the connection window: closing it ends the connection.</summary>
+        public const string NoBackgroundConnection = "CloseWork.NoBackground.Connection";
+
+        /// <summary>One line of the connection window's question: {0} = the title of the activity, {1} = how far it is.</summary>
+        public const string BackgroundLine = "CloseWork.BackgroundLine";
     }
 
     /// <summary>What the object list says in its status line (the first page of stage V2).</summary>
@@ -218,6 +248,18 @@ public static partial class L
 
         /// <summary>Where the reasons of the failures are.</summary>
         public const string ReasonsNext = "Changes.Status.ReasonsNext";
+
+        /// <summary>
+        /// The numbers of a result in which some objects were changed only in part: {0} = the objects that were changed, fully
+        /// or in part ("3 objects"), {1} = those changed only in part, {2} = the objects of which nothing was changed.
+        /// </summary>
+        public const string CountsPartly = "Changes.Status.CountsPartly";
+
+        /// <summary>
+        /// The last sentence of the failure dialog of a run that the connection reports because its window closed: where every
+        /// change and its result are.
+        /// </summary>
+        public const string SessionLogNext = "Changes.Status.SessionLogNext";
     }
 
     /// <summary>

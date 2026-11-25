@@ -152,7 +152,7 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase, IHasPa
     public partial bool IsAnyLocked { get; private set; }
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(ResetCommand), nameof(CancelCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ResetCommand))]
     public partial bool IsBusy { get; private set; }
 
     /// <summary>
@@ -175,11 +175,14 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase, IHasPa
     /// <summary>Generated passwords that were neither shown, copied nor exported (closing asks first).</summary>
     public bool HasUnsavedGeneratedPasswords => !_passwordsExported && Results.Any(r => r.HasPassword && !r.WasHandedOut);
 
-    /// <summary>Generated passwords exist only in this window: closing without taking them leaves unknown passwords.</summary>
+    /// <summary>
+    /// Generated passwords exist only in this window: closing without taking them leaves unknown passwords. (The check of the
+    /// accounts is a read: closing during it ends it and nothing is reset; the reset itself is asked about by the close
+    /// question.)
+    /// </summary>
     protected override async Task<bool> CanCloseCoreAsync() =>
-        !IsBusy
-        && (!HasUnsavedGeneratedPasswords
-            || await Services.Dialogs.ConfirmAsync(WindowTitle, Localizer[L.Batch.DiscardPasswords], destructive: true).ConfigureAwait(true));
+        !HasUnsavedGeneratedPasswords
+        || await Services.Dialogs.ConfirmAsync(WindowTitle, Localizer[L.Batch.DiscardPasswords], destructive: true).ConfigureAwait(true);
 
     public override Task InitializeAsync() => ReadTargetsAsync();
 
@@ -366,7 +369,10 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase, IHasPa
             // The reset itself is the execution of the plan: how far it is, Stop (which cancels the activity) and how it
             // ended - with the domain - are said like in every window that executes a plan. It takes the line from the
             // check without a pause in between.
+            // Closing the window may let a reset with a typed password go on without it (D-A); generated passwords exist only
+            // here, so that one stays.
             using var execution = ExecutionStatus.Begin(Status, Localizer, title, ConfirmationDomain, plan.Objects.Count);
+            execution.StaysWithWindow(operation.Mode == PasswordMode.GenerateUnique ? L.CloseWork.NoBackgroundPasswords : null);
             BatchResult result;
             try
             {
@@ -374,14 +380,26 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase, IHasPa
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
-                Error = Errors.Translate(ex);
-                execution.Fail(Error, ResultCode.Of(ex));
+                if (!execution.LeftWindow)
+                {
+                    Error = Errors.Translate(ex);
+                    execution.Fail(Error, ResultCode.Of(ex));
+                }
+
+                return;
+            }
+
+            if (execution.LeftWindow)
+            {
+                // The window closed and let it go on: the connection says how it ended.
                 return;
             }
 
             PasswordInput?.Clear();
             ConfirmPasswordInput?.Clear();
-            ShowResults(result, operation.Mode == PasswordMode.GenerateUnique);
+            // The window closes right after (Stop and close): the connection says how it ended, not this window's toast. A toast
+            // the window showed is the report: the connection adds nothing to it.
+            execution.WindowNotifies = ShowResults(result, operation.Mode == PasswordMode.GenerateUnique, toast: !execution.ReportsByConnection);
 
             // Where the reasons are - said only when the result list has one (an account that a Stop kept from starting has none).
             execution.Complete(result, Results.Any(r => !r.Succeeded && r.Message.Length > 0) ? Localizer[L.ChangeStatus.ReasonsNext] : null);
@@ -494,16 +512,12 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase, IHasPa
 
     private bool CanExport() => IsCompleted;
 
-    [RelayCommand(CanExecute = nameof(CanCancel))]
-    private async Task CancelAsync()
-    {
-        if (await CanCloseAsync().ConfigureAwait(true))
-        {
-            RequestClose(IsCompleted);
-        }
-    }
-
-    private bool CanCancel() => !IsBusy;
+    /// <summary>
+    /// Cancel (also Esc): the same close as the title bar's - during the reset the close question, during the check none (it is
+    /// a read). Available while the window works.
+    /// </summary>
+    [RelayCommand]
+    private Task CancelAsync() => CloseByOperatorAsync(IsCompleted);
 
     protected override void Dispose(bool disposing)
     {
@@ -513,15 +527,16 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase, IHasPa
             Results.ReplaceAll([]);
             _result = null;
 
-            // What still runs says nothing any more. A reset that is being executed goes on as an activity of the
-            // connection: ending its operation does not cancel it.
+            // What still runs says nothing any more: the check ends (nothing is reset for a window that is gone). A reset that
+            // is being executed was let go by the base class: it goes on, and the connection says how it ended.
             Status.Operation?.Dispose();
             Status.Front = null;
             TargetsStatus.Operation?.Dispose();
         }
     }
 
-    private void ShowResults(BatchResult result, bool generated)
+    /// <summary>Shows the result list; true when it also said the result in a toast of the main window.</summary>
+    private bool ShowResults(BatchResult result, bool generated, bool toast)
     {
         _result = result;
         Results.ReplaceAll(result.Objects.Select(o =>
@@ -541,10 +556,13 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase, IHasPa
         // The counts of the result list are the summary of the window from now on (behind how the reset ended).
         Status.SetIdle(ResultSummary);
         IsCompleted = true;
-        if (result.FailedCount == 0 && !generated)
+        if (toast && result.FailedCount == 0 && !generated)
         {
             Services.Notifications.Show(NotificationSeverity.Success, Localizer.Format(L.ResetPassword.Done, result.SucceededCount));
+            return true;
         }
+
+        return false;
     }
 
     private string DescribeBlocked(ChangePlan plan, IDirectorySession session)

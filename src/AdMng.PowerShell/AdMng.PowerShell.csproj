@@ -21,6 +21,8 @@
   <Import Project="PowerShellEngineConsumer.props" />
   <ItemGroup>
     <InternalsVisibleTo Include="AdMng.PowerShell.Tests" />
+    <!-- The child process of the engine's tests: it waits for the count of contained leftover script blocks. -->
+    <InternalsVisibleTo Include="AdMng.PowerShell.Probe" />
   </ItemGroup>
   <!-- The help of the commands (MAML, English only: the engine's help is its own language). Beside the assembly, where the engine
        looks for it; a publish that bundles the assembly puts it beside the program (docs/dev/r1-powershell-window.md 12.2). -->

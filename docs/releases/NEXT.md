@@ -54,17 +54,32 @@ się nie zmienia, a zapisy do katalogu nadal idą wyłącznie przez plan zmian z
   (pasek w ruchu), albo – gdy operacja, której postęp było widać, skończyła się stanem, który trwa (np. nie udało się odczytać
   listy) – żółty lub czerwony pasek, dopóki strona nie powie czegoś innego. Pasek pojawia się po tym samym czasie co stan
   *Trwa* (około 0,15 s), działa także przy wyłączonych animacjach, a okno główne pokazuje postęp karty, która jest na wierzchu.
-  Zamknięcie okna w trakcie operacji, która coś zapisuje – wykonania zmian, wysyłki wiadomości, przywracania, aktualizacji
-  magazynu centralnego, zapisu konfiguracji Watchdoga, polecenia dla komputera – zadaje jedno pytanie, tak samo z paska
-  tytułu, przyciskiem *Zamknij* i klawiszem Esc: *Zatrzymać trwającą operację i zamknąć okno?*, z tym, co trwa, i z tym, co się stanie (przy wykonaniu zmian: nic nowego nie jest zaczynane, a obiekt
-  w toku zostaje dokończony). *Tak* zatrzymuje operację i zamyka okno dopiero po jej końcu; *Nie* zostawia okno. Operacja, której
-  nie da się zatrzymać (np. zapis właściwości obiektu, utworzenie obiektu, zapis konfiguracji Watchdoga), nie jest pytaniem: okno
-  mówi, że jeszcze pracuje, i zostaje otwarte do jej końca. Okno, które tylko czyta, zamyka się bez pytania, a odczyt jest przerywany,
-  jak dotąd. To samo pytanie zadaje okno główne o zapisy w swoich kartach i w oknach, które do niego należą, i karta Watchdoga przy
-  zamknięciu. Pytanie obejmuje także zapis, który stracił wiersz stanu na rzecz odczytu (np. potwierdzanie zdarzeń, gdy
-  w tym czasie odświeżono listę), i zapis zaczęty, gdy pytanie było już otwarte. Wcześniej pytało tylko okno
-  *Korespondencja* i tylko przy wysyłce, a edytor zbiorczy zamknięty w trakcie wykonania
-  zostawiał je w tle.
+  Zamknięcie okna w trakcie wykonania zmian (edytor zbiorczy i kreator zakładania kont, reset hasła, przywracanie z Kosza AD)
+  pyta, co zrobić z wykonaniem, i daje trzy odpowiedzi, tak samo z paska tytułu, przyciskiem *Zamknij* (*Anuluj*) i klawiszem
+  Esc: *Zatrzymaj i zamknij* – nic nowego nie jest zaczynane, obiekt w toku zostaje dokończony, a okno zamyka się po końcu
+  wykonania; *Zamknij i kontynuuj w tle* – okno zamyka się od razu, a wykonanie trwa do końca na liście operacji w tle (w edytorze
+  zbiorczym i w Koszu AD tak było przed tą wersją); *Nie zamykaj* (także Enter i Esc). Jak skończyło się wykonanie, którego wyniku
+  okno już nie pokaże – bo zostało w tle albo okno zamknęło się zaraz po jego końcu – mówi okno główne. Gdy nie było
+  niepowodzeń, jest to powiadomienie, które przy zatrzymaniu mówi, ile obiektów wykonano (np. *Wykonywanie „…” w domenie …
+  zatrzymano: wykonano 1 z 5 obiektów, niepowodzenia: 0…*); gdy coś się nie udało albo całego wykonania nie dało się
+  przeprowadzić – okno z przyczynami, które otwiera się dopiero po zamknięciu tamtego okna. Każda zmiana jest w dzienniku sesji.
+  Tak jest też w edytorze zbiorczym, który swoje powiadomienie z liczbami udanych, nieudanych i pominiętych obiektów pokazuje
+  tylko wtedy, gdy zostaje otwarty. Kontynuacji w tle nie ma, gdy wykonanie generuje hasła (istnieją
+  tylko w oknie), w podglądzie planu zmian GPO (okno, z którego go otwarto, czeka na wynik) i w kreatorze, dopóki nie powstanie
+  pierwsze konto – pytanie mówi wtedy, dlaczego. Inne zapisy – wysyłka wiadomości, aktualizacja magazynu centralnego, kopia
+  zapasowa GPO, polecenie dla komputera – pytają z dwiema odpowiedziami: *Zatrzymaj i zamknij* albo *Nie zamykaj*; zapis
+  właściwości obiektu, utworzenie obiektu i zapis konfiguracji Watchdoga, których nie da się zatrzymać, nie są pytaniem: okno
+  mówi, że jeszcze pracuje, i zostaje otwarte do ich końca. Okno, które tylko czyta, zamyka się bez pytania, a odczyt jest
+  przerywany, jak dotąd. Okno główne zadaje jedno pytanie o wszystko, co trwa w jego kartach, w jego oknach i w tle, bez
+  kontynuacji w tle (jego zamknięcie kończy połączenie), a *Zatrzymaj i zamknij* czeka na koniec obiektów w toku. Pytanie
+  obejmuje także zapis, który stracił wiersz stanu na rzecz odczytu, i zapis zaczęty, gdy pytanie było już otwarte. Okno zamyka
+  się zgodnie z odpowiedzią także wtedy, gdy wykonanie skończyło się, kiedy pytanie było otwarte, albo gdy okno po wykonaniu
+  jeszcze odczytuje listę (Kosz AD) – wtedy po końcu tego odczytu; wykonanie zatrzymane wcześniej (*Zatrzymaj* w wierszu stanu
+  albo na liście operacji w tle) nie potrzebuje pytania: okno zamyka się po jego końcu. Drugie zamknięcie, gdy okno czeka na
+  zatrzymanie, nie pyta ponownie. W wersji {{PREVIOUS}} przy zamknięciu w trakcie wysyłki pytały okna *Korespondencja*
+  i *Wyślij wiadomość do użytkowników*, a okno główne, gdy trwały operacje w tle, pytało: *Czy mimo to zamknąć okno? Trwające
+  operacje zostaną przerwane.* – i zamknięcie okna przerywało te operacje. Tego pytania już nie ma: zastępuje je opisane wyżej
+  jedno pytanie okna głównego, którego *Zatrzymaj i zamknij* czeka na koniec obiektów w toku.
 
 ## Nowe: okno PowerShell (R1)
 
@@ -154,13 +169,21 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   konsolowe (`whoami`, `nltest`) działają jak w każdej konsoli – jako osobny proces z tożsamością operatora; to, co wypisują,
   także na wyjście błędów, jest w oknie (wcześniej program na końcu polecenia pisał poza nie, do niewidocznej konsoli).
 - **Zasady PowerShella tego komputera.** Przy otwarciu okno czyta zasady grupy PowerShella (transkrypcję, rejestrowanie bloków
-  skryptów i modułów) oraz oba pliki `powershell.config.json` i, zanim uruchomisz pierwsze polecenie, mówi stałą uwagą, co jest
-  gdzie zapisywane („transkrypcja jest włączona zasadą komputera: polecenia i wyniki zapisuje Windows w …”). Czyta je według
+  skryptów i modułów) oraz oba pliki `powershell.config.json` i, zanim uruchomisz pierwsze polecenie, mówi stałą uwagą, co i
+  gdzie zapisują zasady („transkrypcja jest włączona zasadą komputera: polecenia i wyniki zapisuje Windows w …”). Czyta je według
   reguł samego silnika: każdą zasadę osobno, najpierw z zasad komputera, potem użytkownika, a zasadę z zaznaczonym *Use Windows
   PowerShell Policy setting* – z klucza Windows PowerShell; pliki liczą się dopiero wtedy, gdy zasady grupy jej nie ustawiają.
   Gdy klucza albo pliku nie da się odczytać, uwaga mówi który i że nie wiadomo, czy polecenia są rejestrowane. Program niczego
-  nie zmienia i niczego nie obchodzi; plik `powershell.config.json` obok `AdMng.exe` wyłącza tylko to, co włączył plik
-  użytkownika (zasada komputera ma pierwszeństwo przed nim). Wyniki pokazują te same sekrety, które pokazuje Edytor atrybutów
+  nie zmienia i niczego nie obchodzi; plik `powershell.config.json` obok `AdMng.exe` wyłącza tylko transkrypcję i rejestrowanie
+  modułów, które włączył plik użytkownika (zasada komputera ma pierwszeństwo przed nim). Rejestrowania bloków skryptów nie
+  ustawia: decydują o nim zasady grupy, potem plik użytkownika, a gdy jest włączone, do dziennika trafia treść każdego polecenia,
+  jak w `pwsh.exe`. Gdy nic go nie ustawia, PowerShell sam zapisuje jako ostrzeżenie 4104 w dzienniku
+  *PowerShellCore/Operational* polecenia, które jego wbudowane sprawdzenie uznaje za podejrzane (lista słów i pewne
+  konstrukcje); które, decyduje silnik, i mogą to być zwykłe polecenia, więc każdy wiersz wpisany w oknie może trafić do
+  dziennika – nie wpisuj w nim sekretu jawnym tekstem. Zdarzenia trafiają do dziennika tylko tam, gdzie zarejestrowano dostawcę
+  zdarzeń PowerShell 7 (robi to domyślnie instalator MSI PowerShell 7 albo `RegisterManifest.ps1` uruchomiony jako
+  administrator; pakiety zip i MSIX go nie rejestrują). Znane różnice wobec zwykłego `pwsh.exe` wymienia rozdział 8 instrukcji
+  okna (POWERSHELL.md). Wyniki pokazują te same sekrety, które pokazuje Edytor atrybutów
   (np. hasło LAPS jawnym tekstem), więc przy włączonej transkrypcji trafią one do transkrypcji – uwaga o zasadach mówi to z
   góry.
 - **`Out-AdmGrid`, `Open-AdmObject`, `Export-AdmList`.** `Out-AdmGrid` otwiera okno z siatką jak lista obiektów: kolumny z
@@ -228,8 +251,21 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
   obiektu w połowie (zob. „Inne zmiany”).
 - Zatrzymanie kończy obiekt, który trwa, ale nie całą akcję: plan złożony z kilku obiektów wykonywanych po kolei (np. nowy GPO –
   kontener z plikami, kontenery Machine i User, dowiązanie) zatrzymany między dwoma z nich zostawia GPO, które trzeba cofnąć
-  planem cofnięcia (tak było dotąd). Wiersz listy operacji w tle mówi o zatrzymanym wykonaniu tylko „Anulowano” – zdanie
-  z liczbą obiektów jest w wierszu stanu okna.
+  planem cofnięcia (tak było dotąd); dotyczy to też podglądu planu zmian GPO zamkniętego przyciskiem *Zatrzymaj i zamknij* – jego
+  *Cofnij* znika z oknem (ile zrobiono, mówi po jego zamknięciu okno główne: powiadomieniem, a przy niepowodzeniach oknem
+  z przyczynami). Wiersz listy operacji w tle mówi o zatrzymanym wykonaniu tylko „Anulowano” – zdanie z liczbą obiektów jest
+  w wierszu stanu okna, a gdy okno zamknięto, w powiadomieniu okna głównego albo – przy niepowodzeniach – w jego oknie
+  z przyczynami.
+- Wykonanie pozostawione w tle traci okno: jego wyniki, *Ponów nieudane* i *Cofnij* znikają z oknem (zmiany są w dzienniku sesji).
+  W kreatorze okno główne mówi wtedy tylko o kontach tworzonych po pierwszym (pierwsze jest osobnym wierszem listy operacji
+  w tle).
+  Zapisu właściwości obiektu i utworzenia obiektu nie da się zostawić w tle: to jeden obiekt, którego zapisu nie można zatrzymać,
+  a to, co następuje po nim (ponowny odczyt, zachowane wartości przy odmowie kontrolera, zaznaczenie nowego obiektu), istnieje
+  tylko w oknie. *Zatrzymaj i zamknij* w oknie głównym czeka bez limitu czasu; wylogowanie systemu nie zadaje pytań, a program
+  zamyka sesje w ciągu 10 s. Pytanie z trzema odpowiedziami i to, co mówi potem okno główne, sprawdzono testami automatycznymi (model na
+  Linuksie, okna na Windows); nikt nie oglądał ich jeszcze na ekranie. To, że okno z niepowodzeniami otwiera się dopiero po
+  zamknięciu okna, którego dotyczy, sprawdzają testy modelu i jeden test interfejsu na Windows (prawdziwe okno Kosza AD
+  i prawdziwe okno dialogowe); na ekranie nikt tego nie oglądał.
 - Odczytywanie zmienionego podsumowania i opóźnienie stanu *Trwa* sprawdzono testami automatycznymi i na podstawie kodu;
   nie sprawdzono ich z prawdziwym czytnikiem ekranu (Narrator, NVDA) ani na ekranie.
 - Plakietki stanu, puste listy i szare wiersze zastępcze sprawdzono testami automatycznymi (właściwości, zasoby, stan
@@ -263,4 +299,7 @@ katalogu: polecenia zapisu (przez plan zmian) i moduły RSAT są dopiero w nast�
 
 ## English summary
 
-<!-- TODO: one paragraph in English: "AD Manager {{VERSION}} (preview) adds ...", links to docs/en with the tag v{{VERSION}} -->
+<!-- TODO: one paragraph in English: "AD Manager {{VERSION}} (preview) adds ...", links to docs/en with the tag v{{VERSION}}.
+     One sentence of it is written already (the close question, D-A); fold it into that paragraph. -->
+Closing a window while it executes changes asks whether to stop and close, close and let the execution continue in the
+background, or keep the window open; once the window has closed, the main window says how the execution ended.

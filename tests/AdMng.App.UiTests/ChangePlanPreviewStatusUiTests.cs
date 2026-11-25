@@ -132,12 +132,13 @@ public sealed class ChangePlanPreviewStatusUiTests
             Assert.Equal(Visibility.Collapsed, close.Visibility);
 
             // The Execute button stays and is the Cancel of the execution: enabled although its command cannot
-            // execute. There is no separate Cancel button and no progress bar, and the window cannot be closed.
+            // execute. There is no separate Cancel button and no progress bar. Close stays enabled: closing during the
+            // execution asks the close question (the owner's decision D-A).
             Assert.True(window.ExecuteButton.IsVisible);
             Assert.Equal(ActionButtonState.Running, window.ExecuteButton.State);
             Assert.True(window.ExecuteButton.IsEnabled);
             Assert.False(preview.ExecuteCommand.CanExecute(null));
-            Assert.False(window.CloseButton.IsEnabled);
+            Assert.True(window.CloseButton.IsEnabled);
             Assert.DoesNotContain(
                 UiWait.Descendants<Button>(window),
                 other => other.IsVisible && other is not ActionButton && !other.IsDescendantOf(line)
@@ -248,7 +249,9 @@ public sealed class ChangePlanPreviewStatusUiTests
             Assert.Equal(Visibility.Collapsed, action.Visibility);
             Assert.True(window.ExecuteButton.IsVisible);
             Assert.True(window.ExecuteButton.IsEnabled);
-            Assert.False(window.CloseButton.IsEnabled);
+
+            // Close stays enabled while it stops, too: the close question waits for the end (D-A).
+            Assert.True(window.CloseButton.IsEnabled);
         }
         finally
         {

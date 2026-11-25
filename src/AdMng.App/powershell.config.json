@@ -1,10 +1,6 @@
 {
   "DisableImplicitWinCompat": true,
   "PowerShellPolicies": {
-    "ScriptBlockLogging": {
-      "EnableScriptBlockLogging": false,
-      "EnableScriptBlockInvocationLogging": false
-    },
     "ModuleLogging": {
       "EnableModuleLogging": false
     },

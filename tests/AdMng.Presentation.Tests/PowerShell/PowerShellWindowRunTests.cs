@@ -2,6 +2,7 @@ using System.Globalization;
 using AdMng.Core.PowerShell;
 using AdMng.Presentation.Feedback;
 using AdMng.Presentation.PowerShell;
+using AdMng.Presentation.Services;
 using static AdMng.Presentation.Tests.PowerShell.FakePowerShellSession;
 using static AdMng.Presentation.Tests.PowerShell.PowerShellWindowTestSupport;
 
@@ -416,16 +417,16 @@ public sealed class PowerShellWindowRunTests
         await fake.Reached.WaitAsync(Limit, Ct);
 
         // No: the window stays and the command goes on.
-        harness.Directory.Dialogs.ConfirmAnswers.Enqueue(false);
+        harness.Directory.Dialogs.CloseAnswers.Enqueue(CloseAnswer.KeepOpen);
         Assert.False(await window.CanCloseAsync());
         Assert.True(window.IsRunning);
         Assert.False(window.Status.IsCancelling);
-        var question = Assert.Single(harness.Directory.Dialogs.Shown, shown => shown.StartsWith("confirm:", StringComparison.Ordinal));
+        var question = Assert.Single(harness.Directory.Dialogs.Shown, shown => shown.StartsWith("close:", StringComparison.Ordinal));
         Assert.Contains("Running the command…", question, StringComparison.Ordinal);
         Assert.Contains("Stop the running operation and close the window?", question, StringComparison.Ordinal);
 
         // Yes: it is stopped and the window may close once it ended.
-        harness.Directory.Dialogs.ConfirmAnswers.Enqueue(true);
+        harness.Directory.Dialogs.CloseAnswers.Enqueue(CloseAnswer.StopAndClose);
         Assert.True(await window.CanCloseAsync().WaitAsync(Limit, Ct));
         await run.WaitAsync(Limit, Ct);
         Assert.False(window.IsRunning);
@@ -440,7 +441,7 @@ public sealed class PowerShellWindowRunTests
 
         Assert.True(await window.CanCloseAsync());
 
-        Assert.DoesNotContain(harness.Directory.Dialogs.Shown, shown => shown.StartsWith("confirm:", StringComparison.Ordinal));
+        Assert.DoesNotContain(harness.Directory.Dialogs.Shown, shown => shown.StartsWith("close:", StringComparison.Ordinal));
     }
 
     [Fact]

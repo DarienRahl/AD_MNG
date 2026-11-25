@@ -359,12 +359,17 @@ internal sealed class RecordingNotificationService : INotificationService
         }
     }
 
+    /// <summary>Called with every toast as it is shown - e.g. to see whether a window was closed by then.</summary>
+    public Action<NotificationSeverity, string>? OnShow { get; set; }
+
     public void Show(NotificationSeverity severity, string message)
     {
         lock (_items)
         {
             _items.Add((severity, message));
         }
+
+        OnShow?.Invoke(severity, message);
     }
 
     /// <summary>Forgets the toasts shown so far (e.g. those of the setup).</summary>

@@ -431,17 +431,16 @@ public sealed class UserMessageComposerStatusTests
 
             // The operator closes the window: one question, the same as in every window that works - the first answer is No.
             scenario.Harness.Dialogs.Shown.Clear();
-            scenario.Harness.Dialogs.ConfirmAnswers.Clear();
-            scenario.Harness.Dialogs.ConfirmAnswers.Enqueue(false);
+            scenario.Harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.KeepOpen);
             Assert.False(await composer.CanCloseAsync());
             Assert.StartsWith(
-                "confirm:Sending the messages: 0 of 2…\n\nStop the running operation and close the window? The messages not yet sent are not sent",
+                "close:Sending the messages: 0 of 2…\n\nStop the running operation and close the window? The messages not yet sent are not sent",
                 Assert.Single(scenario.Harness.Dialogs.Shown),
                 StringComparison.Ordinal);
             Assert.False(composer.Status.IsCancelling);
 
-            // Yes: Stop of the line - "Stopping…" - and the window closes after the end, not before.
-            scenario.Harness.Dialogs.ConfirmAnswers.Enqueue(true);
+            // Stop and close: Stop of the line - "Stopping…" - and the window closes after the end, not before.
+            scenario.Harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.StopAndClose);
             closing = composer.CanCloseAsync();
             Assert.True(composer.Status.IsCancelling);
             Assert.False(closing.IsCompleted);

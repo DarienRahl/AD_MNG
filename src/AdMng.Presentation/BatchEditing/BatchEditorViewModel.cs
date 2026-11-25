@@ -377,15 +377,16 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase, IHasPage
 
     protected override async Task<bool> CanCloseCoreAsync()
     {
-        // Generated passwords exist only in this window: closing without exporting them (or while they are being
-        // set) leaves the accounts with passwords nobody knows.
-        if ((HasUnsavedGeneratedPasswords || (IsExecutingStep && GeneratesPasswords))
+        // Generated passwords exist only in this window: closing without exporting them leaves the accounts with passwords
+        // nobody knows. (An execution that generates them is still running only when the close question kept it in this
+        // window and waited for its end: then its results - with the new passwords - are shown when this is asked.)
+        if (HasUnsavedGeneratedPasswords
             && !await Services.Dialogs.ConfirmAsync(WindowTitle, Localizer[L.Batch.DiscardPasswords], destructive: true).ConfigureAwait(true))
         {
             return false;
         }
 
-        // Planning is cancelled; an execution keeps running as a background activity (activity center).
+        // Planning is cancelled.
         _planning.Cancel();
         return true;
     }
@@ -612,6 +613,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase, IHasPage
 
         // First the operation, then the step: the line goes from the summary of the preview straight to "working".
         using var execution = ExecutionStatus.Begin(Status, Localizer, title, ConfirmationDomain, total);
+        execution.StaysWithWindow(StayReason());
         _executing = true;
         Step = BatchEditorStep.Executing;
         BatchResult result;
@@ -619,12 +621,25 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase, IHasPage
         {
             result = await execute(activity =>
             {
-                CurrentActivity = activity;
                 execution.Follow(activity);
+                if (execution.LeftWindow)
+                {
+                    // A part that starts after the window is gone (a forced close in the canary loop) is not this window's.
+                    return;
+                }
+
+                CurrentActivity = activity;
+                execution.StaysWithWindow(StayReason());
             }).ConfigureAwait(true);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
+            if (execution.LeftWindow)
+            {
+                // The window let it go on without it: the connection says how it ended.
+                return;
+            }
+
             Error = Errors.Translate(ex);
             Step = BatchEditorStep.Preview;
             execution.Fail(Error, ResultCode.Of(ex));
@@ -635,14 +650,33 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase, IHasPage
             _executing = false;
         }
 
-        // Closed while executing: the activity center reports the outcome and no results (passwords) are kept.
-        if (!IsDisposed)
+        // The window closed and let it go on to its end (D-A): the connection says how it ended, and no results - no passwords,
+        // no Retry, no Undo - are kept here.
+        if (execution.LeftWindow)
         {
-            ShowResults(result);
-            var (next, action) = AfterExecution(result);
-            execution.Complete(result, next, action);
+            return;
         }
+
+        ShowResults(result);
+
+        // The window says the outcome in a notification of the main window too, for which it finished elsewhere - while it stays
+        // open. A window that closes right after the run (Stop and close, a Stop pressed before the close, a result that came back
+        // under the close question) takes its line with it: the connection says how the run ended then - that it was stopped and
+        // how far it got, the failed objects with their reasons -, and this notification, which says neither, is left out.
+        execution.NotifyWhileOpen(ResultsNotification(result));
+        var (next, action) = AfterExecution(result);
+        execution.Complete(result, next, action);
     }
+
+    /// <summary>
+    /// Why the running execution must stay with this window (a key of <c>L.CloseWork</c>), or null when closing may let it go on
+    /// in the background: generated passwords exist only here, and the first account of the bulk wizard decides whether this
+    /// window starts the others.
+    /// </summary>
+    private string? StayReason() =>
+        GeneratesPasswords ? L.CloseWork.NoBackgroundPasswords
+        : IsCreateMode && BulkCreate!.ExecutingPart == BulkExecutionPart.FirstAccount ? L.CloseWork.NoBackgroundFirstAccount
+        : null;
 
     /// <summary>
     /// What the operator can do about the objects an execution did not change: the reasons are in the list of results
@@ -892,8 +926,8 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase, IHasPage
     {
         if (disposing)
         {
-            // What still runs here ends without a message. An execution is not cancelled by that: it keeps running as
-            // a background activity.
+            // What still runs here ends without a message. An execution is not cancelled by that: the base class let it leave
+            // the window, and the connection says how it ended.
             _planning.Cancel();
             Status.Operation?.Dispose();
             Status.Front = null;
@@ -1162,8 +1196,15 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase, IHasPage
         ApplyResultFilter();
         ResultSummary = Localizer.Format(L.Batch.ResultSummary, shown.SucceededCount, shown.FailedCount, shown.SkippedCount);
         Step = BatchEditorStep.Results;
+    }
+
+    /// <summary>The notification of the results of an execution (texts only - it may be held until a close is decided).</summary>
+    private Action ResultsNotification(BatchResult result)
+    {
         var severity = result.FailedCount > 0 || result.WasCutShort ? NotificationSeverity.Warning : NotificationSeverity.Success;
-        Services.Notifications.Show(severity, Localizer.Format(L.Batch.ExecutedNotification, ChangeTitle, ResultSummary));
+        var message = Localizer.Format(L.Batch.ExecutedNotification, ChangeTitle, ResultSummary);
+        var notifications = Services.Notifications;
+        return () => notifications.Show(severity, message);
     }
 
     private ChangePlan IncludedPlan(ChangePlan plan) =>

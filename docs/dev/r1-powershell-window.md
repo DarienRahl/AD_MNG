@@ -195,7 +195,8 @@ about 40 s; it passed here with the path above). `NUL\ModuleAnalysisCache` on Wi
 **relative** path there (a folder `NUL` below the process's current folder, which the Win32 path rules turn into the device - so
 creating it should fail, and the engine swallows the failure: `AnalysisCacheData.Serialize`, decompiled 7.6.10, catches every
 exception of the write) and nobody has run it; the opt-in test runs in the Windows CI job since the audit (its window child works in
-the watched folder, and the snapshot of the user's cache folder covers the engine's default place), not seen to pass there yet. In
+the watched folder, and the snapshot of the user's cache folder covers the engine's default place) and passed there from the CI of
+151aff46 on (about 42 s). In
 the window nothing makes the engine write the cache in the first place: auto-loading is off and `Get-Module` is not one of its
 commands (4.6), so the path is the second line of defence.
 
@@ -227,9 +228,107 @@ unhandled exceptions (`ExceptionHandling.SetUnhandledExceptionHandler`, .NET 9 a
 – the callback ends, its thread goes on – and every other exception ends the process as before (the predicate is
 `IsLeftoverScriptBlockCall`). .NET allows one handler per process (a second call throws; the method then does nothing, and
 `LeftoverScriptBlocksContained` stays false), so the program's module initializer sets it next to the regular expression limit,
-and the engine's tests do the same. `EscapeTests` proves it in child processes (the probe's `leftover-callback` and its control,
-which still crashes), `HostTests` checks that the program's module sets it, and the smoke test leaves such a timer behind in the
-published `AdMng.exe`.
+and the engine's tests do the same. `EscapeTests` proves it in child processes (the probe's `leftover-callback`, which waits until
+the handler has counted the callback - `ContainedLeftoverScriptBlockCalls` - and its control, which still crashes; neither waits a
+time of its own for the timer, 12.14), `HostTests` checks that the program's module sets it, and the smoke test leaves such a timer
+behind in the published `AdMng.exe`.
+
+**Script block logging (decision D-B, audit PS-04).** The program's `powershell.config.json` has no `ScriptBlockLogging`
+section: it is not the program's to decide. Until D-B it set `EnableScriptBlockLogging: false`, and what that did is in the
+engine's code (`System.Management.Automation` 7.6.10, `engine/runtime/CompiledScriptBlock.cs`):
+
+- `PerformSecurityChecks` runs when a script block is compiled, and only for a `ScriptBlockAst`: it returns at once for a function
+  definition's body ("Checks are only needed at the top level"). The braces of `if`, `foreach`, `while` and the like are a
+  `StatementBlockAst`, part of the block around them and never checked on their own; a script block literal `{ }` is a
+  `ScriptBlockAst`, checked when it is compiled and logged on its own when it starts. It also skips AMSI and the check below for
+  a block from a `.psd1` file whose content is a safe hashtable (a line typed in the window has no file). Otherwise it runs AMSI
+  and then sets `HasSuspiciousContent` when `ScriptBlock.CheckSuspiciousContent(scriptBlockAst)` finds anything. That check has
+  two parts:
+  - `SuspiciousContentChecker.Match` over the text, against 119 words (`LookupHash`) that it compares by a 32-bit hash of the
+    lower-cased word. It hashes only the ASCII letters `a-z`, `A-Z` and `-`; any other character - a space, a quote, a
+    digit, a Polish letter such as `ł` - is skipped and ends the current run. While it reads, it tests the words that end at the
+    current letter inside the current run; at the end of the text it tests every length up to 29 of the letters read last,
+    across what was skipped. So a word inside a run is found (`Get-AdmUser jmarshall` - `Marshal`), so is a word the last letters
+    spell across other characters (`Get-AdmUser 'grace mit'`, `Get-AdmUser emłit` - `Emit`), a word of the list with a digit
+    (`FromBase64String`, `ToBase64String`, `kernel32`, `WriteInt32`, `SHA1Managed`) is never found as it is written, and since
+    only the hash is compared, a text that holds no word of the list can match too (`Get-AdmUser mc-earraytype` has the hash of
+    `MakeArrayType`). No rule about the letters of a line tells for sure that the engine will not mark it.
+  - The parser's marks: `scriptBlockAst.HasSuspiciousContent`, set on every parse in the default mode (`Parser.cs`:
+    `PerformPostParseChecks`, `SemanticChecks.CheckAst`) by `SemanticChecks.MarkAstParentsAsSuspicious` on the AST and all its
+    parents: `CheckMemberAccess` (for `VisitMemberExpression` and `VisitInvokeMemberExpression`) when the member is not a
+    `ConstantExpressionAst` - `$u.$a`, `$u.('mail')`, `$u."$n"`, `$u.$m()`, so an operator's
+    `foreach ($a in 'mail', 'department') { $u.$a }` - and when a static member (`::`) is taken of something that is not a
+    `TypeExpressionAst` - `$t::Now` -, `VisitTypeExpression` and `VisitConvertExpression` for the type `System.Type` itself
+    (`[type]`, `[type]'System.String'`). `$u.mail`, `$u.'mail'` and `[datetime]::Now` are not marked.
+
+  A word inside a run of letters and a mark of the parser mark the block around a nested block as well (the run is in its text
+  too, and the parser marks every parent), but the end of a nested block is not the end of the text around it, so the end of the
+  text can mark a nested block alone: with nothing set,
+  `$global:sb = { Get-AdmUser 'grace mit' }; $null = & $global:sb; Get-AdmUser jan` is skipped and its nested block is logged,
+  while `if ($true) { Get-AdmUser 'grace mit' }; Get-AdmUser jan` is skipped as a whole;
+- `LogScriptBlockStart` (when a script block starts: `CompiledScriptBlock.cs` for an invoked block, `ScriptCommandProcessor.cs`
+  for a script the window runs and `& $block`) calls `LogScriptBlockCreation(scriptBlock, force: HasSuspiciousContent)` unless
+  the block is already `SkipLogging`;
+- `LogScriptBlockCreation` returns when the block `HasLogged`; otherwise `if (force || logSetting?.EnableScriptBlockLogging ==
+  true) { if (logSetting?.EnableScriptBlockLogging == false || scriptBlock.ScriptBlockData.IsProductCode) { SkipLogging = true;
+  return; } … WriteScriptBlockToLog(…) … HasLogged = true; } else { SkipLogging = true; }`. `logSetting` is
+  `Utils.GetPolicySetting<ScriptBlockLogging>(Utils.SystemWideThenCurrentUserConfig)`, read once per process
+  (`s_sbLoggingSettingCache`): on Windows the registry of `HKLM`, then `HKCU`, then the all-users file, then the user's
+  (`Utils.GetPolicySetting`), null when none sets it;
+- `WriteScriptBlockToLog` writes a marked block with `PSEtwLog.LogOperationalWarning` and any other with
+  `LogOperationalVerbose`, both `PSEventId.ScriptBlock_Compile_Detail` - event 4104 of the PowerShell 7 provider
+  (*PowerShellCore/Operational* on Windows, where the provider is registered: the MSI of PowerShell 7 runs
+  `RegisterManifest.ps1` while its property `REGISTER_MANIFEST` is 1, the default - the check box *Register Windows Event Logging
+  Manifest*, `assets/wix/Product.wxs`; the zip ships the script in `$PSHOME` without running it, and the MSIX package declares no
+  event provider, `assets/AppxManifest.xml`; the script, run elevated, registers it for any of them. AD Manager registers nothing).
+
+So when nothing sets the policy, the engine writes a script block it marked to its log on its own, as a warning, and no other;
+`true` writes every script block; `false` - a Group Policy set to *Disabled*, a file - writes none, not even the marked ones. The
+program's old file was such a file: in the window not even a block with `Add-Type` reached the event log as a 4104 unless a Group
+Policy turned the logging on. `HasLogged` belongs to the compiled block, and `ScriptBlock.Create` (`[scriptblock]::Create`) reuses
+a cached compiled block for a text it compiled before (`TryGetCachedScriptBlock`), so through it a text still in that cache is
+not logged again (the cache holds at most 1024 texts and is then cleared, and never takes a text with `using module`, `using
+assembly` or a dynamic keyword); the window runs each line through `PowerShell.AddScript`, which parses it anew (`AutomationEngine.ParseScriptBlock`, no
+cache), so a marked line typed again is logged again (12.13). Without the section, Group Policy decides, then a user's own
+`powershell.config.json` (which can now turn the logging on, or off), and with neither the engine's default.
+
+What the logs get from the window differs from what they get from a `pwsh.exe` in the points the guide lists (chapter 8); the
+reasons in the code:
+
+- a `pwsh.exe` reads the `powershell.config.json` of its own `$PSHOME` (e.g. `C:\Program Files\PowerShell\7`) as its all-users
+  file, the window the program's file (`Utils.DefaultPowerShellAppBase`, `PSConfiguration.cs`), so a section there - also
+  `ProtectedEventLogging`, read from the all-users file only (`Utils.SystemWideOnlyConfig`) - applies to `pwsh.exe` and not to
+  the window; the file a PowerShell 7 install writes there has no logging setting;
+- the program's file turns off the transcription and the module logging a user's file turns on (an all-users setting wins over
+  the user's, see below); a `pwsh.exe`, whose all-users file as installed sets neither, follows the user's file;
+- module logging (event 4103): a command logs its pipeline details when the module or the snap-in it comes from has
+  `LogPipelineExecutionDetails` on (`MshCommandRuntime.InitShouldLogPipelineExecutionDetail`; `Add-Type` always), which the
+  policy sets on the modules and snap-ins its `ModuleNames` match (`ModuleCmdletBase`,
+  `PSSnapInReader.SetSnapInLoggingInformation`). AD Manager's commands and the window's own `ForEach-Object`, `New-Object`,
+  `Tee-Object`, `Start-Transcript` and `Clear-Host` have neither, so they never log by themselves; a pipeline writes its 4103 when
+  any of its commands logs (`PipelineProcessor._needToLog`), and then it names its other commands too -
+  `Get-AdmUser … | Select-Object Name` writes `CommandInvocation(Get-AdmUser)` beside `Select-Object`'s parameters; a parameter
+  binding is written only for a command that logs itself or while the host is transcribing. Every line typed in the window ends in
+  `Out-Default` of the snap-in `Microsoft.PowerShell.Core`, so with `ModuleNames` `*` every line writes a 4103 with what reaches
+  `Out-Default` (all seen on Linux, where the engine writes these events to syslog, 12.13);
+- an event that names its host names the window's host (`WindowHost.Name`, *AD Manager PowerShell*) and the program's command
+  line; 40961 (`PSEtwLog.LogConsoleStartup`, which only `UnmanagedPSEntry.Start` of the console host calls) and 40962
+  (`ConsoleHost.cs`) come from the console host, which the program does not run, and 53504
+  (`NamedPipeIPC_ServerListenerStarted`) from `RemoteSessionNamedPipeServer`, whose static constructor starts the pipe only when
+  `POWERSHELL_DIAGNOSTICS_OPTOUT` is not true - the program sets it to 1 (the table above).
+
+`ScriptBlockLoggingTests` shows the script block logging with the real engine in child processes (the probe's
+`script-block-logging:<all-users file>|<user's file>` mode sets the all-users file as `pwsh -SettingsFile` does,
+`PowerShellConfig.SetSystemConfigFilePath`, the user's file by `PowerShellConfig.perUserConfigFile`, compiles each of twelve lines
+with `[scriptblock]::Create`, runs it once and reads the internal `HasLogged` / `SkipLogging`): an empty file and the program's
+file both give `setting=null`, the eight marked lines (`$properties = …`, `$u.$a` in a `foreach`, `$u.('mail')`, `$u."$n"`,
+`$t::Now`, `[type]`, `Get-AdmUser 'grace mit'`, `Get-AdmUser jmarshall`) logged and the four others (`$attributes = …`;
+`$u.mail; $u.'mail'; [datetime]::Now`; `$x = [Convert]::FromBase64String('eA==')`; `Get-AdmUser jkowalski`) skipped; a file
+with the old section gives `False` and skips all twelve; the program's file with a user's file that says `true` gives `True` and
+logs all twelve. On Linux, which has no Group Policy, the setting of the first two must be `null`; on Windows the test is skipped
+when the machine's own policy sets it. The test reads internal members on purpose: an engine update that changes them fails it,
+and this paragraph is read again. The window's note says what the policies record (D7) and makes no sentence of the engine's
+default (12.13).
 
 **Other process-level facts** found while proving it, relevant to later parts:
 
@@ -240,8 +339,9 @@ published `AdMng.exe`.
   configuration folder makes the embedded engine write transcripts that contain the commands **and their output**; one in
   `$PSHOME` (the all-users scope) **wins over the user's** (verified on Linux: user on / all-users off = no transcript; user
   off / all-users on = a transcript). So the README's plan stands – a `powershell.config.json` in the engine's folder turns
-  off what a user's file turned on – and the policy reader of D7 must read these files too, not only the registry (on Windows
-  the registry GPO comes first; whether the engine also reads the JSON policies on Windows is unverified).
+  off what a user's file turned on (since D-B the transcription and the module logging, not script block logging: see above) –
+  and the policy reader of D7 must read these files too, not only the registry (on Windows the registry GPO comes first; the
+  engine's `Utils.GetPolicySetting` reads the JSON policies after the registry there too).
 - `.NET`'s own diagnostic sockets (`dotnet-diagnostic-*`, `clr-debug-pipe-*` in the temp folder while the process runs)
   belong to the runtime, not to PowerShell; they are gone when the process ends and are outside this track.
 - ConstrainedLanguage in 7.6.10 refuses more than the documentation suggests: `[pscustomobject]@{…}` ("Only core types are
@@ -610,8 +710,8 @@ grid window of its own instead of the main window's object list).
 - The Windows decisions (D1): the published single-file `AdMng.exe --smoke-test` creates a session and runs a script. If it
   fails, the build publishes the engine's files in a folder beside `AdMng.exe` (`PublishSingleFile` with the engine's
   assemblies and `Modules` excluded from the bundle) and the smoke test runs again; the ADR's consequence is updated with the
-  result. The `powershell.config.json` that turns off what a user's file enabled is placed next to
-  `System.Management.Automation.dll` by the publish step.
+  result. The `powershell.config.json` that turns off the transcription and the module logging a user's file enabled is placed
+  next to `System.Management.Automation.dll` by the publish step (script block logging it leaves alone, 4.2).
 - Every consumer of the engine (the App, the tests) imports `src/AdMng.PowerShell/PowerShellEngineConsumer.props`, which
   excludes the non-OSI `sni.dll` packages (ADR-0010, "Package licenses").
 
@@ -694,6 +794,16 @@ This is the plan of the parts; the files that exist are in the records of 12.1-1
   window left a match that never ends still exits (`left-run` of the probe program).
 - **`InputGuardTests`** – what `InputGuard` refuses and what it must not (the call operator, strings, `&&`, `> $null`, `2>&1`), a
   line the parser gives up on, and the limits of `InputParser` on both sides.
+- **`ScriptBlockLoggingTests`** – what the engine logs of twelve lines with the all-users file and the user's file it is given
+  (D-B, 4.2; child processes: the probe's `script-block-logging:<all-users file>|<user's file>`): with an empty file and with the
+  program's file the eight lines the engine marks (a word of its list inside a run of letters - `$properties`, the account name
+  `jmarshall` -, the last letters of the text - `Get-AdmUser 'grace mit'` -, and the parser's marks: a member by a variable, an
+  expression or an expandable string, a static member through a variable, `[type]`) are logged and the four others skipped
+  (no word, members by constant names, a word of the list with a digit, `Get-AdmUser jkowalski`), with a file that sets the
+  switch off none is, with the program's file and a user's file that says on all are. On Linux, which has no Group Policy, the
+  setting must be `null`; only on Windows is the test skipped when the machine sets script block logging itself.
+  `EngineBoundaryTests` pins the program's file (no `ScriptBlockLogging` section; transcription, module logging and the
+  compatibility layer off).
 - **`EnvironmentTests`** – the variables of 4.2 are set and visible to a script; no `PSHost.*` pipe exists (Windows
   `\\.\pipe\`, Unix the temp folder).
 - **`NoFilesTests`** – the **"no files" test** and the measurement: the probe program (`AdMng.PowerShell.Probe`, a small console
@@ -702,8 +812,8 @@ This is the plan of the parts; the files that exist are in the records of 12.1-1
   switched **on** in its environment runs two sessions, a script touching the formatter, module discovery, completion, syntax and
   the history policy, and the folder holds no file afterwards; the child reports the folders of its engine and the test asserts
   that it watches each (on Windows also a snapshot of the user's own folders of the engine; 12.1, "What could not be verified on
-  Linux"); a **positive control** (an ordinary runspace of the SDK, both systems) leaves `telemetry.uuid` and a file of the probe in
-  the engine's cache folder, and the test must see them; the opt-in **module analysis cache proof** (`ADMNG_POWERSHELL_SLOW_TESTS=1`,
+  Linux"); a **positive control** (an ordinary runspace of the SDK, both systems) leaves a file of the probe in the engine's cache
+  folder and, where the engine sends telemetry, `telemetry.uuid` (12.14), and the test must see them; the opt-in **module analysis cache proof** (`ADMNG_POWERSHELL_SLOW_TESTS=1`,
   about 40 s; set in the Windows CI job since the audit). The probe is not an xunit run on purpose (the first version started this
   test assembly as the child and took 18.6 s on the Windows runner). Its `Get-Module -ListAvailable` fails at once in the window,
   whose command list does not have it; the first version ran it in an ordinary runspace and left it out on Windows, where a runner
@@ -748,8 +858,10 @@ The criteria of the README that concern reads, plus the ones this design adds:
 2. A value with a parenthesis, an asterisk, a backslash or Polish characters (`Łukasz (Kraków)*`) in the `Search-AdmObject`
    parameters gives a correctly escaped filter (RFC 4515) – without extra results.
 3. After the window is closed there is no command history, transcript or result on the workstation's disk (when no GPO
-   turns on transcription or script block logging) – the **"no files" test** passes; with transcription turned on by a GPO,
-   the window warns before the first command; the password does not appear in the history.
+   turns on transcription, script block logging or module logging and the user's own `powershell.config.json` does not turn on
+   script block logging; the engine's own warnings 4104 for script blocks it finds suspicious are in the event log where the
+   PowerShell 7 event provider is registered, 4.2) – the **"no files" test** passes; with transcription turned on by a GPO, the
+   window warns before the first command; the password does not appear in the history.
 4. When a WDAC policy applies, the window works in ConstrainedLanguage mode and AD Manager's commands work; without it
    ConstrainedLanguage is the default and the trusted mode needs a confirmation and is shown.
 5. No write command exists, no `AD:` drive and no RSAT: the **command list test** passes.
@@ -769,7 +881,7 @@ What was open when the design was written and what became of it (the state at th
 
 - Whether the engine reads `PowerShellPolicies` from `powershell.config.json` on Windows next to the registry policies, and where `$PSHOME` is in the single-file layout: `$PSHOME` is the program folder (the smoke test in Windows CI
   shows it); which policies the engine takes, and from where, was settled after the audit from its decompiled code (W-02: per policy and per hive, the switch in each policy's own key, the JSON policies after every hive - `PowerShellPolicyReader` mirrors it); a comparison with what the engine records under a real GPO is **still to be made** on such a machine.
-- `NUL\ModuleAnalysisCache` as the analysis cache path on Windows: the opt-in proof was run on Linux only; **still unconfirmed on Windows**.
+- `NUL\ModuleAnalysisCache` as the analysis cache path on Windows: the opt-in proof was run on Linux only at first; the Windows CI job runs it since the audit, and it passed there from the CI of 151aff46 on.
 - The stage S readiness item for the policies and the language mode: **not built**; the reader and the note are ready to be reused.
 - The two R3 questions of the README ("To be agreed with the team"): the list of translated RSAT commands and the window's credentials for the `ActiveDirectory` module - **open**.
 - New at the end of R1: the README promises that the window rejects `Start-Transcript` without `-Path`; nothing in R1 did. Built after
@@ -778,7 +890,7 @@ What was open when the design was written and what became of it (the state at th
 ## 12. R1 as built
 
 Section 12.0 reads the whole of R1 as one text. Sections 12.1 to 12.4 are the records the four parts wrote when they were done (the source comments cite them by number), and 12.5 records part 5. Where a
-record says "not yet" or ends with a question, 12.0 says what became of it. 12.6 records the repair of the engine's security composition after the audit of R1, and 12.7, 12.8 and 12.9 what three red teams found after it; where they differ from 12.0-12.5, they win. The blocks win over the design above.
+record says "not yet" or ends with a question, 12.0 says what became of it. 12.6 records the repair of the engine's security composition after the audit of R1, 12.7, 12.8 and 12.9 what three red teams found after it, 12.10, 12.11 and 12.13 the fixes of further findings of the audit, and 12.12 the fix of a parallel job that ended the process in CI; where they differ from 12.0-12.5, they win. The blocks win over the design above.
 
 ### 12.0 R1 in one text
 
@@ -865,7 +977,7 @@ has the picture.
 |---|---|
 | Commands in the catalog | 10: 6 `Get-` (`Get-AdmVersion` among them), `Search-`, `Out-`, `Open-`, `Export-`; no write verb |
 | Strings | 92 keys in each of `Strings.resx` and `Strings.pl.resx`: 75 `PowerShell.*`, 16 `PowerShellGrid.*`, 1 `Commands.PowerShell`; 91 constants in `L.PowerShell.cs` |
-| Engine tests (`AdMng.PowerShell.Tests`, Linux and Windows) | 239 at the end of R1: 237 passed, 2 skipped by design on each platform (Linux: the Windows-only execution-policy test and the opt-in 40 s cache proof; Windows: the Unix-only positive control and the same opt-in proof). 373 after the repair of 12.6: on Linux 370 passed and 3 skipped (the two above and the Windows-only authorization-manager test). 426 after 12.7 (+11 `RegexLimitTests`, +41 `HistoryPolicyTests` cases, +1 `EscapeTests`): on Linux 423 passed, the same 3 skipped. 461 after 12.8 (+25 `HistoryPolicyTests` cases, +4 `RegexLimitTests`, +4 `PowerShellSessionTests`, +2 `EscapeTests`): on Linux 458 passed, the same 3 skipped. 497 after 12.9 (+21 `HistoryPolicyTests` cases, +11 `InputGuardTests`, +3 `EscapeTests`, +1 `SyntaxTests`): on Linux 494 passed, the same 3 skipped. 523 after 12.10 (+16 `TrustedModeOffTests`, +10 `SessionEndingTests`). 611 after 12.11 (+45 `HistoryPolicyTests` cases, +8 `HostRoutingTests`, +7 `CommandTextTests`, +6 `PowerShellSessionTests`, +3 `CompletionTests`, the rest in the read and window command tests): on Linux 608 passed, the same 3 skipped. 617 after 12.12 (+6 `EscapeTests`): on Linux 614 passed, the same 3 skipped |
+| Engine tests (`AdMng.PowerShell.Tests`, Linux and Windows) | 239 at the end of R1: 237 passed, 2 skipped by design on each platform (Linux: the Windows-only execution-policy test and the opt-in 40 s cache proof; Windows: the Unix-only positive control and the same opt-in proof). 373 after the repair of 12.6: on Linux 370 passed and 3 skipped (the two above and the Windows-only authorization-manager test). 426 after 12.7 (+11 `RegexLimitTests`, +41 `HistoryPolicyTests` cases, +1 `EscapeTests`): on Linux 423 passed, the same 3 skipped. 461 after 12.8 (+25 `HistoryPolicyTests` cases, +4 `RegexLimitTests`, +4 `PowerShellSessionTests`, +2 `EscapeTests`): on Linux 458 passed, the same 3 skipped. 497 after 12.9 (+21 `HistoryPolicyTests` cases, +11 `InputGuardTests`, +3 `EscapeTests`, +1 `SyntaxTests`): on Linux 494 passed, the same 3 skipped. 523 after 12.10 (+16 `TrustedModeOffTests`, +10 `SessionEndingTests`). 611 after 12.11 (+45 `HistoryPolicyTests` cases, +8 `HostRoutingTests`, +7 `CommandTextTests`, +6 `PowerShellSessionTests`, +3 `CompletionTests`, the rest in the read and window command tests): on Linux 608 passed, the same 3 skipped. 617 after 12.12 (+6 `EscapeTests`): on Linux 614 passed, the same 3 skipped. 618 after 12.13 (+1 `ScriptBlockLoggingTests`; the test of the shipped file in `EngineBoundaryTests` changed, not added): on Linux 615 passed, the same 3 skipped |
 | Presentation tests (Linux) | 253 in `AdMng.Presentation.Tests.PowerShell` (one of them is part 5's test that the window's first lines name the guide), +1 in `ShellViewModelTests`; the project has 3,920. 256 after 12.8 (+3 `PowerShellWindowRunTests`: a run the engine left); the project has 3,952 |
 | Core tests (Linux) | 8 of `PowerShellGridTableTests`, 10 cases of `LdapFilter.Pattern` / `EqualBinary`; the project has 5,544 |
 | Lab tests against Samba | 5 (`PowerShellReadLabTests`), skipped without `ADMNG_TEST_LDAP_*`, run by the CI lab job |
@@ -880,7 +992,7 @@ the published-app smoke test that starts the engine and the two CI steps that ch
 its zip takes only the top-level files of the publish folder (no `runtimes\` sub folders) - a layout no test ran. Now the smoke test asserts that `$PSHOME` is the folder the program reads the
 engine's configuration from (`PowerShellEnvironment.EngineHome`) and, in the single file, the folder of `AdMng.exe` with its `powershell.config.json`; it reads the policies once with
 `WindowsPowerShellPolicySource` (must not throw) and, over a user's file simulated in memory that turns the three logs on, the program's file must decide each of them unless a Group Policy
-does. `release.yml` runs the layout check after the publish, smoke-tests the **unpacked zip** (with the layout check of the files that ship) and checks the `admng-watchdog` .deb for the engine;
+does (since D-B the transcription and the module logging, and never script block logging, 12.13). `release.yml` runs the layout check after the publish, smoke-tests the **unpacked zip** (with the layout check of the files that ship) and checks the `admng-watchdog` .deb for the engine;
 the CI's Linux package job runs that .deb check too. `IPowerShellWindowActions` is in the per-connection list of `HostTests`. The release workflow was not run (release 0.16.0 is on hold).
 
 **What could not be verified, and why it should still be right.**
@@ -891,10 +1003,10 @@ the CI's Linux package job runs that .deb check too. `IPowerShellWindowActions` 
 - *Policies under a real GPO.* The registry keys and the rules come from the engine's decompiled code (`Utils.GetPolicySetting`, audit W-02) and the documented templates, and the reader's rules are tested on Linux;
   the Windows source is tested against a throwaway key of the current user (`WindowsPowerShellPolicySourceTests`, Windows CI). Whether the note matches what the engine records under a real GPO has not been seen.
 - *WDAC / AppLocker.* The lockdown probe is `SystemPolicy.GetSystemLockdownPolicy()` and its mapping is tested with a fake; the engine under a real lockdown has not been run.
-- *`PSModuleAnalysisCachePath` = `NUL\ModuleAnalysisCache` on Windows* (a relative path there, 4.2). The opt-in 40 s proof (`ADMNG_POWERSHELL_SLOW_TESTS=1`) was run on Linux only; the Windows CI job sets it since the audit,
-  not seen to pass yet; auto-loading is off, which stops the cache being written by discovery, and the path is the second line of defence.
+- *`PSModuleAnalysisCachePath` = `NUL\ModuleAnalysisCache` on Windows* (a relative path there, 4.2). The opt-in 40 s proof (`ADMNG_POWERSHELL_SLOW_TESTS=1`) was run on Linux only at first; the Windows CI job sets it since the audit,
+  and it passed there from the CI of 151aff46 on; auto-loading is off, which stops the cache being written by discovery, and the path is the second line of defence.
 - *The "no files" test on Windows.* Its first Windows run (CI of 5cfead9c) failed its positive control, which showed that the test had not watched where the child's known-folder answers point; the
-  test now asks the child's engine for its folders and asserts that it watches each (12.1, "What could not be verified on Linux"); not seen to pass on Windows yet.
+  test now asks the child's engine for its folders and asserts that it watches each (12.1, "What could not be verified on Linux"); the window's test passed on Windows from the CI of 151aff46 on, and its positive control expected a file that the Windows engine does not write on the runner (12.14).
 - *A real Windows Server AD.* The commands ran over `FakeDirectorySession` and the Samba lab; the lab has no Windows-only behaviour (a hidden attribute, ranged retrieval differences, the DC's computed `msDS-User-Account-Control-Computed`).
 - *Running `AdMng.exe` as a person would.* The CI starts it with `--smoke-test` and the UI tests; the first runspace took 523-791 ms there and the second 9-12 ms.
 
@@ -938,7 +1050,7 @@ the CI's Linux package job runs that .deb check too. `IPowerShellWindowActions` 
 **Questions that remain for the owner.**
 
 1. Should a person look at the window on Windows (light, dark, High Contrast, 125-200 % scaling, a screen reader) before it is announced in a release? The release draft says nobody has.
-2. Is an all-users `powershell.config.json` beside `AdMng.exe` acceptable to the operators' security teams? It turns off the engine's own transcription and logging that a user's file turned on; a computer policy still wins and the window says so.
+2. Is an all-users `powershell.config.json` beside `AdMng.exe` acceptable to the operators' security teams? It turns off the transcription and the module logging that a user's file turned on; a computer policy still wins and the window says so. Script block logging it leaves to Windows and Group Policy (D-B, 12.13).
 3. Should the behaviour under a real WDAC / AppLocker and a real recording GPO get a pilot on a managed machine before R2 adds writes?
 4. Should `sni.dll` be offered in some OSI-compatible way for trusted-mode scripts that need SqlClient, or is the documented limit enough?
 5. Should the operator-readable secrets (LAPS, BitLocker) be masked in the window too (one line in `AdmValueConverter`; the Attribute Editor would then differ), or is the warning enough?
@@ -1016,7 +1128,7 @@ The result of the last Windows run is recorded in the report of the part.
 **What could not be verified on Linux, and why it should still be right.**
 
 - *Windows behaviour of the engine setup:* `PSModuleAnalysisCachePath=NUL\ModuleAnalysisCache` (the engine swallows an unwritable path on Linux; the
-  proof test runs in the Windows CI job since the audit, `ADMNG_POWERSHELL_SLOW_TESTS=1`, not seen to pass there yet), `InitialSessionState.ExecutionPolicy =
+  proof test runs in the Windows CI job since the audit, `ADMNG_POWERSHELL_SLOW_TESTS=1`, and passed there from the CI of 151aff46 on), `InitialSessionState.ExecutionPolicy =
   Restricted` and whether it is the process environment variable `PSExecutionPolicyPreference` (a Windows-only test asserts
   `Get-ExecutionPolicy` is `Restricted`), the STA apartment with `ReuseThread`, the absence of `\\.\pipe\PSHost.*` (the Linux run
   cannot show the pipe exists in the first place – a plain runspace creates none there; the Windows run is the proof), and the
@@ -1036,15 +1148,17 @@ The result of the last Windows run is recorded in the report of the part.
   `__PSScriptPolicyTest_<random>.ps1` / `.psm1` of the engine's AppLocker check (`SystemPolicy.GetAppLockerPolicy`, decompiled
   7.6.10: written with a comment line and deleted at once, once per process; audit W-11). The positive control is the same on both
   systems: an ordinary runspace of the SDK, telemetry on, whose first command writes the engine's `telemetry.uuid` into the engine's
-  cache folder, where the probe also writes a file of its own; both must be seen where the test watches (`telemetry.uuid` only when
-  it is new there), and the test removes what the control made in a real folder. The first Windows run of the control (CI of
+  cache folder when the engine sends telemetry (on Windows only when Windows' diagnostic data setting allows it too, 12.14), where the
+  probe also writes a file of its own; what was written must be seen where the test watches (`telemetry.uuid` only when it is new
+  there), and the test removes what the control made in a real folder. The first Windows run of the control (CI of
   5cfead9c) failed: it wrote its file into the folder `[Environment]::GetFolderPath('LocalApplicationData')` named in the child,
   and the snapshot of the user's real folder did not see it - so the child's variables do move at least that answer of the
   known-folder API (probably through `USERPROFILE`, or .NET's fallback to `LOCALAPPDATA` when the folder is missing; not looked
   into further), and the test now assumes neither and asks the engine. The collection runs alone. On Linux every folder the child
   reports is below its folder; the watcher sees only the runtime's diagnostic socket and debug pipes, gone by the end, and what
-  stays is one empty folder, `powershell` (the engine's cache folder, made at its start - a folder, no file). The Windows part has
-  not been seen to pass yet (Windows CI job; the test prints the child's folders).
+  stays is one empty folder, `powershell` (the engine's cache folder, made at its start - a folder, no file). On Windows the
+  window's test, with the snapshot of the user's folders, passed from the CI of 151aff46 on (the test prints the child's folders);
+  the control failed there only on `telemetry.uuid` (12.14).
 - *Whether the engine reads `PowerShellPolicies` from `powershell.config.json` on Windows* next to the registry; the D7 reader
   will read both, so the note is right either way.
 - *The single-file layout:* where `$PSHOME` points and whether the four modules are found (part 4) - settled in 12.4 decision 1: the single file runs the engine and `$PSHOME` is the program folder.
@@ -1260,9 +1374,9 @@ DC's computed flag is used when it is returned) - still open (12.0). (4) `Get-Ad
 |---|---|---|---|
 | Execution policy | `Software\Policies\Microsoft\PowerShellCore` | `Software\Policies\Microsoft\Windows\PowerShell` | `EnableScripts` `REG_DWORD` 0/1 (0 = scripts off), `ExecutionPolicy` `REG_SZ` |
 | Transcription | `…\PowerShellCore\Transcription` | `…\Windows\PowerShell\Transcription` | `EnableTranscripting` 0/1, `EnableInvocationHeader` 0/1, `OutputDirectory` `REG_SZ` |
-| Script block logging | `…\PowerShellCore\ScriptBlockLogging` | `…\Windows\PowerShell\ScriptBlockLogging` | `EnableScriptBlockLogging` 0/1, `EnableScriptBlockInvocationLogging` 0/1 |
+| Script block logging | `…\PowerShellCore\ScriptBlockLogging` | `…\Windows\PowerShell\ScriptBlockLogging` | `EnableScriptBlockLogging` 0/1, `EnableScriptBlockInvocationLogging` 0/1; set nowhere (the program's file has no section since D-B), the engine still logs the script blocks it finds suspicious and the reader says `NotSet` (4.2) |
 | Module logging | `…\PowerShellCore\ModuleLogging` | `…\Windows\PowerShell\ModuleLogging` | `EnableModuleLogging` 0/1; `ModuleNames`: a `REG_MULTI_SZ` / `REG_SZ` value of that name, else the value **names** of the sub key `ModuleNames` |
-| The config files | `ReadConfigFile(Computer)`: `powershell.config.json` in the folder of `System.Management.Automation.dll` (the engine's all-users file, the one the publish places); `ReadConfigFile(User)`: `<Documents>\PowerShell\powershell.config.json` | – | the text, or `null`; the reader converts `PowerShellPolicies` as the engine's Newtonsoft.Json does (sections `ScriptExecution`, `Transcription`, `ScriptBlockLogging`, `ModuleLogging` with the value names above, and the three the window does not show) |
+| The config files | `ReadConfigFile(Computer)`: `powershell.config.json` in the folder of `System.Management.Automation.dll` (the engine's all-users file, the one the publish places: `Transcription` and `ModuleLogging` off, no `ScriptBlockLogging` since D-B); `ReadConfigFile(User)`: `<Documents>\PowerShell\powershell.config.json` | – | the text, or `null`; the reader converts `PowerShellPolicies` as the engine's Newtonsoft.Json does (sections `ScriptExecution`, `Transcription`, `ScriptBlockLogging`, `ModuleLogging` with the value names above, and the three the window does not show) |
 | The lockdown | `GetLockdownState()` | – | `SystemPolicy.GetSystemLockdownPolicy()` mapped to `PowerShellLockdownState` (the engine's `SystemPolicyLockdownProbe` already does it) |
 
    The switch is a value **of each policy's own key in each hive** - the execution policy's is in the root key, transcription's in `PowerShellCore\Transcription` - not one switch of all of them
@@ -1283,11 +1397,12 @@ DC's computed flag is used when it is returned) - still open (12.0). (4) `Get-Ad
    Windows part is only the raw reads.
 2. *The order the reader takes* is the engine's (corrected after the audit, W-02; the rules are under the table above): per policy, `HKLM` then `HKCU` of the policy's own key, the Windows
    PowerShell key of that policy instead while its switch is on, the first hive that sets any value of the policy deciding the whole policy; then the all-users config file, then the user's. A policy
-   set off decides too (that is how a policy, or the file AD Manager ships next to the engine, turns off what a user's file turned on). The first reader modelled the switch as one value of the
+   set off decides too (that is how a policy, or the file AD Manager ships next to the engine for the transcription and the module logging, turns off what a user's file turned on). The first reader modelled the switch as one value of the
    root key that swapped every policy of both hives, and took the hives value by value; its tests pinned that model, so they passed. The decompiled engine settled it; a run under a real GPO
    (pilot) is still to compare the note with what the engine records.
 3. *The note is plain and says where* (D7): one sentence per recording policy - transcription (where the files go, "Documents folder of your account" when no directory is named), script block logging (the PowerShell Core event log), module logging (the modules) - each with its origin
    ("computer policy", "user policy of Windows PowerShell", "your powershell.config.json"…), then "AD Manager does not change these policies and does not get around them." Execution policy and a lockdown record nothing and make no note (the lockdown is the reason of the disabled switch and a line of the scrollback).
+   Script block logging that nothing sets makes no note either, although the engine then logs the script blocks it finds suspicious (4.2): that is the engine's own default, not a policy of the workstation, and the guide and the README say it (12.13).
    The log copy is the key and a mask of what is on (1 transcription, 2 script block logging, 4 module logging) - never the directory or the modules.
 4. *What lasts, and what covers it* (`UpdateLasting`, one method): the end of the session (error), a start that failed (error), then **notes**: the policy note, "the policies could not be read" (an attention - not knowing is said), the trusted mode; when more than one is true they are one attention, one after the other, with the
    log key `PowerShell.Status.Notes` and their number. A running command and its result cover the lasting state, as everywhere in V2, and it is back when the result is closed - which is what "a lasting note before the first command" means. The policy note is also the first lines of the scrollback (`PolicyNote`), where nothing covers it.
@@ -1399,7 +1514,7 @@ a window) and `WindowsPowerShellPolicySource` (the registry and the two config f
     shown "could not be read"; the CI runner has no such key and the UI tests replace the source, so no test ran it. The roots and the two files are injectable, and
     `WindowsPowerShellPolicySourceTests` (UI test project, Windows CI) writes a throwaway `HKCU\Software\AdMng.Tests-<guid>` (a key without the value, other types, `REG_EXPAND_SZ`, the module names, scenario C of W-02)
     and deletes it. A failure is `PowerShellPolicyUnreadableException` (the key or the file), which the error translator says in the window's language. The all-users file is in `PowerShellEnvironment.EngineHome` (`$PSHOME`), the user's in `Documents\PowerShell`.
-    `powershell.config.json` ships beside the program (`CopyToPublishDirectory`): it turns off the three logs that a user's file could switch on, and the Windows PowerShell compatibility layer.
+    `powershell.config.json` ships beside the program (`CopyToPublishDirectory`): it turns off the transcription and the module logging that a user's file could switch on, and the Windows PowerShell compatibility layer (until D-B also script block logging, 12.13).
 12. *Shortcut and menu.* `tools.powershell`, `Ctrl+Shift+P`, category Tools; the menu entry is in the Tools menu before the session log; a test asserts that no other descriptor uses the shortcut (and `Key="P"` is in no XAML).
 
 **Criteria of section 10 and where each is shown.** (1) the read commands: part 2 tests; the commands that need the window: `WindowCommandsTests` (Linux), `PowerShellWindowUiTests` (Windows). (2) the escaping: part 2, and `Open_AdmObject_escapes...`.
@@ -1801,3 +1916,83 @@ runs on Linux; the WPF part only compiles here):
   such a job itself (`$job.StopJob()`) at that moment still ends the process - FullLanguage, decision 6 of 12.6 - and the session
   leaves a job stopped that way as it is.
 
+### 12.13 After the audit of R1 - script block logging left to Windows and Group Policy (D-B)
+
+Audit finding PS-04 (medium): the program's `powershell.config.json` set `EnableScriptBlockLogging: false`, so a security team
+saw no script block (4104) of what was typed in the window unless a Group Policy turned script block logging on - and, as the
+engine's code shows (4.2), not even the script blocks the engine logs on its own when nothing sets the policy. The owner's
+decision D-B: AD Manager does not touch script block logging; Group Policy decides, then the user's own file. The transcription
+and the module logging stay off in the program's file (a transcript is directory data on disk, rule 1).
+
+- **The file.** No `ScriptBlockLogging` section. `EngineBoundaryTests` pins it (no section of that name in any case, transcription
+  and module logging still off); `ScriptBlockLoggingTests` shows what the engine then does (4.2). Both failed on the old file.
+- **The reader.** Unchanged - it already mirrored the engine. `PowerShellPolicyEngineRulesTests` now reads the shipped file from
+  the repository instead of a copy: alone it decides the transcription and the module logging and leaves script block logging
+  `NotSet`; a user's file then turns script block logging on (the note says "your powershell.config.json") but not the other two; a
+  Group Policy that turns it off wins over the user's file. The smoke test expects the program's file never to decide script block
+  logging.
+- **The note.** No sentence for the engine's default: the note says what the **policies** of the workstation record (D7), with
+  facts the window reads; which lines the engine logs on its own when no policy is set is the engine's choice, not a setting of
+  the workstation, and they reach an event log only where the PowerShell 7 event provider is registered, which the window does
+  not read - a sentence would have to say "may", show on nearly every workstation, and dull the note that must stand out when a
+  policy writes directory data to disk. Nothing the window says claims that nothing is recorded: without a recording policy it
+  shows no note at all. The guide (chapter 8), the README and the ADR say that the engine logs some lines on its own.
+- **Not seen on Windows.** The warning 4104 of a suspicious block in *PowerShellCore/Operational* on a workstation with PowerShell
+  7 installed (the child-process test runs on Windows CI too, where it is skipped if the machine sets the policy itself).
+- **Four verification rounds** (against the engine's code, a replica of `Match` and the real engine) found, one after another, that
+  the docs' description of what the engine marks was wrong or incomplete: the parser's marks (`$u.$a`…) beside the word list; the
+  words with a digit, which are never found as written (`FromBase64String`); the last letters of a text read across other
+  characters (`'grace mit'`); a word anywhere inside a run, also inside an account name (`jmarshall`); a nested block marked on its
+  own. Along the way `ScriptBlockLoggingTests` grew to twelve lines, asserts on Linux instead of skipping, and gives the program's
+  file a user's file that says on; the docs learned where the event provider comes from (the MSI by default, not the zip
+  or MSIX) and the differences from `pwsh.exe` (the file of its `$PSHOME`, a user's file that turns on transcription or module
+  logging, the console-host and pipe events).
+- **After the fourth verification.** It found more corners: `Match` hashes ASCII letters only (`Get-AdmUser emłit` ends in
+  `Emit`) and compares 32-bit hashes, so a text without any listed word can be marked (`Get-AdmUser mc-earraytype` -
+  `MakeArrayType`); the braces of `if` and `foreach` are a `StatementBlockAst`, checked only as part of the block around them;
+  the window's `AddScript` path has no cache of compiled blocks, so a marked line typed again is logged again (4.2 said the
+  opposite); module logging does not log the window's own commands as commands of a module. The decision: the user docs (the
+  README pair, chapter 8 of the guide pair, the ADR pair, the release notes and PW12 of both pilot docs) no longer describe the
+  engine's algorithm - each precise sentence had turned out wrong somewhere. They say what is robust: the program does not set
+  script block logging, Group Policy and then the user's own file decide, and with it on every command is logged; without a
+  policy the engine still logs, as a warning 4104, the lines its built-in check finds suspicious - its own choice, which can
+  include ordinary lines - so every line is treated as possibly logged and no secret is typed in plain text; the events reach a
+  log only where the provider is registered; the known differences from `pwsh.exe` are listed once, in chapter 8 of the guide.
+  PW12 tests only what is robust: without a policy `Write-Output 'Add-Type'` is a warning 4104, with the Group Policy on every
+  line is logged. 4.2 keeps the technical detail, each sentence checked against the code and the real engine: a scratch program
+  ran the test's twelve lines and the new examples (`emłit`, `mc-earraytype`, the nested `if` and `$global:sb` blocks, a marked
+  line twice through `AddScript` - logged twice, the compiled blocks not shared - and twice through `[scriptblock]::Create` -
+  one shared block, logged once), and the window's real `PowerShellSession` with a listener on `/dev/log`, which receives the
+  engine's events on Linux: with nothing set, `Write-Output 'Add-Type'` run twice gave two warnings 4104 and
+  `Get-AdmUser jkowalski` none; with the setting on (and `"LogLevel": "Verbose"`, so that verbose events reach syslog) every line
+  gave a 4104 (a verbose one, and a warning for a line the engine marks, as without the setting); with module logging for `*`, the 4103 events of 4.2 (the outer pipeline with `Out-Default` for every line,
+  `CommandInvocation(Get-AdmUser)` without parameters beside `Select-Object`, nothing of the window's `ForEach-Object` itself).
+  The comments of `ScriptBlockLoggingTests` and of the probe say the same.
+
+### 12.14 The Windows CI of the audit fixes - tests that counted on the runner
+
+The fixes of the audit were pushed without waiting for the Windows CI job; its runs (and one of the Linux lab job) failed in tests
+that counted on how the runner behaves. What failed, and what became of it:
+
+- **A fixed wait let the control of the leftover script block survive.** The control child of 12.8 (`leftover-callback-control`)
+  set the timer of 1.5 s, disposed its session, waited a fixed 4 s, wrote "survived" and returned 0. A runner that stalls a process
+  for 8-20 s under load lets both come due at once: on Linux (CI of f219a3e7) the child wrote "survived" before the crash, on Windows
+  (CI of ea9c4c5d and 7cc6191b) it printed the crash and still exited 0 - the process was already ending. Reproduced here by
+  freezing the child (`SIGSTOP`) 1-2 s after its start for 8 s: six of six runs wrote "survived" and exited 0 without the crash;
+  not frozen, it crashes about 2.4 s after its start. The contained child had the same flaw, unseen: it passed whether or not its
+  callback had run (frozen the same way it reported "survived" with nothing contained). Now neither child waits a time of its own:
+  the control waits up to a minute for its crash and only then reports that it survived; the contained child waits until its
+  handler has counted the callback (`PowerShellEnvironment.ContainedLeftoverScriptBlockCalls`, internal, counted by the handler of
+  4.2) and reports the count, which the test expects to be 1. The probe also holds the timer, so that a collection of the closed
+  window's variables cannot cancel it before it fires. Frozen the same way, the control crashed and the contained child reported
+  `contained=1` in every run.
+- **The positive control of the "no files" test expected a file the Windows engine does not write.** On the Windows runner (CI of
+  ea9c4c5d, 151aff46, 7e13cff6 and 7cc6191b) the probe's own file was seen in the engine's cache folder, but `telemetry.uuid` was
+  not, and the test failed. The Windows build of the engine (decompiled 7.6.10, the static constructor of
+  `Microsoft.PowerShell.Telemetry.ApplicationInsightsTelemetry`) sends telemetry - and only then writes the identifier - when, besides
+  the opt-out variable, Windows' diagnostic data setting allows it (`WindowsDataCollectionSetting.CanCollectDiagnostics`, the WinRT
+  `PlatformDiagnosticsAndUsageDataSettings`), which is off on the runner; the Linux build has no such check. The control now reports
+  the engine's `ApplicationInsightsTelemetry.CanSendTelemetry`; the test expects `telemetry.uuid` only when it is true (on Linux it
+  must be, with telemetry on in the child's environment) and, when it is false, that no `telemetry.uuid` appeared; the probe's own
+  file shows on both systems that the test watches the engine's cache folder. Here the test failed before the probe reported the
+  setting (the report did not say) and passes with it (`CanSendTelemetry` true on Linux).

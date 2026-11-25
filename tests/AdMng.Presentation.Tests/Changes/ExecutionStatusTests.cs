@@ -343,6 +343,309 @@ public class ExecutionStatusTests
         };
     }
 
+    // ---- Closing the window (the owner's decision D-A) ------------------------------------------------------------
+
+    [Fact]
+    public async Task LeaveWindow_EndsTheScopeWithoutAWord_StopsFollowing_MarksTheActivity()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var status = new PageStatusHolder(harness.Localizer, harness.Dispatcher);
+        status.SetIdle("3 objects");
+        var execution = ExecutionStatus.Begin(status, harness.Localizer, "Disable accounts", "contoso.test", 3);
+        var operation = status.Operation!;
+        var work = new Work();
+        var (activity, run) = harness.Activities.Start("Disable accounts", 3, work.RunAsync);
+        await work.Started;
+        execution.Follow(activity);
+        Assert.True(execution.CanLeave);
+        Assert.True(activity.HasWindow);
+
+        Assert.True(execution.LeaveWindow());
+
+        // The line is at rest - no word, no result - and the holder no longer counts the write; the activity runs on, left.
+        Assert.True(execution.LeftWindow);
+        Assert.True(execution.ReportsByConnection);
+        Assert.False(execution.CanLeave);
+        Assert.Equal("3 objects", status.Current.Message);
+        Assert.Equal(PageStatusKind.Idle, status.Current.Kind);
+        Assert.True(operation.IsFinished);
+        Assert.Empty(status.Writes);
+        Assert.False(activity.HasWindow);
+        Assert.True(activity.HasLeftWindow);
+        Assert.True(activity.IsRunning);
+        Assert.False(activity.IsCancelling);
+
+        // Nothing of the window is touched any more: its progress, its result, its failure, its end.
+        work.Report(2, 3, 0);
+        execution.Complete(Result());
+        execution.Fail("x");
+        execution.Dispose();
+        Assert.Equal("3 objects", status.Current.Message);
+        Assert.False(activity.IsCancelling);
+        Assert.False(work.Token.IsCancellationRequested);
+        Assert.True(execution.LeaveWindow());
+        work.End(Result());
+        await run;
+        Assert.False(activity.TryReturnToWindow());
+    }
+
+    [Fact]
+    public async Task LeaveWindow_AfterTheResultReturned_IsRefused()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var status = new PageStatusHolder(harness.Localizer, harness.Dispatcher);
+        using var execution = ExecutionStatus.Begin(status, harness.Localizer, "Disable accounts", "contoso.test", 3);
+        var work = new Work();
+        var (activity, run) = harness.Activities.Start("Disable accounts", 3, work.RunAsync);
+        await work.Started;
+        execution.Follow(activity);
+        work.End(Result());
+        await run;
+
+        // The coordinator handed the result back to the window: from now on it is the window's to say.
+        Assert.True(activity.TryReturnToWindow());
+        Assert.False(execution.CanLeave);
+        Assert.False(execution.LeaveWindow());
+        Assert.False(execution.LeftWindow);
+        Assert.True(status.IsWorking);
+        execution.Complete(Result());
+        Assert.Equal(PageStatusKind.Done, status.Current.Kind);
+    }
+
+    [Fact]
+    public async Task BeforeTheActivityStarted_TheRunCannotLeave()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var status = new PageStatusHolder(harness.Localizer, harness.Dispatcher);
+        using var execution = ExecutionStatus.Begin(status, harness.Localizer, "Disable accounts", "contoso.test", 3);
+
+        Assert.Same(execution, status.Operation!.Run);
+        Assert.False(execution.CanLeave);
+        Assert.False(execution.LeaveWindow());
+        Assert.True(status.IsWorking);
+    }
+
+    [Fact]
+    public async Task ATokenCancelledByLeaving_IsNotAStop()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var status = new PageStatusHolder(harness.Localizer, harness.Dispatcher);
+        var execution = ExecutionStatus.Begin(status, harness.Localizer, "Disable accounts", "contoso.test", 3);
+        var token = status.Operation!.Token;
+        var work = new Work();
+        var (activity, run) = harness.Activities.Start("Disable accounts", 3, work.RunAsync);
+        await work.Started;
+        execution.Follow(activity);
+
+        Assert.True(execution.LeaveWindow());
+        execution.Dispose();
+
+        // The operation's token is cancelled when its scope is disposed - that is not the operator's Stop.
+        Assert.True(token.IsCancellationRequested);
+        Assert.False(activity.IsCancelling);
+        Assert.False(work.Token.IsCancellationRequested);
+        work.End(Result());
+        await run;
+    }
+
+    [Fact]
+    public async Task APartThatStartsAfterTheRunLeft_HasNoWindow_AndIsNotFollowed()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var status = new PageStatusHolder(harness.Localizer, harness.Dispatcher);
+        using var execution = ExecutionStatus.Begin(status, harness.Localizer, "Zakładanie kont", "contoso.test", 4);
+        var first = new Work();
+        var (canary, firstRun) = harness.Activities.Start("Zakładanie kont", 1, first.RunAsync);
+        await first.Started;
+        execution.Follow(canary);
+        Assert.True(execution.LeaveWindow());
+
+        // The next account (a forced close during the canary loop): nobody follows it, and the connection reports it.
+        var second = new Work();
+        var (rest, restRun) = harness.Activities.Start("Zakładanie kont", 3, second.RunAsync);
+        await second.Started;
+        execution.Follow(rest);
+        Assert.False(rest.HasWindow);
+        Assert.True(rest.HasLeftWindow);
+        second.Report(2, 3, 0);
+        Assert.Equal(PageStatusKind.Idle, status.Current.Kind);
+
+        // Not followed: a Stop of the window that is gone reaches neither the part that left nor the one that started after it.
+        execution.Stop();
+        Assert.False(canary.IsCancelling);
+        Assert.False(rest.IsCancelling);
+        Assert.False(second.Token.IsCancellationRequested);
+        Assert.Contains(harness.Activities.RunningInBackground, work => ReferenceEquals(work, rest));
+        first.End(Result());
+        second.End(Result());
+        await firstRun;
+        await restRun;
+        Assert.False(rest.TryReturnToWindow());
+    }
+
+    [Fact]
+    public async Task NotifyWhileOpen_SaysItNow_WhenNoCloseLooksAtTheRun()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var status = new PageStatusHolder(harness.Localizer, harness.Dispatcher);
+        using var execution = ExecutionStatus.Begin(status, harness.Localizer, "Disable accounts", "contoso.test", 3);
+        var said = 0;
+
+        execution.NotifyWhileOpen(() => said++);
+
+        Assert.Equal(1, said);
+        execution.WindowStays();
+        execution.WindowClosed();
+        Assert.Equal(1, said);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NotifyWhileOpen_WhileACloseLooksAtTheRun_IsHeld_SaidWhenTheWindowStays_DroppedWhenItCloses(bool stays)
+    {
+        // The close question is open (or the window closes right after the run): whether the window's line goes with it is not
+        // known yet. The window that stays says its notification; the one that closes leaves the outcome to the connection.
+        var harness = await B2Harness.CreateAsync();
+        var status = new PageStatusHolder(harness.Localizer, harness.Dispatcher);
+        var execution = ExecutionStatus.Begin(status, harness.Localizer, "Disable accounts", "contoso.test", 3);
+        var said = 0;
+        execution.WindowMayClose();
+
+        execution.NotifyWhileOpen(() => said++);
+        execution.Dispose();
+        Assert.Equal(0, said);
+
+        if (stays)
+        {
+            execution.WindowStays();
+        }
+        else
+        {
+            execution.ReportByConnection();
+            execution.WindowClosed();
+        }
+
+        Assert.Equal(stays ? 1 : 0, said);
+        execution.WindowStays();
+        execution.WindowClosed();
+        Assert.Equal(stays ? 1 : 0, said);
+    }
+
+    [Fact]
+    public async Task NotifyWhileOpen_OfARunThatLeftTheWindow_IsNeverSaid()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var status = new PageStatusHolder(harness.Localizer, harness.Dispatcher);
+        using var execution = ExecutionStatus.Begin(status, harness.Localizer, "Disable accounts", "contoso.test", 3);
+        var work = new Work();
+        var (activity, run) = harness.Activities.Start("Disable accounts", 3, work.RunAsync);
+        await work.Started;
+        execution.Follow(activity);
+        Assert.True(execution.LeaveWindow());
+        var said = 0;
+
+        execution.NotifyWhileOpen(() => said++);
+        execution.WindowStays();
+
+        Assert.Equal(0, said);
+        work.End(Result());
+        await run;
+    }
+
+    [Fact]
+    public async Task StaysWithWindow_SetsMustStayReason_InTheLanguageOfTheMoment()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var status = new PageStatusHolder(harness.Localizer, harness.Dispatcher);
+        using var execution = ExecutionStatus.Begin(status, harness.Localizer, "Reset password", "contoso.test", 1);
+        Assert.Null(execution.MustStayReason);
+
+        execution.StaysWithWindow(Presentation.Localization.L.CloseWork.NoBackgroundPasswords);
+        Assert.Equal("It cannot continue in the background: the generated passwords exist only in this window.", execution.MustStayReason);
+        harness.Localizer.SetCulture(Polish);
+        Assert.Equal("Nie można jej kontynuować w tle: wygenerowane hasła istnieją tylko w tym oknie.", execution.MustStayReason);
+
+        execution.StaysWithWindow(null);
+        Assert.Null(execution.MustStayReason);
+    }
+
+    [Fact]
+    public async Task ReportByConnection_IsTaken_ButNotWhenTheWindowNotifiesItself()
+    {
+        var harness = await B2Harness.CreateAsync();
+        foreach (var windowNotifies in new[] { false, true })
+        {
+            var status = new PageStatusHolder(harness.Localizer, harness.Dispatcher);
+            using var execution = ExecutionStatus.Begin(status, harness.Localizer, "Disable accounts", "contoso.test", 3);
+            execution.WindowNotifies = windowNotifies;
+            var work = new Work();
+            var (activity, run) = harness.Activities.Start("Disable accounts", 3, work.RunAsync);
+            await work.Started;
+            execution.Follow(activity);
+
+            execution.ReportByConnection();
+
+            Assert.Equal(!windowNotifies, execution.ReportsByConnection);
+            Assert.False(execution.LeftWindow);
+            work.End(Result());
+            await run;
+        }
+    }
+
+    [Fact]
+    public async Task AnObjectChangedOnlyInPart_IsChanged_NotNothingChanged()
+    {
+        // The password was set, the unlock failed: something was changed, and the line must not say "nothing was changed".
+        var harness = await B2Harness.CreateAsync(Polish);
+        var status = new PageStatusHolder(harness.Localizer, harness.Dispatcher);
+        using (var execution = ExecutionStatus.Begin(status, harness.Localizer, "Reset hasła", "contoso.test", 2))
+        {
+            execution.Complete(Partly(ObjectResultStatus.PartiallySucceeded, ObjectResultStatus.PartiallySucceeded));
+        }
+
+        Assert.Equal(PageStatusKind.Attention, status.Current.Kind);
+        Assert.Equal(
+            "„Reset hasła” wykonano w domenie contoso.test tylko częściowo: zmieniono 2 obiekty, w tym tylko częściowo: 2, niepowodzenia: 0.",
+            status.Current.Message);
+        Assert.Equal("Changes.Status.ExecutedPartly (0, 2)", status.Current.Log.ToString());
+
+        // One changed fully, one in part, one not at all.
+        using (var execution = ExecutionStatus.Begin(status, harness.Localizer, "Reset hasła", "contoso.test", 3))
+        {
+            execution.Complete(Partly(ObjectResultStatus.Succeeded, ObjectResultStatus.PartiallySucceeded, ObjectResultStatus.Failed));
+        }
+
+        Assert.Equal(
+            "„Reset hasła” wykonano w domenie contoso.test tylko częściowo: zmieniono 2 obiekty, w tym tylko częściowo: 1, niepowodzenia: 1.",
+            status.Current.Message);
+
+        // Without objects changed in part the sentence is the one it always was.
+        using (var execution = ExecutionStatus.Begin(status, harness.Localizer, "Reset hasła", "contoso.test", 2))
+        {
+            execution.Complete(Partly(ObjectResultStatus.Succeeded, ObjectResultStatus.Failed));
+        }
+
+        Assert.Equal("„Reset hasła” wykonano w domenie contoso.test tylko częściowo: zmieniono 1 obiekt, niepowodzenia: 1.", status.Current.Message);
+    }
+
+    private static BatchResult Partly(params ObjectResultStatus[] statuses)
+    {
+        var at = DateTimeOffset.UnixEpoch;
+        var results = statuses.Select((status, i) =>
+        {
+            var plan = new ObjectPlan
+            {
+                DistinguishedName = $"CN=Konto {i},OU=Test,DC=contoso,DC=test",
+                DisplayName = $"Konto {i}",
+                Changes = [new PlannedChange { Action = ChangeAction.ResetPassword }, new PlannedChange { Action = ChangeAction.Modify }],
+            };
+            return new ObjectResult(plan, status, [.. plan.Changes.Select((c, j) => new ChangeResult(c, status == ObjectResultStatus.Succeeded
+                || (status == ObjectResultStatus.PartiallySucceeded && j == 0)))], plan.DistinguishedName, at, at);
+        }).ToList();
+        return new BatchResult(new ChangePlan { Objects = [.. results.Select(r => r.Plan)] }, results, "dc01.contoso.test", "CONTOSO\\operator", at, at, WasCancelled: false);
+    }
+
     private static BatchResult Result(bool cancelled = false)
     {
         var at = DateTimeOffset.UnixEpoch;

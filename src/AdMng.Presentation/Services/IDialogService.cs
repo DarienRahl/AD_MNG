@@ -26,6 +26,14 @@ public interface IDialogService
     /// </summary>
     Task<bool> ConfirmTypedAsync(string title, string message, string expectedText);
 
+    /// <summary>
+    /// The close question of a window that works (<see cref="Feedback.RunningWork"/>; the owner's decision D-A): labelled
+    /// buttons - "Stop and close", "Close and continue in the background" when <paramref name="canContinue"/>, and "Don't close",
+    /// which is also Enter and Esc. A dialog that cannot be shown (its connection window closed) answers
+    /// <see cref="CloseAnswer.KeepOpen"/>.
+    /// </summary>
+    Task<CloseAnswer> AskCloseAsync(string title, string message, bool canContinue);
+
     /// <summary>ADUC-style container browser. Returns the chosen container DN or null when cancelled.</summary>
     Task<string?> PickContainerAsync(IDirectorySession session, string? startDn);
 
@@ -109,6 +117,19 @@ public interface IDialogService
     /// "Ufam temu certyfikatowi".
     /// </summary>
     Task<bool> ShowWatchdogCertificateTrustAsync(Watchdog.WatchdogCertificateTrustViewModel dialog);
+}
+
+/// <summary>The answer to the close question of a window that works (<see cref="IDialogService.AskCloseAsync"/>).</summary>
+public enum CloseAnswer
+{
+    /// <summary>"Don't close": the window stays and what runs goes on.</summary>
+    KeepOpen,
+
+    /// <summary>"Stop and close": what runs is stopped (the object in progress is finished) and the window closes once it ended.</summary>
+    StopAndClose,
+
+    /// <summary>"Close and continue in the background": the window closes at once and the execution goes on to its end.</summary>
+    CloseAndContinue,
 }
 
 /// <summary>What the batch editor should open with.</summary>

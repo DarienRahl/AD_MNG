@@ -72,6 +72,13 @@ public sealed class OperationScope : IDisposable
     public bool IsWrite => Writes != OperationWrites.None;
 
     /// <summary>
+    /// The execution of a change plan this operation follows (the owner's decision D-A), or null: a run in the connection that
+    /// may continue without the window, so that closing the window can offer "Close and continue in the background"
+    /// (<see cref="RunningWork"/>). Set by <c>Changes.ExecutionStatus</c> when it begins.
+    /// </summary>
+    public IWindowRun? Run { get; internal set; }
+
+    /// <summary>
     /// Completes once the operation ended on the page - completed, disposed or replaced - and never fails. The
     /// continuations run asynchronously, so the code that ended the operation has run on to its end first.
     /// </summary>

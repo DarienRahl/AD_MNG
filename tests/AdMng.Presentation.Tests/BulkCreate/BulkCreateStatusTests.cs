@@ -1,7 +1,12 @@
+using AdMng.Core.Batch.Creation;
 using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.BulkCreate;
 using AdMng.Presentation.Feedback;
+using AdMng.Presentation.Localization;
+using AdMng.Presentation.Services;
 using AdMng.Presentation.Tests.GroupPolicy;
+using AdMng.Presentation.Tests.TestDoubles;
+using AdMng.Testing;
 using AdMng.Testing.BulkCreate;
 
 namespace AdMng.Presentation.Tests.BulkCreate;
@@ -138,5 +143,237 @@ public sealed class BulkCreateStatusTests
         Assert.Equal("Changes.Status.Executed (5)", done.Log.ToString());
         Assert.Null(wizard.Editor.Status.Front);
         Assert.True(wizard.Editor.IsResultsStep);
+    }
+    // ---- Closing the window during the creation (the owner's decision D-A) ------------------------------------------
+
+    [Fact]
+    public async Task DuringTheFirstAccount_NoBackground_SaysWhy_DuringTheRest_ThreeAnswers_ContinueRunsTheRestToItsEnd()
+    {
+        using var wizard = await B4Wizard.CreateAsync();
+        wizard.Use(wizard.OperatorInput(new BulkAccountOptions { PasswordMode = InitialPasswordMode.None, Enabled = false }));
+        await wizard.EnterCheckAsync();
+        await wizard.Editor.PreviewCommand.ExecuteAsync(null);
+        Assert.True(wizard.Editor.IsPreviewStep, wizard.Editor.Error);
+        var harness = wizard.Harness;
+        var window = new TestWindowHost(wizard.Editor);
+        harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
+
+        // The creation of the first account (the canary), then of the first of the others, wait for the test.
+        using var canary = new SemaphoreSlim(0);
+        using var rest = new SemaphoreSlim(0);
+        using var releaseCanary = new ManualResetEventSlim();
+        using var releaseRest = new ManualResetEventSlim();
+        var creates = 0;
+        harness.Session.BeforeOperation = operation =>
+        {
+            if (operation.Kind != FakeOperationKind.Add)
+            {
+                return;
+            }
+
+            switch (Interlocked.Increment(ref creates))
+            {
+                case 1:
+                    canary.Release();
+                    releaseCanary.Wait(TestContext.Current.CancellationToken);
+                    break;
+                case 2:
+                    rest.Release();
+                    releaseRest.Wait(TestContext.Current.CancellationToken);
+                    break;
+            }
+        };
+        Task execution;
+        try
+        {
+            execution = wizard.Editor.ExecuteCommand.ExecuteAsync(null);
+            Assert.True(await canary.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+
+            // The first account: this window starts creating the others - no background yet, and the question says why.
+            harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.KeepOpen);
+            Assert.False(await window.CloseByTitleBarAsync());
+            var first = Assert.Single(harness.Dialogs.CloseQuestions);
+            Assert.False(first.CanContinue);
+            Assert.EndsWith(
+                "\n\nKontynuowanie w tle będzie możliwe po utworzeniu pierwszego konta: tworzenie pozostałych kont rozpoczyna to okno.",
+                first.Message,
+                StringComparison.Ordinal);
+            releaseCanary.Set();
+            Assert.True(await rest.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+            harness.Notifications.Clear();
+
+            // The others: three answers - and the window closes at once.
+            harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.CloseAndContinue);
+            Assert.True(await window.CloseByTitleBarAsync().WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+            var second = harness.Dialogs.CloseQuestions[1];
+            Assert.True(second.CanContinue);
+            Assert.Equal(harness.Localizer.Format(L.CloseWork.Changes, second.Message.Split("\n\n")[0]), second.Message);
+            Assert.True(wizard.Editor.IsDisposed);
+        }
+        finally
+        {
+            releaseCanary.Set();
+            releaseRest.Set();
+        }
+
+        await execution.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        harness.Session.BeforeOperation = null;
+
+        // The rest ran to its end without the window: every account exists, and the connection says how the rest ended.
+        Assert.Equal(5, creates);
+        var toast = Assert.Single(harness.Notifications.Items);
+        Assert.Equal(NotificationSeverity.Success, toast.Severity);
+        Assert.StartsWith("Wykonano „Utworzenie kont (5) w jednostce „Nowi pracownicy”” w domenie contoso.test: zmieniono 4 obiekty.", toast.Message, StringComparison.Ordinal);
+        Assert.Empty(harness.Dialogs.Errors);
+    }
+
+    [Fact]
+    public async Task StopAndClose_DuringTheFirstAccount_TheConnectionSaysTheCreationWasStopped_AndHowManyAccountsItDid()
+    {
+        // The window's line says the outcome of the whole creation - the first account and the others it never started - and the
+        // connection, which says it once the window closed, says the same: not what the first account alone did.
+        using var wizard = await B4Wizard.CreateAsync();
+        wizard.Use(wizard.OperatorInput(new BulkAccountOptions { PasswordMode = InitialPasswordMode.None, Enabled = false }));
+        await wizard.EnterCheckAsync();
+        await wizard.Editor.PreviewCommand.ExecuteAsync(null);
+        Assert.True(wizard.Editor.IsPreviewStep, wizard.Editor.Error);
+        var harness = wizard.Harness;
+        var window = new TestWindowHost(wizard.Editor);
+        harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
+        harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.StopAndClose);
+        using var held = new SemaphoreSlim(0);
+        using var release = new ManualResetEventSlim();
+        var creates = 0;
+        harness.Session.BeforeOperation = operation =>
+        {
+            if (operation.Kind == FakeOperationKind.Add && Interlocked.Increment(ref creates) == 1)
+            {
+                held.Release();
+                release.Wait(TestContext.Current.CancellationToken);
+            }
+        };
+        var toastedAfterTheClose = new List<bool>();
+        harness.Notifications.OnShow = (_, _) => toastedAfterTheClose.Add(window.IsClosed);
+        Task execution;
+        Task<bool> closing;
+        try
+        {
+            execution = wizard.Editor.ExecuteCommand.ExecuteAsync(null);
+            Assert.True(await held.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+            Assert.Equal(BulkExecutionPart.FirstAccount, wizard.Editor.BulkCreate!.ExecutingPart);
+            harness.Notifications.Clear();
+            closing = window.CloseByTitleBarAsync();
+            Assert.False(Assert.Single(harness.Dialogs.CloseQuestions).CanContinue);
+            Assert.False(closing.IsCompleted);
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        Assert.True(await closing.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+        await execution.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        harness.Session.BeforeOperation = null;
+
+        Assert.True(window.IsClosed);
+        Assert.Equal(1, creates);
+        var toast = Assert.Single(harness.Notifications.Items);
+        Assert.Equal(NotificationSeverity.Warning, toast.Severity);
+        Assert.StartsWith(
+            "Wykonywanie „Utworzenie kont (5) w jednostce „Nowi pracownicy”” w domenie contoso.test zatrzymano: wykonano 1 z 5 obiektów, niepowodzenia: 0",
+            toast.Message,
+            StringComparison.Ordinal);
+        Assert.Equal([true], toastedAfterTheClose);
+        Assert.Empty(harness.Dialogs.Errors);
+    }
+
+    [Fact]
+    public async Task WithGeneratedInitialPasswords_TheCreationNeverContinuesInTheBackground()
+    {
+        using var wizard = await B4Wizard.CreateAsync();
+        wizard.Use(wizard.OperatorInput());
+        await wizard.EnterCheckAsync();
+        await wizard.Editor.PreviewCommand.ExecuteAsync(null);
+        var harness = wizard.Harness;
+        var window = new TestWindowHost(wizard.Editor);
+        harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
+        using var held = new SemaphoreSlim(0);
+        using var release = new ManualResetEventSlim();
+        var creates = 0;
+        harness.Session.BeforeOperation = operation =>
+        {
+            if (operation.Kind == FakeOperationKind.Add && Interlocked.Increment(ref creates) == 2)
+            {
+                held.Release();
+                release.Wait(TestContext.Current.CancellationToken);
+            }
+        };
+        Task execution;
+        try
+        {
+            execution = wizard.Editor.ExecuteCommand.ExecuteAsync(null);
+            Assert.True(await held.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+
+            // Also after the first account: the generated passwords exist only in this window.
+            Assert.False(await window.CloseByTitleBarAsync());
+            var question = Assert.Single(harness.Dialogs.CloseQuestions);
+            Assert.False(question.CanContinue);
+            Assert.EndsWith("\n\nNie można jej kontynuować w tle: wygenerowane hasła istnieją tylko w tym oknie.", question.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        await execution.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        harness.Session.BeforeOperation = null;
+        Assert.True(wizard.Editor.IsResultsStep);
+    }
+
+    [Fact]
+    public async Task AForcedCloseWhileAFirstAccountThatAlreadyExistsIsCreated_StartsNoOtherFirstAccount()
+    {
+        // The first account already exists in the directory: normally the wizard hands over to the next account as the first one.
+        // But the owner window closed by force (nothing is asked) while the first account was created: no other account is
+        // started for a window that is gone.
+        using var wizard = await B4Wizard.CreateAsync();
+        wizard.Use(wizard.OperatorInput(new BulkAccountOptions { PasswordMode = InitialPasswordMode.None, Enabled = false }));
+        await wizard.EnterCheckAsync();
+        await wizard.Editor.PreviewCommand.ExecuteAsync(null);
+        Assert.True(wizard.Editor.IsPreviewStep, wizard.Editor.Error);
+        var harness = wizard.Harness;
+        harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
+        harness.Session.FailNext(FakeOperationKind.Add, null, Core.Directory.DirectoryErrorKind.AlreadyExists);
+        using var held = new SemaphoreSlim(0);
+        using var release = new ManualResetEventSlim();
+        var creates = 0;
+        harness.Session.BeforeOperation = operation =>
+        {
+            if (operation.Kind == FakeOperationKind.Add && Interlocked.Increment(ref creates) == 1)
+            {
+                held.Release();
+                release.Wait(TestContext.Current.CancellationToken);
+            }
+        };
+        Task execution;
+        try
+        {
+            execution = wizard.Editor.ExecuteCommand.ExecuteAsync(null);
+            Assert.True(await held.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+            Assert.Equal(BulkExecutionPart.FirstAccount, wizard.Editor.BulkCreate!.ExecutingPart);
+
+            // The owner window closes: the forced close of the batch editor (the only path that disposes without the question).
+            wizard.Editor.Dispose();
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        await execution.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        harness.Session.BeforeOperation = null;
+
+        Assert.Equal(1, creates);
+        Assert.True(wizard.Editor.BulkCreate!.WasStoppedAfterCanary);
     }
 }

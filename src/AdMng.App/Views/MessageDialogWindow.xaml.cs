@@ -54,6 +54,15 @@ public partial class MessageDialogWindow : Window, IDialogResultWindow
         }
 
         CancelButton.IsCancel = true;
+        if (_viewModel.IsCloseQuestion)
+        {
+            // The close question of a window that works: Enter and Esc both keep the window ("Don't close"); stopping is
+            // destructive and chosen deliberately, and so is letting the execution go on without the window.
+            CancelButton.IsDefault = true;
+            ConfirmButton.Style = (Style)FindResource("Ad.DangerDialogButton");
+            return;
+        }
+
         if (_viewModel.IsDestructive && !_viewModel.RequiresTypedConfirmation)
         {
             // Destructive Yes/No: Enter declines, the operator must choose "Yes" deliberately.
