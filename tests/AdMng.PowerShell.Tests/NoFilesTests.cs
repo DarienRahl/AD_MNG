@@ -57,10 +57,14 @@ public sealed partial class NoFilesTests
     [Fact]
     public async Task The_probe_would_see_a_file_the_engine_wrote_when_it_is_not_set_up()
     {
-        // An ordinary runspace of the SDK, telemetry on, in a child whose variables point at the test's folder: its first command writes the
-        // engine's telemetry.uuid into the engine's cache folder, and the probe writes a file of its own there. Both must be seen - below the
-        // test's folder (Linux; Windows when the variables moved the known folders) or in the snapshot of the user's real folders (Windows when
-        // they did not; there telemetry.uuid is new only when the user had none). The test removes what the control made in a real folder.
+        // An ordinary runspace of the SDK, telemetry on, in a child whose variables point at the test's folder: the probe writes a file of its
+        // own into the engine's cache folder, and when the engine sends telemetry its first command writes the engine's telemetry.uuid there.
+        // What is written must be seen - below the test's folder (Linux; Windows when the variables moved the known folders) or in the
+        // snapshot of the user's real folders (Windows when they did not; there telemetry.uuid is new only when the user had none). The
+        // child reports whether its engine sends telemetry (ApplicationInsightsTelemetry.CanSendTelemetry): on Linux it does with telemetry
+        // on; the Windows build also asks Windows' diagnostic data setting, which the CI runner has off (CI of 7e13cff6 and 7cc6191b: no
+        // telemetry.uuid, the probe's own file seen) - there the probe's file alone shows that the folder is watched. The test removes what
+        // the control made in a real folder.
         using var home = new TempFolder();
         var own = KnownFolders.OwnCache;
         var ownTelemetry = own is null ? null : Path.Combine(own, "telemetry.uuid");
@@ -79,11 +83,22 @@ public sealed partial class NoFilesTests
             List<string> seen = [.. KnownFolders.Changes(known, KnownFolders.Take()), .. home.Files().Select(file => Path.Combine(home.Home, file))];
             TestContext.Current.TestOutputHelper?.WriteLine("Seen: " + string.Join(", ", seen));
             Assert.Contains(seen, file => EngineFolders.IsAtOrBelow(file, folders.Cache) && Path.GetFileName(file).StartsWith(EngineFolders.ControlFilePrefix, StringComparison.Ordinal));
+            var sendsTelemetry = SendsTelemetry(result.Report);
+            TestContext.Current.TestOutputHelper?.WriteLine("The child's engine sends telemetry: " + sendsTelemetry);
+            if (!OperatingSystem.IsWindows())
+            {
+                Assert.True(sendsTelemetry, "The child's engine does not send telemetry although its environment turns it on:\n" + result.Report);
+            }
+
             var telemetry = Path.Combine(folders.Cache, "telemetry.uuid");
             var telemetryIsNew = EngineFolders.IsAtOrBelow(folders.Cache, home.Home) || !(hadOwnTelemetry && SamePath(telemetry, ownTelemetry!));
-            if (telemetryIsNew)
+            if (sendsTelemetry && telemetryIsNew)
             {
                 Assert.Contains(seen, file => SamePath(file, telemetry));
+            }
+            else if (!sendsTelemetry)
+            {
+                Assert.DoesNotContain(seen, file => SamePath(file, telemetry));
             }
         }
         finally
@@ -106,6 +121,14 @@ public sealed partial class NoFilesTests
                 }
             }
         }
+    }
+
+    /// <summary>What the control reported of its engine's <c>ApplicationInsightsTelemetry.CanSendTelemetry</c>.</summary>
+    private static bool SendsTelemetry(string report)
+    {
+        var line = report.Split('\n').SingleOrDefault(line => line.StartsWith("telemetry=", StringComparison.Ordinal));
+        Assert.True(line is not null, "The control's report does not say whether its engine sends telemetry:\n" + report);
+        return bool.Parse(line["telemetry=".Length..]);
     }
 
     private static bool SamePath(string left, string right) =>

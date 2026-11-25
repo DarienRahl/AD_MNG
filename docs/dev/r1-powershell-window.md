@@ -195,7 +195,8 @@ about 40 s; it passed here with the path above). `NUL\ModuleAnalysisCache` on Wi
 **relative** path there (a folder `NUL` below the process's current folder, which the Win32 path rules turn into the device - so
 creating it should fail, and the engine swallows the failure: `AnalysisCacheData.Serialize`, decompiled 7.6.10, catches every
 exception of the write) and nobody has run it; the opt-in test runs in the Windows CI job since the audit (its window child works in
-the watched folder, and the snapshot of the user's cache folder covers the engine's default place), not seen to pass there yet. In
+the watched folder, and the snapshot of the user's cache folder covers the engine's default place) and passed there from the CI of
+151aff46 on (about 42 s). In
 the window nothing makes the engine write the cache in the first place: auto-loading is off and `Get-Module` is not one of its
 commands (4.6), so the path is the second line of defence.
 
@@ -811,8 +812,8 @@ This is the plan of the parts; the files that exist are in the records of 12.1-1
   switched **on** in its environment runs two sessions, a script touching the formatter, module discovery, completion, syntax and
   the history policy, and the folder holds no file afterwards; the child reports the folders of its engine and the test asserts
   that it watches each (on Windows also a snapshot of the user's own folders of the engine; 12.1, "What could not be verified on
-  Linux"); a **positive control** (an ordinary runspace of the SDK, both systems) leaves `telemetry.uuid` and a file of the probe in
-  the engine's cache folder, and the test must see them; the opt-in **module analysis cache proof** (`ADMNG_POWERSHELL_SLOW_TESTS=1`,
+  Linux"); a **positive control** (an ordinary runspace of the SDK, both systems) leaves a file of the probe in the engine's cache
+  folder and, where the engine sends telemetry, `telemetry.uuid` (12.14), and the test must see them; the opt-in **module analysis cache proof** (`ADMNG_POWERSHELL_SLOW_TESTS=1`,
   about 40 s; set in the Windows CI job since the audit). The probe is not an xunit run on purpose (the first version started this
   test assembly as the child and took 18.6 s on the Windows runner). Its `Get-Module -ListAvailable` fails at once in the window,
   whose command list does not have it; the first version ran it in an ordinary runspace and left it out on Windows, where a runner
@@ -880,7 +881,7 @@ What was open when the design was written and what became of it (the state at th
 
 - Whether the engine reads `PowerShellPolicies` from `powershell.config.json` on Windows next to the registry policies, and where `$PSHOME` is in the single-file layout: `$PSHOME` is the program folder (the smoke test in Windows CI
   shows it); which policies the engine takes, and from where, was settled after the audit from its decompiled code (W-02: per policy and per hive, the switch in each policy's own key, the JSON policies after every hive - `PowerShellPolicyReader` mirrors it); a comparison with what the engine records under a real GPO is **still to be made** on such a machine.
-- `NUL\ModuleAnalysisCache` as the analysis cache path on Windows: the opt-in proof was run on Linux only; **still unconfirmed on Windows**.
+- `NUL\ModuleAnalysisCache` as the analysis cache path on Windows: the opt-in proof was run on Linux only at first; the Windows CI job runs it since the audit, and it passed there from the CI of 151aff46 on.
 - The stage S readiness item for the policies and the language mode: **not built**; the reader and the note are ready to be reused.
 - The two R3 questions of the README ("To be agreed with the team"): the list of translated RSAT commands and the window's credentials for the `ActiveDirectory` module - **open**.
 - New at the end of R1: the README promises that the window rejects `Start-Transcript` without `-Path`; nothing in R1 did. Built after
@@ -1002,10 +1003,10 @@ the CI's Linux package job runs that .deb check too. `IPowerShellWindowActions` 
 - *Policies under a real GPO.* The registry keys and the rules come from the engine's decompiled code (`Utils.GetPolicySetting`, audit W-02) and the documented templates, and the reader's rules are tested on Linux;
   the Windows source is tested against a throwaway key of the current user (`WindowsPowerShellPolicySourceTests`, Windows CI). Whether the note matches what the engine records under a real GPO has not been seen.
 - *WDAC / AppLocker.* The lockdown probe is `SystemPolicy.GetSystemLockdownPolicy()` and its mapping is tested with a fake; the engine under a real lockdown has not been run.
-- *`PSModuleAnalysisCachePath` = `NUL\ModuleAnalysisCache` on Windows* (a relative path there, 4.2). The opt-in 40 s proof (`ADMNG_POWERSHELL_SLOW_TESTS=1`) was run on Linux only; the Windows CI job sets it since the audit,
-  not seen to pass yet; auto-loading is off, which stops the cache being written by discovery, and the path is the second line of defence.
+- *`PSModuleAnalysisCachePath` = `NUL\ModuleAnalysisCache` on Windows* (a relative path there, 4.2). The opt-in 40 s proof (`ADMNG_POWERSHELL_SLOW_TESTS=1`) was run on Linux only at first; the Windows CI job sets it since the audit,
+  and it passed there from the CI of 151aff46 on; auto-loading is off, which stops the cache being written by discovery, and the path is the second line of defence.
 - *The "no files" test on Windows.* Its first Windows run (CI of 5cfead9c) failed its positive control, which showed that the test had not watched where the child's known-folder answers point; the
-  test now asks the child's engine for its folders and asserts that it watches each (12.1, "What could not be verified on Linux"); not seen to pass on Windows yet.
+  test now asks the child's engine for its folders and asserts that it watches each (12.1, "What could not be verified on Linux"); the window's test passed on Windows from the CI of 151aff46 on, and its positive control expected a file that the Windows engine does not write on the runner (12.14).
 - *A real Windows Server AD.* The commands ran over `FakeDirectorySession` and the Samba lab; the lab has no Windows-only behaviour (a hidden attribute, ranged retrieval differences, the DC's computed `msDS-User-Account-Control-Computed`).
 - *Running `AdMng.exe` as a person would.* The CI starts it with `--smoke-test` and the UI tests; the first runspace took 523-791 ms there and the second 9-12 ms.
 
@@ -1127,7 +1128,7 @@ The result of the last Windows run is recorded in the report of the part.
 **What could not be verified on Linux, and why it should still be right.**
 
 - *Windows behaviour of the engine setup:* `PSModuleAnalysisCachePath=NUL\ModuleAnalysisCache` (the engine swallows an unwritable path on Linux; the
-  proof test runs in the Windows CI job since the audit, `ADMNG_POWERSHELL_SLOW_TESTS=1`, not seen to pass there yet), `InitialSessionState.ExecutionPolicy =
+  proof test runs in the Windows CI job since the audit, `ADMNG_POWERSHELL_SLOW_TESTS=1`, and passed there from the CI of 151aff46 on), `InitialSessionState.ExecutionPolicy =
   Restricted` and whether it is the process environment variable `PSExecutionPolicyPreference` (a Windows-only test asserts
   `Get-ExecutionPolicy` is `Restricted`), the STA apartment with `ReuseThread`, the absence of `\\.\pipe\PSHost.*` (the Linux run
   cannot show the pipe exists in the first place – a plain runspace creates none there; the Windows run is the proof), and the
@@ -1147,15 +1148,17 @@ The result of the last Windows run is recorded in the report of the part.
   `__PSScriptPolicyTest_<random>.ps1` / `.psm1` of the engine's AppLocker check (`SystemPolicy.GetAppLockerPolicy`, decompiled
   7.6.10: written with a comment line and deleted at once, once per process; audit W-11). The positive control is the same on both
   systems: an ordinary runspace of the SDK, telemetry on, whose first command writes the engine's `telemetry.uuid` into the engine's
-  cache folder, where the probe also writes a file of its own; both must be seen where the test watches (`telemetry.uuid` only when
-  it is new there), and the test removes what the control made in a real folder. The first Windows run of the control (CI of
+  cache folder when the engine sends telemetry (on Windows only when Windows' diagnostic data setting allows it too, 12.14), where the
+  probe also writes a file of its own; what was written must be seen where the test watches (`telemetry.uuid` only when it is new
+  there), and the test removes what the control made in a real folder. The first Windows run of the control (CI of
   5cfead9c) failed: it wrote its file into the folder `[Environment]::GetFolderPath('LocalApplicationData')` named in the child,
   and the snapshot of the user's real folder did not see it - so the child's variables do move at least that answer of the
   known-folder API (probably through `USERPROFILE`, or .NET's fallback to `LOCALAPPDATA` when the folder is missing; not looked
   into further), and the test now assumes neither and asks the engine. The collection runs alone. On Linux every folder the child
   reports is below its folder; the watcher sees only the runtime's diagnostic socket and debug pipes, gone by the end, and what
-  stays is one empty folder, `powershell` (the engine's cache folder, made at its start - a folder, no file). The Windows part has
-  not been seen to pass yet (Windows CI job; the test prints the child's folders).
+  stays is one empty folder, `powershell` (the engine's cache folder, made at its start - a folder, no file). On Windows the
+  window's test, with the snapshot of the user's folders, passed from the CI of 151aff46 on (the test prints the child's folders);
+  the control failed there only on `telemetry.uuid` (12.14).
 - *Whether the engine reads `PowerShellPolicies` from `powershell.config.json` on Windows* next to the registry; the D7 reader
   will read both, so the note is right either way.
 - *The single-file layout:* where `$PSHOME` points and whether the four modules are found (part 4) - settled in 12.4 decision 1: the single file runs the engine and `$PSHOME` is the program folder.
@@ -1983,3 +1986,13 @@ that counted on how the runner behaves. What failed, and what became of it:
   4.2) and reports the count, which the test expects to be 1. The probe also holds the timer, so that a collection of the closed
   window's variables cannot cancel it before it fires. Frozen the same way, the control crashed and the contained child reported
   `contained=1` in every run.
+- **The positive control of the "no files" test expected a file the Windows engine does not write.** On the Windows runner (CI of
+  ea9c4c5d, 151aff46, 7e13cff6 and 7cc6191b) the probe's own file was seen in the engine's cache folder, but `telemetry.uuid` was
+  not, and the test failed. The Windows build of the engine (decompiled 7.6.10, the static constructor of
+  `Microsoft.PowerShell.Telemetry.ApplicationInsightsTelemetry`) sends telemetry - and only then writes the identifier - when, besides
+  the opt-out variable, Windows' diagnostic data setting allows it (`WindowsDataCollectionSetting.CanCollectDiagnostics`, the WinRT
+  `PlatformDiagnosticsAndUsageDataSettings`), which is off on the runner; the Linux build has no such check. The control now reports
+  the engine's `ApplicationInsightsTelemetry.CanSendTelemetry`; the test expects `telemetry.uuid` only when it is true (on Linux it
+  must be, with telemetry on in the child's environment) and, when it is false, that no `telemetry.uuid` appeared; the probe's own
+  file shows on both systems that the test watches the engine's cache folder. Here the test failed before the probe reported the
+  setting (the report did not say) and passes with it (`CanSendTelemetry` true on Linux).

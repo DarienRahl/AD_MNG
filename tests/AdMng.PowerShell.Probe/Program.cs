@@ -16,8 +16,8 @@ namespace AdMng.PowerShell.Probe;
 /// environment (HOME, TEMP, XDG_*, the user's own PowerShell settings) and looks at the folders afterwards. Modes:
 /// <c>files</c> (the window's session, a script that touches the formatter, module discovery, completion, syntax and the
 /// history policy, then a measurement; the report names the engine's folders, <see cref="EngineFolders"/>), <c>control</c> (an
-/// ordinary runspace of the SDK and a file of the probe in the engine's cache folder: the parent expects to see that file and the
-/// engine's telemetry.uuid where it watches), <c>cache-control</c> and <c>cache-window</c> (the module analysis cache, about 40 s each), <c>left-run</c> (a
+/// ordinary runspace of the SDK and a file of the probe in the engine's cache folder: the parent expects to see that file and, when the
+/// engine sends telemetry, the engine's telemetry.uuid where it watches), <c>cache-control</c> and <c>cache-window</c> (the module analysis cache, about 40 s each), <c>left-run</c> (a
 /// run the session left: the process still ends), <c>leftover-callback</c> and <c>leftover-callback-control</c> (a script block
 /// that trusted-mode code left behind runs after its window closed: the process survives it, the control crashes), <c>deep-input:&lt;case&gt;</c>
 /// (a line nested deeper than the engine can walk, checked, highlighted, completed and run from a thread with the stack of the window's UI
@@ -129,9 +129,12 @@ internal static class Program
 
     private static string Control()
     {
-        // No AdMng code: an ordinary runspace of the SDK with telemetry on, as a plain pwsh-like host would start - its first command
-        // writes the engine's telemetry.uuid into the engine's cache folder. The probe also writes a file of its own there, so the parent
-        // sees a new file even when the user already has a telemetry.uuid in a folder it watches (audit TI-1).
+        // No AdMng code: an ordinary runspace of the SDK with telemetry on, as a plain pwsh-like host would start - when the engine sends
+        // telemetry, its first command writes the engine's telemetry.uuid into the engine's cache folder. Whether it does is the engine's
+        // ApplicationInsightsTelemetry.CanSendTelemetry, which the report gives: the Windows build of the engine also asks Windows'
+        // diagnostic data setting (off on the CI runner, where no telemetry.uuid is written). The probe also writes a file of its own
+        // there, so the parent sees a new file even when the engine writes none or the user already has a telemetry.uuid in a folder it
+        // watches (audit TI-1).
         using var runspace = RunspaceFactory.CreateRunspace();
         runspace.Open();
         using var ps = SmaPowerShell.Create();
@@ -146,7 +149,8 @@ internal static class Program
         Directory.CreateDirectory(folders.Cache);
         var control = Path.Combine(folders.Cache, EngineFolders.ControlFilePrefix + Guid.NewGuid().ToString("N") + ".tmp");
         File.WriteAllText(control, "x");
-        return folders.ToReport() + "control=" + control + "\n";
+        var telemetry = Microsoft.PowerShell.Telemetry.ApplicationInsightsTelemetry.CanSendTelemetry;
+        return folders.ToReport() + "control=" + control + "\ntelemetry=" + telemetry.ToString(CultureInfo.InvariantCulture) + "\n";
     }
 
     private static async Task CacheControlAsync()
