@@ -175,21 +175,35 @@ public sealed class ConnectTests(LabFixture lab)
             LabSettings.Password(LabSettings.AdminPassword),
             isWindows: false);
         var factory = new LdapConnectionFactory(settings, LabSettings.Server!, LabSettings.DomainDns, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
-        using var target = await factory.OpenAsync(probeReachability: false, ct);
-        using var other = await factory.OpenAsync(probeReachability: false, ct);
+        var target = await factory.OpenAsync(probeReachability: false, ct);
+        var other = await factory.OpenAsync(probeReachability: false, ct);
+        var targetFinished = Task.CompletedTask;
+        var otherFinished = Task.CompletedTask;
         var rootDse = new System.DirectoryServices.Protocols.SearchRequest(
             string.Empty,
             "(objectClass=*)",
             System.DirectoryServices.Protocols.SearchScope.Base,
             "1.1");
+        try
+        {
+            // Guards the reflection on S.DS.P's handle field and the libldap / libc imports.
+            Assert.True(OpenLdapTls.TryShutdownSocket(target));
 
-        // Guards the reflection on S.DS.P's handle field and the libldap / libc imports.
-        Assert.True(OpenLdapTls.TryShutdownSocket(target));
+            var broken = target.Send<System.DirectoryServices.Protocols.SearchResponse>(rootDse, TimeSpan.FromSeconds(5), ct);
+            targetFinished = broken.Finished;
+            var error = await Assert.ThrowsAnyAsync<Exception>(() => broken.Response);
+            Assert.True(LdapErrors.IsConnectionBroken(error), error.ToString());
 
-        var error = await Assert.ThrowsAnyAsync<Exception>(() =>
-            target.SendAsync<System.DirectoryServices.Protocols.SearchResponse>(rootDse, TimeSpan.FromSeconds(5), ct));
-        Assert.True(LdapErrors.IsConnectionBroken(error), error.ToString());
-        Assert.NotNull(await other.SendAsync<System.DirectoryServices.Protocols.SearchResponse>(rootDse, TimeSpan.FromSeconds(5), ct));
+            var answered = other.Send<System.DirectoryServices.Protocols.SearchResponse>(rootDse, TimeSpan.FromSeconds(5), ct);
+            otherFinished = answered.Finished;
+            Assert.NotNull(await answered.Response);
+        }
+        finally
+        {
+            // Not under a request S.DS.P still runs (DLR-4): the response can end before the request does (a timeout).
+            target.DisposeWhenFinished(targetFinished);
+            other.DisposeWhenFinished(otherFinished);
+        }
     }
 
     [Fact]

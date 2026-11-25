@@ -160,15 +160,6 @@ internal static class LdapAsync
             TaskScheduler.Default);
     }
 
-    /// <summary>Sends one request on a connection nobody else uses concurrently.</summary>
-    public static Task<TResponse> SendAsync<TResponse>(
-        this LdapConnection connection,
-        DirectoryRequest request,
-        TimeSpan timeout,
-        CancellationToken cancellationToken)
-        where TResponse : DirectoryResponse =>
-        connection.Send<TResponse>(request, timeout, cancellationToken).Response;
-
     private static PendingResponse<TResponse> SendBlocking<TResponse>(
         LdapConnection connection,
         DirectoryRequest request,
