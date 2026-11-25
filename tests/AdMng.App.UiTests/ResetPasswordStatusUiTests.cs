@@ -131,8 +131,8 @@ public sealed class ResetPasswordStatusUiTests
             ControlHost.Press(window.ResetButton);
             await UiWait.UntilAsync(() => held.IsSet && dialog.IsBusy && line.Kind == PageStatusKind.Working, "the accounts are being checked");
 
-            // Working: what is checked - with Stop, and nothing to close. OK is the Cancel of the reset: enabled; the
-            // dialog cannot be closed meanwhile.
+            // Working: what is checked - with Stop, and nothing to close. OK is the Cancel of the reset: enabled. Close
+            // stays enabled too: closing during the check cancels the read (the owner's decision D-A).
             Assert.Equal("Working", line.Title);
             Assert.Equal("Checking the accounts (1)…", line.Message);
             Assert.True(ring.IsActive);
@@ -141,7 +141,7 @@ public sealed class ResetPasswordStatusUiTests
             Assert.Equal(Visibility.Collapsed, close.Visibility);
             Assert.Equal(ActionButtonState.Running, window.ResetButton.State);
             Assert.True(window.ResetButton.IsEnabled);
-            Assert.False(window.CloseButton.IsEnabled);
+            Assert.True(window.CloseButton.IsEnabled);
             AssertNoOldFeedback(window);
 
             // The line was there before: the boxes did not move.
