@@ -103,9 +103,9 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
     internal TimeSpan CloseWait { get; init; } = DefaultCloseWait;
 
     /// <summary>
-    /// Test seam: runs when a lease's request has passed its connection's request gate and the check that the connection
-    /// was not dropped, just before the pool admits it - where a connection that breaks under another request must still
-    /// turn it away (the pool's unit tests break the connection here).
+    /// Test seam: runs when a lease's request has passed its connection's request gate (and, for a request lease, the check
+    /// that the connection was not dropped), just before the pool admits it - where a connection that breaks under another
+    /// request must still turn a request lease away (the pool's unit tests break the connection here).
     /// </summary>
     internal Action<ConnectionLease>? RequestGateEntered { get; init; }
 
