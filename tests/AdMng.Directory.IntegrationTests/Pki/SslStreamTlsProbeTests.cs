@@ -634,10 +634,6 @@ public sealed class SslStreamTlsProbeTests
     }
 
     /// <summary>
-    /// A plain TCP server whose connections are handled by <c>handle</c> (no TLS: it drops or hangs the handshake) -
-    /// every connection, so that one that is not the probe's does not take the probe's place.
-    /// </summary>
-    /// <summary>
     /// Tells a probe that was slow from a process that stood still: a thread of its own and a timer of the thread pool each
     /// tick every 50 ms, and the longest gap each saw is the answer (a gap of seconds on the thread: the operating system did
     /// not run the process; on the timer only: the pool or the timers were stuck; neither: the stall was the probe's own).
@@ -723,6 +719,10 @@ public sealed class SslStreamTlsProbeTests
         }
     }
 
+    /// <summary>
+    /// A plain TCP server whose connections are handled by <c>handle</c> (no TLS: it drops or hangs the handshake) -
+    /// every connection, so that one that is not the probe's does not take the probe's place.
+    /// </summary>
     private sealed class RawServer : IAsyncDisposable
     {
         private readonly TcpListener _listener;
