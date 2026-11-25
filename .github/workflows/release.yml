@@ -195,9 +195,9 @@ jobs:
     needs: plan
     if: needs.plan.outputs.mode == 'full'
     runs-on: windows-latest
-    # As the CI job: the two test steps have their own limits (15 and 45 minutes), and this one leaves room for one test step
-    # at its limit and the rest of the job.
-    timeout-minutes: 70
+    # As the CI job: the two test steps have their own limits (15 and 60 minutes; the UI tests took 14 to more than 36 minutes
+    # on unchanged code), and 90 minutes leave room for both at their limits and the rest of the job.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
         with:
@@ -228,9 +228,9 @@ jobs:
         env:
           ADMNG_UI_TESTS: "1"
       - name: UI tests
-        # Also after a red unit test step, as when both ran in one call.
+        # Also after a red unit test step, as when both ran in one call. The limit is the one of the CI step.
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        timeout-minutes: 45
+        timeout-minutes: 60
         run: dotnet test tests/AdMng.App.UiTests -c Release --no-build
         env:
           ADMNG_UI_TESTS: "1"

@@ -54,10 +54,12 @@ jobs:
   windows:
     name: Build, unit & UI smoke tests (Windows)
     runs-on: windows-latest
-    # The two test steps have their own limits (15 and 45 minutes): a step that runs out of time fails, and the steps after
-    # it still run, publish and smoke test included. When the job's own limit runs out, the job is cancelled and they are
-    # skipped; 70 minutes leave room for one test step at its limit and the rest of the job.
-    timeout-minutes: 70
+    # The two test steps have their own limits (15 and 60 minutes). A test step that runs out of time fails, and the steps
+    # marked to run after a failure still run (UI tests, Slowest tests, publish, smoke test, layout check, test results);
+    # the other steps after it are skipped. When the job's own limit runs out, the job is cancelled and they are skipped
+    # too. 90 minutes: restore and build about 4, both test steps at their limits 75, publish, smoke tests, Watchdog
+    # steps and artifacts about 6, and a few minutes to spare.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -84,10 +86,12 @@ jobs:
           # which only a Windows run can show to be unwritable (docs/dev/r1-powershell-window.md 4.2).
           ADMNG_POWERSHELL_SLOW_TESTS: "1"
       - name: UI tests
-        # A step of its own, with its own limit: 14 to 34 minutes in the runs of November 2026, the job's longest part.
+        # A step of its own, with its own limit: the job's longest part, 14 to more than 36 minutes on unchanged code (run
+        # 45698130022 on 7ff2e6c3, a docs-only commit after 260c4d4d, hit the old 40-minute job limit with the UI tests
+        # still running, about 2.6 times slower than the 14 minutes of 260c4d4d).
         # Also after a red unit test step, as when both ran in one call. The environment is the one of the unit tests step.
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        timeout-minutes: 45
+        timeout-minutes: 60
         run: dotnet test tests/AdMng.App.UiTests -c Release --no-build --logger "trx" --results-directory TestResults
         env:
           ADMNG_UI_TESTS: "1"
@@ -95,7 +99,8 @@ jobs:
           ADMNG_POWERSHELL_SLOW_TESTS: "1"
       # The UI tests grew from 11 to 27 minutes within a day of new tests: the thirty slowest of both test steps, from the trx
       # files, say where the time goes (a test that waits for its own timeout shows up here), and one line per test assembly
-      # says how long its run took from start to end. A test step that ran out of time wrote no trx file.
+      # says how long its run took from start to end. A test step that ran out of time may have written no trx file, and its
+      # tests are then missing from the count.
       - name: Slowest tests
         if: always()
         # A diagnostic: whatever goes wrong in it must never turn a green test run red.
