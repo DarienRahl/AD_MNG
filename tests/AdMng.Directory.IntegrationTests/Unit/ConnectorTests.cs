@@ -120,6 +120,10 @@ public sealed class ConnectorTests
             AllowInsecureSimpleBind = true,
             UserName = "jan@contoso.com",
             RequestTimeout = TimeSpan.FromSeconds(2),
+
+            // Only the reachability probe uses it, and the listener accepts at once. Above the bound below, so that a bind that
+            // waited for the connect timeout instead of the request timeout fails the test too.
+            ConnectTimeout = TimeSpan.FromSeconds(45),
         };
         var stopwatch = Stopwatch.StartNew();
 
@@ -128,9 +132,9 @@ public sealed class ConnectorTests
 
         Assert.Contains(error.Kind, new[] { DirectoryErrorKind.Timeout, DirectoryErrorKind.ServerUnavailable });
 
-        // The request timeout (2 s) decides, not the default one (60 s). The bound is wide on purpose, as in the test of the
-        // closed port above: a Windows runner whose test projects run side by side has stood still for 8 s and more, and
-        // this test once took 10.15 s for its 2 s.
+        // The request timeout (2 s) decides, not the default one (60 s) or the connect timeout (45 s here). The bound is wide on
+        // purpose, as in the test of the closed port above: a Windows runner whose test projects run side by side has stood
+        // still for 8 s and more, and this test once took 10.15 s for its 2 s.
         Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(30), $"Took {stopwatch.Elapsed}.");
     }
 

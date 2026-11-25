@@ -23,7 +23,8 @@ public sealed class SslStreamTlsProbeTests
     // Windows runner (4 processors, every test project running side by side) a whole process has stood still for
     // 8-20 s at a time: a probe with 10 s returned its Timeout after 17.7 s, a loopback connect took 3.2 s, the accept loop
     // took its first connection 21 s after the start. No test here waits for this value to elapse - the tests that
-    // expect a timeout or a cancellation pass their own short ones - so a long value costs nothing unless something hangs.
+    // expect a timeout or a cancellation, or accept one (an unknown name), pass their own short ones - so a long value costs
+    // nothing unless something hangs.
     private static readonly TimeSpan Generous = TimeSpan.FromSeconds(60);
 
     [Fact]
@@ -210,7 +211,9 @@ public sealed class SslStreamTlsProbeTests
     [Fact]
     public async Task AnUnknownName_IsNameNotResolved()
     {
-        var result = await new SslStreamTlsProbe().ProbeAsync("dc-nieistniejacy.contoso.invalid", 636, Generous, TestContext.Current.CancellationToken);
+        // The product's own timeout, not Generous: Timeout is an accepted outcome here, so this is the one test that waits its probe
+        // timeout out (where no resolver answers) - 60 s for nothing - and a stalled runner can only turn NameNotResolved into Timeout.
+        var result = await new SslStreamTlsProbe().ProbeAsync("dc-nieistniejacy.contoso.invalid", 636, SslStreamTlsProbe.DefaultTimeout, TestContext.Current.CancellationToken);
 
         // A resolver that cannot be reached at all answers late or not at all: then the probe's own timeout says so.
         Assert.Contains(result.Outcome, new[] { TlsProbeOutcome.NameNotResolved, TlsProbeOutcome.Timeout });
