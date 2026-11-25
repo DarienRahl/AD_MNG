@@ -54,9 +54,9 @@ jobs:
   windows:
     name: Build, unit & UI smoke tests (Windows)
     runs-on: windows-latest
-    # The two test steps have their own limits (15 and 45 minutes): a test step that runs out of time fails on its own, and
-    # the UI tests still run after a unit test step that ran out. 70 minutes leave room for one test step at its limit and
-    # the rest of the job.
+    # The two test steps have their own limits (15 and 45 minutes): a step that runs out of time fails, and the steps after
+    # it still run, publish and smoke test included. When the job's own limit runs out, the job is cancelled and they are
+    # skipped; 70 minutes leave room for one test step at its limit and the rest of the job.
     timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4
@@ -120,10 +120,14 @@ jobs:
           "{0} tests, {1:N0} s in all" -f $rows.Count, (($rows | Measure-Object Seconds -Sum).Sum)
           $runs | Sort-Object Seconds -Descending | ForEach-Object { '{0,8:N0} s  {1,6} tests  {2}' -f $_.Seconds, $_.Tests.Count, $_.Assembly }
           $rows | Sort-Object Seconds -Descending | Select-Object -First 30 | ForEach-Object { '{0,8:N1} s  {1,-9} {2}' -f $_.Seconds, $_.Outcome, $_.Test }
+      # Publish and smoke test also after a red test step, when the build succeeded: a failed test must not hide whether
+      # the published program starts. The failed test step still fails the job.
       - name: Publish (self-contained single file)
+        id: publish
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: dotnet publish src/AdMng.App/AdMng.App.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o publish
       - name: Smoke test published app
-        if: hashFiles('src/AdMng.App/SmokeTest.cs') != ''
+        if: ${{ !cancelled() && steps.publish.outcome == 'success' && hashFiles('src/AdMng.App/SmokeTest.cs') != '' }}
         shell: pwsh
         run: |
           # AdMng.exe is a GUI application: capture its report through redirected handles and print it.
@@ -134,6 +138,7 @@ jobs:
       - name: Published layout of the PowerShell engine
         # Track R (ADR-0010): the engine runs from the single-file AdMng.exe (the smoke test above proves it); its all-users configuration and
         # the help of its commands are published beside the program, and the four sni.dll packages (not OSI licensed) are not in the output.
+        if: ${{ !cancelled() && steps.publish.outcome == 'success' }}
         shell: pwsh
         run: |
           foreach ($file in 'powershell.config.json', 'AdMng.PowerShell.dll-Help.xml') {
