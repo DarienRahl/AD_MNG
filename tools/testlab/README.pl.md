@@ -105,7 +105,7 @@ Ręcznie (tylko własne OU testów, nigdy `OU=Firma`):
 
 ```bash
 ldapsearch -x -H ldap://127.0.0.1 -D 'Administrator@contoso.test' -w 'P@ssw0rd!2026' \
-  -b 'DC=contoso,DC=test' -s one '(|(ou=AdMngIntegration*)(ou=WatchdogIT-*))' dn description whenCreated
+  -b 'DC=contoso,DC=test' -s one '(|(ou=AdMngIntegration*)(ou=AdMngPowerShell-*)(ou=WatchdogIT-*))' dn description whenCreated
 ldapdelete -x -H ldap://127.0.0.1 -D 'Administrator@contoso.test' -w 'P@ssw0rd!2026' -r 'OU=WatchdogIT-…,DC=contoso,DC=test'
 ```
 
@@ -142,8 +142,9 @@ pozytywna zwalnia w ten sam sposób zwykłe połączenia S.DS.P i ten proces pot
 po 20 zamknięć na przypadek: przed poprawką żaden z 60 procesów potomnych nie przetrwał (zwolnienie w trakcie wyszukiwania
 6 × 134, 10 × 139 i 4 × żądanie na zwolnionym połączeniu; anulowanie, potem zwolnienie 6 × 134 i 14 × 139; anulowane
 nawiązywanie połączenia 16 × 134 i 4 × 139), po niej każdy z 60 zakończył się kodem wyjścia 0 (1200 zamknięć). Z biblioteką
-System.DirectoryServices.Protocols 10.0.13, którą dostarcza Watchdog (ten projekt testów dostaje 10.0.15 przez PowerShell
-SDK), wynik jest ten sam: 15 z 15 przebiegów trzech przypadków przetrwało, 5 z 5 przebiegów kontroli pozytywnej zginęło.
+System.DirectoryServices.Protocols 10.0.13, którą dostarcza Watchdog i której ten projekt testów używa od wersji 0.16.1
+(wcześniej dostawał 10.0.15, wersję AD Managera, przez PowerShell SDK), wynik jest ten sam: 15 z 15 przebiegów trzech
+przypadków przetrwało, 5 z 5 przebiegów kontroli pozytywnej zginęło.
 Same testy integracyjne Watchdoga przed poprawką nie wywróciły się w 20 lokalnych przebiegach – przerwanie wymaga, by
 zamknięcie trafiło w pętlę wpisów dużej odpowiedzi, a to wymusza dopiero ten program – a po niej przeszły w 20 z 20
 przebiegów. Ręcznie:

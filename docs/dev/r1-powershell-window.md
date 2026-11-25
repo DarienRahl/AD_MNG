@@ -921,7 +921,7 @@ test-stabilisation commits of the orchestrator):
 | `src/AdMng.Presentation/PowerShell` | the window's view model, editor model, history, scrollback, DN link finder, the policy model and its note, the grid's view model, the window actions, the scoped services | 18 / 3,299 |
 | `src/AdMng.App/PowerShell` | `PowerShellWindow`, `PowerShellEditor`, `PowerShellGridWindow`, `PowerShellRuns`, `StateCheckBox`, `PowerShellSessionFactory`, `WindowsPowerShellPolicySource` | 11 / 1,619 |
 | the rest of the program | registrations (`AppHost`), `SmokeTest.PowerShell.cs`, `powershell.config.json`, the menu and palette entry, `Ad.Font.Mono`, `IDialogService` members, strings (`L.PowerShell.cs`, both resx), the dialog factory | 3 new + 15 changed / +1,019 |
-| tests | `AdMng.PowerShell.Tests` (24 files, 3,685 lines), `AdMng.PowerShell.Probe` (the child process of the "no files" test, 2 / 176), `AdMng.Presentation.Tests` (22 / 4,186), `AdMng.Core.Tests` (2 / 102), `AdMng.Directory.IntegrationTests` (lab, 2 / 213), `AdMng.App.UiTests` (8 / 779) | 60 / 9,141 |
+| tests | `AdMng.PowerShell.Tests` (24 files, 3,685 lines), `AdMng.PowerShell.Probe` (the child process of the "no files" test, 2 / 176), `AdMng.Presentation.Tests` (22 / 4,186), `AdMng.Core.Tests` (2 / 102), `AdMng.Directory.IntegrationTests` (lab, 2 / 213; moved to `AdMng.PowerShell.Tests/Lab` in 12.15), `AdMng.App.UiTests` (8 / 779) | 60 / 9,141 |
 
 All of parts 1 to 4: 171 files in 28 commits (26 "R1:" commits and 2 test-stabilisation commits of the orchestrator), 135 new and 36 changed, +22,471 / -62 lines. Of these 6 files
 (+1,412 lines) are documentation - the ADR pair, this note, the dev index, `multi-window.md`, the release draft - and 6 more are the README pair, `CLAUDE.md`, `Directory.Packages.props`, `AdMng.slnx` and the CI
@@ -1299,13 +1299,14 @@ help in `Help/AdMng.PowerShell.dll-Help.xml`, and in Core `LdapFilter.Pattern` a
     engine's generated syntax without descriptions and examples – part 4 decides whether the publish layout puts the file beside `AdMng.exe` (then
     `HelpFilePath` must look in `AppContext.BaseDirectory`) - it does, and it does (12.4 decision 1).
 14. *The engine project references no new package and the lab tests reference the engine:* `tests/AdMng.Directory.IntegrationTests` got a project reference
-    to `AdMng.PowerShell` and the `PowerShellEngineConsumer.props` import (the lab job restores the PowerShell SDK too).
+    to `AdMng.PowerShell` and the `PowerShellEngineConsumer.props` import (the lab job restores the PowerShell SDK too). 12.15 moved the lab
+    tests to `AdMng.PowerShell.Tests/Lab` and dropped the reference.
 
 **Tests** (all on Linux): `AdMng.PowerShell.Tests` – `Reading/GetAdmCommandsTests` (identities of every kind, filters, properties, errors, pipeline, language mode),
 `GroupMemberAndSearchTests` (direct, nested, cycle, ranged, a hostile-value table), `ValueComparisonTests` (**1000 generated objects, every attribute
 compared with `AttributeFormatter` / `SecretAttributes`**: more than 15,000 values; it also runs in another time zone – a mutation to UTC dates fails it),
 `StreamingAndSessionTests` (lazy 100,000-object reader, stop, one session, no write, no `-Server`/`-Credential`), `ErrorsDisplayAndCompletionTests`, and
-`CommandHelpTests`; `AdMng.Core.Tests` – `LdapFilter.Pattern`/`EqualBinary`; `AdMng.Directory.IntegrationTests/Integration/PowerShellReadLabTests` against the
+`CommandHelpTests`; `AdMng.Core.Tests` – `LdapFilter.Pattern`/`EqualBinary`; `AdMng.Directory.IntegrationTests/Integration/PowerShellReadLabTests` (in `AdMng.PowerShell.Tests/Lab` since 12.15) against the
 Samba lab (the administrator with typed values, a filter compared with a session search, an escaped value `Łukasz (Kraków)*\` among decoys, nested groups with a cycle, a missing object
 and a missing base). Mutation checks done: unescaped filter values (10 of 20 fail), a command that buffers the result set (3 of 8 fail), dates in UTC (1 of 6 fails
 in another time zone).
@@ -2014,3 +2015,8 @@ job, so its step "PowerShell engine tests (Linux)" runs them; the Windows job ha
 - `EngineBoundaryTests` expects the engine project to be referenced by `AdMng.App`, `AdMng.PowerShell.Probe` and
   `AdMng.PowerShell.Tests` only; it failed while the directory tests still referenced it.
 - Against the Samba lab here the five passed and the fixture removed its run OU (13 objects).
+- Without the engine the directory tests (also the Windows-only `WinLdapRequestTests` of AD Manager's WinLDAP path) run
+  System.DirectoryServices.Protocols 10.0.13, the central version the Watchdog ships; they got 10.0.15 through the PowerShell SDK,
+  the version AD Manager ships and the engine's tests run. The two packages are the same code: the IL of every method of their
+  `runtimes/win` and `runtimes/linux` assemblies (net10.0) is identical. A bump of either version (the central one or the
+  PowerShell SDK's) compares them again or pins the directory tests to AD Manager's version.

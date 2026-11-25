@@ -1,7 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- Runs against a real directory (Samba AD DC test lab or a lab AD).
        Configure with ADMNG_TEST_LDAP_SERVER / ADMNG_TEST_LDAP_USER / ADMNG_TEST_LDAP_PASSWORD;
-       tests are skipped when the variables are not set. See tools/testlab/README.md. -->
+       tests are skipped when the variables are not set. See tools/testlab/README.md.
+       S.DS.P is the central version (10.0.13, the Watchdog's); AD Manager ships 10.0.15 through the PowerShell SDK - the same
+       code (docs/dev/r1-powershell-window.md 12.15). -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <OutputType>Exe</OutputType>

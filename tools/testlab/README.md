@@ -105,7 +105,7 @@ Manually (only the tests' own OUs, never `OU=Firma`):
 
 ```bash
 ldapsearch -x -H ldap://127.0.0.1 -D 'Administrator@contoso.test' -w 'P@ssw0rd!2026' \
-  -b 'DC=contoso,DC=test' -s one '(|(ou=AdMngIntegration*)(ou=WatchdogIT-*))' dn description whenCreated
+  -b 'DC=contoso,DC=test' -s one '(|(ou=AdMngIntegration*)(ou=AdMngPowerShell-*)(ou=WatchdogIT-*))' dn description whenCreated
 ldapdelete -x -H ldap://127.0.0.1 -D 'Administrator@contoso.test' -w 'P@ssw0rd!2026' -r 'OU=WatchdogIT-…,DC=contoso,DC=test'
 ```
 
@@ -141,8 +141,9 @@ control disposes plain S.DS.P connections the same way, and that child must die.
 case: before the fix all 60 child processes died (dispose during the search 6 × 134, 10 × 139 and 4 × a request on a
 disposed connection; cancel, then dispose 6 × 134 and 14 × 139; cancelled connect 16 × 134 and 4 × 139), after it
 all 60 ended with exit code 0 (1,200 closes). With System.DirectoryServices.Protocols 10.0.13, which the Watchdog
-ships (this test project gets 10.0.15 through the PowerShell SDK), the result is the same: 15 of 15 runs of the three
-cases survived, 5 of 5 runs of the positive control died. The Watchdog integration tests themselves did not crash in
+ships and which this test project has used since 0.16.1 (until then it got 10.0.15, AD Manager's version, through the
+PowerShell SDK), the result is the same: 15 of 15 runs of the three cases survived, 5 of 5 runs of the positive control
+died. The Watchdog integration tests themselves did not crash in
 20 local runs before the fix – the abort needs a close to land in the entry loop of a large response, which only the
 probe forces – and passed in 20 of 20 runs after it. By hand:
 
