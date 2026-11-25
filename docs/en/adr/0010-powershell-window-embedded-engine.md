@@ -128,7 +128,7 @@ the Watchdog package.
    the engine itself), and the test asserts that it watches each of them and that none holds a file afterwards – on Linux
    they all lie in the empty folder (observed); on Windows the engine finds its folders through the known-folder API, which
    the variables need not move, so there the test also compares the PowerShell folders of the user's profile before and
-   after the run (that part has not passed on Windows yet). On Windows the engine writes two files of its own accord that
+   after the run (that part passes in the Windows CI). On Windows the engine writes two files of its own accord that
    cannot be turned off: its AppLocker check writes `__PSScriptPolicyTest_<random>.ps1` and `.psm1` (a comment line, no
    directory data) into `%TEMP%` and deletes them at once, once per process (read in the engine's code); the test allows
    exactly these. In ConstrainedLanguage no script is known to reach the window's session or its credentials: no variable,

@@ -129,7 +129,7 @@ wyłącznie do aplikacji, nigdy do pakietu Watchdoga.
    foldery, w których jego silnik trzyma pliki (odczytane z samego silnika), a test sprawdza, że obserwuje każdy z nich i
    że w żadnym nie zostaje plik – na Linuksie wszystkie leżą w pustym folderze (zaobserwowane); na Windows silnik znajduje
    swoje foldery przez interfejs folderów znanych, którego zmienne nie muszą przesuwać, więc tam test porównuje też
-   foldery PowerShella w profilu użytkownika przed i po uruchomieniu (ta część jeszcze nie przeszła na Windows). Na
+   foldery PowerShella w profilu użytkownika przed i po uruchomieniu (ta część przechodzi w CI na Windows). Na
    Windows silnik sam z siebie zapisuje dwa pliki, których nie da się wyłączyć: jego sprawdzenie AppLockera zapisuje w
    `%TEMP%` pliki `__PSScriptPolicyTest_<losowo>.ps1` i `.psm1` (wiersz komentarza, żadnych danych z katalogu) i od razu
    je usuwa, raz na proces (odczytane z kodu silnika); test dopuszcza dokładnie te pliki. W ConstrainedLanguage nie jest

@@ -2800,7 +2800,7 @@ etapy</summary>
 - **Środowisko silnika** ustawione przed jego pierwszym użyciem: bez telemetrii i kanału diagnostycznego
   (`POWERSHELL_TELEMETRY_OPTOUT`, `POWERSHELL_DIAGNOSTICS_OPTOUT`), automatyczne ładowanie modułów wyłączone, a pamięć
   podręczna analizy modułów skierowana na urządzenie puste (silnik nie zapisuje żadnego własnego pliku – zaobserwowane na
-  Linuksie; na Windows test porównuje też foldery PowerShella w profilu użytkownika – ta część jeszcze nie przeszła – a
+  Linuksie; na Windows test porównuje też foldery PowerShella w profilu użytkownika – ta część przechodzi w CI – a
   sprawdzenie AppLockera przez silnik zapisuje w `%TEMP%` dwa pliki testowe i od razu je usuwa, zob. notatka wykonawcza), plik `powershell.config.json` w folderze silnika (`$PSHOME`; transkrypcja i rejestrowanie modułów wyłączone,
   rejestrowanie bloków skryptów nieustawione; ma pierwszeństwo przed plikiem użytkownika, a ustawienia z GPO przed nim),
   bez PSReadLine, profili, zadań w tle i równoległych runspace'ów.
@@ -2879,8 +2879,8 @@ Właściciel rozstrzygnął te sprawy dla R1 (uzasadnienie i alternatywy:
   obejść żadnej zasady.
 - **Niczego na dysku:** środowisko silnika jest ustawiane przed jego pierwszym użyciem, a test „żadnych plików” sprawdza,
   że praca w oknie nie zostawia pliku w żadnym folderze, w którym silnik trzyma pliki – na Linuksie wszystkie leżą w
-  folderze testu (zaobserwowane); na Windows test porównuje też foldery PowerShella w profilu użytkownika (ta część jeszcze
-  nie przeszła), a sprawdzenie AppLockera przez silnik zapisuje w `%TEMP%` dwa pliki testowe i od razu je
+  folderze testu (zaobserwowane); na Windows test porównuje też foldery PowerShella w profilu użytkownika (ta część przechodzi w
+  CI), a sprawdzenie AppLockera przez silnik zapisuje w `%TEMP%` dwa pliki testowe i od razu je
   usuwa; w ConstrainedLanguage nie jest znany żaden sposób, w jaki skrypt dosięgnąłby sesji okna albo jej poświadczeń
   (drogi znalezione przez audyt R1 i trzy późniejsze próby obejścia okna są testami, które muszą pozostać odrzucone; w
   trybie zaufanym kod .NET może); w R1 nie ma żadnego polecenia zapisu.

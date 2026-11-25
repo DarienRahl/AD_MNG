@@ -2871,7 +2871,7 @@ stages</summary>
 - **The engine's environment**, set before its first use: no telemetry and no diagnostics channel
   (`POWERSHELL_TELEMETRY_OPTOUT`, `POWERSHELL_DIAGNOSTICS_OPTOUT`), module auto-loading off and the module analysis cache
   pointed at a null device (so the engine writes no file of its own – observed on Linux; on Windows a test also compares
-  the PowerShell folders of the user's profile – that part has not passed yet – and the engine's AppLocker check writes two test files
+  the PowerShell folders of the user's profile – that part passes in the Windows CI – and the engine's AppLocker check writes two test files
   into `%TEMP%` and deletes them at once, see the implementation note), a
   `powershell.config.json` file in the engine's folder (`$PSHOME`; transcription and module logging off, script block
   logging not set; it wins over a user's file, GPO settings take precedence over it), no PSReadLine, profiles, jobs or
@@ -2950,7 +2950,7 @@ the implementation note is [docs/dev/r1-powershell-window.md](docs/dev/r1-powers
   to get around any policy.
 - **Nothing on disk:** the environment of the engine is set before its first use and a "no files" test checks that
   working in the window leaves no file in any folder where the engine keeps files – on Linux they all lie in the test's
-  folder (observed); on Windows the test also compares the PowerShell folders of the user's profile (that part has not passed yet),
+  folder (observed); on Windows the test also compares the PowerShell folders of the user's profile (that part passes in the Windows CI),
   and the engine's AppLocker check writes two test files into `%TEMP%` and deletes them at once; in ConstrainedLanguage no
   way is known for a script to reach the window's session or credentials (the ways found by the audit of R1 and by three
   later attempts to get around the window are tests that must stay refused; in the trusted mode .NET code can); no write
