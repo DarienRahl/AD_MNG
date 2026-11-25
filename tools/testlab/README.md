@@ -40,6 +40,7 @@ export ADMNG_TEST_LDAP_SERVER=127.0.0.1
 export ADMNG_TEST_LDAP_USER='Administrator@contoso.test'
 export ADMNG_TEST_LDAP_PASSWORD='P@ssw0rd!2026'
 dotnet test tests/AdMng.Directory.IntegrationTests
+dotnet test tests/AdMng.PowerShell.Tests   # the engine tests, with the lab tests of the PowerShell read commands
 ```
 
 The lab allows simple bind without TLS solely so that `ldapsearch -x` and the tests on Linux work. In production the
@@ -81,7 +82,8 @@ and GSSAPI are described in [`watchdog/README.md`](watchdog/README.md) ("Service
 ### Cleaning up after tests
 
 Every test run works in its own OU directly under the domain: `OU=AdMngIntegration-<UTC time>-<random>`
-(`tests/AdMng.Directory.IntegrationTests`) or `OU=WatchdogIT-<UTC time>-<random>`
+(`tests/AdMng.Directory.IntegrationTests`), `OU=AdMngPowerShell-<UTC time>-<random>` (the lab tests of the PowerShell
+window's read commands in `tests/AdMng.PowerShell.Tests`) or `OU=WatchdogIT-<UTC time>-<random>`
 (`tests/AdMng.Watchdog.IntegrationTests`), so parallel runs (several working copies, CI jobs) do not
 interfere with each other. The OU description identifies the test process (`[run <host> pid <id> started <time>]`). At
 start, a run deletes the OUs of runs that have finished – the process on the same host is no longer running (an

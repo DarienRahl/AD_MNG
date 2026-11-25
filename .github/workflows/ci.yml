@@ -248,8 +248,9 @@ jobs:
         run: dotnet test tests/AdMng.Watchdog.Core.Tests -c Release
       - name: Watchdog Service tests (Linux)
         run: dotnet test tests/AdMng.Watchdog.Service.Tests -c Release
-      # The PowerShell window's engine runs on Linux too (no lab needed): the allow-list, the escape probes of the R1 audit, the
-      # host and the "no files" test with its positive control, which the Windows job cannot run.
+      # The PowerShell window's engine runs on Linux too: the allow-list, the escape probes of the R1 audit, the host and the
+      # "no files" test with its positive control, which the Windows job cannot run - and, with the job's lab variables, the
+      # lab tests of the read commands (Lab/PowerShellReadLabTests; skipped in the Windows job, which has no lab).
       - name: PowerShell engine tests (Linux)
         run: dotnet test tests/AdMng.PowerShell.Tests -c Release
       - name: Start Mailpit

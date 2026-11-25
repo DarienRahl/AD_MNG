@@ -37,8 +37,8 @@ public sealed class EnvironmentTests
         // Windows: \\.\pipe\PSHost.<ticks>.<pid>.<domain>.<process>; Unix: CoreFxPipe_PSHost.* in the temp folder. The pipes
         // of ALL processes are listed there (the pwsh that runs a CI step has one), so only the ones with this process id count.
         var pipes = OperatingSystem.IsWindows()
-            ? Directory.GetFiles(@"\\.\pipe\", "PSHost.*")
-            : Directory.GetFiles(Path.GetTempPath(), "CoreFxPipe_PSHost*");
+            ? System.IO.Directory.GetFiles(@"\\.\pipe\", "PSHost.*")
+            : System.IO.Directory.GetFiles(Path.GetTempPath(), "CoreFxPipe_PSHost*");
         var ours = pipes.Where(pipe =>
         {
             var parts = Path.GetFileName(pipe).Replace("CoreFxPipe_", string.Empty, StringComparison.Ordinal).Split('.');

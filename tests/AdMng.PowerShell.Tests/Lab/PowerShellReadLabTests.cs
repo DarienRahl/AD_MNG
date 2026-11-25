@@ -3,25 +3,25 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Core.PowerShell;
-using AdMng.Directory.IntegrationTests.Infrastructure;
-using AdMng.PowerShell;
 using AdMng.PowerShell.Commands;
 
-namespace AdMng.Directory.IntegrationTests.Integration;
+namespace AdMng.PowerShell.Tests.Lab;
 
 /// <summary>
 /// The read commands of the PowerShell window (R1 part 2) against the Samba lab through a real session: each test makes its own
 /// data in this run's OU and reads it with <c>Get-Adm*</c> / <c>Search-AdmObject</c> as the window does (the session behind the
-/// read-only reader of <see cref="AdmWindowContext"/>).
+/// read-only reader of <see cref="AdmWindowContext"/>). Skipped without the lab variables (<see cref="PowerShellLab"/>); the CI lab
+/// job runs them in its step of the engine's tests. Moved here from <c>AdMng.Directory.IntegrationTests</c>, which no longer
+/// references the engine.
 /// </summary>
-public sealed class PowerShellReadLabTests(LabFixture lab)
+public sealed class PowerShellReadLabTests(PowerShellLabFixture lab) : IClassFixture<PowerShellLabFixture>
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
     public async Task Get_AdmUser_reads_the_administrator_of_the_lab_with_typed_values()
     {
-        LabSettings.RequireLab();
+        PowerShellLab.RequireLab();
         await using var window = await OpenAsync();
 
         var result = await window.RunAsync("Get-AdmUser -Identity Administrator -Properties memberOf,pwdLastSet,whenCreated,adminCount");
@@ -35,22 +35,22 @@ public sealed class PowerShellReadLabTests(LabFixture lab)
         Assert.IsType<Guid>(user.Properties["objectGUID"].Value);
         Assert.IsType<DateTime>(user.Properties["whenCreated"].Value);
         Assert.Contains(((string[])user.Properties["memberOf"].Value!), dn => dn.StartsWith("CN=Domain Admins,", StringComparison.OrdinalIgnoreCase));
-        Assert.True(DistinguishedName.AreEqual($"CN=Administrator,CN=Users,{LabSettings.DomainDn}", (string)user.Properties["DistinguishedName"].Value!));
+        Assert.True(DistinguishedName.AreEqual($"CN=Administrator,CN=Users,{PowerShellLab.DomainDn}", (string)user.Properties["DistinguishedName"].Value!));
     }
 
     [Fact]
     public async Task Get_AdmUser_filters_give_the_same_users_as_a_search_of_the_session()
     {
-        LabSettings.RequireLab();
+        PowerShellLab.RequireLab();
         await using var window = await OpenAsync();
 
-        var result = await window.RunAsync($"Get-AdmUser -Department 'Księgowość' -SearchBase '{LabSettings.CompanyOu}'");
+        var result = await window.RunAsync($"Get-AdmUser -Department 'Księgowość' -SearchBase '{PowerShellLab.CompanyOu}'");
 
         var expected = new List<string>();
         await foreach (var user in lab.Admin.SearchAsync(
             new DirectorySearch
             {
-                BaseDn = LabSettings.CompanyOu,
+                BaseDn = PowerShellLab.CompanyOu,
                 Filter = LdapFilter.And("(sAMAccountType=805306368)", LdapFilter.Equal(Attr.Department, "Księgowość")),
                 Attributes = [Attr.SamAccountName],
             },
@@ -67,8 +67,8 @@ public sealed class PowerShellReadLabTests(LabFixture lab)
     [Fact]
     public async Task Search_AdmObject_with_an_escaped_value_finds_only_that_object_on_a_real_dc()
     {
-        LabSettings.RequireLab();
-        var ou = await lab.CreateOuAsync(TestNames.Unique("Szukanie"));
+        PowerShellLab.RequireLab();
+        var ou = await lab.CreateOuAsync(PowerShellLab.Unique("Szukanie"));
         const string Hostile = @"Łukasz (Kraków)*\";
         var wanted = await CreateGroupAsync(ou, Hostile, description: Hostile);
         await CreateGroupAsync(ou, "Łukasz (Kraków)", description: "Łukasz (Kraków)");
@@ -95,8 +95,8 @@ public sealed class PowerShellReadLabTests(LabFixture lab)
     [Fact]
     public async Task Get_AdmGroupMember_recursive_follows_nested_groups_on_a_real_dc_and_ends_on_a_cycle()
     {
-        LabSettings.RequireLab();
-        var ou = await lab.CreateOuAsync(TestNames.Unique("Zagnieżdżone"));
+        PowerShellLab.RequireLab();
+        var ou = await lab.CreateOuAsync(PowerShellLab.Unique("Zagnieżdżone"));
         var user = await lab.CreateUserAsync(ou, "Zofia Zagnieżdżona");
         var inner = await CreateGroupAsync(ou, "GG_Wewnetrzna", member: user);
         var middle = await CreateGroupAsync(ou, "GG_Srodkowa", member: inner);
@@ -122,8 +122,8 @@ public sealed class PowerShellReadLabTests(LabFixture lab)
     [Fact]
     public async Task Get_AdmObject_reports_a_missing_object_and_a_hidden_container_the_way_a_script_expects()
     {
-        LabSettings.RequireLab();
-        var ou = await lab.CreateOuAsync(TestNames.Unique("Błędy"));
+        PowerShellLab.RequireLab();
+        var ou = await lab.CreateOuAsync(PowerShellLab.Unique("Błędy"));
         var ghost = DistinguishedName.Parse(ou).Child("CN", "Nie istnieje").ToString();
         await using var window = await OpenAsync();
 
@@ -146,7 +146,7 @@ public sealed class PowerShellReadLabTests(LabFixture lab)
         var attributes = new Dictionary<string, IReadOnlyList<object>>
         {
             [Attr.ObjectClass] = ["top", ObjectClasses.Group],
-            [Attr.SamAccountName] = [TestNames.SamAccountName()],
+            [Attr.SamAccountName] = [PowerShellLab.SamAccountName()],
         };
         if (member is not null)
         {

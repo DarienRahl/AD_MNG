@@ -24,7 +24,7 @@ public sealed partial class EngineBoundaryTests
     }
 
     private static string[] Projects(string folder) =>
-        [.. Directory.GetFiles(Path.Combine(Root(), folder), "*.csproj", SearchOption.AllDirectories).Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))];
+        [.. System.IO.Directory.GetFiles(Path.Combine(Root(), folder), "*.csproj", SearchOption.AllDirectories).Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))];
 
     [Fact]
     public void OnlyTheProgramAndTheTestsOfTheEngine_ReferenceTheEngineProject()
@@ -35,8 +35,9 @@ public sealed partial class EngineBoundaryTests
             .Order(StringComparer.Ordinal)
             .ToArray();
 
-        // The program, the tests of the engine (and the child process they start), the lab tests that drive the real session.
-        Assert.Equal(["AdMng.App", "AdMng.Directory.IntegrationTests", "AdMng.PowerShell.Probe", "AdMng.PowerShell.Tests"], referencing);
+        // The program, the tests of the engine (and the child process they start). The lab tests of the read commands are among
+        // the engine's tests (Lab/PowerShellReadLabTests): the tests of the directory library do not carry the engine.
+        Assert.Equal(["AdMng.App", "AdMng.PowerShell.Probe", "AdMng.PowerShell.Tests"], referencing);
     }
 
     [Fact]

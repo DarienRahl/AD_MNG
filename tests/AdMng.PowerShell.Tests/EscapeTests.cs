@@ -14,7 +14,7 @@ namespace AdMng.PowerShell.Tests;
 /// </summary>
 public sealed class EscapeTests : IDisposable
 {
-    private readonly DirectoryInfo _folder = Directory.CreateTempSubdirectory("admng-ps-escape-");
+    private readonly DirectoryInfo _folder = System.IO.Directory.CreateTempSubdirectory("admng-ps-escape-");
 
     public static TheoryData<PowerShellLanguageMode> BothModes => [PowerShellLanguageMode.Constrained, PowerShellLanguageMode.Full];
 
@@ -214,7 +214,7 @@ public sealed class EscapeTests : IDisposable
 
         Assert.True(job.JobStateInfo.State is JobState.Stopped or JobState.Failed, job.JobStateInfo.State.ToString());
         Assert.All(job.ChildJobs, child => Assert.True(child.JobStateInfo.State is JobState.Stopped or JobState.Failed or JobState.NotStarted, child.JobStateInfo.State.ToString()));
-        Assert.Empty(Directory.EnumerateFileSystemEntries(_folder.FullName));
+        Assert.Empty(System.IO.Directory.EnumerateFileSystemEntries(_folder.FullName));
     }
 
     /// <summary>
@@ -232,7 +232,7 @@ public sealed class EscapeTests : IDisposable
         Assert.True(job.JobStateInfo.State is JobState.Stopped or JobState.Failed, job.JobStateInfo.State.ToString());
         Assert.True(job.ChildJobs[0].JobStateInfo.State is JobState.Stopped or JobState.Failed or JobState.NotStarted, job.ChildJobs[0].JobStateInfo.State.ToString());
         Assert.Equal([JobState.NotStarted, JobState.NotStarted], job.ChildJobs.Skip(1).Select(child => child.JobStateInfo.State));
-        Assert.Empty(Directory.EnumerateFileSystemEntries(_folder.FullName));
+        Assert.Empty(System.IO.Directory.EnumerateFileSystemEntries(_folder.FullName));
     }
 
     /// <summary>PS-03: <c>using module</c> loaded a script module past the Import-Module guard (out-more.txt).</summary>
@@ -241,7 +241,7 @@ public sealed class EscapeTests : IDisposable
     public async Task Using_module_of_a_script_module_is_refused_before_anything_runs(PowerShellLanguageMode mode)
     {
         var module = Path.Combine(_folder.FullName, "FakeMod");
-        Directory.CreateDirectory(module);
+        System.IO.Directory.CreateDirectory(module);
         await File.WriteAllTextAsync(Path.Combine(module, "FakeMod.psd1"), "@{ ModuleVersion = '1.0'; RootModule = 'FakeMod.psm1'; FunctionsToExport = @('Get-FakeThing'); GUID = '11111111-2222-3333-4444-555555555555' }", TestContext.Current.CancellationToken);
         await File.WriteAllTextAsync(Path.Combine(module, "FakeMod.psm1"), "function Get-FakeThing { 'fake module loaded' }", TestContext.Current.CancellationToken);
         await using var session = await SessionAsync(mode);
@@ -331,7 +331,7 @@ public sealed class EscapeTests : IDisposable
             Assert.True(TestSessions.End(items).HadErrors, $"'{script}' ran without an error.");
         }
 
-        Assert.Empty(Directory.EnumerateFileSystemEntries(dir));
+        Assert.Empty(System.IO.Directory.EnumerateFileSystemEntries(dir));
     }
 
     [Theory]
@@ -365,7 +365,7 @@ public sealed class EscapeTests : IDisposable
         Assert.DoesNotContain("Transcript started", TestSessions.Text(bare), StringComparison.Ordinal);
         Assert.Contains("OutputDirectory", TestSessions.Text(directory, PowerShellStream.Error), StringComparison.Ordinal);
         Assert.True(TestSessions.End(stop).HadErrors, "A transcript was running.");
-        Assert.Empty(Directory.EnumerateFileSystemEntries(_folder.FullName));
+        Assert.Empty(System.IO.Directory.EnumerateFileSystemEntries(_folder.FullName));
     }
 
     [Fact]
@@ -474,7 +474,7 @@ public sealed class EscapeTests : IDisposable
         Assert.DoesNotContain("FullLanguage", TestSessions.Text(items), StringComparison.Ordinal);
         Assert.Contains("language mode", TestSessions.Text(items, PowerShellStream.Error), StringComparison.Ordinal);
         Assert.True(TestSessions.End(items).HadErrors);
-        Assert.Empty(Directory.EnumerateFileSystemEntries(_folder.FullName));
+        Assert.Empty(System.IO.Directory.EnumerateFileSystemEntries(_folder.FullName));
         Assert.Equal(PowerShellLanguageMode.Constrained, session.LanguageMode);
     }
 
@@ -591,7 +591,7 @@ public sealed class EscapeTests : IDisposable
         Assert.Contains("language mode", TestSessions.Text(reached, PowerShellStream.Error), StringComparison.Ordinal);
         Assert.NotNull(await builder.Session.GetAsync(builder.GuestDn, ["cn"], TestContext.Current.CancellationToken));
         Assert.Contains("language mode", TestSessions.Text(started, PowerShellStream.Error), StringComparison.Ordinal);
-        Assert.Empty(Directory.EnumerateFileSystemEntries(_folder.FullName));
+        Assert.Empty(System.IO.Directory.EnumerateFileSystemEntries(_folder.FullName));
         Assert.Equal(PowerShellLanguageMode.Constrained, session.LanguageMode);
     }
 

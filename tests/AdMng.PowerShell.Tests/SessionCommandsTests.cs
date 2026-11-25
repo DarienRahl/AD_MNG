@@ -92,7 +92,7 @@ public sealed class SessionCommandsTests
     [InlineData("${function:probe} = \"'the script ran'\"; probe")]
     public async Task Script_files_do_not_run_and_the_function_drive_does_not_exist(string script)
     {
-        var folder = Directory.CreateTempSubdirectory("admng-ps-script-");
+        var folder = System.IO.Directory.CreateTempSubdirectory("admng-ps-script-");
         try
         {
             var file = Path.Combine(folder.FullName, "probe.ps1");
@@ -119,7 +119,7 @@ public sealed class SessionCommandsTests
     public async Task A_script_file_reached_as_a_command_object_is_refused_on_windows()
     {
         Assert.SkipUnless(OperatingSystem.IsWindows(), "The engine asks an authorization manager on Windows only.");
-        var folder = Directory.CreateTempSubdirectory("admng-ps-script-");
+        var folder = System.IO.Directory.CreateTempSubdirectory("admng-ps-script-");
         try
         {
             var file = Path.Combine(folder.FullName, "probe.ps1");

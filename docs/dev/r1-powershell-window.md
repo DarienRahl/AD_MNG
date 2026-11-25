@@ -1996,3 +1996,21 @@ that counted on how the runner behaves. What failed, and what became of it:
   must be, with telemetry on in the child's environment) and, when it is false, that no `telemetry.uuid` appeared; the probe's own
   file shows on both systems that the test watches the engine's cache folder. Here the test failed before the probe reported the
   setting (the report did not say) and passes with it (`CanSendTelemetry` true on Linux).
+
+### 12.15 0.16.1 - the lab tests of the read commands among the engine's tests
+
+`PowerShellReadLabTests` (the five lab tests of 12.2, unchanged in what they assert) moved from
+`tests/AdMng.Directory.IntegrationTests/Integration` to `tests/AdMng.PowerShell.Tests/Lab` (audit note
+note-directory-it-powershell-ref): the tests of the directory library carried the whole engine for this one class. They no longer
+reference `AdMng.PowerShell` or import `PowerShellEngineConsumer.props`; the engine's tests reference `AdMng.Directory` for the
+real session instead. The tests are skipped without `ADMNG_TEST_LDAP_SERVER`. The CI lab job sets the lab variables for the whole
+job, so its step "PowerShell engine tests (Linux)" runs them; the Windows job has no lab and skips them.
+
+- They have a class fixture of their own, `PowerShellLabFixture`: this run's OU `OU=AdMngPowerShell-<UTC time>-<random>`, with
+  the run-OU and cleanup code of the directory tests (`LabRuns`, `LabCleanup`) as linked files, as
+  `AdMng.Watchdog.IntegrationTests` has them.
+- The namespace `AdMng.Directory` (from the reference and from the linked files) hides `System.IO.Directory` inside
+  `AdMng.PowerShell.Tests`, so the engine's tests write `System.IO.Directory`, as the directory and Watchdog lab tests do.
+- `EngineBoundaryTests` expects the engine project to be referenced by `AdMng.App`, `AdMng.PowerShell.Probe` and
+  `AdMng.PowerShell.Tests` only; it failed while the directory tests still referenced it.
+- Against the Samba lab here the five passed and the fixture removed its run OU (13 objects).

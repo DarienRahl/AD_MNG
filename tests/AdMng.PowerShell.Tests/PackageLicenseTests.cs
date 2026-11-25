@@ -6,8 +6,8 @@ public sealed class PackageLicenseTests
     [Fact]
     public void The_build_output_has_no_sni_dll_and_the_deps_file_does_not_name_it()
     {
-        var found = Directory.EnumerateFiles(AppContext.BaseDirectory, "sni.dll", SearchOption.AllDirectories).ToList();
-        var deps = Directory.EnumerateFiles(AppContext.BaseDirectory, "*.deps.json").ToList();
+        var found = System.IO.Directory.EnumerateFiles(AppContext.BaseDirectory, "sni.dll", SearchOption.AllDirectories).ToList();
+        var deps = System.IO.Directory.EnumerateFiles(AppContext.BaseDirectory, "*.deps.json").ToList();
 
         Assert.Empty(found);
         Assert.NotEmpty(deps);
@@ -18,6 +18,6 @@ public sealed class PackageLicenseTests
     public void The_engine_assembly_is_in_the_output_so_the_check_looks_at_a_real_build()
     {
         Assert.True(File.Exists(Path.Combine(AppContext.BaseDirectory, "System.Management.Automation.dll"))
-            || Directory.EnumerateFiles(AppContext.BaseDirectory, "System.Management.Automation.dll", SearchOption.AllDirectories).Any());
+            || System.IO.Directory.EnumerateFiles(AppContext.BaseDirectory, "System.Management.Automation.dll", SearchOption.AllDirectories).Any());
     }
 }

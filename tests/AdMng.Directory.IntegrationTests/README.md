@@ -28,7 +28,7 @@ Optional overrides (defaults match `tools/testlab`): `ADMNG_TEST_LDAP_HELPDESK_U
   reported as a diagnostic message and does not stop the run. Seeded data is only read; the access denied test writes
   the current value back so that even a wrongly permitted write changes nothing.
 - Test trees are deleted **client-side** (`Infrastructure/LabCleanup.cs`, also used by
-  `AdMng.Watchdog.IntegrationTests`): groups lose their members in one modify each, then every object is deleted on its
+  `AdMng.Watchdog.IntegrationTests` and `AdMng.PowerShell.Tests`): groups lose their members in one modify each, then every object is deleted on its
   own, deepest first, with a 10-minute request timeout. Samba runs one write transaction at a time (~0.1 s per deleted
   object on the lab) and ends a request after 300 s, so a server-side tree delete of a run OU (two 1600-member groups
   and their 3200 contacts, ~5 minutes) failed with timeLimitExceeded, left the objects behind and blocked every other

@@ -40,6 +40,7 @@ export ADMNG_TEST_LDAP_SERVER=127.0.0.1
 export ADMNG_TEST_LDAP_USER='Administrator@contoso.test'
 export ADMNG_TEST_LDAP_PASSWORD='P@ssw0rd!2026'
 dotnet test tests/AdMng.Directory.IntegrationTests
+dotnet test tests/AdMng.PowerShell.Tests   # testy silnika, z testami poleceń odczytu PowerShell w laboratorium
 ```
 
 Lab dopuszcza proste wiązanie (simple bind) bez TLS wyłącznie po to, by działały `ldapsearch -x` i testy na
@@ -81,7 +82,8 @@ LDAPCONF=… ldapsearch -Y GSSAPI -H "ldap://$dc" -b 'DC=contoso,DC=test' -s bas
 ### Sprzątanie po testach
 
 Każdy przebieg testów pracuje we własnym OU bezpośrednio pod domeną: `OU=AdMngIntegration-<czas UTC>-<losowe>`
-(`tests/AdMng.Directory.IntegrationTests`) albo `OU=WatchdogIT-<czas UTC>-<losowe>`
+(`tests/AdMng.Directory.IntegrationTests`), `OU=AdMngPowerShell-<czas UTC>-<losowe>` (testy poleceń odczytu okna
+PowerShell w laboratorium, `tests/AdMng.PowerShell.Tests`) albo `OU=WatchdogIT-<czas UTC>-<losowe>`
 (`tests/AdMng.Watchdog.IntegrationTests`), więc równoległe przebiegi (kilka kopii roboczych, zadania CI) nie
 przeszkadzają sobie. Opis OU wskazuje proces testów (`[run <host> pid <id> started <czas>]`). Na starcie przebieg usuwa
 OU przebiegów, które się skończyły – proces na tym samym hoście już nie działa (przebieg przerwany) albo OU jest

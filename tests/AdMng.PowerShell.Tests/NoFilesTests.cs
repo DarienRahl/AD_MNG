@@ -68,7 +68,7 @@ public sealed partial class NoFilesTests
         using var home = new TempFolder();
         var own = KnownFolders.OwnCache;
         var ownTelemetry = own is null ? null : Path.Combine(own, "telemetry.uuid");
-        var hadOwnCache = own is not null && Directory.Exists(own);
+        var hadOwnCache = own is not null && System.IO.Directory.Exists(own);
         var hadOwnTelemetry = ownTelemetry is not null && File.Exists(ownTelemetry);
         var known = KnownFolders.Take();
         try
@@ -103,9 +103,9 @@ public sealed partial class NoFilesTests
         }
         finally
         {
-            if (own is not null && Directory.Exists(own))
+            if (own is not null && System.IO.Directory.Exists(own))
             {
-                foreach (var file in Directory.GetFiles(own, EngineFolders.ControlFilePrefix + "*"))
+                foreach (var file in System.IO.Directory.GetFiles(own, EngineFolders.ControlFilePrefix + "*"))
                 {
                     File.Delete(file);
                 }
@@ -115,9 +115,9 @@ public sealed partial class NoFilesTests
                     File.Delete(ownTelemetry!);
                 }
 
-                if (!hadOwnCache && !Directory.EnumerateFileSystemEntries(own).Any())
+                if (!hadOwnCache && !System.IO.Directory.EnumerateFileSystemEntries(own).Any())
                 {
-                    Directory.Delete(own);
+                    System.IO.Directory.Delete(own);
                 }
             }
         }
@@ -147,7 +147,7 @@ public sealed partial class NoFilesTests
         using var window = new TempFolder();
         foreach (var folder in new[] { control, window })
         {
-            Directory.CreateDirectory(Path.Combine(folder.Home, "Modules", "FakeMod"));
+            System.IO.Directory.CreateDirectory(Path.Combine(folder.Home, "Modules", "FakeMod"));
             await File.WriteAllTextAsync(
                 Path.Combine(folder.Home, "Modules", "FakeMod", "FakeMod.psd1"),
                 "@{ ModuleVersion = '1.0'; RootModule = 'FakeMod.psm1'; FunctionsToExport = @('Get-FakeThing'); GUID = '11111111-2222-3333-4444-555555555555' }",
@@ -214,7 +214,7 @@ internal static class KnownFolders
     {
         var files = new Dictionary<string, (long, DateTime)>(StringComparer.OrdinalIgnoreCase);
         var options = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = 0 };
-        foreach (var root in Roots.Where(Directory.Exists))
+        foreach (var root in Roots.Where(System.IO.Directory.Exists))
         {
             foreach (var file in new DirectoryInfo(root).EnumerateFiles("*", options))
             {
@@ -268,9 +268,9 @@ internal sealed class TempFolder : IDisposable
 
     public TempFolder()
     {
-        Directory.CreateDirectory(_container);
+        System.IO.Directory.CreateDirectory(_container);
         Home = Path.Combine(_container, "home");
-        Directory.CreateDirectory(Home);
+        System.IO.Directory.CreateDirectory(Home);
         ReportPath = Path.Combine(_container, "report.txt");
     }
 
@@ -281,8 +281,8 @@ internal sealed class TempFolder : IDisposable
 
     /// <summary>Every entry below the folder that is not a directory (a socket or a pipe left behind counts), relative.</summary>
     public IReadOnlyList<string> Files() =>
-        [.. Directory.EnumerateFileSystemEntries(Home, "*", SearchOption.AllDirectories)
-            .Where(entry => !Directory.Exists(entry))
+        [.. System.IO.Directory.EnumerateFileSystemEntries(Home, "*", SearchOption.AllDirectories)
+            .Where(entry => !System.IO.Directory.Exists(entry))
             .Select(entry => Path.GetRelativePath(Home, entry))
             .Order(StringComparer.Ordinal)];
 
@@ -290,7 +290,7 @@ internal sealed class TempFolder : IDisposable
     {
         try
         {
-            Directory.Delete(_container, recursive: true);
+            System.IO.Directory.Delete(_container, recursive: true);
         }
         catch (IOException)
         {
