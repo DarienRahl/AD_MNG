@@ -72,9 +72,10 @@ cross; a read, a load, a search and a run that goes on are interrupted by *Stop*
 On opening, the window connects to Outlook in the background: it attaches to a running Outlook or starts it (three
 attempts). A missing Outlook is not an error of the window – it is visible in the footer, and on the *Sending* and *Responses* tabs
 also in the status line (with the *Connect to Outlook* button when the connection failed); *Connect to Outlook* on the
-*Message* tab tries again. Closing the window during sending asks the question every AD Manager window that writes asks
-(*Stop the running operation and close the window?*, with what is running and the reminder that messages already accepted by the server
-or by Outlook cannot be recalled). *Stop and close* stops the sending after the message it is at and closes the window only once the run
+*Message* tab tries again. Closing the window during sending asks *Stop the running operation and close the window?*, with
+what is running and the reminder that the messages not yet sent are not sent and that messages already accepted by the server
+or by Outlook cannot be recalled (the *Send message to users* window asks the same during its sending; windows that execute changes in
+the directory ask about the execution of changes, and some of them also offer *Close and continue in the background*). *Stop and close* stops the sending after the message it is at and closes the window only once the run
 has ended; *Don't close* keeps the window and the sending. A send cannot continue in the background. The question also covers a send on a tab that is not shown at the moment. On closing,
 the last draft and the options are saved.
 

@@ -526,9 +526,11 @@ account, but the account that is being created is finished: it has its password,
 the first logon and belongs to its groups. The status line says how many objects are done (*1 of 5 objects done, failed:
 0, the one that ran was finished*); the rows that were not started can be run later (*Retry failed*). Closing the window
 during the execution asks what to do with it: *Stop and close* (like *Stop*, and the window closes after the execution
-ended), *Close and continue in the background* (the window closes at once, the execution goes on to its end in the list
-of background operations, its outcome comes as a notification of the main window, and every change is in the session log)
-or *Don't close*. It cannot continue in the background when the wizard generates the initial passwords – they exist only
+ended), *Close and continue in the background* (the window closes at once, and the execution goes on to its end in the
+list of background operations) or *Don't close*. How an execution ended whose outcome the closed window no longer shows is
+said by the main window: in a notification when nothing failed (for a stopped one, how many objects were done), and when
+something failed, in a dialog with the reasons that opens only once the wizard has closed; every change is in the session
+log. It cannot continue in the background when the wizard generates the initial passwords – they exist only
 in this window – nor before the first account has been created (see below). An execution left in the background does not
 come back to the window: the results, the passwords, *Retry failed* and *Undo* go with it.
 
@@ -539,7 +541,7 @@ password or to write `userAccountControl`, a password rejected by the policy –
 the first object was not created because its value is taken (a problem of that row only), the next one takes over the
 attempt – at most three. While the first account is being created this window decides about the rest, so closing the
 window offers only *Stop and close* or *Don't close* and says why; while the other accounts are being created (and no
-passwords are generated) *Close and continue in the background* is offered too – the notification then speaks of the
+passwords are generated) *Close and continue in the background* is offered too – the main window then speaks only of the
 accounts created after the first one.
 
 ## 8. Results and passwords

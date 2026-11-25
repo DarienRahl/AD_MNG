@@ -69,9 +69,10 @@ użycia). Wynik można zamknąć krzyżykiem; trwający odczyt, wczytywanie, szu
 Przy otwarciu okno łączy się z Outlookiem w tle: dołącza do uruchomionego Outlooka albo go uruchamia (trzy próby).
 Brak Outlooka nie jest błędem okna – widać go w stopce, a na zakładkach *Wysyłka* i *Odpowiedzi* także w linii stanu (z
 przyciskiem *Połącz z Outlookiem*, gdy połączenie się nie udało); *Połącz z Outlookiem* na zakładce *Wiadomość* próbuje
-ponownie. Zamknięcie okna w trakcie wysyłki zadaje to samo pytanie, co każde okno AD Managera, w którym coś się zapisuje
-(*Zatrzymać trwającą operację i zamknąć okno?*, z tym, co trwa, i z tym, że wiadomości przyjętych już przez serwer lub przez Outlooka
-nie da się wycofać). *Zatrzymaj i zamknij* zatrzymuje wysyłkę po wiadomości, przy której jest, i zamyka okno dopiero po jej końcu;
+ponownie. Zamknięcie okna w trakcie wysyłki pyta: *Zatrzymać trwającą operację i zamknąć okno?*, z tym, co trwa, i z tym, że
+wiadomości, które jeszcze nie zostały wysłane, nie zostaną wysłane, a wiadomości przyjętych już przez serwer lub przez Outlooka
+nie da się wycofać (tak samo pyta okno *Wyślij wiadomość do użytkowników* w trakcie swojej wysyłki; okna, które wykonują zmiany
+w katalogu, pytają o wykonanie zmian, a część z nich proponuje też *Zamknij i kontynuuj w tle*). *Zatrzymaj i zamknij* zatrzymuje wysyłkę po wiadomości, przy której jest, i zamyka okno dopiero po jej końcu;
 *Nie zamykaj* zostawia okno i wysyłkę. Wysyłki nie da się kontynuować w tle. Pytanie dotyczy także wysyłki na zakładce, której akurat nie widać. Przy zamknięciu zapisywany jest ostatni szkic i opcje.
 
 Outlook, którego AD Manager musiał uruchomić, działa bez okna aż do zamknięcia AD Managera, także po zamknięciu okna
