@@ -241,6 +241,78 @@ public sealed class MailboxesStatusTests
     }
 
     [Fact]
+    public async Task AddingTheOwners_ThatTheDirectoryRefuses_IsAnError_WithTheReasonTheCodeAndRetry()
+    {
+        var (scenario, window, _) = await OpenAsync();
+        using var _ = scenario;
+        using var __ = window;
+        var page = window.Mailboxes;
+        await page.FindOwnersCommand.ExecuteAsync(null);
+        scenario.Harness.Session.FailNext(FakeOperationKind.Search, null, DirectoryErrorKind.Busy);
+        var recipientsLine = new StatusRecorder(window.Recipients.Status);
+
+        await page.AddToRecipientsCommand.ExecuteAsync(null);
+
+        // What was not done, why and what to do, with the code; Retry reads the owners again. Nobody was added - the
+        // recipients page has nothing to say about it.
+        var failed = window.Status.Current;
+        Assert.Same(page.Status.Current, failed);
+        Assert.Equal(PageStatusKind.Error, failed.Kind);
+        Assert.StartsWith("Nie dodano właścicieli do odbiorców: ", failed.Message, StringComparison.Ordinal);
+        Assert.EndsWith(" Wybierz Ponów, aby spróbować ponownie. (LDAP 51)", failed.Message, StringComparison.Ordinal);
+        Assert.Equal("Correspondence.Mailboxes.Status.AddFailed (9) [LDAP 51]", failed.Log.ToString());
+        Assert.True(failed.CanClose);
+        Assert.Equal("Ponów", failed.Action?.Label);
+        Assert.Same(page.AddToRecipientsCommand, failed.Action?.Command);
+        Assert.Empty(window.Recipients.Items);
+        Assert.Empty(recipientsLine.Seen);
+        Assert.False(page.IsRunning);
+        Assert.True(page.AddToRecipientsCommand.CanExecute(null));
+
+        // Retry (the action of the line) reads the owners again and adds them.
+        await page.AddToRecipientsCommand.ExecuteAsync(null);
+        Assert.Equal(PageStatusKind.Done, window.Status.Current.Kind);
+        Assert.Equal("Dodano do odbiorców: skrzynki – 9, właściciele – 9.", window.Status.Current.Message);
+        Assert.Equal(9, window.Recipients.Items.Count);
+    }
+
+    [Fact]
+    public async Task AddingTheOwners_AfterTheSessionEnded_SaysThatNobodyWasAdded_AndWhy()
+    {
+        var (scenario, window, _) = await OpenAsync();
+        using var _ = scenario;
+        using var __ = window;
+        var page = window.Mailboxes;
+        await page.FindOwnersCommand.ExecuteAsync(null);
+        await scenario.Harness.Sessions.DisconnectAsync();
+        await B2Harness.WaitUntilAsync(() => !window.Recipients.CanUseDirectory);
+        Assert.Equal(PageStatusKind.Attention, window.Status.Current.Kind);
+        Assert.Equal("WindowSession.Ended", window.Status.Current.Log.ToString());
+
+        // The rows found before are still there, so the button can be pressed: the owners are read again from the session of
+        // the window, which has ended - the press is answered, nothing is added and no read is sent.
+        var searches = scenario.Harness.Session.Operations.Count(o => o.Kind == FakeOperationKind.Search);
+        await page.AddToRecipientsCommand.ExecuteAsync(null);
+
+        var failed = window.Status.Current;
+        Assert.Equal(PageStatusKind.Error, failed.Kind);
+        Assert.Equal(
+            "Nie dodano właścicieli do odbiorców: Sesja, w której otwarto to okno, została zakończona (rozłączenie lub ponowne połączenie). "
+            + "Zamknij to okno i otwórz je ponownie.",
+            failed.Message);
+        Assert.Equal("Correspondence.Mailboxes.Status.AddFailed (9)", failed.Log.ToString());
+        Assert.Null(failed.Action);
+        Assert.Empty(window.Recipients.Items);
+        Assert.False(page.IsRunning);
+        Assert.Equal(searches, scenario.Harness.Session.Operations.Count(o => o.Kind == FakeOperationKind.Search));
+
+        // Closed: the state of the page that lasts says it again.
+        window.Status.CloseCommand.Execute(null);
+        Assert.Equal("WindowSession.Ended", window.Status.Current.Log.ToString());
+        Assert.False(window.Status.Current.CanClose);
+    }
+
+    [Fact]
     public async Task TheSessionEnding_IsSaidByThePage_AndTheRunGoesFromWorkingStraightToIt()
     {
         var (scenario, window, _) = await OpenAsync();

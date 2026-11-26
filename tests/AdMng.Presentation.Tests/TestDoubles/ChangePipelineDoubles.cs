@@ -230,8 +230,21 @@ internal sealed class ScriptedDialogService : IDialogService
     public Task<string?> PickContainerAsync(IDirectorySession session, string? startDn) =>
         Task.FromResult(PickedContainers.Count > 0 ? PickedContainers.Dequeue() : null);
 
-    public Task<IReadOnlyList<string>> PickObjectsAsync(IDirectorySession session, IReadOnlyList<Core.Model.ObjectKind> kinds, bool multiSelect) =>
-        Task.FromResult(PickedObjects.Count > 0 ? PickedObjects.Dequeue() : (IReadOnlyList<string>)[]);
+    /// <summary>
+    /// Awaited before the object picker answers (null: at once) - an operator who takes a while, while the session ends; or it
+    /// throws, as a picker that cannot read the directory would.
+    /// </summary>
+    public Func<Task>? BeforePick { get; set; }
+
+    public async Task<IReadOnlyList<string>> PickObjectsAsync(IDirectorySession session, IReadOnlyList<Core.Model.ObjectKind> kinds, bool multiSelect)
+    {
+        if (BeforePick is { } wait)
+        {
+            await wait();
+        }
+
+        return PickedObjects.Count > 0 ? PickedObjects.Dequeue() : [];
+    }
 
     public Task ShowPropertiesAsync(string distinguishedName)
     {

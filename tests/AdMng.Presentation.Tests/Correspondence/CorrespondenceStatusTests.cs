@@ -128,6 +128,43 @@ public sealed class CorrespondenceStatusTests
     }
 
     [Fact]
+    public async Task SignaturesThatCannotBeListed_AreANoteOfTheMessagePage_ASourceThatBreaksItsContractIsAResultOfTheWindow()
+    {
+        // A folder that cannot be listed: the message page says it next to the signature box, the line has nothing to say.
+        using (var scenario = await CorrespondenceShellScenario.CreateAsync(Polish))
+        {
+            scenario.Signatures.ListFailure = new UnauthorizedAccessException("C:\\Users\\jan.kowalski\\AppData\\Roaming\\Microsoft\\Signatures");
+            using var window = await scenario.OpenAsync();
+
+            Assert.Equal(PageStatusKind.Idle, window.Status.Current.Kind);
+            Assert.StartsWith("Nie udało się odczytać listy podpisów Outlooka: ", window.Message.SignatureProblemsText, StringComparison.Ordinal);
+            Assert.Null(Assert.Single(window.Message.Signatures).Name);   // "(bez podpisu)" only
+        }
+
+        // A source that throws what the page does not expect: the window opens all the same, and the line says that the
+        // signatures were not read and why, with the code - a result that can be closed, on every tab.
+        using (var scenario = await CorrespondenceShellScenario.CreateAsync(Polish))
+        {
+            scenario.Signatures.ListFailure = new InvalidDataException("C:\\Users\\jan.kowalski\\Signatures\\Sekretariat.htm");
+            using var window = await scenario.OpenAsync();
+
+            var result = window.Status.Current;
+            Assert.Equal(PageStatusKind.Attention, result.Kind);
+            Assert.StartsWith("Nie udało się odczytać podpisów Outlooka: ", result.Message, StringComparison.Ordinal);
+            Assert.Contains("Sekretariat.htm", result.Message, StringComparison.Ordinal);   // the reason, on the screen only
+            Assert.EndsWith("(InvalidDataException)", result.Message, StringComparison.Ordinal);
+            Assert.Equal("Correspondence.Status.SignaturesNotRead [InvalidDataException]", result.Log.ToString());
+            Assert.True(result.CanClose);
+            Assert.Equal(result.Message, window.StatusText);
+            window.SelectedTab = CorrespondenceTab.Message;
+            Assert.Equal(result.Message, window.Status.Current.Message);
+
+            window.Status.CloseCommand.Execute(null);
+            Assert.Equal(PageStatusKind.Idle, window.Status.Current.Kind);
+        }
+    }
+
+    [Fact]
     public async Task TheSessionEnding_IsNotSaidByTheWindow_ASendThatGoesOnKeepsTheLine()
     {
         using var scenario = await CorrespondencePagesScenario.CreateAsync();

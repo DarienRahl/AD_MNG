@@ -183,7 +183,10 @@ internal sealed class CorrespondenceShellScenario : IDisposable
 
         public IReadOnlyList<string> Names { get; set; } = names;
 
-        public IReadOnlyList<string> List() => Names;
+        /// <summary>When set, <see cref="List"/> throws it (a folder that cannot be listed, or a source that breaks its contract).</summary>
+        public Exception? ListFailure { get; set; }
+
+        public IReadOnlyList<string> List() => ListFailure is { } failure ? throw failure : Names;
 
         public Task<SignatureParseResult?> ReadAsync(string name, int ansiCodePage, CancellationToken cancellationToken) =>
             Task.FromResult<SignatureParseResult?>(null);

@@ -1,6 +1,9 @@
+using AdMng.Core.Directory;
+using AdMng.Presentation.Correspondence;
 using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Tests.Dialogs;
 using AdMng.Presentation.Tests.GroupPolicy;
+using AdMng.Testing;
 using static AdMng.Presentation.Tests.Correspondence.PageTests;
 
 namespace AdMng.Presentation.Tests.Correspondence;
@@ -188,6 +191,117 @@ public sealed class RecipientsStatusTests
         Assert.Empty(page.Items);
         Assert.DoesNotContain(line.Seen, s => s.Kind is PageStatusKind.Idle or PageStatusKind.Error);
         Assert.Equal(PageStatusKind.Attention, line.Seen[^1].Kind);
+    }
+
+    [Fact]
+    public async Task TheSessionEnding_WhileThePickerIsOpen_SaysThatNothingWasAdded_AndWhy()
+    {
+        using var scenario = await CorrespondenceShellScenario.CreateAsync(Polish);
+        using var window = await scenario.OpenAsync();
+        var page = window.Recipients;
+        scenario.Harness.Dialogs.PickedObjects.Enqueue([scenario.Company.JanKowalski]);
+        scenario.Harness.Dialogs.BeforePick = async () =>
+        {
+            await scenario.Harness.Sessions.DisconnectAsync();
+            await B2Harness.WaitUntilAsync(() => !page.CanUseDirectory);
+        };
+        var searches = scenario.Harness.Session.Operations.Count(o => o.Kind == FakeOperationKind.Search);
+
+        // The operator picks a user while the session of the window ends: the read cannot begin, and the line says it.
+        await page.PickUsersCommand.ExecuteAsync(null);
+
+        var failed = window.Status.Current;
+        Assert.Equal(PageStatusKind.Error, failed.Kind);
+        Assert.Equal(
+            "Nic nie dodano z katalogu: Sesja, w której otwarto to okno, została zakończona (rozłączenie lub ponowne połączenie). "
+            + "Zamknij to okno i otwórz je ponownie.",
+            failed.Message);
+        Assert.Equal("Correspondence.Recipients.Status.DirectoryNothingAdded (1)", failed.Log.ToString());
+        Assert.Null(failed.Action);
+        Assert.True(failed.CanClose);
+        Assert.Empty(page.Items);
+        Assert.Equal(searches, scenario.Harness.Session.Operations.Count(o => o.Kind == FakeOperationKind.Search));
+        Assert.False(page.Status.IsWorking);
+
+        // Closed: the state of the page that lasts says why the directory cannot be used.
+        window.Status.CloseCommand.Execute(null);
+        Assert.Same(page.Status.Lasting, window.Status.Current);
+        Assert.Equal("WindowSession.Ended", window.Status.Current.Log.ToString());
+    }
+
+    [Fact]
+    public async Task APickerThatCannotReadTheDirectory_SaysThatNothingWasAdded_WithTheReasonAndTheCode()
+    {
+        using var scenario = await CorrespondenceShellScenario.CreateAsync(Polish);
+        using var window = await scenario.OpenAsync();
+        var page = window.Recipients;
+        scenario.Harness.Dialogs.BeforePick = () =>
+            throw new DirectoryException(DirectoryErrorKind.Busy, "51: Busy, CN=Jan Kowalski") { LdapResultCode = 51 };
+        var line = new StatusRecorder(window.Status);
+
+        await page.AddGroupMembersCommand.ExecuteAsync(null);
+
+        // Nothing was read: no operation began, the answer is the error with what was not done, why and the code.
+        Assert.DoesNotContain(line.Seen, s => s.Kind == PageStatusKind.Working);
+        var failed = window.Status.Current;
+        Assert.Equal(PageStatusKind.Error, failed.Kind);
+        Assert.StartsWith("Nic nie dodano z katalogu: ", failed.Message, StringComparison.Ordinal);
+        Assert.EndsWith("(LDAP 51)", failed.Message, StringComparison.Ordinal);
+        Assert.Equal("Correspondence.Recipients.Status.DirectoryNothingAdded [LDAP 51]", failed.Log.ToString());
+        Assert.Null(failed.Action);
+        Assert.True(failed.CanClose);
+        Assert.Empty(page.Items);
+
+        // The next pick works as before.
+        scenario.Harness.Dialogs.BeforePick = null;
+        scenario.Harness.Dialogs.PickedObjects.Enqueue([scenario.Company.JanKowalski]);
+        await page.PickUsersCommand.ExecuteAsync(null);
+        Assert.Equal((PageStatusKind.Done, "Z katalogu: 1 nowy"), (window.Status.Current.Kind, window.Status.Current.Message));
+    }
+
+    [Fact]
+    public async Task AGroupWithoutMembers_AndAGroupWithMoreThanTheLimit_AreAnAttention_ThatSaysWhatWasSkipped()
+    {
+        using var scenario = await CorrespondenceShellScenario.CreateAsync(Polish);
+        var builder = scenario.Harness.Builder;
+        var empty = builder.AddGroup("GG_Pusta", scenario.Company.GroupsOu);
+        var large = builder.AddGroup("DL_Mieszkańcy", scenario.Company.GroupsOu, members: [scenario.Company.JanKowalski]);
+        using var window = await scenario.OpenAsync();
+        var page = window.Recipients;
+
+        // A group without members: the read found nothing to add - an attention, not a done.
+        scenario.Harness.Dialogs.PickedObjects.Enqueue([empty]);
+        await page.AddGroupMembersCommand.ExecuteAsync(null);
+        var nothing = window.Status.Current;
+        Assert.Equal((PageStatusKind.Attention, "Z katalogu: nie znaleziono adresów e-mail"), (nothing.Kind, nothing.Message));
+        Assert.Equal("Correspondence.Recipients.FromDirectory (0, 0, 0, 0, 0)", nothing.Log.ToString());
+        Assert.True(nothing.CanClose);
+        Assert.Empty(page.Items);
+
+        // A group with more members than are read, selected with a user: the server ends the search of the group's members
+        // with "size limit exceeded" (the fake before the first entry). The user is added, and what was left out is said,
+        // with the name of the group on the screen only - an attention, though something was added.
+        scenario.Harness.Session.BeforeOperation = operation =>
+        {
+            if (operation.Search?.Filter.Contains("1.2.840.113556.1.4.1941", StringComparison.Ordinal) == true)
+            {
+                throw new DirectoryException(DirectoryErrorKind.SizeLimitExceeded, "4: Size limit exceeded") { LdapResultCode = 4 };
+            }
+        };
+        page.SelectedObjects = [scenario.Company.LukaszWisniewski, large];
+        await page.AddFromSelectionCommand.ExecuteAsync(null);
+        scenario.Harness.Session.BeforeOperation = null;
+
+        var truncated = window.Status.Current;
+        Assert.Equal(PageStatusKind.Attention, truncated.Kind);
+        Assert.Equal(
+            "Z katalogu: 1 nowy "
+            + scenario.Harness.Localizer.Format(Presentation.Localization.L.CorrespondenceRecipients.GroupTruncated, "DL_Mieszkańcy", RecipientsPageViewModel.MaxGroupMembers),
+            truncated.Message);
+        Assert.StartsWith("Z katalogu: 1 nowy Grupa DL_Mieszkańcy ma więcej niż 10", truncated.Message, StringComparison.Ordinal);
+        Assert.Equal("Correspondence.Recipients.FromDirectory (1, 0, 0, 0, 1)", truncated.Log.ToString());
+        Assert.Equal("lukasz.wisniewski@contoso.test", Assert.Single(page.Items).Email);
+        Assert.Equal(page.StatusText, truncated.Message);
     }
 
     [Fact]
