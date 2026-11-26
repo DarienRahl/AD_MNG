@@ -317,7 +317,7 @@ której nie wczytano, i kopia zapasowa, której nie zapisano, są wynikami, któ
 komputera podają *Ponów*); porównanie zatrzymane albo nieudane nie ma plików do pokazania, więc wiersz opisuje to, dopóki nie
 wybierzesz *Ponów* – tak samo, gdy wczytywanie innej paczki przerwało trwające porównanie, a nowej paczki nie wczytano (błąd
 albo *Zatrzymaj*). Na czas podglądu planu wiersz wraca do podsumowania, a po aktualizacji i nowym porównaniu – w jego trakcie
-źródła i opcje czekają, jak przy wczytywaniu – mówi, co zapisano i gdzie jest kopia zapasowa, także gdy to porównanie
+źródła, języki i opcje czekają, jak przy wczytywaniu – mówi, co zapisano i gdzie jest kopia zapasowa, także gdy to porównanie
 zatrzymano albo się nie udało. Że magazyn centralny jeszcze nie istnieje, mówi uwaga nad plikami.
 
 ## 9. Co dostanie komputer (modelowanie zasad grupy)

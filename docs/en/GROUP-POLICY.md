@@ -318,9 +318,9 @@ skipped: 0*). A package that could not be loaded and a backup that could not be 
 (a download and the templates of this computer offer *Retry*); a comparison that was stopped or failed has no files to
 show, so the line describes that until you choose *Retry* – and so it does when loading another package interrupted a
 running comparison and no new package was loaded (an error or *Stop*). While the plan preview is open the line returns to
-the summary, and after the update and the new comparison – during which the sources and the options wait, as during a
-load – it says what was written and where the backup is, also when that comparison was stopped or failed. That the central
-store does not exist yet is said by a note above the files.
+the summary, and after the update and the new comparison – during which the sources, the languages and the options wait,
+as during a load – it says what was written and where the backup is, also when that comparison was stopped or failed. That
+the central store does not exist yet is said by a note above the files.
 
 ## 9. What the computer will get (Group Policy modeling)
 

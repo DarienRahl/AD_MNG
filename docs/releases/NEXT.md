@@ -61,8 +61,8 @@
   przerywało porównanie bez słowa. Jeśli nowej paczki nie wczytano – błąd albo *Zatrzymaj* – okno pokazywało poprzednią
   paczkę bez listy plików, bez podsumowania i bez niczego, co porównałoby ją ponownie. Teraz po zamknięciu komunikatu
   wczytywania wiersz stanu mówi, że porównanie przerwano, aby wczytać inną paczkę, i że pliki nie są pokazane, z
-  przyciskiem *Ponów*. Porównanie po aktualizacji magazynu jest jej ostatnim etapem: źródła paczek i opcje czekają na
-  nie tak jak przy wczytywaniu (zmiana wybranych języków w tym czasie przerywała je i wiersz nie mówił już, co
+  przyciskiem *Ponów*. Porównanie po aktualizacji magazynu jest jej ostatnim etapem: źródła paczek, języki i opcje
+  czekają na nie tak jak przy wczytywaniu (zmiana wybranych języków w tym czasie przerywała je i wiersz nie mówił już, co
   aktualizacja zapisała), a wynik aktualizacji – *Magazyn centralny zaktualizowany: …* – wiersz podaje także wtedy, gdy
   to porównanie zatrzymano albo się nie udało.
 - **Porównanie dwóch GPO: nieudany eksport w trakcie porównania i uwaga o SYSVOL po zatrzymanym odświeżeniu.** Wiersze
