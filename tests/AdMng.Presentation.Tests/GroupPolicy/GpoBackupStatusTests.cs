@@ -343,8 +343,14 @@ public sealed class GpoBackupStatusTests
         Assert.Empty(window.Backups);
         Assert.Equal("Retry", Assert.IsType<PageStatusAction>(state.Action).Label);
 
-        // The folder answers at last (what the abandoned read finds is of no interest): Retry reads it again.
+        // The folder answers at last: the read that was stopped ends, with nobody waiting, and nothing it found reaches
+        // the window. Retry reads the folder again.
+        var abandoned = window.FolderReadWork;
         await ReleaseFifoAsync(manifest);
+        await AbandonedReadEndedAsync(abandoned);
+        Assert.Same(state, window.Status.Current);
+        Assert.Empty(window.Backups);
+        Assert.False(window.Status.IsWorking);
         File.Delete(manifest);
         await ((IAsyncRelayCommand)state.Action!.Command).ExecuteAsync(null);
         Assert.Equal((PageStatusKind.Idle, "No backups in the folder"), (window.Status.Current.Kind, window.Status.Current.Message));
@@ -389,7 +395,9 @@ public sealed class GpoBackupStatusTests
         Assert.NotEqual("No backups in the folder", now.Message);
 
         // The folder answers at last: Retry reads it, and only now does the line say what it holds.
+        var abandoned = window.FolderReadWork;
         await ReleaseFifoAsync(manifest);
+        await AbandonedReadEndedAsync(abandoned);
         File.Delete(manifest);
         await ((IAsyncRelayCommand)now.Action!.Command).ExecuteAsync(null);
         Assert.Null(window.Status.Lasting);
@@ -511,8 +519,14 @@ public sealed class GpoBackupStatusTests
         Assert.Equal(retryLabel, retry.Label);
         Assert.Contains(line.Plain, s => s.Kind == PageStatusKind.Attention);
 
-        // The file answers: Retry reads the backup, and the state is over.
+        // The file answers: the read that was stopped ends, with nobody waiting, and nothing of it - here its failure -
+        // reaches the selection. Retry reads the backup, and the state is over.
+        var abandoned = window.BackupReadWork;
         await ReleaseFifoAsync(xml);
+        await AbandonedReadEndedAsync(abandoned);
+        Assert.Same(state, window.DetailsStatus.Current);
+        Assert.Null(window.BackupDetails);
+        Assert.False(window.RunCommand.CanExecute(null));
         File.Delete(xml);
         await File.WriteAllBytesAsync(xml, original, Ct);
         await ((IAsyncRelayCommand)retry.Command).ExecuteAsync(retry.Parameter);
@@ -1027,12 +1041,51 @@ public sealed class GpoBackupStatusTests
         Assert.Equal(0, mkfifo.ExitCode);
     }
 
-    /// <summary>Opened read-write the FIFO does not block: a read that waits for a writer gets its (invalid) bytes and ends.</summary>
+    /// <summary>
+    /// Lets the read that waits for the FIFO go on with (invalid) bytes. Opened read-write the FIFO does not block; the
+    /// writer then waits until the reader has the FIFO open too (its descriptor in /proc/self/fd) and only then writes and
+    /// closes, so the reader gets the bytes and the end of the file. A writer that closed before the reader opened would
+    /// leave the reader waiting for the next writer for good (a fixed pause before closing only made that unlikely).
+    /// </summary>
     private static async Task ReleaseFifoAsync(string path)
     {
         await using var writer = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite, bufferSize: 1);
+        await UntilAsync(() => OpenDescriptors(path) >= 2);
         await writer.WriteAsync("nie XML – Łódź"u8.ToArray(), Ct);
         await writer.FlushAsync(Ct);
-        await Task.Delay(200, Ct);
+    }
+
+    /// <summary>How many descriptors of this process have <paramref name="path"/> open (matched on its folder and name).</summary>
+    private static int OpenDescriptors(string path)
+    {
+        var tail = Path.DirectorySeparatorChar + Path.GetFileName(Path.GetDirectoryName(path)) + Path.DirectorySeparatorChar + Path.GetFileName(path);
+        var count = 0;
+        foreach (var descriptor in Directory.EnumerateFileSystemEntries("/proc/self/fd"))
+        {
+            try
+            {
+                if (new FileInfo(descriptor).LinkTarget is { } target && target.EndsWith(tail, StringComparison.Ordinal))
+                {
+                    count++;
+                }
+            }
+            catch (IOException)
+            {
+                // Closed while the folder was listed.
+            }
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// Waits for the work of a read that the window stopped waiting for (it runs on with nobody waiting) to end, failed or not:
+    /// what the test asserts afterwards is what that work left - which must be nothing.
+    /// </summary>
+    private static async Task AbandonedReadEndedAsync(Task? work)
+    {
+        Assert.NotNull(work);
+        await Task.WhenAny(work).WaitAsync(Limit, Ct);
+        Assert.True(work.IsCompleted);
     }
 }

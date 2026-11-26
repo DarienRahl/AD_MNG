@@ -225,6 +225,16 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
     /// <summary>Something was written to the directory or SYSVOL (restore, import).</summary>
     public bool ChangedDirectory { get; private set; }
 
+    /// <summary>
+    /// The work of the last read of the folder off the UI thread - also one that was stopped or superseded and runs on with
+    /// nobody waiting (a share that does not answer). For the tests, which wait for it to see that what it found never
+    /// reaches the window.
+    /// </summary>
+    internal Task? FolderReadWork { get; private set; }
+
+    /// <summary>The work of the last read of a selected backup off the UI thread (see <see cref="FolderReadWork"/>).</summary>
+    internal Task? BackupReadWork { get; private set; }
+
     /// <summary>The equivalent of a backup (<c>Backup-GPO</c>), shown and copyable in the window.</summary>
     public string PowerShell
     {
@@ -326,7 +336,9 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
         UpdateLasting();
         try
         {
-            _entries = await Task.Run(() => GpmcBackupFormat.List(folder)).WaitOrAbandonAsync(token).ConfigureAwait(true);
+            var work = Task.Run(() => GpmcBackupFormat.List(folder));
+            FolderReadWork = work;
+            _entries = await work.WaitOrAbandonAsync(token).ConfigureAwait(true);
         }
         catch (OperationCanceledException)
         {
@@ -783,7 +795,9 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
         {
             // Off the UI thread: the synchronous part (File.Exists, XML loads of up to 16 MB) may sit on a slow share, and
             // Stop (or another selection) must not wait for it.
-            var backup = await Task.Run(() => GpmcBackupFormat.ReadAsync(folder, row.Entry.BackupId, token)).WaitOrAbandonAsync(token).ConfigureAwait(true);
+            var work = Task.Run(() => GpmcBackupFormat.ReadAsync(folder, row.Entry.BackupId, token));
+            BackupReadWork = work;
+            var backup = await work.WaitOrAbandonAsync(token).ConfigureAwait(true);
             token.ThrowIfCancellationRequested();
 
             _selectedBackup = backup;
