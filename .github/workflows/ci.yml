@@ -57,10 +57,11 @@ jobs:
     # The three test steps have their own limits (15, 10 and 60 minutes). A test step that runs out of time fails, and the
     # steps marked to run after a failure still run (PowerShell engine tests, UI tests, Slowest tests, publish, smoke test,
     # layout check, test results); the other steps after it are skipped. When the job's own limit runs out, the job is
-    # cancelled: the step that runs is stopped, and of the steps after it only the two marked always() run (Slowest tests,
-    # test results; run 45698130022, cut off by the old 40-minute limit, ran exactly those); the steps marked !cancelled()
-    # are skipped with all the others. 100 minutes: restore and build about 4, the three test steps at their limits 85,
-    # publish, smoke tests, Watchdog steps and artifacts about 6, and a few minutes to spare.
+    # cancelled: the step that runs is stopped, and of the steps after it only those marked always() run (Slowest tests and
+    # test results, or test results alone once Slowest tests is behind; run 45698130022, cut off by the old 40-minute limit
+    # in the UI tests, ran exactly those two); the steps marked !cancelled() are skipped with all the others. 100 minutes:
+    # restore and build about 4, the three test steps at their limits 85, publish, smoke tests, Watchdog steps and
+    # artifacts about 6, and a few minutes to spare.
     timeout-minutes: 100
     steps:
       - uses: actions/checkout@v4
@@ -88,11 +89,11 @@ jobs:
           ADMNG_WINDOWS_EVENTLOG_TESTS: "1"
       - name: PowerShell engine tests
         # A step of its own for the detailed console logger, which only these tests get (the other projects would fill the
-        # log): it lists every test as it ends, with its output, and an xUnit catastrophic failure (a crashed test process, an
-        # exception the tests left unhandled) with its stack in its place among them, where the default verbosity prints the
-        # failure's message and the count only - so the log shows which tests had ended when it came and from where. The trx
-        # logger as in the other test steps. Also after a red unit test step. About 2 to 3 minutes (the test run took 2 m 18 s
-        # in the unit test step of ea9c4c5d).
+        # log): it lists every test as it ends, with its output, and an xUnit catastrophic failure in its place among them -
+        # an exception the tests left unhandled with its stack, a crashed test process with what it wrote to stderr (a native
+        # abort may leave no managed stack there) - where the default verbosity prints the failure's message and the count
+        # only; so the log shows which tests had ended when it came. The trx logger as in the other test steps. Also after a
+        # red unit test step. About 2 to 3 minutes (the test run took 2 m 18 s in the unit test step of ea9c4c5d).
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         timeout-minutes: 10
         run: >-
@@ -269,7 +270,8 @@ jobs:
       # telemetry and the test see its telemetry.uuid: the Windows runner's diagnostic data setting keeps telemetry off) -
       # and, with the job's lab variables, the lab tests of the read commands (Lab/PowerShellReadLabTests; skipped in the
       # Windows job, which has no lab). The detailed console logger lists every test as it ends, with its output, and an
-      # xUnit catastrophic failure with its stack in its place among them (the default verbosity: its message only).
+      # xUnit catastrophic failure in its place among them (an unhandled exception with its stack, a crashed test process
+      # with what it wrote to stderr; the default verbosity: its message only).
       - name: PowerShell engine tests (Linux)
         run: dotnet test tests/AdMng.PowerShell.Tests -c Release --logger "console;verbosity=detailed"
       - name: Start Mailpit
