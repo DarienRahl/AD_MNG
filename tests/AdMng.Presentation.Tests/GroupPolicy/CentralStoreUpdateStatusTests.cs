@@ -262,13 +262,14 @@ public sealed class CentralStoreUpdateStatusTests
     /// were cleared when it began. When the load brings no other package - it failed, or the operator stopped it -, the
     /// package shown has no files: under the load's message the line says so, with Retry, also when the comparison that was
     /// taken off the line ends only afterwards (audit GP-4: the old package stayed with no files, no summary and nothing that
-    /// compared again). A load that brings a package compares it, and nothing of the interrupted comparison is said.
+    /// compared again). A load that brings a package compares it, and nothing of the interrupted comparison is said - that
+    /// case is a guard of the fix: it held before it too.
     /// </summary>
     [Theory]
     [InlineData("failed")]
     [InlineData("stopped")]
     [InlineData("loaded")]
-    public async Task ALoadThatTakesTheLineFromAComparison_AndBringsNoPackage_LeavesTheComparisonToRepeat(string how)
+    public async Task ALoadThatTakesTheLineFromAComparison_LeavesTheComparisonToRepeat_UnlessItBringsAPackage(string how)
     {
         var h = await StoreAsync(English);
         using var folder = new TempFolder();
@@ -374,11 +375,13 @@ public sealed class CentralStoreUpdateStatusTests
     /// <summary>
     /// The comparison after an update is the update's last stage: the sources and the options wait for it as they do during
     /// the comparison of a load - a language switched or a package loaded meanwhile took it off the line, and the line never
-    /// said what the update wrote -, and a Stop of it still says what was written; that the files are not shown is the state
-    /// under it (the auditor's note to GP-4).
+    /// said what the update wrote -, and a Stop of it, or a failure (the store cannot be listed), still says what was written;
+    /// that the files are not shown is the state under it (the auditor's note to GP-4).
     /// </summary>
-    [Fact]
-    public async Task TheComparisonAfterAnUpdate_KeepsTheSourcesAndOptionsWaiting_AndAStopOfItStillSaysWhatWasWritten()
+    [Theory]
+    [InlineData("stopped")]
+    [InlineData("failed")]
+    public async Task TheComparisonAfterAnUpdate_KeepsTheSourcesAndOptionsWaiting_AndAStopOrAFailureOfItStillSaysWhatWasWritten(string how)
     {
         var h = await StoreAsync(English);
         using var folder = new TempFolder();
@@ -387,7 +390,14 @@ public sealed class CentralStoreUpdateStatusTests
         update.BackupFolder = folder.Path;
         await update.OpenFileCommand.ExecuteAsync(null);
         FakeSysvolHold? hold = null;
-        h.Windows.AfterPreview = _ => hold = h.Sysvol.HoldNext("ListDefinitions");
+        h.Windows.AfterPreview = _ =>
+        {
+            hold = h.Sysvol.HoldNext("ListDefinitions");
+            if (how == "failed")
+            {
+                h.Sysvol.Fail("ListDefinitions", SysvolWriteError.Failed);
+            }
+        };
 
         var updating = update.UpdateCommand.ExecuteAsync(null);
         await UntilAsync(() => hold is not null);
@@ -403,7 +413,11 @@ public sealed class CentralStoreUpdateStatusTests
         Assert.False(update.DownloadEdgeCommand.CanExecute(null));
         Assert.False(update.UpdateCommand.CanExecute(null));
 
-        update.Status.CancelCommand.Execute(null);
+        if (how == "stopped")
+        {
+            update.Status.CancelCommand.Execute(null);
+        }
+
         hold.Release();
         await updating.WaitAsync(Limit, Ct);
 
@@ -417,8 +431,11 @@ public sealed class CentralStoreUpdateStatusTests
         Assert.True(result.CanClose);
         update.Status.CloseCommand.Execute(null);
         var state = update.Status.Current;
-        Assert.Equal((PageStatusKind.Attention, "CentralStore.Status.CompareStopped"), (state.Kind, state.Log.ToString()));
+        Assert.Equal(
+            how == "stopped" ? (PageStatusKind.Attention, "CentralStore.Status.CompareStopped") : (PageStatusKind.Error, "CentralStore.Status.CompareFailed"),
+            (state.Kind, state.Log.Key));
         Assert.Same(state, update.Status.Lasting);
+        Assert.Equal("Retry", Assert.IsType<PageStatusAction>(state.Action).Label);
         Assert.Empty(update.Rows);
     }
 
