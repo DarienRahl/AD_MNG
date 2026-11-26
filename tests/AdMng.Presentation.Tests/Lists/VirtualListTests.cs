@@ -572,7 +572,8 @@ public class VirtualListTests
         await list.CurrentLoad;
         Assert.Equal(1, list.LoadedCount);
 
-        // The button reads at once: the delay of the typed text is for typing.
+        // The command reads at once: the delay of the typed text is for typing. (The command itself: with a row on screen the
+        // empty state, its only button, is not offered - a text that hides every row of a large container is the same read.)
         var before = harness.Directory.VirtualListRequests.Count;
         list.ClearFiltersCommand.Execute(null);
         Assert.True(list.Status.IsWorking);

@@ -207,6 +207,11 @@ public sealed class WatchdogUserMessageTransportImagesTests
                 release.Wait(TimeSpan.FromSeconds(60));
             }
         };
+        // The buttons ask CanExecute again only when their commands say so: IsBusy tells them when the read starts (and ends).
+        var direct = 0;
+        var withoutImages = 0;
+        composer.SendDirectForRunCommand.CanExecuteChanged += (_, _) => Interlocked.Increment(ref direct);
+        composer.SendWithoutImagesCommand.CanExecuteChanged += (_, _) => Interlocked.Increment(ref withoutImages);
         Task planning;
         try
         {
@@ -216,6 +221,8 @@ public sealed class WatchdogUserMessageTransportImagesTests
             Assert.True(composer.IsTransportFitVisible);
             Assert.False(composer.SendDirectForRunCommand.CanExecute(null));
             Assert.False(composer.SendWithoutImagesCommand.CanExecute(null));
+            Assert.True(Volatile.Read(ref direct) > 0, "SendDirectForRunCommand did not say that it waits");
+            Assert.True(Volatile.Read(ref withoutImages) > 0, "SendWithoutImagesCommand did not say that it waits");
         }
         finally
         {
