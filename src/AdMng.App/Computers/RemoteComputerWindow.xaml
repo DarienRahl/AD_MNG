@@ -5,8 +5,9 @@
   confirmation, cancel a scheduled restart), the local tools and the window's action log. Every call goes over WinRM with
   the window's credential; nothing is stored.
   Feedback (track V, stage V2b-4): one status line under the header (PageStatus) says the connection, the one action that runs
-  - with Stop -, how it ended, and what lasts: the session of the window ended, the computer has no DNS name, remote actions
-  are not available. The six buttons that start an action are action buttons: while their action runs the button is its Cancel.
+  - with Stop -, how it ended, and what lasts: the session of the window ended, or why the window cannot act - the object is
+  not a computer, the computer has no DNS name, it could not be read from the directory, remote actions are not available.
+  The six buttons that start an action are action buttons: while their action runs the button is its Cancel.
   The action log of the window stays: it is the history of what was done here.
 -->
 <Window x:Class="AdMng.App.Computers.RemoteComputerWindow"
@@ -77,8 +78,8 @@
 
     <!--
       Status line (design note 6.1): the connection (WinRM, Kerberos, the window's account), the one action that runs with
-      Stop, how it ended, and what lasts - the session of this window ended, no DNS name, remote actions not available.
-      Always present, so nothing under it moves.
+      Stop, how it ended, and what lasts - the session of this window ended, or why the window cannot act (not a computer,
+      no DNS name, the directory read failed, remote actions not available). Always present, so nothing under it moves.
     -->
     <c:StatusLine x:Name="PageStatus"
                   Margin="8,8,8,0"
