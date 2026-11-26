@@ -24951,6 +24951,9 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="CentralStore.Status.CompareStopped" xml:space="preserve">
     <value>Comparing with the central store was stopped: the files are not shown. Press “{0}” to compare again.</value>
   </data>
+  <data name="CentralStore.Status.CompareInterrupted" xml:space="preserve">
+    <value>Comparing with the central store was interrupted by loading another package: the files are not shown. Press “{0}” to compare again.</value>
+  </data>
   <data name="CentralStore.Status.CompareFailed" xml:space="preserve">
     <value>Could not compare the templates with the central store</value>
   </data>

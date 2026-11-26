@@ -55,6 +55,15 @@
   podawał, że w folderze nie ma kopii, a powód pustej listy znikał. Teraz zatrzymany odczyt zostawia listę i jej powód
   tak, jak były: wiersz znowu mówi, dlaczego listy nie wczytano, z przyciskiem *Ponów*, a liczbę kopii w folderze
   podaje dopiero po odczycie, który się udał.
+- **Okno *Aktualizacja szablonów ADMX* nie zostaje już z paczką bez plików i bez *Ponów*.** Gdy po zmianie języka albo
+  opcji *Zastąp stare szablony z tą samą przestrzenią nazw* trwało porównanie z magazynem centralnym, a operator w tym
+  czasie wczytał inną paczkę (plik, folder, szablony tego komputera, pobranie), wczytywanie przerywało porównanie bez
+  słowa. Jeśli nowej paczki nie wczytano – błąd albo *Zatrzymaj* – okno pokazywało poprzednią paczkę bez listy plików,
+  bez podsumowania i bez niczego, co porównałoby ją ponownie. Teraz pod komunikatem wczytywania wiersz stanu mówi, że
+  porównanie przerwano, aby wczytać inną paczkę, i że pliki nie są pokazane, z przyciskiem *Ponów*. Porównanie po
+  aktualizacji magazynu jest jej ostatnim etapem: źródła paczek i opcje czekają na nie tak jak przy wczytywaniu (zmiana
+  języka w tym czasie przerywała je i wiersz nie mówił już, co aktualizacja zapisała), a wynik aktualizacji – *Magazyn
+  centralny zaktualizowany: …* – wiersz podaje także wtedy, gdy to porównanie zatrzymano albo się nie udało.
 
 ## AdMng Watchdog {{VERSION}}
 

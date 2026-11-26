@@ -3341,8 +3341,10 @@ and what nobody has seen on a screen yet.
     was not changed. Press “Update…” to try again."), a backup written when the preview was closed without executing, and
     the end of an update ("Central store updated: written files: 2. … Backup written to …"). **States:** a comparison
     that was stopped or failed leaves no files to show ("Could not compare the templates with the central store: reason.
-    Press Retry to try again.") with Retry; the end of the session, or no session ("Not connected to a domain." from the
-    start, also while a package is read).
+    Press Retry to try again.") with Retry, and so does one that a load took off the line when the load brings no package
+    ("Comparing with the central store was interrupted by loading another package: the files are not shown. Press “Retry”
+    to compare again.", 0.16.1); the end of the session, or no session ("Not connected to a domain." from the start, also
+    while a package is read).
   - *How the old places were sorted* (1 error bar, 1 warning bar, 1 progress bar, and three texts that never were banners).
 
     | Old place | Kind | Now |
@@ -3356,6 +3358,11 @@ and what nobody has seen on a screen yet.
 
   - *Decisions.* One holder: loading, comparing and updating never overlap (the sources, the options and the cultures are
     disabled while the window is busy, and a comparison started by an option takes the line by replacing the one before).
+    The one exception is a comparison of its own (the window is not busy then), which a load takes the line from: it is
+    cancelled, nothing it finds later is shown, and the load records the state above in case it brings no package; one
+    that does compares itself and ends that state (audit GP-4, 0.16.1). The comparison after an update keeps the window
+    busy until it ended - a language switched meanwhile had replaced it, and the line never said what the update wrote -,
+    and the update's result is said also when that comparison was stopped or failed, with its state under it.
     *Update…* is an action button over `IsUpdating` (the plan of the update runs while the window cannot be closed, as before);
     the six sources stay plain buttons - only one can run and the Stop is in the line. "Busy" ends with the generation of the
     load that started it: the old code asked whether its token was cancelled to tell "a newer load took over", which a

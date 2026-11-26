@@ -263,7 +263,170 @@ public sealed class CentralStoreUpdateStatusTests
         Assert.NotEqual(string.Empty, summary);
     }
 
+    /// <summary>
+    /// A load takes the line from a comparison that runs on its own (an option was changed), and the files of that comparison
+    /// were cleared when it began. When the load brings no other package - it failed, or the operator stopped it -, the
+    /// package shown has no files: under the load's message the line says so, with Retry, also when the comparison that was
+    /// taken off the line ends only afterwards (audit GP-4: the old package stayed with no files, no summary and nothing that
+    /// compared again). A load that brings a package compares it, and nothing of the interrupted comparison is said.
+    /// </summary>
+    [Theory]
+    [InlineData("failed")]
+    [InlineData("stopped")]
+    [InlineData("loaded")]
+    public async Task ALoadThatTakesTheLineFromAComparison_AndBringsNoPackage_LeavesTheComparisonToRepeat(string how)
+    {
+        var h = await StoreAsync(English);
+        using var folder = new TempFolder();
+        var archive = await ArchiveAsync(folder.Path);
+        h.B2.Files.NextOpenPath = archive;
+        var handler = new ScriptedHandler(Zip()) { Hold = true };
+        using var update = New(h, new PolicyTemplatePackageLoader(handler: () => handler));
+        await update.OpenFileCommand.ExecuteAsync(null);
+        var shown = update.Package;
+        Assert.NotEmpty(update.Rows);
+
+        // The comparison of its own waits for a share that does not answer (and does not hear its Stop meanwhile).
+        var hold = h.Sysvol.HoldNext("ListDefinitions");
+        var comparing = update.CompareAsync();
+        await hold.Reached.WaitAsync(Limit, Ct);
+        Assert.True(update.IsComparing);
+        Assert.Empty(update.Rows);
+
+        // Another package is loaded meanwhile.
+        switch (how)
+        {
+            case "failed":
+                h.B2.Files.NextOpenPath = Path.Combine(folder.Path, "nie ma takiego pliku.zip");
+                await update.OpenFileCommand.ExecuteAsync(null);
+                break;
+            case "stopped":
+                var loading = update.DownloadEdgeCommand.ExecuteAsync(null);
+                await handler.Reached.WaitAsync(Limit, Ct);
+                update.Status.CancelCommand.Execute(null);
+                await loading.WaitAsync(Limit, Ct);
+                break;
+            default:
+                h.B2.Files.NextOpenPath = await ArchiveAsync(folder.Path, newer: true);
+                await update.OpenFileCommand.ExecuteAsync(null);
+                break;
+        }
+
+        var said = update.Status.Current;
+
+        // The comparison that was taken off the line ends late: it shows nothing, and the load's message stays.
+        hold.Release();
+        await comparing.WaitAsync(Limit, Ct);
+        Assert.Same(said, update.Status.Current);
+        Assert.False(update.IsComparing);
+        if (how == "loaded")
+        {
+            Assert.NotSame(shown, update.Package);
+            Assert.NotEmpty(update.Rows);
+            Assert.Null(update.Status.Lasting);
+            Assert.Equal((PageStatusKind.Idle, update.SummaryText), (said.Kind, said.Message));
+            return;
+        }
+
+        Assert.Equal(
+            how == "failed" ? (PageStatusKind.Error, "CentralStore.Status.LoadFailed") : (PageStatusKind.Attention, "CentralStore.Status.LoadStopped"),
+            (said.Kind, said.Log.ToString()));
+        Assert.Same(shown, update.Package);
+        Assert.Empty(update.Rows);
+        Assert.False(update.UpdateCommand.CanExecute(null));
+
+        // Closed, the line says why the package shown has no files, and Retry compares it again.
+        update.Status.CloseCommand.Execute(null);
+        var state = update.Status.Current;
+        Assert.Equal(
+            (PageStatusKind.Attention, "Comparing with the central store was interrupted by loading another package: the files are not shown. Press “Retry” to compare again."),
+            (state.Kind, state.Message));
+        Assert.Equal("CentralStore.Status.CompareInterrupted", state.Log.ToString());
+        Assert.False(state.CanClose);
+        Assert.Same(state, update.Status.Lasting);
+        var retry = Assert.IsType<PageStatusAction>(state.Action);
+        Assert.Equal("Retry", retry.Label);
+        await ((IAsyncRelayCommand)retry.Command).ExecuteAsync(retry.Parameter);
+        Assert.NotEmpty(update.Rows);
+        Assert.Null(update.Status.Lasting);
+        Assert.Equal((PageStatusKind.Idle, update.SummaryText), (update.Status.Current.Kind, update.Status.Current.Message));
+    }
+
+    [Theory]
+    [InlineData("en-US", "Comparing with the central store was interrupted by loading another package: the files are not shown. Press “Retry” to compare again.")]
+    [InlineData("pl-PL", "Porównywanie z magazynem centralnym przerwano, aby wczytać inną paczkę: pliki nie są pokazane. Wybierz „Ponów”, aby porównać ponownie.")]
+    public async Task AComparisonInterruptedByALoad_IsSaidInBothLanguages(string culture, string text)
+    {
+        var h = await StoreAsync(CultureInfo.GetCultureInfo(culture));
+        using var folder = new TempFolder();
+        h.B2.Files.NextOpenPath = await ArchiveAsync(folder.Path);
+        using var update = New(h);
+        await update.OpenFileCommand.ExecuteAsync(null);
+        var hold = h.Sysvol.HoldNext("ListDefinitions");
+        var comparing = update.CompareAsync();
+        await hold.Reached.WaitAsync(Limit, Ct);
+
+        h.B2.Files.NextOpenPath = Path.Combine(folder.Path, "nie ma takiego pliku.zip");
+        await update.OpenFileCommand.ExecuteAsync(null);
+        hold.Release();
+        await comparing.WaitAsync(Limit, Ct);
+        update.Status.CloseCommand.Execute(null);
+
+        Assert.Equal((PageStatusKind.Attention, text), (update.Status.Current.Kind, update.Status.Current.Message));
+    }
+
     // ---- The update ---------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The comparison after an update is the update's last stage: the sources and the options wait for it as they do during
+    /// the comparison of a load - a language switched or a package loaded meanwhile took it off the line, and the line never
+    /// said what the update wrote -, and a Stop of it still says what was written; that the files are not shown is the state
+    /// under it (the auditor's note to GP-4).
+    /// </summary>
+    [Fact]
+    public async Task TheComparisonAfterAnUpdate_KeepsTheSourcesAndOptionsWaiting_AndAStopOfItStillSaysWhatWasWritten()
+    {
+        var h = await StoreAsync(English);
+        using var folder = new TempFolder();
+        h.B2.Files.NextOpenPath = await ArchiveAsync(folder.Path, newer: true);
+        using var update = New(h, backup: (path, _, _, _, _) => Task.FromResult(Path.Combine(path, "PolicyDefinitions-kopia")));
+        update.BackupFolder = folder.Path;
+        await update.OpenFileCommand.ExecuteAsync(null);
+        FakeSysvolHold? hold = null;
+        h.Windows.AfterPreview = _ => hold = h.Sysvol.HoldNext("ListDefinitions");
+
+        var updating = update.UpdateCommand.ExecuteAsync(null);
+        await UntilAsync(() => hold is not null);
+        await hold!.Reached.WaitAsync(Limit, Ct);
+
+        // The store was written; its new comparison runs - the window may be closed, but nothing can replace the comparison.
+        Assert.True(update.ChangedStore);
+        Assert.Equal((PageStatusKind.Working, "Comparing with the central store…"), (update.Status.Current.Kind, update.Status.Current.Message));
+        Assert.False(update.IsUpdating);
+        Assert.True(update.CloseCommand.CanExecute(null));
+        Assert.True(update.IsBusy);
+        Assert.False(update.OpenFileCommand.CanExecute(null));
+        Assert.False(update.DownloadEdgeCommand.CanExecute(null));
+        Assert.False(update.UpdateCommand.CanExecute(null));
+
+        update.Status.CancelCommand.Execute(null);
+        hold.Release();
+        await updating.WaitAsync(Limit, Ct);
+
+        // What the update wrote is said all the same; under it, that the files are not shown, with Retry.
+        Assert.False(update.IsBusy);
+        Assert.True(update.OpenFileCommand.CanExecute(null));
+        var result = update.Status.Current;
+        Assert.Equal(PageStatusKind.Done, result.Kind);
+        Assert.StartsWith("Central store updated: ", result.Message, StringComparison.Ordinal);
+        Assert.Contains("PolicyDefinitions-kopia", result.Message, StringComparison.Ordinal);
+        Assert.True(result.CanClose);
+        update.Status.CloseCommand.Execute(null);
+        var state = update.Status.Current;
+        Assert.Equal((PageStatusKind.Attention, "CentralStore.Status.CompareStopped"), (state.Kind, state.Log.ToString()));
+        Assert.Same(state, update.Status.Lasting);
+        Assert.Empty(update.Rows);
+    }
 
     [Theory]
     [InlineData("en-US", "Preparing the update of the central store…", "Backing up the central store…", "Comparing with the central store…", "Central store updated: ")]

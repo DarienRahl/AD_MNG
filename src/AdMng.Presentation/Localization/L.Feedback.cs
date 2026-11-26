@@ -885,6 +885,12 @@ public static partial class L
         /// <summary>{0} = the text of the "Retry" button.</summary>
         public const string CompareStopped = "CentralStore.Status.CompareStopped";
 
+        /// <summary>
+        /// A load took the line from a comparison of its own (an option was changed) and brought no other package; {0} = the
+        /// text of the "Retry" button.
+        /// </summary>
+        public const string CompareInterrupted = "CentralStore.Status.CompareInterrupted";
+
         /// <summary>What was tried, without a full stop.</summary>
         public const string CompareFailed = "CentralStore.Status.CompareFailed";
 

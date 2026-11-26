@@ -24951,6 +24951,9 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="CentralStore.Status.CompareStopped" xml:space="preserve">
     <value>Porównywanie z magazynem centralnym zatrzymano: pliki nie są pokazane. Wybierz „{0}”, aby porównać ponownie.</value>
   </data>
+  <data name="CentralStore.Status.CompareInterrupted" xml:space="preserve">
+    <value>Porównywanie z magazynem centralnym przerwano, aby wczytać inną paczkę: pliki nie są pokazane. Wybierz „{0}”, aby porównać ponownie.</value>
+  </data>
   <data name="CentralStore.Status.CompareFailed" xml:space="preserve">
     <value>Nie udało się porównać szablonów z magazynem centralnym</value>
   </data>

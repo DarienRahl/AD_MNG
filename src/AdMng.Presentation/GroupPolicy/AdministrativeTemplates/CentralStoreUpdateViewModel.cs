@@ -307,6 +307,23 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
     {
         var latest = _work.Next();
         var id = ++_workId;
+        if (IsComparing)
+        {
+            // A comparison of its own runs (an option was changed; the window is not busy, so it is no stage of a load or an
+            // update): this load takes the line from it, and its files were cleared when it began. It ends now, whenever
+            // its share answers - nothing it finds is shown -, and should the load bring no other package, the package shown
+            // has no files: the state of the window, with Retry. A package that is loaded compares itself and ends the state.
+            _compare.Cancel();
+            IsComparing = false;
+            var retry = Localizer[L.Common.Retry];
+            _compareState = PageStatus.Attention(
+                Localizer.Format(L.CentralStoreStatus.CompareInterrupted, retry),
+                new PageStatusLog(L.CentralStoreStatus.CompareInterrupted),
+                new PageStatusAction(retry, RetryCompareCommand),
+                canClose: false);
+            UpdateLasting();
+        }
+
         IsBusy = true;
         BusyText = kind.Busy;
         Error = null;
@@ -635,8 +652,12 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
         finally
         {
             IsUpdating = false;
-            IsBusy = false;
             BusyText = null;
+
+            // The store was written: its new comparison is the last stage of the update, and the sources and the options
+            // wait for it as they do for the comparison of a load (another comparison or a load would take the line from
+            // it, and what the update wrote would never be said). The window may be closed meanwhile: nothing writes.
+            IsBusy = changed && !IsDisposed;
         }
 
         if (IsDisposed)
@@ -646,13 +667,21 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
 
         if (changed)
         {
-            // The new comparison belongs to the update: the line says how it ended when the new files are shown.
-            using var after = Status.Begin(Localizer[L.CentralStore.Comparing], new PageStatusLog(L.CentralStore.Comparing));
-            await CompareCoreAsync(after).ConfigureAwait(true);
-            if (!after.IsEnded && _compareState is null)
+            // The new comparison belongs to the update: the line says what was written when it ended - also when it was
+            // stopped or failed, whose state (no files shown, Retry) is then under the result.
+            try
             {
-                var text = backupText is null ? ResultText! : $"{ResultText} {backupText}";
-                after.CompleteDone(text, new PageStatusLog(L.CentralStore.Updated, comparison.WrittenCount));
+                using var after = Status.Begin(Localizer[L.CentralStore.Comparing], new PageStatusLog(L.CentralStore.Comparing));
+                await CompareCoreAsync(after).ConfigureAwait(true);
+                if (!after.IsEnded)
+                {
+                    var text = backupText is null ? ResultText! : $"{ResultText} {backupText}";
+                    after.CompleteDone(text, new PageStatusLog(L.CentralStore.Updated, comparison.WrittenCount));
+                }
+            }
+            finally
+            {
+                IsBusy = false;
             }
         }
         else if (backupText is not null && !said && !updating.IsCancelling && !IsSessionEnded)
