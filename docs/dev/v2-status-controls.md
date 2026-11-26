@@ -125,7 +125,10 @@ things. The test for the first two: *is this the answer to something the operato
    ```
 
    A second `Begin` on a holder **replaces** the running operation (its token is cancelled and what it says later is ignored); two
-   operations that can overlap live in two holders, or the second is refused by its command while the first runs. An operation that
+   operations that can overlap live in two holders, or the second is refused by its command while the first runs. A command that
+   starts another through `ExecuteAsync` goes past that command's `CanExecute`, so its own `CanExecute` carries the same guard (the
+   holder sweep of 0.16.1 found the transport bar of the message window: its "send directly" ran `SendCommand` while a new preview was
+   read, and the send's `Begin` replaced the read). An operation that
    *contains* a step that is an operation elsewhere does not begin a second scope for it. An operation that cannot be stopped is
    begun with `canCancel: false` (no Stop is offered). **An operation that writes says so** (V2b-5b): `writes: OperationWrites.Other`
    (or `Messages` for a send; `ExecutionStatus` says `Changes` itself). The window then asks before it is closed while it runs - *Stop
