@@ -5183,8 +5183,11 @@ releases.
     stop or a failure leaves it off), nothing is loading, there is no error and there are no rows - so "could not be read" is the status
     line's error, a stopped read is the line's attention, and the first read is the skeleton's. *Uses:* the object list of the main window and of the Find
     window (`ObjectListViewModel.EmptyState`: "There are no items to show in this view." with Refresh - the text this list had for it moved
-    into the control; "No object matches the filter." with "Clear the filter", the new `ClearFiltersCommand`, which puts the quick filter
-    text and every quick and saved chip out and reads once when a chip was on), the Group Policy objects
+    into the control; "No object matches the filter." with "Clear the filter" when a filter hides the rows - a chip, or a quick filter
+    text that hides rows that were read, so a text over an empty container is no such filter (on a very large container the text filters on
+    the server and counts as soon as it is there) -, the new `ClearFiltersCommand`, which puts the quick filter text and every quick and
+    saved chip out and reads once, at once, when a filter of the server was on: a chip, or that text of a very large container), the Group
+    Policy objects
     (`GroupPolicyObjectsDocumentViewModel.EmptyState`: "No GPO matches the search." with "Clear the search" - this replaced `ListNote` and the
     text under it -, "There are no Group Policy objects in this domain." with Refresh) and the PKI templates
     (`PkiTemplatesDocumentViewModel.EmptyState`: "No template matches the filters." with "Clear the filters", the new `ClearFiltersCommand`;
@@ -5212,9 +5215,10 @@ releases.
     takes it off when it is hidden - no clock for a list that has its rows. It is decorative: no peer, no focus, no pointer. *Use:* the object
     list puts it in the grid cell of the list under the column headers (a top margin of 29 px: the 28 px header and the 1 px border), 12
     rows of the list's own height (26 px), `IsActive` bound to `ObjectListViewModel.ShowsSkeleton` - loading, the **first read of a location
-    that is not the one shown** (a different kind, base, scope, filter, view or search text; set when a location is shown, cleared when its read
-    ends, however it ends), no error and no row yet. A reload (F5, a chip, a sort), `ReplaceLocationAsync` of the same list, a stopped read
-    and a failed read never show it. *The opacity pulse instead of the sweep* of 5.2 (row 10) is the owner's instruction for this unit: no
+    that is not the one shown** (a different kind, base, scope, filter, view or search text; set when a location is shown, cleared when a read
+    of it ended well or put rows on screen - a read that failed or was stopped before its first row showed nothing, so Retry, Refresh or
+    the same location again is still its first read), no error and no row yet. A reload of a list that was shown (F5, a chip, a sort),
+    `ReplaceLocationAsync` of the same list, a stopped read and a failed read never show it. *The opacity pulse instead of the sweep* of 5.2 (row 10) is the owner's instruction for this unit: no
     gradient, no opacity mask, one animation on one element.
   - *Decisions of the unit.* **(1)** The pill takes its kind from a view model property and never from a converter in XAML: the mapping is a
     value-free function of an enum, tested on Linux (`StatusPillKindTests`). **(2)** The empty state is a value of the view model, not a set of

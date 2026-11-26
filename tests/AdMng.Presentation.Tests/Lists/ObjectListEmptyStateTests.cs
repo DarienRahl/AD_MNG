@@ -90,6 +90,94 @@ public class ObjectListEmptyStateTests
     }
 
     [Fact]
+    public async Task AQuickFilterOverAnEmptyContainer_HidesNothing_SoTheListSaysItIsEmpty()
+    {
+        var harness = await TestHarness.ConnectedAsync();
+        var list = await harness.OpenContainerAsync(TestDirectory.System);
+        Assert.Equal(0, list.TotalCount);
+
+        // Nothing was read that the text could hide: the container is empty, and clearing the filter would only lead to
+        // the other sentence - the list says what it is and offers Refresh.
+        list.QuickFilterText = "kowal";
+        Assert.False(list.HasActiveFilter);
+        var empty = list.EmptyState;
+        Assert.Equal("There are no items to show in this view.", empty.Message);
+        Assert.Equal("Refresh", empty.ActionText);
+        Assert.Same(list.RefreshCommand, empty.ActionCommand);
+
+        // A chip is a filter of the server: it may be what empties the container, so it still counts.
+        list.FilterChips.Single(c => c.Kind == QuickFilterKind.Enabled).IsActive = true;
+        await list.CurrentLoad;
+        Assert.True(list.HasActiveFilter);
+        Assert.Equal("No object matches the filter.", list.EmptyState.Message);
+    }
+
+    [Fact]
+    public async Task AFailedFirstRead_IsStillAFirstRead_WhenItIsRetried()
+    {
+        var harness = await TestHarness.ConnectedAsync(bulkUsers: 300);
+        var list = harness.Lists.CreateList();
+        harness.Directory.FailSearch = search => search.BaseDn == Bulk
+            ? new DirectoryException(DirectoryErrorKind.ServerUnavailable, "81: Server Down") { LdapResultCode = 81 }
+            : null;
+        await list.NavigateAsync(ListLocation.ForContainer(Bulk));
+        Assert.NotNull(list.Error);
+        Assert.Equal(PageStatusKind.Error, list.Status.Current.Kind);
+
+        // Retry of the line: the container was never shown, so its read shows placeholder rows until the rows arrive.
+        var gate = new TaskCompletionSource();
+        harness.Directory.HoldBeforeResults = search => search.BaseDn == Bulk ? gate.Task : null;
+        list.Status.Current.Action!.Command.Execute(null);
+        await ObjectListViewModelTests.WaitUntilAsync(() => list.IsLoading && list.Error is null);
+        Assert.True(list.ShowsSkeleton);
+        gate.SetResult();
+        await list.CurrentLoad;
+        Assert.Equal(300, list.Items.Count);
+        Assert.False(list.ShowsSkeleton);
+    }
+
+    [Fact]
+    public async Task AStoppedFirstRead_AndTheSameLocationAgain_StillShowPlaceholderRows()
+    {
+        var harness = await TestHarness.ConnectedAsync(bulkUsers: 300);
+        var list = harness.Lists.CreateList();
+        var gate = new TaskCompletionSource();
+        harness.Directory.HoldBeforeResults = search => search.BaseDn == Bulk ? gate.Task : null;
+        var load = list.NavigateAsync(ListLocation.ForContainer(Bulk));
+        Assert.True(list.ShowsSkeleton);
+        list.Status.Operation!.Cancel();
+        await load;
+        Assert.True(list.Partial);
+        Assert.Equal(0, list.TotalCount);
+
+        // Refresh of the stopped line: still the first read of a list that was never shown.
+        var refresh = list.Status.Current.Action!.Command;
+        refresh.Execute(null);
+        await ObjectListViewModelTests.WaitUntilAsync(() => list.IsLoading && !list.Partial);
+        Assert.True(list.ShowsSkeleton);
+        list.Status.Operation!.Cancel();
+        await list.CurrentLoad;
+
+        // Navigating to the same container again (from the tree, say) is no reload of a list that was shown either.
+        var again = list.NavigateAsync(ListLocation.ForContainer(Bulk));
+        await ObjectListViewModelTests.WaitUntilAsync(() => list.IsLoading && !list.Partial);
+        Assert.True(list.ShowsSkeleton);
+        gate.SetResult();
+        await again;
+        Assert.Equal(300, list.Items.Count);
+        Assert.False(list.ShowsSkeleton);
+
+        // Shown once, a reload brings its rows back at once.
+        var reload = new TaskCompletionSource();
+        harness.Directory.HoldBeforeResults = search => search.BaseDn == Bulk ? reload.Task : null;
+        var refreshed = list.RefreshAsync();
+        await ObjectListViewModelTests.WaitUntilAsync(() => list.IsLoading);
+        Assert.False(list.ShowsSkeleton);
+        reload.SetResult();
+        await refreshed;
+    }
+
+    [Fact]
     public async Task ClearTheFilter_AlsoSwitchesTheChipsOff_AndReadsOnce()
     {
         var harness = await TestHarness.ConnectedAsync();

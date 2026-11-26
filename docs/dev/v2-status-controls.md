@@ -51,11 +51,13 @@ How each is wired (the first uses are the model):
 - **Empty state.** The view model has one computed property, `EmptyState` (`EmptyListState`: the sentence, the `ObjectIcon`, at most one
   `PageStatusAction`), that is `EmptyListState.None` unless the list **was read well** (a flag of the load that ended without a failure or a
   stop), is not loading, has no error and has no rows. Raise `PropertyChanged` for it where those change. The action is *Clear the filter* or
-  *Clear the search* when a filter hides everything (a command that puts the filter out - and reads once if a server-side chip was on),
-  otherwise *Refresh*. The view binds the four properties one way (`Message`, `Icon`, `ActionText`, `ActionCommand`) and needs no visibility
+  *Clear the search* when a filter hides everything (a command that puts the filter out - and reads once, at once, if a filter of the
+  server was on: a chip, or the quick filter text of a very large container), otherwise *Refresh*. A text filter of loaded rows hides only
+  rows that were read: over an empty list it is no such filter, and the sentence is the empty one with *Refresh*. The view binds the four properties one way (`Message`, `Icon`, `ActionText`, `ActionCommand`) and needs no visibility
   of its own. The list's own text for "nothing matches" is removed, not kept beside it.
 - **Skeleton.** The view model has `ShowsSkeleton` (loading, the first read of a location that was not shown, no error, no rows - a reload of
-  the same source, `ReplaceLocationAsync`, a stop and a failure never are); the view puts the control in the grid cell of the list with a top
+  the same source that was shown, `ReplaceLocationAsync`, a stop and a failure never are; a read that failed or was stopped before its first
+  row showed nothing, so the next read of it is still the first); the view puts the control in the grid cell of the list with a top
   margin of the column header (29 px) and binds `IsActive`. The 150 ms before the bars are the control's own (`IStatusScheduler`, as the
   status line's), so a test replaces `Skeleton.Scheduler` with a `ManualStatusScheduler` and never waits.
 

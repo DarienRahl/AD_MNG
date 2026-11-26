@@ -71,6 +71,16 @@
   folderu), nie był nigdzie zgłaszany. Teraz mówi o nim powiadomienie, a wiersz stanu zostaje przy trwającym porównaniu
   i jego *Zatrzymaj*. Uwaga nad wierszami o tym, czego nie porównano (SYSVOL niedostępny), znikała, gdy *Odśwież*
   zatrzymano albo się nie udało, choć wiersze poprzedniego porównania zostawały – teraz zostaje razem z nimi.
+- **Lista obiektów: pusty kontener z tekstem filtra, ponowiony pierwszy odczyt i *Wyczyść filtr* dużego kontenera.**
+  Gdy w kontenerze bez obiektów wpisano tekst szybkiego filtra, lista mówiła *Żaden obiekt nie pasuje do filtra.* z
+  działaniem *Wyczyść filtr*, choć tekst niczego nie ukrywał – a *Wyczyść filtr* prowadził tylko do drugiego zdania;
+  teraz mówi *Brak elementów do pokazania w tym widoku.* z *Odśwież* (przycisk filtra, np. *Włączone*, nadal liczy się
+  jako filtr, bo filtruje na serwerze). Gdy pierwszy odczyt kontenera nie udał się albo zatrzymano go przed pierwszym
+  obiektem, *Ponów* lub *Odśwież* w wierszu stanu – albo ponowne otwarcie tego samego kontenera – pokazywały pustą
+  listę; teraz pokazują szare wiersze zastępcze pierwszego odczytu, dopóki nie przyjdą obiekty. *Wyczyść filtr* na
+  bardzo dużym kontenerze (lista wirtualna VLV, gdzie tekst filtruje na serwerze) z włączonym przyciskiem filtra i
+  tekstem czytał kontener dwa razy – drugi raz po chwili, gdy minęło opóźnienie wpisywanego tekstu; teraz czyta go raz,
+  od razu, także gdy włączony był sam tekst.
 - **Kopia zapasowa GPO odmienia liczbę GPO.** Zatrzymana albo nieudana kopia jednego GPO – w oknie *Kopia zapasowa
   obiektów zasad grupy* i w kopii przed usunięciem GPO (*Utwórz kopię zapasową przed usunięciem*) – mówiła „zapisano 0 z
   1 obiektów GPO” i „Nie udało się utworzyć kopii zapasowych 1 z 1 obiektów GPO” – teraz „z 1 obiektu GPO” (po angielsku

@@ -532,6 +532,59 @@ public class VirtualListTests
     }
 
     [Fact]
+    public async Task ClearTheFilter_OnALargeContainer_ReadsOnce()
+    {
+        var (harness, list) = await OpenAsync();
+        var disabled = list.FilterChips.Single(c => c.Kind == QuickFilterKind.Disabled);
+        disabled.IsActive = true;
+        await list.CurrentLoad;
+        list.QuickFilterText = "0042";
+        harness.Time.Advance(TimeSpan.FromMilliseconds(500));
+        await list.ServerFilterRun;
+        await list.CurrentLoad;
+        Assert.Contains("(name=*0042*)", harness.Directory.VirtualListRequests.Last().Search.Filter, StringComparison.Ordinal);
+        Assert.True(list.IsVirtual);
+        Assert.Equal(0, list.LoadedCount);
+        Assert.Equal("No object matches the filter.", list.EmptyState.Message);
+
+        // The action of the empty list: the text off (on a large container a filter of the server) and the chip off - one read
+        // of the whole container, not one for the chip and another for the text when its delay is over.
+        var before = harness.Directory.VirtualListRequests.Count;
+        list.EmptyState.ActionCommand!.Execute(list.EmptyState.ActionParameter);
+        harness.Time.Advance(TimeSpan.FromMilliseconds(500));
+        await list.ServerFilterRun;
+        await list.CurrentLoad;
+
+        Assert.Equal(Users, list.LoadedCount);
+        var read = Assert.Single(harness.Directory.VirtualListRequests.Skip(before));
+        Assert.DoesNotContain("0042", read.Search.Filter, StringComparison.Ordinal);
+        Assert.DoesNotContain("userAccountControl", read.Search.Filter, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ClearTheFilter_OnALargeContainer_ReadsTheContainerAtOnce_WhenOnlyTheTextWasOn()
+    {
+        var (harness, list) = await OpenAsync();
+        list.QuickFilterText = "0042";
+        harness.Time.Advance(TimeSpan.FromMilliseconds(500));
+        await list.ServerFilterRun;
+        await list.CurrentLoad;
+        Assert.Equal(1, list.LoadedCount);
+
+        // The button reads at once: the delay of the typed text is for typing.
+        var before = harness.Directory.VirtualListRequests.Count;
+        list.ClearFiltersCommand.Execute(null);
+        Assert.True(list.Status.IsWorking);
+        harness.Time.Advance(TimeSpan.FromMilliseconds(500));
+        await list.ServerFilterRun;
+        await list.CurrentLoad;
+
+        Assert.Equal(Users, list.LoadedCount);
+        var read = Assert.Single(harness.Directory.VirtualListRequests.Skip(before));
+        Assert.DoesNotContain("0042", read.Search.Filter, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task FilterChips_OnALargeContainer_UseVlvWithTheCombinedFilter_ExceptLocked()
     {
         var harness = await TestHarness.ConnectedAsync(bulkUsers: Users);

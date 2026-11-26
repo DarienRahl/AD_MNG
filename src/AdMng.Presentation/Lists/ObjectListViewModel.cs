@@ -83,7 +83,8 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
     private string _nothingLoadedText = string.Empty;
 
     // The first read of what is shown (V2b-5b): placeholder rows stand in for the rows until it has delivered rows or ended,
-    // and never for a reload of a list that was shown already.
+    // and never for a reload of a list that was shown already. A read that failed or was stopped before its first row showed
+    // nothing: the next read of the same location is still its first.
     private bool _firstRead;
 
     // The rows on screen - or their absence - are the result of a read of the shown location that ended well: only then is an
@@ -229,9 +230,15 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         }
     }
 
-    /// <summary>The quick filter has a text, or a chip (quick or saved filter) is on: what the list shows is narrowed.</summary>
+    /// <summary>
+    /// What the list shows is narrowed: a chip (quick or saved filter) is on - a filter of the server - or the quick filter's
+    /// text hides rows. On a very large location the text filters on the server, so it counts as soon as it is there; on
+    /// any other list it counts only when it hides rows that were read (a text over an empty container hides nothing).
+    /// </summary>
     public bool HasActiveFilter =>
-        !string.IsNullOrWhiteSpace(QuickFilterText) || FilterChips.Any(c => c.IsActive) || SavedFilterChips.Any(c => c.IsActive);
+        FilterChips.Any(c => c.IsActive)
+        || SavedFilterChips.Any(c => c.IsActive)
+        || (!string.IsNullOrWhiteSpace(QuickFilterText) && (_virtualLocation || Items.Count < _allRows.Count));
 
     /// <summary>Number of loaded rows (before the quick filter).</summary>
     public int TotalCount => _allRows.Count;
@@ -503,14 +510,16 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
     private void ClearQuickFilter() => QuickFilterText = string.Empty;
 
     /// <summary>
-    /// The action of the empty list: the quick filter's text and every chip off, and one read when a chip was on (a chip
-    /// is a filter of the server - the rows have to be read again).
+    /// The action of the empty list: the quick filter's text and every chip off, and one read when a filter of the server
+    /// was on - a chip, or the text of a very large location - because the rows have to be read again. One read, at once:
+    /// the text's own delayed read of a large location (it waits for the typing to pause) is dropped.
     /// </summary>
     [RelayCommand]
     private void ClearFilters()
     {
+        var changed = _virtualLocation && !string.IsNullOrWhiteSpace(QuickFilterText);
         QuickFilterText = string.Empty;
-        var changed = false;
+        _serverFilter?.Cancel();
         _settingChips = true;
         try
         {
@@ -650,8 +659,12 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
 
         var previousKey = Location?.ColumnLayoutKey;
 
-        // The first read of a location that is not the one shown: placeholder rows until its rows arrive (V2b-5b).
-        _firstRead = !SameSource(Location, location);
+        // The first read of a location that is not the one shown: placeholder rows until its rows arrive (V2b-5b). The
+        // location shown is still read for the first time when none of its reads has shown it yet (failed, stopped early).
+        if (!SameSource(Location, location))
+        {
+            _firstRead = true;
+        }
         _readComplete = false;
         Location = location;
         if (!string.Equals(previousKey, location.ColumnLayoutKey, StringComparison.Ordinal) || Columns.Count == 0)
@@ -808,7 +821,13 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         {
             if (generation == _generation)
             {
-                _firstRead = false;
+                // Shown: read to the end, or its rows are on screen. A read that failed or was stopped before a row arrived
+                // showed nothing, so Retry or Refresh is still the first read - placeholder rows, not a blank list.
+                if (_readComplete || Rows.Count > 0)
+                {
+                    _firstRead = false;
+                }
+
                 IsLoading = false;
                 OnPropertyChanged(nameof(QuickFilterStatus));
                 RaiseEmptiness();
