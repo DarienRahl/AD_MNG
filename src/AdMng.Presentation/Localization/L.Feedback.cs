@@ -853,11 +853,33 @@ public static partial class L
         /// <summary>{0} = how far it is ("1 of 3"); logged as <see cref="BackingUp"/>.</summary>
         public const string BackingUpProgress = "GpoBackup.Status.BackingUpProgress";
 
-        /// <summary>{0} = the backups written, {1} = the GPOs, {2} = the text of the button that backs up.</summary>
+        /// <summary>
+        /// {0} = how many backups were written (<see cref="WrittenOne"/>…), {1} = the text of the button that backs up. Its
+        /// log copy carries the backups written and the GPOs.
+        /// </summary>
         public const string BackupStopped = "GpoBackup.Status.BackupStopped";
 
-        /// <summary>What was tried, without a full stop; {0} = the backups that failed, {1} = the GPOs.</summary>
+        /// <summary>
+        /// How many backups were written, in the three plural forms of the GPOs (one, few, many): {0} = written, {1} = the GPOs
+        /// ("1 of 3 GPOs were written" - "zapisano 1 z 3 obiektów GPO").
+        /// </summary>
+        public const string WrittenOne = "GpoBackup.Status.Written.One";
+        public const string WrittenFew = "GpoBackup.Status.Written.Few";
+        public const string WrittenMany = "GpoBackup.Status.Written.Many";
+
+        /// <summary>
+        /// What was tried, without a full stop; {0} = the backups that failed of the GPOs (<see cref="GposOfOne"/>…). Its log
+        /// copy carries the backups that failed and the GPOs.
+        /// </summary>
         public const string BackupFailed = "GpoBackup.Status.BackupFailed";
+
+        /// <summary>
+        /// A part of the GPOs, in the three plural forms of the GPOs (one, few, many): {0} = the part, {1} = the GPOs ("1 of 3
+        /// GPOs" - "1 z 3 obiektów GPO").
+        /// </summary>
+        public const string GposOfOne = "GpoBackup.Status.GposOf.One";
+        public const string GposOfFew = "GpoBackup.Status.GposOf.Few";
+        public const string GposOfMany = "GpoBackup.Status.GposOf.Many";
 
         /// <summary>What was skipped, without a full stop.</summary>
         public const string NotBackedUp = "GpoBackup.Status.NotBackedUp";

@@ -70,6 +70,9 @@
   nim powiadomienie, a wiersz stanu zostaje przy trwającym porównaniu i jego *Zatrzymaj*. Uwaga nad wierszami o tym, czego
   nie porównano (SYSVOL niedostępny), znikała, gdy *Odśwież* zatrzymano albo się nie udało, choć wiersze poprzedniego
   porównania zostawały – teraz zostaje razem z nimi.
+- **Okno *Kopia zapasowa obiektów zasad grupy* odmienia liczbę GPO.** Zatrzymana albo nieudana kopia jednego GPO mówiła
+  „zapisano 0 z 1 obiektów GPO” i „Nie udało się utworzyć kopii zapasowych 1 z 1 obiektów GPO” – teraz „z 1 obiektu GPO”
+  (po angielsku „0 of 1 GPO was written”, „1 of 1 GPO”).
 
 ## AdMng Watchdog {{VERSION}}
 

@@ -187,6 +187,45 @@ public sealed class GpoBackupStatusTests
     }
 
     /// <summary>
+    /// The count of GPOs is said in the plural form of the language (audit DLR-9): a backup of one GPO that was stopped or
+    /// failed says "of 1 GPO" - "z 1 obiektu GPO" -, not "of 1 GPOs" - "z 1 obiektów GPO".
+    /// </summary>
+    [Theory]
+    [InlineData("en-US", "The backup was stopped: 0 of 1 GPO was written to the folder. Press “Back Up” to try again.", "Could not back up 1 of 1 GPO: ")]
+    [InlineData("pl-PL", "Tworzenie kopii zapasowych zatrzymano: do folderu zapisano 0 z 1 obiektu GPO. Wybierz „Utwórz kopię”, aby spróbować ponownie.",
+        "Nie udało się utworzyć kopii zapasowych 1 z 1 obiektu GPO: ")]
+    public async Task ABackupOfOneGpo_SaysTheCountInTheSingular_WhenStoppedOrFailed(string culture, string stoppedText, string failedLead)
+    {
+        var h = await GroupPolicyHarness.CreateAsync(CultureInfo.GetCultureInfo(culture));
+        using var folder = new TempFolder();
+        using var window = await NewAsync(h, GpoBackupMode.Backup, folder.Path, h.Sample.DriveMappings);
+        var hold = h.Sysvol.HoldNext("Open");
+        var running = window.RunCommand.ExecuteAsync(null);
+        await hold.Reached.WaitAsync(Limit, Ct);
+        window.Status.CancelCommand.Execute(null);
+        hold.Release();
+        await running.WaitAsync(Limit, Ct);
+
+        var stopped = window.Status.Current;
+        Assert.Equal((PageStatusKind.Attention, stoppedText), (stopped.Kind, stopped.Message));
+        Assert.Equal("GpoBackup.Status.BackupStopped (0, 1)", stopped.Log.ToString());
+
+        h.Session.BeforeOperation = operation =>
+        {
+            if (IsOf(operation, h.Sample.DriveMappings))
+            {
+                throw new DirectoryException(DirectoryErrorKind.AccessDenied, "00002098: SecErr: DSID-03150F94");
+            }
+        };
+        await window.RunCommand.ExecuteAsync(null);
+
+        var failed = window.Status.Current;
+        Assert.Equal(PageStatusKind.Error, failed.Kind);
+        Assert.StartsWith(failedLead, failed.Message, StringComparison.Ordinal);
+        Assert.Equal("GpoBackup.Status.BackupFailed (1, 1) [AccessDenied]", failed.Log.ToString());
+    }
+
+    /// <summary>
     /// A backup that cannot begin - the folder cannot be created, because a file has its name - is an error with the reason
     /// and the code; nothing is written and the window stays (audit TI-4: the catch-all of the backup had never run).
     /// </summary>

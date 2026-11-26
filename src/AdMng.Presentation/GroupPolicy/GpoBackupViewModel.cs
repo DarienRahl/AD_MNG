@@ -5,6 +5,7 @@ using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.Backup;
 using AdMng.Core.GroupPolicy.Management;
 using AdMng.Core.Model;
+using AdMng.Presentation.Correspondence;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
@@ -593,7 +594,7 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
                     StatusText = Localizer[L.Activity.Cancelled];
                     var again = RunText;
                     backingUp.CompleteAttention(
-                        Localizer.Format(L.GpoBackupStatus.BackupStopped, outcome.SucceededCount, gpos.Count, again),
+                        StoppedText(outcome.SucceededCount, gpos.Count, again),
                         new PageStatusLog(L.GpoBackupStatus.BackupStopped, outcome.SucceededCount, gpos.Count),
                         new PageStatusAction(again, RunCommand));
                     return false;
@@ -605,7 +606,7 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
                     var reason = firstFailure is null ? null : GroupPolicyText.Error(Localizer, Errors, firstFailure);
                     var code = ResultCode.Of(firstFailure);
                     backingUp.CompleteError(
-                        PageStatusText.Failure(Localizer.Format(L.GpoBackupStatus.BackupFailed, failed, gpos.Count), reason, null, code),
+                        PageStatusText.Failure(FailedLead(failed, gpos.Count), reason, null, code),
                         new PageStatusLog(L.GpoBackupStatus.BackupFailed, failed, gpos.Count).WithCode(code));
                     return false;
                 }
@@ -634,7 +635,7 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
                 var again = RunText;
                 StatusText = Localizer[L.Activity.Cancelled];
                 backingUp.CompleteAttention(
-                    Localizer.Format(L.GpoBackupStatus.BackupStopped, 0, total, again),
+                    StoppedText(0, total, again),
                     new PageStatusLog(L.GpoBackupStatus.BackupStopped, 0, total),
                     new PageStatusAction(again, RunCommand));
             }
@@ -655,6 +656,20 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
             IsBusy = false;
         }
     }
+
+    /// <summary>
+    /// "The backup was stopped: 1 of 3 GPOs were written to the folder. Press “Back Up” to try again." - the count in the plural
+    /// form of the GPOs ("0 of 1 GPO was written", "zapisano 0 z 1 obiektu GPO").
+    /// </summary>
+    private string StoppedText(int written, int total, string again) => Localizer.Format(
+        L.GpoBackupStatus.BackupStopped,
+        Localizer.Format(CorrespondenceText.PluralKey(total, L.GpoBackupStatus.WrittenOne, L.GpoBackupStatus.WrittenFew, L.GpoBackupStatus.WrittenMany), written, total),
+        again);
+
+    /// <summary>"Could not back up 1 of 3 GPOs" - the count in the plural form of the GPOs ("1 of 1 GPO", "1 z 1 obiektu GPO").</summary>
+    private string FailedLead(int failed, int total) => Localizer.Format(
+        L.GpoBackupStatus.BackupFailed,
+        Localizer.Format(CorrespondenceText.PluralKey(total, L.GpoBackupStatus.GposOfOne, L.GpoBackupStatus.GposOfFew, L.GpoBackupStatus.GposOfMany), failed, total));
 
     /// <summary>How far the backup is: "Backing up the GPOs: 1 of 3…" with the part done in the ring.</summary>
     private void ReportBackup(OperationScope backingUp, BatchProgress progress, int total) => backingUp.Report(
