@@ -64,7 +64,7 @@ public sealed partial class ReadinessDocumentViewModel : ObservableObject, IShel
     /// <summary>A check runs.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StatusText))]
-    [NotifyCanExecuteChangedFor(nameof(QuickCheckCommand), nameof(FullCheckCommand), nameof(CancelCommand), nameof(PickTestComputerCommand),
+    [NotifyCanExecuteChangedFor(nameof(QuickCheckCommand), nameof(FullCheckCommand), nameof(PickTestComputerCommand),
         nameof(ExportHtmlCommand), nameof(ExportCsvCommand), nameof(CopyCommand), nameof(CheckAgainCommand))]
     public partial bool IsLoading { get; private set; }
 
@@ -148,16 +148,7 @@ public sealed partial class ReadinessDocumentViewModel : ObservableObject, IShel
     [RelayCommand(CanExecute = nameof(CanCheck))]
     private Task CheckAgainAsync() => CheckAsync(LastDepth ?? ReadinessDepth.Quick);
 
-    /// <summary>
-    /// "Anuluj": stops the run - the same Stop as the one of the status line, which says "Stopping…" at once; the checks
-    /// it did not reach are shown as not checked.
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(CanCancel))]
-    public void Cancel() => Status.Operation?.Cancel();
-
     private bool CanCheck() => !IsLoading && !_disposed && HasSession;
-
-    private bool CanCancel() => IsLoading && _running is not null;
 
     /// <summary>"Wybierz…": a computer picked from AD becomes the test computer (its DN is used, its name shown).</summary>
     [RelayCommand(CanExecute = nameof(CanCheck))]

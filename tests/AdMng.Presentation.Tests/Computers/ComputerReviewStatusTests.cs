@@ -158,24 +158,6 @@ public sealed class ComputerReviewStatusTests
     }
 
     [Fact]
-    public async Task TheStopCommandOfTheWindow_IsTheSameStop()
-    {
-        var scenario = await CreateAsync();
-        using var review = scenario.Factory.CreateReview();
-        await review.InitializeAsync();
-        using var held = new HeldDirectoryCall(scenario.Harness.Session, IsComputerQuery);
-
-        var run = review.RunCommand.ExecuteAsync(null);
-        await held.Reached.WaitAsync(Limit, TestContext.Current.CancellationToken);
-        review.StopCommand.Execute(null);
-        Assert.Equal("Stopping…", review.Status.Current.Message);
-        held.Release();
-        await run.WaitAsync(Limit, TestContext.Current.CancellationToken);
-
-        Assert.Equal(PageStatusKind.Attention, review.Status.Current.Kind);
-    }
-
-    [Fact]
     public async Task ACheckThatFails_IsTheStateOfTheWindow_WithRetry_UntilTheNextCheck()
     {
         var scenario = await CreateAsync();

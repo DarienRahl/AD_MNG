@@ -126,7 +126,6 @@ public sealed partial class RemoteComputerViewModel : WindowViewModelBase, IHasP
     public partial string? Error { get; private set; }
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(StopCommand))]
     public partial bool IsBusy { get; private set; }
 
     [ObservableProperty]
@@ -341,22 +340,12 @@ public sealed partial class RemoteComputerViewModel : WindowViewModelBase, IHasP
     [RelayCommand(CanExecute = nameof(HasTarget))]
     private Task EventViewerAsync() => LaunchAsync(LocalTool.EventViewer);
 
-    /// <summary>"Zatrzymaj": the same Stop as the one of the status line - "Stopping…" at once, then the call ends.</summary>
-    [RelayCommand(CanExecute = nameof(CanStop))]
-    private void Stop()
-    {
-        Status.Operation?.Cancel();
-        _calls.Cancel();
-    }
-
     [RelayCommand]
     private Task CloseAsync() => CloseByOperatorAsync(true);
 
     private bool HasTarget() => Target is not null && !IsSessionEnded;
 
     private bool CanCall() => HasTarget() && _remote is not null && !IsBusy;
-
-    private bool CanStop() => IsBusy;
 
     // ---- Lifetime ------------------------------------------------------------------------------------------------------
 
@@ -666,6 +655,5 @@ public sealed partial class RemoteComputerViewModel : WindowViewModelBase, IHasP
         RemoteDesktopCommand.NotifyCanExecuteChanged();
         ComputerManagementCommand.NotifyCanExecuteChanged();
         EventViewerCommand.NotifyCanExecuteChanged();
-        StopCommand.NotifyCanExecuteChanged();
     }
 }

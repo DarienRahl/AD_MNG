@@ -202,9 +202,11 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IHasPageStatu
     [ObservableProperty]
     public partial BulkCreateComputation? Computation { get; private set; }
 
-    /// <summary>A computation runs (the operation of <see cref="Status"/>; <see cref="StopCommand"/> stops it).</summary>
+    /// <summary>
+    /// A computation runs (the operation of <see cref="Status"/>; the Stop of the line, <c>Status.CancelCommand</c>, stops it
+    /// and drops a recompute that waits for its delay).
+    /// </summary>
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(StopCommand))]
     public partial bool IsComputing { get; private set; }
 
     /// <summary>Who asked for the computation that runs (or ran last).</summary>
@@ -274,6 +276,9 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IHasPageStatu
     /// <summary>An edit or an exclusion waits for its recompute (the plan step computes first).</summary>
     internal bool HasPendingRecompute { get; private set; }
 
+    /// <summary>The last recompute an edit or an exclusion asked for - its delay, then its computation (tests await it).</summary>
+    internal Task PendingRecompute { get; private set; } = Task.CompletedTask;
+
     /// <summary>
     /// The grid shown was computed from everything the operator has entered and chosen by now. Every change of what a
     /// computation is made from - an edit, an exclusion, a revert, new pins, an earlier step, a new table, a fresh look at
@@ -296,25 +301,6 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IHasPageStatu
     /// <summary>Computes every row (on entering the step; cancellable through <c>ComputeCancelCommand</c>).</summary>
     [RelayCommand(IncludeCancelCommand = true)]
     private Task ComputeAsync(CancellationToken cancellationToken) => RunComputeAsync(cancellationToken);
-
-    /// <summary>
-    /// <em>Zatrzymaj</em>: stops whatever computation runs (entering the step, a recompute after an edit) - the same Stop as
-    /// the line's and the one of the action buttons, which say "Stopping…" at once.
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(IsComputing))]
-    private void Stop()
-    {
-        _recompute.Cancel();
-        HasPendingRecompute = false;
-        if (Status.Operation is { } operation)
-        {
-            operation.Cancel();
-        }
-        else
-        {
-            _computing.Cancel();
-        }
-    }
 
     /// <summary><em>Sprawdź ponownie</em>: forgets the lookups and computes.</summary>
     [RelayCommand]
@@ -840,6 +826,15 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IHasPageStatu
             OnPropertyChanged(nameof(IsRechecking));
             OnPropertyChanged(nameof(IsRenumbering));
         }
+        else if (e.PropertyName == nameof(PageStatusHolder.IsCancelling) && Status.IsCancelling)
+        {
+            // The operator stopped the check - the Stop of the line, or Sprawdź ponownie / Numeruj od nowa as its Cancel: a
+            // recompute that an edit or an exclusion asked for meanwhile, and that still waits for its delay, would start the
+            // check again a moment later. It goes with the Stop (the owner's answer 10 of the 0.16.1 plan); the grid is not
+            // current then (IsGridCurrent), the step says "stopped" and the plan step computes again.
+            _recompute.Cancel();
+            HasPendingRecompute = false;
+        }
     }
 
     private void OnCultureChanged(object? sender, EventArgs e)
@@ -873,7 +868,8 @@ public sealed partial class BulkCheckViewModel : ObservableObject, IHasPageStatu
         _inputVersion++;
         HasPendingRecompute = true;
         Changed?.Invoke(this, EventArgs.Empty);
-        _recompute.RunAsync(token => RunComputeAsync(token)).Forget();
+        PendingRecompute = _recompute.RunAsync(token => RunComputeAsync(token));
+        PendingRecompute.Forget();
     }
 
     // ------------------------------------------------------------------ the grid

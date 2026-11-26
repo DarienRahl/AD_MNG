@@ -135,7 +135,7 @@ public sealed class RemoteComputerStatusTests
     }
 
     [Fact]
-    public async Task TheStopCommandOfTheWindow_AndAStopDuringThePing_AreTheSameStop()
+    public async Task AStopDuringThePing_SaysThatTheStatusReadWasStopped_AndTheComputerWasNotAsked()
     {
         var (scenario, window) = await OpenAsync();
         using var _window = window;
@@ -144,7 +144,7 @@ public sealed class RemoteComputerStatusTests
         var status = window.RefreshStatusCommand.ExecuteAsync(null);
         await scenario.Ping.Held.Task.WaitAsync(Limit, TestContext.Current.CancellationToken);
         Assert.True(window.IsReadingStatus);
-        window.StopCommand.Execute(null);
+        window.Status.CancelCommand.Execute(null);
         Assert.Equal("Stopping…", window.Status.Current.Message);
         await status.WaitAsync(Limit, TestContext.Current.CancellationToken);
 

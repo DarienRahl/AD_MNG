@@ -422,7 +422,9 @@ Po wejściu w krok kreator wylicza wszystkie wiersze. Postęp – *Sprawdzanie w
 przycisk) zamienia się wtedy w *Anuluj* tego sprawdzenia. Czyta katalog przez kontroler okna – zajęte nazwy, numery
 licznika, menedżerów, grupy, możliwe istniejące konta, zasady haseł domeny, uprawnienia do kontenera – i niczego nie
 zapisuje. Zatrzymane sprawdzenie zostawia w wierszu stanu uwagę: *Sprawdzanie wierszy zatrzymano: wyniki mogą nie
-odpowiadać danym i wprowadzonym zmianom. Wybierz „Sprawdź ponownie”, aby sprawdzić ponownie.* Taka sama uwaga pojawia się,
+odpowiadać danym i wprowadzonym zmianom. Wybierz „Sprawdź ponownie”, aby sprawdzić ponownie.* *Zatrzymaj* odwołuje też
+ponowne wyliczenie, na które czeka poprawiona komórka albo odznaczony wiersz, więc sprawdzenie nie zaczyna się zaraz samo
+od nowa; podgląd i tak wylicza wiersze jeszcze raz, z tą zmianą. Taka sama uwaga pojawia się,
 gdy dane, reguły albo utworzone konta zmieniły się od sprawdzenia; sprawdzenie, które się nie udało, podaje powód i ma
 polecenie *Ponów*.
 

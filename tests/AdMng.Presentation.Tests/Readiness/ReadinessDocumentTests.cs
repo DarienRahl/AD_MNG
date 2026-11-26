@@ -156,10 +156,10 @@ public sealed class ReadinessDocumentTests
         var run = document.CheckAsync(ReadinessDepth.Full);
         await reading.Task.WaitAsync(TimeSpan.FromSeconds(10), Token);
         Assert.True(document.IsLoading);
-        Assert.True(document.CancelCommand.CanExecute(null));
+        Assert.True(document.Status.CancelCommand.CanExecute(null));
         Assert.False(document.FullCheckCommand.CanExecute(null));
         Assert.StartsWith("Sprawdzanie: Dzienniki zdarzeń (E) (5 z 8)", document.ProgressText, StringComparison.Ordinal);
-        document.CancelCommand.Execute(null);
+        document.Status.CancelCommand.Execute(null);
         await run;
 
         Assert.False(document.IsLoading);

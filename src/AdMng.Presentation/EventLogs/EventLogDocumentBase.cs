@@ -8,7 +8,6 @@ using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Shell;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 
 namespace AdMng.Presentation.EventLogs;
 
@@ -136,12 +135,6 @@ public abstract partial class EventLogDocumentBase : ObservableObject, IShellDoc
 
     /// <summary>F5: runs again.</summary>
     public abstract Task RefreshAsync();
-
-    /// <summary>"Zatrzymaj": stops every source of the running read (what was read stays) - the same Stop as the one of the status line.</summary>
-    [RelayCommand(CanExecute = nameof(CanCancel))]
-    public void Cancel() => _operation?.Cancel();
-
-    private bool CanCancel() => IsLoading && _running is not null;
 
     public void Dispose()
     {
@@ -417,7 +410,6 @@ public abstract partial class EventLogDocumentBase : ObservableObject, IShellDoc
     /// <summary>Re-evaluates the commands (a run started or ended, the selection changed).</summary>
     protected virtual void RefreshCommands()
     {
-        CancelCommand.NotifyCanExecuteChanged();
         RefreshCommand.NotifyCanExecuteChanged();
     }
 

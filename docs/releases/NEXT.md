@@ -41,6 +41,11 @@
   52)*. Kopia komunikatu w dzienniku diagnostycznym mówiła przy każdej przyczynie, że komputer nie ma nazwy DNS; teraz
   zapisuje właściwą: obiekt nie jest komputerem, brak nazwy DNS, nieudany odczyt (z kodem) albo brak zdalnych akcji w tym
   programie. *Ping* w *Przeglądzie komputerów*, gdy nie udało się odczytać komputera, też podaje teraz kod błędu.
+- **Zatrzymane sprawdzanie w kreatorze zakładania kont nie rusza już samo od nowa.** Gdy w trakcie sprawdzania (krok
+  *Sprawdzenie*) poprawiono komórkę albo odznaczono wiersz, a potem wybrano *Zatrzymaj* w wierszu stanu (albo *Anuluj*
+  przycisku *Sprawdź ponownie*), ponowne wyliczenie, które czekało na tę zmianę, zaczynało się chwilę później i
+  przykrywało uwagę o zatrzymaniu. Teraz *Zatrzymaj* odwołuje je razem ze sprawdzaniem: krok mówi, że sprawdzanie
+  zatrzymano, a *Podgląd* i tak wylicza wiersze jeszcze raz, z tą zmianą.
 
 ## AdMng Watchdog {{VERSION}}
 

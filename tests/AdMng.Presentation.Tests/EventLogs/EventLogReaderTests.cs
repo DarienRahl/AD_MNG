@@ -179,8 +179,8 @@ public class EventLogReaderTests
         var run = reader.RunCommand.ExecuteAsync(null);
         await started.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         Assert.True(reader.IsLoading);
-        Assert.True(reader.CancelCommand.CanExecute(null));
-        reader.Cancel();
+        Assert.True(reader.Status.CancelCommand.CanExecute(null));
+        reader.Status.CancelCommand.Execute(null);
         await run.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
         Assert.False(reader.IsLoading);

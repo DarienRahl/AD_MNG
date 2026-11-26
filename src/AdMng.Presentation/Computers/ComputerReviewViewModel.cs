@@ -195,13 +195,12 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase, IHasP
     // ---- Run -----------------------------------------------------------------------------------------------------
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(RunCommand), nameof(StopCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RunCommand))]
     [NotifyPropertyChangedFor(nameof(IsEmpty), nameof(IsBusy))]
     public partial bool IsRunning { get; private set; }
 
     /// <summary>Owners, creators, the exact last logon or the sites are being read.</summary>
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(StopCommand))]
     [NotifyPropertyChangedFor(nameof(IsBusy))]
     public partial bool IsReading { get; private set; }
 
@@ -294,20 +293,6 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase, IHasP
         AccountReviewScopeKind.SavedView => SavedView is not null,
         _ => true,
     };
-
-    /// <summary>
-    /// Stops whatever runs - the check, a read, a ping - as the operator's Stop: the status line says "Stopping…" at once
-    /// and what was stopped says so when it ended.
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(CanStop))]
-    private void Stop()
-    {
-        Status.Operation?.Cancel();
-        _runs.Cancel();
-        _reads.Cancel();
-    }
-
-    private bool CanStop() => IsRunning || IsReading;
 
     [RelayCommand(CanExecute = nameof(CanBrowseScope))]
     private async Task BrowseScopeAsync()

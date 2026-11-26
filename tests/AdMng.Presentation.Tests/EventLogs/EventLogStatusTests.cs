@@ -128,7 +128,7 @@ public sealed partial class EventLogStatusTests
         var run = reader.RunCommand.ExecuteAsync(null);
         await started.Task.WaitAsync(Limit, TestContext.Current.CancellationToken);
 
-        // Working, with Stop: the line, the button flag and the old Cancel command are one operation.
+        // Working, with Stop: the line and the button flag are one operation.
         var working = reader.Status.Current;
         Assert.Equal(PageStatusKind.Working, working.Kind);
         var stop = Assert.IsType<PageStatusAction>(working.Action);
@@ -136,7 +136,7 @@ public sealed partial class EventLogStatusTests
         Assert.Same(reader.Status.CancelCommand, stop.Command);
         Assert.True(reader.IsSearching);
         Assert.False(reader.IsLoadingChannels);
-        Assert.True(reader.CancelCommand.CanExecute(null));
+        Assert.True(reader.Status.CancelCommand.CanExecute(null));
         Assert.False(reader.RunCommand.CanExecute(null));
 
         // "Stopping…" at once; the reads that are on their way to the sources still have to return.
@@ -168,22 +168,6 @@ public sealed partial class EventLogStatusTests
         harness.Connector.BeforeRead = null;
         await reader.RefreshCommand.ExecuteAsync(null);
         Assert.Equal((PageStatusKind.Idle, "Zdarzeń: 7 z 2 źródeł"), (reader.Status.Current.Kind, reader.Status.Current.Message));
-    }
-
-    [Fact]
-    public async Task TheCancelOfTheDocument_IsTheSameStop()
-    {
-        var (harness, reader) = await OpenReaderAsync();
-        var started = HoldTheReads(harness);
-
-        var run = reader.RunCommand.ExecuteAsync(null);
-        await started.Task.WaitAsync(Limit, TestContext.Current.CancellationToken);
-        reader.Cancel();
-        Assert.Equal("Zatrzymywanie…", reader.Status.Current.Message);
-        await run.WaitAsync(Limit, TestContext.Current.CancellationToken);
-
-        Assert.Equal(PageStatusKind.Attention, reader.Status.Current.Kind);
-        Assert.False(reader.IsLoading);
     }
 
     [Fact]
@@ -271,7 +255,7 @@ public sealed partial class EventLogStatusTests
         var run = reader.RunCommand.ExecuteAsync(null);
         await started.Task.WaitAsync(Limit, TestContext.Current.CancellationToken);
         Assert.Equal((true, false), (reader.IsSearching, reader.IsLoadingChannels));
-        reader.Cancel();
+        reader.Status.CancelCommand.Execute(null);
         await run.WaitAsync(Limit, TestContext.Current.CancellationToken);
         Assert.Equal((false, false), (reader.IsSearching, reader.IsLoadingChannels));
     }

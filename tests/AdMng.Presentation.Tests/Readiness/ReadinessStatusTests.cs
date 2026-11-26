@@ -159,26 +159,6 @@ public sealed class ReadinessStatusTests
     }
 
     [Fact]
-    public async Task TheCancelOfTheDocument_IsTheSameStop()
-    {
-        var harness = await ReadinessHarness.CreateAsync();
-        var reading = HoldTheEventLogs(harness);
-        using var document = new ReadinessDocumentViewModel(harness.Services());
-        var seen = new StatusRecorder(document.Status);
-
-        var run = document.CheckAsync(ReadinessDepth.Full);
-        await reading.Task.WaitAsync(TimeSpan.FromSeconds(10), Token);
-        Assert.True(document.CancelCommand.CanExecute(null));
-        document.CancelCommand.Execute(null);
-        Assert.Equal("Zatrzymywanie…", document.Status.Current.Message);
-        await run;
-
-        Assert.Equal(PageStatusKind.Attention, document.Status.Current.Kind);
-        Assert.Contains((PageStatusKind.Working, "Zatrzymywanie…"), seen.Plain);
-        Assert.True(document.WasCancelled);
-    }
-
-    [Fact]
     public async Task AReconnect_StopsTheRunWithoutAWord_AndTheLineSaysTheConnectionChanged()
     {
         var harness = await ReadinessHarness.CreateAsync();

@@ -146,22 +146,43 @@ public sealed class BulkCheckStatusTests
     }
 
     [Fact]
-    public async Task TheStopCommand_IsTheSameStop_AsTheOneOfTheLine()
+    public async Task TheStopOfTheLine_AlsoDropsARecomputeThatWaitsForItsDelay_SoTheCheckStaysStopped()
     {
         using var wizard = await B4Wizard.CreateAsync();
         wizard.Use(wizard.OperatorInput());
+        await wizard.EnterCheckAsync();
+        var check = wizard.Check;
+        var before = check.Computation;
         using var held = new HeldDirectoryCall(wizard.Harness.Session);
-        var checking = wizard.EnterCheckAsync();
+
+        // A check is on its way to the domain controller when an edit asks for a recompute; the recompute waits for its
+        // delay (long here: only the Stop can end it before the test does).
+        check.Lookups.Refresh();
+        var again = check.RecheckCommand.ExecuteAsync(null);
         await held.Reached.WaitAsync(Limit, TestContext.Current.CancellationToken);
-        Assert.True(wizard.Check.StopCommand.CanExecute(null));
+        check.EditDelay = TimeSpan.FromMinutes(10);
+        check.Rows[1].Cell(Attr.SamAccountName)!.EditText = "kd300";
+        Assert.True(check.HasPendingRecompute);
+        var pending = check.PendingRecompute;
+        Assert.False(pending.IsCompleted);
+        Assert.True(check.Status.CancelCommand.CanExecute(null));
 
-        wizard.Check.StopCommand.Execute(null);
-
+        // The Stop of the line - the one the action buttons are bound to as well: the check stops, and the recompute
+        // that waits goes with it instead of starting the check again once its delay is over (owner's answer 10).
+        check.Status.CancelCommand.Execute(null);
         Assert.Equal("Zatrzymywanie…", wizard.Editor.Status.Current.Message);
+        Assert.False(check.HasPendingRecompute);
         held.Release();
-        await checking.WaitAsync(Limit, TestContext.Current.CancellationToken);
+        await again.WaitAsync(Limit, TestContext.Current.CancellationToken);
+        await pending.WaitAsync(Limit, TestContext.Current.CancellationToken);
+
+        // Stopped is the state of the step, the grid is the one of before, and the plan step knows it is not current.
+        Assert.False(check.IsComputing);
+        Assert.False(check.Status.IsWorking);
+        Assert.Same(before, check.Computation);
         Assert.Equal(PageStatusKind.Attention, wizard.Editor.Status.Current.Kind);
         Assert.Equal("BulkCheck.Status.Stopped", wizard.Editor.Status.Current.Log.ToString());
+        Assert.False(check.IsGridCurrent);
     }
 
     [Fact]
@@ -338,7 +359,7 @@ public sealed class BulkCheckStatusTests
         // The choice of one of two managers starts a recompute that reads the directory; the operator stops it there.
         check.Rows[0].Cell(BulkCheckViewModel.ManagerKey)!.ChosenCandidate = wizard.Sample.PiotrZielinski2;
         await held.Reached.WaitAsync(Limit, TestContext.Current.CancellationToken);
-        check.StopCommand.Execute(null);
+        check.Status.CancelCommand.Execute(null);
         held.Release();
         await B2Harness.WaitUntilAsync(() => !check.IsComputing);
 

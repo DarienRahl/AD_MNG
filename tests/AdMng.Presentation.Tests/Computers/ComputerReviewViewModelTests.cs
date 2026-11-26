@@ -227,8 +227,8 @@ public class ComputerReviewViewModelTests
         var run = review.RunCommand.ExecuteAsync(null);
         await hooked.Held.Task.WaitAsync(TimeSpan.FromSeconds(10), Ct);
         Assert.True(review.IsRunning);
-        Assert.True(review.StopCommand.CanExecute(null));
-        review.StopCommand.Execute(null);
+        Assert.True(review.Status.CancelCommand.CanExecute(null));
+        review.Status.CancelCommand.Execute(null);
         await run;
 
         Assert.False(review.IsRunning);
