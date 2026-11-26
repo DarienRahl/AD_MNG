@@ -5245,9 +5245,10 @@ releases.
     `StaticResource` order of `Controls.xaml`).
 - **Taskbar progress and the close question (decision 6, unit 4).** Two answers to "this window works", both made of what the holder
   already says: the taskbar button of every window that has one shows the progress of its line (18 of the 41 windows; a dialog without a
-  button of its own - `ShowInTaskbar="False"`: the plan preview, Reset Password, the property sheet and 20 more - says it in its status
-  line only, and its owner's button does not take it over: the owner's decision of 25 November 2026, final), and a window that is closed
-  while it writes asks one question. Neither adds a status: they read the holder (`Current`, `Operation`) and the flag of the operation.
+  button of its own - `ShowInTaskbar="False"`: the plan preview, Reset Password, the property sheet and 20 more - shows its progress in
+  its status line only, and its owner's button does not take it over: the owner's decision of 25 November 2026, final), and a window
+  that is closed while it writes asks one question. Neither adds a status: they read the holder (`Current`, `Operation`) and the flag of
+  the operation.
   - *Taskbar progress - what it shows.* `TaskbarProgressTracker` (`Presentation/Feedback`, no WPF type, tested on Linux with a fake clock)
     follows one holder and gives `State` (`TaskbarProgressState`: a `TaskbarProgressKind` - `None`, `Indeterminate`, `Normal`, `Paused`,
     `Error` - and a fraction). **Working** with a part done is `Normal` with that fraction (the execution of a plan: "12 of 300" is 4 %);
@@ -5370,8 +5371,8 @@ releases.
     `GroupPolicyObjectsView`, `PkiTemplatesView`); `Skeleton` 1 in 1 view (`ObjectListView`); notes: `Ad.Note.Info` 9 uses in 9 views,
     `Ad.Note.Attention` 55 in 39 and `Ad.Note.Error` 8 in 7 - 72 in all; `c:AdNote.Icon` 1 (the replication note of the bulk results). Not
     in any view, and so for every window: taskbar progress (`TaskbarProgress.Register()`, called once by `AppHost.InitializeAsync`; it
-    shows on the 18 windows that have a taskbar button, a dialog without one says it in its status line only) and the close question
-    (`WindowViewModelBase.CanCloseAsync`).
+    shows on the 18 windows that have a taskbar button, a dialog without one shows its progress in its status line only) and the close
+    question (`WindowViewModelBase.CanCloseAsync`).
   - *Strings and tests.* 8,462 strings in each resx file (8,448 at the notes of 0.16.0: 17 keys added - the stopped sentence in three plural
     forms and its finished clause in three, the four texts of the close question and the seven sentences and actions of the empty lists -
     and three removed: the old stopped sentence and the two old close questions of Korespondencja and of the e-mail messages window). `AdMng.Core.Tests` 5,526 passed (2,705 test methods before the increment, 2,717 now);
