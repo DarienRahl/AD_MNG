@@ -121,7 +121,13 @@ public class ObjectListEmptyStateTests
         list.QuickFilterText = "kowal";
         Assert.Equal("There are no items to show in this view.", list.EmptyState.Message);
         var raised = 0;
-        list.PropertyChanged += (_, e) => raised += e.PropertyName == nameof(ObjectListViewModel.EmptyState) ? 1 : 0;
+        list.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ObjectListViewModel.EmptyState))
+            {
+                Interlocked.Increment(ref raised);
+            }
+        };
 
         // Another operator creates an object the text hides: still no row on screen, but now the text hides one - the
         // sentence changes and the view is told, though the (empty) rows did not change.
@@ -130,18 +136,18 @@ public class ObjectListEmptyStateTests
         harness.Directory.RaiseChange(created);
         harness.Time.Advance(TimeSpan.FromMilliseconds(500));
         await ObjectListViewModelTests.WaitUntilAsync(() => list.TotalCount == 1);
+        Assert.True(await SoonAsync(() => Volatile.Read(ref raised) > 0), "EmptyState was not raised after the hidden row arrived");
         Assert.Empty(list.Items);
-        Assert.True(raised > 0, "EmptyState was not raised after the hidden row arrived");
         Assert.Equal("No object matches the filter.", list.EmptyState.Message);
         Assert.Same(list.ClearFiltersCommand, list.EmptyState.ActionCommand);
 
         // The object is deleted again: nothing is hidden any more, the container is empty - Refresh, said to the view.
-        raised = 0;
+        Volatile.Write(ref raised, 0);
         harness.Directory.Remove(created);
         harness.Directory.RaiseChange(created);
         harness.Time.Advance(TimeSpan.FromMilliseconds(500));
         await ObjectListViewModelTests.WaitUntilAsync(() => list.TotalCount == 0);
-        Assert.True(raised > 0, "EmptyState was not raised after the hidden row went");
+        Assert.True(await SoonAsync(() => Volatile.Read(ref raised) > 0), "EmptyState was not raised after the hidden row went");
         Assert.Equal("There are no items to show in this view.", list.EmptyState.Message);
         Assert.Same(list.RefreshCommand, list.EmptyState.ActionCommand);
         list.Dispose();
@@ -363,6 +369,20 @@ public class ObjectListEmptyStateTests
         Assert.NotNull(list.Error);
         Assert.False(list.ShowsSkeleton);
         Assert.Same(EmptyListState.None, list.EmptyState);
+    }
+
+    /// <summary>
+    /// Waits up to a second for something a live refresh does off the test's thread (the count of rows read changes a moment
+    /// before the view is told); false when it never happens.
+    /// </summary>
+    private static async Task<bool> SoonAsync(Func<bool> condition)
+    {
+        for (var i = 0; i < 100 && !condition(); i++)
+        {
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+        }
+
+        return condition();
     }
 
     [Fact]
