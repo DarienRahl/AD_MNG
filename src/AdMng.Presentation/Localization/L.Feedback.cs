@@ -367,7 +367,7 @@ public static partial class L
         /// <summary>"Exact last logon (all DCs)"; {0} = the number of accounts.</summary>
         public const string ReadingExact = "AccountReview.Status.ReadingExact";
 
-        /// <summary>{0} = the domain controllers that answered ("2 of 3"), {1} = the accounts that left the list.</summary>
+        /// <summary>{0} = the domain controllers on which it was read ("2 of 3"), {1} = the accounts that left the list.</summary>
         public const string ExactDone = "AccountReview.Status.ExactDone";
 
         /// <summary>{0} = the domain controllers that could not be read, each with why ("dc02.contoso.test (Access is denied); …").</summary>

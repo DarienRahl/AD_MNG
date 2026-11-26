@@ -26,8 +26,8 @@ Rules that apply everywhere:
 *Account review*). *Check* (F5) reads computer accounts with a single paged query (`sAMAccountType=805306369`, without
 managed service accounts). Results appear as they arrive. The status line at the top of the window says how many computers
 were read and has *Stop*; while the check runs, *Check* itself is its *Cancel*. The same line says how the reads of the
-exact last logon and of the sites and a ping ended (what did not answer, what was skipped), and what lasts: the session of
-the window ended, or the check failed (with *Retry*).
+exact last logon and of the sites and a ping ended (what did not answer or could not be read, what was skipped), and what
+lasts: the session of the window ended, or the check failed (with *Retry*).
 
 **Reports** (tiles with the number of computers):
 
@@ -139,10 +139,10 @@ The actions work as for other objects, with additional rules for computers:
 shows the computer name and its DNS name, and the status line under it the connection method, e.g. *Connection: WinRM
 (HTTP 5985, Kerberos) as CONTOSO\admin*. The same line says which action runs (with *Stop*; the button of the action is its
 *Cancel*) and how it ended: a read leaves its result in the card or the list, an action says what was done, and an action
-that was stopped says that it is not known whether the computer received the request. When the window cannot act at all,
-the same line says why: the object is not a computer (any more), the computer has no DNS name, the computer could not be
-read from the directory (with the reason and the code, e.g. *Could not read the computer “KRK-PC101”: Access is denied.
-(LDAP 50)*), or remote actions are not available in this program.
+that was stopped says that it is not known whether the computer received the request. When the window cannot run remote
+actions, the same line says why: the object is not a computer (any more), the computer has no DNS name, the computer could
+not be read from the directory (with the reason and the code, e.g. *Could not read the computer “KRK-PC101”: Access is
+denied. (LDAP 50)*), or remote actions are not available in this program.
 
 | Action | What it does |
 |---|---|

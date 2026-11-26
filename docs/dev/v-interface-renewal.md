@@ -3867,12 +3867,14 @@ what each unit left behind on purpose), and what nobody has seen on a screen yet
       the state of the page. *Corrected in 0.16.1 (audit BCER-5, owner's answer 10):* `StopCommand`, which no view bound,
       is gone; what only it did - drop a recompute that an edit or an exclusion asked for and that still waits for its
       300 ms - the Stop of the line does now (`OnStatusChanged` on `IsCancelling`), so a Stop is not followed by a check
-      that starts again. The line offers that Stop only while the check the edit replaced has not yet noticed that it was
-      cancelled (a long planner pass, a call to the domain controller), so this is a rare case. Both buttons are action
-      buttons with one holder, so each has its own flag: *Sprawdź ponownie* is the Cancel of every check except the one
-      *Numeruj od nowa* started (`CheckRunKind`), as *Refresh* of the Recycle Bin is the Cancel of the read whoever started
-      it. The planner reports at the start, every 250 rows and at the end: "Checking the rows: 0 of 120…" and "120 of 120…"
-      are what a small sheet shows.
+      that starts again. The line offers that Stop mostly while the check the edit replaced has not yet noticed that it
+      was cancelled (a long planner pass, a call to the domain controller), or when a check is started within the
+      recompute's delay (*Sprawdź ponownie*, entering the step, the arrival of the global-catalog session - none of them
+      cancels the waiting recompute), so this is a rare case. Both buttons are action buttons with one holder, so each
+      has its own flag: *Sprawdź ponownie* is the Cancel of every check except the one *Numeruj od nowa* started
+      (`CheckRunKind`), as *Refresh* of the Recycle Bin is the Cancel of the read whoever started it. The planner
+      reports at the start, every 250 rows and at the end: "Checking the rows: 0 of 120…" and "120 of 120…" are what a
+      small sheet shows.
     - **Stopped, failed and out of date are states, not results.** The grid then stands without an explanation of its
       own - empty after a first check that was stopped, older after a recompute - and the sentence is true until the next
       check applies. They are computed from the facts in one method (`UpdateLasting`: the failure, the stop, `IsStale`),
@@ -3984,10 +3986,12 @@ what each unit left behind on purpose), and what nobody has seen on a screen yet
     of KRK-PC101: The computer does not answer. Check … (Unreachable)" with Retry for a read and without it for an action.
     **What lasts:** the session of the window ended, no session, the computer has no DNS name ("PREST-PC201 has no DNS host
     name in Active Directory…"), remote actions are not available in this host. *Corrected in 0.16.1 (audit BCER-6):* the
-    window logged `Computers.NoDnsName` for every one of these and set `Error` to the no-DNS-name sentence whatever the
-    problem was; `FindTargetAsync` now returns a `TargetProblem` (the sentence, its log key and the code of a failed read),
-    so the line and its log copy name the real problem - also "The object is not a computer (any more)." and "Could not
-    read the computer “KRK-PC101”: Access is denied. (LDAP 50)" (`Computers.TargetReadFailed [LDAP 50]`).
+    window logged `Computers.NoDnsName` for every reason it could not run remote actions (each problem of
+    `FindTargetAsync` and the missing remote actions; the ended or missing session logged their own keys) and set `Error`
+    to the no-DNS-name sentence for every problem of `FindTargetAsync`; `FindTargetAsync` now returns a `TargetProblem`
+    (the sentence, its log key and the code of a failed read), so the line and its log copy name the real problem -
+    also "The object is not a computer (any more)." and "Could not read the computer “KRK-PC101”: Access is denied.
+    (LDAP 50)" (`Computers.TargetReadFailed [LDAP 50]`).
   - *How the old places were sorted* (1 error bar, 1 warning bar, 1 progress bar).
 
     | Old place | Kind | Now |
