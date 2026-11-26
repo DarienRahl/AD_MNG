@@ -86,8 +86,8 @@
   bezpośrednio przez SMTP* i *Wyślij bez obrazów*. Gdy po tym ponownie wybrano *Przygotuj podgląd*, pasek – dotyczący
   jeszcze poprzedniego podglądu – był widoczny przez cały odczyt kont, a jego przyciski działały: *Wyślij bezpośrednio
   przez SMTP* przerywał bez słowa przygotowywanie nowego podglądu i wysyłał wiadomości poprzedniego. Teraz oba przyciski
-  znikają z paska, dopóki okno przygotowuje podgląd albo wysyła wiadomość testową; nowy podgląd zamyka pasek, a przy
-  ponownym *Wyślij* pasek wraca, jeśli wiadomości nadal nie pasują.
+  znikają z paska, dopóki okno przygotowuje podgląd; nowy podgląd zamyka pasek, a przy ponownym *Wyślij* pasek wraca,
+  jeśli wiadomości nadal nie pasują.
 - **Kopia zapasowa GPO odmienia liczbę GPO.** Zatrzymana albo nieudana kopia jednego GPO – w oknie *Kopia zapasowa
   obiektów zasad grupy* i w kopii przed usunięciem GPO (*Utwórz kopię zapasową przed usunięciem*) – mówiła „zapisano 0 z
   1 obiektów GPO” i „Nie udało się utworzyć kopii zapasowych 1 z 1 obiektów GPO” – teraz „z 1 obiektu GPO” (po angielsku

@@ -363,7 +363,7 @@ public sealed partial class UserMessageComposerViewModel
 
     // The choices of the bar start a send or a new plan - operations of the window's one holder, where a new operation
     // replaces the running one. They wait while the window works: a new preview being read (the bar still describes the
-    // old one until the plan asks for its images), or the test message on its way.
+    // old one until the plan asks for its images). The test message clears the bar before it goes (FitsTransportAsync).
     private bool CanChooseDirectForRun() => CanSendDirectForRun && !IsBusy;
 
     private bool CanChooseWithoutImages() => CanSendWithoutImages && !IsBusy;
