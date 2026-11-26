@@ -205,14 +205,6 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
     [NotifyCanExecuteChangedFor(nameof(RunCommand), nameof(BrowseCommand), nameof(CloseCommand))]
     public partial bool IsBusy { get; private set; }
 
-    /// <summary>What the last operation said, as plain text: what the status line says (kept for callers that read it).</summary>
-    [ObservableProperty]
-    public partial string? StatusText { get; private set; }
-
-    /// <summary>Why the last operation failed, as plain text: what the status line says (kept for callers that read it).</summary>
-    [ObservableProperty]
-    public partial string? Error { get; private set; }
-
     /// <summary>
     /// The selected backup comes from another domain (restore only: it is refused, import is possible) - a note under the
     /// list, true for as long as that backup is selected; null otherwise.
@@ -313,7 +305,6 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
     [RelayCommand]
     private async Task LoadBackupsAsync()
     {
-        Error = null;
         var folder = Folder?.Trim();
         var latest = _listing.Next();
         if (string.IsNullOrEmpty(folder))
@@ -363,10 +354,9 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
             // The empty list is the failure's, not the folder's: no count of backups is said under the reason.
             _entries = [];
             listed = false;
-            Error = Localizer[L.GroupPolicy.FolderFailed];
             var code = ResultCode.Of(ex);
             _listState = PageStatus.Error(
-                PageStatusText.Failure(Localizer[L.GpoBackupStatus.ListFailed], Error, Localizer[L.Feedback.RetryNext], code),
+                PageStatusText.Failure(Localizer[L.GpoBackupStatus.ListFailed], Localizer[L.GroupPolicy.FolderFailed], Localizer[L.Feedback.RetryNext], code),
                 new PageStatusLog(L.GpoBackupStatus.ListFailed).WithCode(code),
                 new PageStatusAction(Localizer[L.Common.Retry], LoadBackupsCommand),
                 canClose: false);
@@ -377,7 +367,6 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
         Backups = [.. _entries.Select(e => new GpoBackupRowViewModel(e, GroupPolicyText.Date(Localizer, e.BackupTime, TimeZoneInfo.Local),
             domain is not null && !string.Equals(e.Domain, domain, StringComparison.OrdinalIgnoreCase)))];
         SelectedBackup = Mode == GpoBackupMode.Import ? Backups.FirstOrDefault() : Backups.FirstOrDefault(b => b.Entry.GpoId == Gpos.FirstOrDefault()?.Id) ?? Backups.FirstOrDefault();
-        StatusText = Backups.Count == 0 ? Localizer[L.GroupPolicy.NoBackups] : Localizer.Format(L.GroupPolicy.BackupsFound, Backups.Count);
         UpdateLasting();
         UpdateSummary();
         await RememberFolderAsync(folder).ConfigureAwait(true);
@@ -386,7 +375,6 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
     [RelayCommand(CanExecute = nameof(CanRun))]
     private async Task RunAsync()
     {
-        Error = null;
         switch (Mode)
         {
             case GpoBackupMode.BeforeDelete when !BackupFirst:
@@ -443,7 +431,6 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
     {
         // The line says for good that the session ended; what still runs ends without a word of its own (the state
         // first, so the line goes straight from "working" to it).
-        Error = SessionEndedMessage;
         UpdateLasting();
         _work.Cancel();
         _listing.Cancel();
@@ -495,12 +482,10 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
         if (session is null)
         {
             // The line says so for good.
-            Error = NoSessionMessage;
             return false;
         }
 
         IsBusy = true;
-        StatusText = Localizer[L.GroupPolicy.BackupRunning];
         var total = Gpos.Count;
         using var backingUp = Status.Begin(
             Localizer[L.GpoBackupStatus.BackingUp], new PageStatusLog(L.GpoBackupStatus.BackingUp, 0, total), PageProgress.Of(0, total),
@@ -517,9 +502,10 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
             var access = await _gp.OpenSysvolAsync(session, token).ConfigureAwait(true);
             if (access.Connection is not { } sysvol)
             {
-                Error = _gp.SysvolText(access.Reason ?? SysvolUnavailableReason.Failed, session.Info.Server);
                 backingUp.CompleteAttention(
-                    PageStatusText.Failure(Localizer[L.GpoBackupStatus.NotBackedUp], Error, Localizer[L.Feedback.RetryNext]),
+                    PageStatusText.Failure(
+                        Localizer[L.GpoBackupStatus.NotBackedUp], _gp.SysvolText(access.Reason ?? SysvolUnavailableReason.Failed, session.Info.Server),
+                        Localizer[L.Feedback.RetryNext]),
                     new PageStatusLog(L.GroupPolicy.SysvolFailedShort),
                     new PageStatusAction(Localizer[L.Common.Retry], RunCommand));
                 return false;
@@ -591,7 +577,6 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
                 if (outcome.WasCancelled)
                 {
                     // Stopped in the line, in the list of background operations or by closing the window.
-                    StatusText = Localizer[L.Activity.Cancelled];
                     var again = RunText;
                     backingUp.CompleteAttention(
                         StoppedText(outcome.SucceededCount, gpos.Count, again),
@@ -602,7 +587,6 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
 
                 if (failed > 0)
                 {
-                    Error = Localizer.Format(L.GroupPolicy.BackupFailed, failed, gpos.Count);
                     var reason = firstFailure is null ? null : GroupPolicyText.Error(Localizer, Errors, firstFailure);
                     var code = ResultCode.Of(firstFailure);
                     backingUp.CompleteError(
@@ -611,16 +595,16 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
                     return false;
                 }
 
-                StatusText = Localizer.Format(L.GroupPolicy.BackupDone, gpos.Count, folder);
+                var done = Localizer.Format(L.GroupPolicy.BackupDone, gpos.Count, folder);
                 if (withDirectorySettings > 0)
                 {
                     // Software installation, wireless and wired network policies live in the directory, not in the backup.
-                    StatusText += " " + Localizer.Format(L.GroupPolicy.BackupWithoutDirectorySettings, withDirectorySettings);
-                    Services.Notifications.Show(NotificationSeverity.Warning, StatusText);
+                    Services.Notifications.Show(
+                        NotificationSeverity.Warning, done + " " + Localizer.Format(L.GroupPolicy.BackupWithoutDirectorySettings, withDirectorySettings));
                 }
                 else
                 {
-                    Services.Notifications.Show(NotificationSeverity.Success, StatusText);
+                    Services.Notifications.Show(NotificationSeverity.Success, done);
                 }
 
                 // The window closes: what the operator learns is the toast, as before.
@@ -633,7 +617,6 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
             if (backingUp.IsCancelling)
             {
                 var again = RunText;
-                StatusText = Localizer[L.Activity.Cancelled];
                 backingUp.CompleteAttention(
                     StoppedText(0, total, again),
                     new PageStatusLog(L.GpoBackupStatus.BackupStopped, 0, total),
@@ -644,10 +627,9 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
         }
         catch (Exception ex) when (GroupPolicyText.IsExpected(ex))
         {
-            Error = GroupPolicyText.Error(Localizer, Errors, ex);
             var code = ResultCode.Of(ex);
             backingUp.CompleteError(
-                PageStatusText.Failure(Localizer[L.GpoBackupStatus.NotBackedUp], Error, null, code),
+                PageStatusText.Failure(Localizer[L.GpoBackupStatus.NotBackedUp], GroupPolicyText.Error(Localizer, Errors, ex), null, code),
                 new PageStatusLog(L.GpoBackupStatus.NotBackedUp).WithCode(code));
             return false;
         }
@@ -691,7 +673,6 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
         if (_selectedBackup is not { } backup || Session is not { } session)
         {
             // The line says that the session ended or that there is none; a backup that is still being read is waited for.
-            Error ??= NoSessionMessage;
             return;
         }
 
@@ -723,8 +704,9 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
             var access = await _gp.OpenSysvolAsync(session, token).ConfigureAwait(true);
             if (access.Connection is not { } sysvol)
             {
-                Error = _gp.SysvolText(access.Reason ?? SysvolUnavailableReason.Failed, session.Info.Server);
-                EndWithoutPlan(PageStatusKind.Attention, Error, new PageStatusLog(L.GroupPolicy.SysvolFailedShort));
+                EndWithoutPlan(
+                    PageStatusKind.Attention, _gp.SysvolText(access.Reason ?? SysvolUnavailableReason.Failed, session.Info.Server),
+                    new PageStatusLog(L.GroupPolicy.SysvolFailedShort));
                 return;
             }
 
@@ -754,9 +736,8 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
         }
         catch (Exception ex) when (GroupPolicyText.IsExpected(ex))
         {
-            Error = GroupPolicyText.Error(Localizer, Errors, ex);
             var code = ResultCode.Of(ex);
-            EndWithoutPlan(PageStatusKind.Error, Error, new PageStatusLog(L.GroupPolicyStatus.NotChanged).WithCode(code), code);
+            EndWithoutPlan(PageStatusKind.Error, GroupPolicyText.Error(Localizer, Errors, ex), new PageStatusLog(L.GroupPolicyStatus.NotChanged).WithCode(code), code);
             return;
         }
         finally
@@ -822,10 +803,6 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
                 backup.Files.Values.Sum(f => (long)f.Length).ToString("N0", Localizer.Culture),
                 Localizer[backup.HasSidecar ? L.GroupPolicy.BackupWithSidecar : L.GroupPolicy.BackupGpmcOnly]);
             OtherDomainText = row.IsOtherDomain && Mode == GpoBackupMode.Restore ? Localizer.Format(L.GroupPolicy.BackupOtherDomain, row.Domain) : null;
-            if (Error is not null && !IsBusy)
-            {
-                Error = null;
-            }
         }
         catch (OperationCanceledException)
         {
@@ -843,10 +820,10 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
         {
             if (!token.IsCancellationRequested)
             {
-                Error = GroupPolicyText.Error(Localizer, Errors, ex);
                 var code = ResultCode.Of(ex);
                 DetailsStatus.SetLasting(PageStatus.Error(
-                    PageStatusText.Failure(Localizer.Format(L.GpoBackupStatus.BackupReadFailed, row.Name), Error, Localizer[L.Feedback.RetryNext], code),
+                    PageStatusText.Failure(
+                        Localizer.Format(L.GpoBackupStatus.BackupReadFailed, row.Name), GroupPolicyText.Error(Localizer, Errors, ex), Localizer[L.Feedback.RetryNext], code),
                     new PageStatusLog(L.GpoBackupStatus.BackupReadFailed).WithCode(code),
                     new PageStatusAction(Localizer[L.Common.Retry], RetryBackupCommand),
                     canClose: false));

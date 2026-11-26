@@ -11614,20 +11614,8 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="GroupPolicy.PickFolderTitle" xml:space="preserve">
     <value>Wybierz folder kopii zapasowych</value>
   </data>
-  <data name="GroupPolicy.NoBackups" xml:space="preserve">
-    <value>Brak kopii zapasowych w tym folderze.</value>
-  </data>
-  <data name="GroupPolicy.BackupsFound" xml:space="preserve">
-    <value>Kopie zapasowe w tym folderze: {0}.</value>
-  </data>
-  <data name="GroupPolicy.BackupRunning" xml:space="preserve">
-    <value>Tworzenie kopii zapasowej…</value>
-  </data>
   <data name="GroupPolicy.BackupActivity" xml:space="preserve">
     <value>Kopia zapasowa GPO: {0}</value>
-  </data>
-  <data name="GroupPolicy.BackupFailed" xml:space="preserve">
-    <value>Nie udało się utworzyć {0} z {1} kopii; nic dla nich nie zapisano.</value>
   </data>
   <data name="GroupPolicy.BackupDone" xml:space="preserve">
     <value>Kopie zapasowe GPO ({0}) zapisano w {1}.</value>

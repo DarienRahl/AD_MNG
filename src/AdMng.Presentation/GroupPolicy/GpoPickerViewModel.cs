@@ -42,9 +42,6 @@ public sealed partial class GpoPickerViewModel : WindowViewModelBase, IHasPageSt
     /// <summary>The GPOs were read at least once: the line has their count as the summary.</summary>
     private bool _listed;
 
-    /// <summary>The read that is running (the one that owns <see cref="IsLoading"/>).</summary>
-    private OperationScope? _reading;
-
     /// <summary>What the last read left, when it left no list: it was stopped or failed (null: nothing wrong).</summary>
     private PageStatus? _readState;
 
@@ -80,13 +77,6 @@ public sealed partial class GpoPickerViewModel : WindowViewModelBase, IHasPageSt
     [ObservableProperty]
     public partial string FilterText { get; set; } = string.Empty;
 
-    [ObservableProperty]
-    public partial bool IsLoading { get; private set; }
-
-    /// <summary>Why the list could not be read, as plain text: what the status line says (kept for callers that read it).</summary>
-    [ObservableProperty]
-    public partial string? Error { get; private set; }
-
     /// <summary>The chosen GPOs (set by OK).</summary>
     public IReadOnlyList<GpoInfo> Result { get; private set; } = [];
 
@@ -103,16 +93,12 @@ public sealed partial class GpoPickerViewModel : WindowViewModelBase, IHasPageSt
     {
         if (Session is not { } session)
         {
-            Error = NoSessionMessage;
             UpdateLasting();
             return;
         }
 
         var domain = session.Info.DomainDnsName;
-        IsLoading = true;
-        Error = null;
         using var reading = Status.Begin(Localizer.Format(L.GpoPickerStatus.Reading, domain), new PageStatusLog(L.GpoPickerStatus.Reading));
-        _reading = reading;
 
         // What the last read left is over: this one decides.
         _readState = null;
@@ -160,22 +146,16 @@ public sealed partial class GpoPickerViewModel : WindowViewModelBase, IHasPageSt
                 return;
             }
 
-            Error = GroupPolicyText.Error(Localizer, Errors, ex);
             var code = ResultCode.Of(ex);
             _readState = PageStatus.Error(
-                PageStatusText.Failure(Localizer.Format(L.GpoPickerStatus.ReadFailed, domain), Error, Localizer[L.Feedback.RetryNext], code),
+                PageStatusText.Failure(
+                    Localizer.Format(L.GpoPickerStatus.ReadFailed, domain), GroupPolicyText.Error(Localizer, Errors, ex), Localizer[L.Feedback.RetryNext], code),
                 new PageStatusLog(L.GpoPickerStatus.ReadFailed).WithCode(code),
                 new PageStatusAction(Localizer[L.Common.Retry], LoadCommand),
                 canClose: false);
         }
         finally
         {
-            if (ReferenceEquals(_reading, reading))
-            {
-                _reading = null;
-                IsLoading = false;
-            }
-
             UpdateLasting();
         }
     }
@@ -206,11 +186,9 @@ public sealed partial class GpoPickerViewModel : WindowViewModelBase, IHasPageSt
     protected override void OnSessionEnded()
     {
         // The line says for good that the session ended; a read that still runs ends without a word of its own (the
-        // state first, so the line goes straight from "working" to it), and "busy" ends with it at once.
+        // state first, so the line goes straight from "working" to it).
         UpdateLasting();
         Status.Operation?.Dispose();
-        _reading = null;
-        IsLoading = false;
     }
 
     protected override void Dispose(bool disposing)

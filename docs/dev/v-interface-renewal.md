@@ -1985,8 +1985,9 @@ above.
   `Error` of the picker, the comparison, the backup window and the central store window, `IsLoading` of the picker and the
   comparison, `SummaryText` of the comparison and the central store window, `StatusText` of the backup window (with the
   strings `GroupPolicy.BackupsFound`, `GroupPolicy.NoBackups` and `GroupPolicy.BackupRunning`), `ProgressText`, `BusyText`,
-  `IsWorking` and `ResultText` of the central store window; `CancelWorkCommand` of the backup window never had a view. No
-  string lost its last user in that unit. Added by V2b-4, unit 1: the strings `BulkCreate.Reading`, `BulkCheck.Computing` and
+  `IsWorking` and `ResultText` of the central store window (*all removed in 0.16.1, audit GP-6, with the four strings
+  that only fed them; the tests read `Status`*); `CancelWorkCommand` of the backup window never had a view. No string lost
+  its last user in that unit. Added by V2b-4, unit 1: the strings `BulkCreate.Reading`, `BulkCheck.Computing` and
   `BulkCheck.StaleNote` have no user any more; no longer shown but read by tests or by the view models themselves - `Error` of
   the source and of the check step of the bulk creation wizard, `ProfileStatus`, `OptionsError`, `ComputedRows` and
   `TotalRows`; `StopCommand` of the check step has no view (*removed in 0.16.1, audit BCER-5*). Added by V2b-4, unit 2:
@@ -3368,8 +3369,9 @@ and what nobody has seen on a screen yet.
     the six sources stay plain buttons - only one can run and the Stop is in the line. "Busy" ends with the generation of the
     load that started it: the old code asked whether its token was cancelled to tell "a newer load took over", which a
     Stop or the end of the session would have answered the same way and left the window busy. `WriteBackup` – the seam that
-    replaces the write of the backup in the tests – is public now, because the UI tests hold the backup to see the update
-    stopped. The log copies are the keys of the texts (`CentralStore.Loading`, `CentralStore.Downloading`, …) and never an
+    replaces the write of the backup in the tests – is internal, and `AdMng.Presentation` gives its internals to
+    `AdMng.App.UiTests` too, because the UI tests hold the backup to see the update stopped (it was public until 0.16.1,
+    audit GP-6). The log copies are the keys of the texts (`CentralStore.Loading`, `CentralStore.Downloading`, …) and never an
     address, a file or a package (11).
 - **Three dialogs that only collect input** (`GroupPolicy/WmiFilterEditorWindow.xaml`, `GpoCopySettingsWindow.xaml`,
   `NewGpoWindow.xaml`; their view models are unchanged). No line (1). Sorted:
@@ -3604,7 +3606,10 @@ and what nobody has seen on a screen yet.
   `IsLoading` of the picker and the comparison, `SummaryText` of the comparison and of the central store window,
   `StatusText` of the backup window (with the strings `GroupPolicy.BackupsFound`, `GroupPolicy.NoBackups`,
   `GroupPolicy.BackupRunning` that feed it), `ProgressText`, `BusyText`, `IsWorking` and `ResultText` of the central store
-  window, and `CancelWorkCommand` of the backup window, which never had a view. No string lost its last user.
+  window, and `CancelWorkCommand` of the backup window, which never had a view. No string lost its last user. (*0.16.1,
+  audit GP-6: the properties are gone - the tests read `Status` -, and so are the four strings that only fed them:
+  `GroupPolicy.BackupsFound`, `.NoBackups`, `.BackupRunning` and `.BackupFailed`, the old "N of M backups failed"
+  sentence of `Error`.*)
 - **Not seen, to confirm on Windows.** Nothing of this unit was seen on a screen.
   - *Every Group Policy tab is 34 px lower* under its header or toolbar – the line and its 6 px – where the shared bars
     took no room at rest. On the tabs that are not converted yet the line stands above their own bars.

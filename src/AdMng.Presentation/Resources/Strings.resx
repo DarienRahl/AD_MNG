@@ -11614,20 +11614,8 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="GroupPolicy.PickFolderTitle" xml:space="preserve">
     <value>Choose the backup folder</value>
   </data>
-  <data name="GroupPolicy.NoBackups" xml:space="preserve">
-    <value>No backups in this folder.</value>
-  </data>
-  <data name="GroupPolicy.BackupsFound" xml:space="preserve">
-    <value>{0} backups in this folder.</value>
-  </data>
-  <data name="GroupPolicy.BackupRunning" xml:space="preserve">
-    <value>Backing up…</value>
-  </data>
   <data name="GroupPolicy.BackupActivity" xml:space="preserve">
     <value>Back up {0} GPOs</value>
-  </data>
-  <data name="GroupPolicy.BackupFailed" xml:space="preserve">
-    <value>{0} of {1} backups failed; nothing was written for them.</value>
   </data>
   <data name="GroupPolicy.BackupDone" xml:space="preserve">
     <value>{0} GPOs backed up to {1}.</value>

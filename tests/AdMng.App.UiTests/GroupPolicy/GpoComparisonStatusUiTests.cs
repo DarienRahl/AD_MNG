@@ -8,6 +8,7 @@ using AdMng.App.Services;
 using AdMng.App.UiTests.Infrastructure;
 using AdMng.Core.Directory;
 using AdMng.Core.GroupPolicy;
+using AdMng.Presentation.Errors;
 using AdMng.Presentation.Feedback;
 using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.Localization;
@@ -53,7 +54,7 @@ public sealed class GpoComparisonStatusUiTests
         Assert.Equal((double)Application.Current.FindResource("Ad.Size.StatusLine"), line.ActualHeight);
         Assert.Equal(PageStatusKind.Idle, line.Kind);
         Assert.Matches(@"^\d+ differences in \d+ items$", line.Message);
-        Assert.Equal(comparison.SummaryText, line.Message);
+        Assert.Equal(comparison.Status.Idle.Message, line.Message);
         Assert.False(line.HasAction);
         Assert.False(line.CanClose);
 
@@ -68,7 +69,7 @@ public sealed class GpoComparisonStatusUiTests
         comparison.OnlyDifferences = false;
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
         Assert.True(window.ComparisonList.Items.Count >= rows);
-        Assert.Equal(comparison.SummaryText, line.Message);
+        Assert.Equal(comparison.Status.Idle.Message, line.Message);
         window.UpdateLayout();
         Assert.Equal(listTop, TopOf(window.ComparisonList, window));
         AssertNoOldFeedback(window);
@@ -111,9 +112,9 @@ public sealed class GpoComparisonStatusUiTests
         await UiWait.UntilAsync(() => comparison.Status.IsCancelling && line.Message == "Stopping…", "the comparison is stopping");
         Assert.Equal(PageStatusKind.Working, line.Kind);
         Assert.Equal(Visibility.Collapsed, action.Visibility);
-        Assert.True(comparison.IsLoading);
+        Assert.True(comparison.Status.IsWorking);
         hold.Release();
-        await UiWait.UntilAsync(() => !comparison.IsLoading && line.Kind == PageStatusKind.Attention, "the comparison was stopped");
+        await UiWait.UntilAsync(() => !comparison.Status.IsWorking && line.Kind == PageStatusKind.Attention, "the comparison was stopped");
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
 
         // Stopped before anything was shown: the state of the window - it cannot be closed - with Refresh. What lies
@@ -136,7 +137,7 @@ public sealed class GpoComparisonStatusUiTests
         ControlHost.Press(action);
         await UiWait.UntilAsync(() => !comparison.Status.IsWorking && comparison.Rows.Count > 0 && line.Kind == PageStatusKind.Idle, "the rows were compared");
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
-        Assert.Equal(comparison.SummaryText, line.Message);
+        Assert.Equal(comparison.Status.Idle.Message, line.Message);
         window.UpdateLayout();
         Assert.Equal(listTop, TopOf(window.ComparisonList, window), 0.5);
         context.AssertHealthy();
@@ -166,11 +167,10 @@ public sealed class GpoComparisonStatusUiTests
         Assert.Equal(PageStatusKind.Working, line.Kind);
         Assert.Equal("Reading the administrative templates to name the policies…", line.Message);
         Assert.Equal("Stop", Assert.IsType<string>(action.Content));
-        Assert.False(comparison.IsLoading);
         Assert.NotEmpty(window.ComparisonList.Items);
 
         // Stop: the rows stay, under the registry names of the settings; the line says so - a result that can be closed.
-        var summary = comparison.SummaryText;
+        var summary = comparison.Status.Idle.Message;
         ControlHost.Press(action);
         await UiWait.UntilAsync(() => comparison.Status.IsCancelling && line.Message == "Stopping…", "the templates are being stopped");
         hold.Release();
@@ -216,9 +216,11 @@ public sealed class GpoComparisonStatusUiTests
         var close = ControlHost.Part<Button>(line, "PART_CloseButton");
 
         // The error says what was tried, the reason, what to do and the code - with Retry - and cannot be closed.
+        var reason = context.Services.GetRequiredService<ErrorTranslator>()
+            .Translate(new DirectoryException(DirectoryErrorKind.AccessDenied, "access to the GPO container was denied"));
         Assert.Equal("Error", line.Title);
         Assert.Equal(
-            $"Could not compare “Stacje robocze – Zasady haseł” with “Stacje robocze – Pulpit zdalny”: {comparison.Error} Press Retry to try again. (AccessDenied)",
+            $"Could not compare “Stacje robocze – Zasady haseł” with “Stacje robocze – Pulpit zdalny”: {reason} Press Retry to try again. (AccessDenied)",
             line.Message);
         Assert.Equal(AppIcons.StatusError, line.IconKey);
         Assert.Equal(AutomationLiveSetting.Assertive, AutomationProperties.GetLiveSetting(line));
@@ -237,7 +239,7 @@ public sealed class GpoComparisonStatusUiTests
         await UiWait.UntilAsync(() => !comparison.Status.IsWorking && comparison.Rows.Count > 0 && line.Kind == PageStatusKind.Idle, "the containers were compared");
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
         directory.BeforeOperation = null;
-        Assert.Equal(comparison.SummaryText, line.Message);
+        Assert.Equal(comparison.Status.Idle.Message, line.Message);
         Assert.True(window.WarningNote.IsVisible);
         Assert.Same(Application.Current.FindResource("Ad.Note.Attention"), window.WarningNote.Style);
         Assert.Contains("were not compared", window.WarningText.Text, StringComparison.Ordinal);

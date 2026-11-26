@@ -66,7 +66,6 @@ public sealed class GpoBackupStatusTests
             [(PageStatusKind.Working, start), (PageStatusKind.Working, first), (PageStatusKind.Working, second), (PageStatusKind.Idle, string.Empty)],
             seen.Plain);
         Assert.False(window.IsBusy);
-        Assert.Null(window.Error);
         Assert.Null(window.Status.Lasting);
         Assert.Equal(2, GpmcBackupFormat.List(folder.Path).Count);
         Assert.Contains(h.B2.Notifications.Items, n => n.Severity == NotificationSeverity.Success);
@@ -107,7 +106,6 @@ public sealed class GpoBackupStatusTests
         Assert.Equal(runLabel, again.Label);
         Assert.Same(window.RunCommand, again.Command);
         Assert.Single(GpmcBackupFormat.List(folder.Path));
-        Assert.Equal(h.B2.Localizer[L.Activity.Cancelled], window.StatusText);
 
         // Closed, the line says nothing; the action of the line backs up again and the window closes.
         window.Status.CloseCommand.Execute(null);
@@ -146,7 +144,6 @@ public sealed class GpoBackupStatusTests
         Assert.Equal("GpoBackup.Status.BackupFailed (1, 2) [AccessDenied]", failed.Log.ToString());
         Assert.True(failed.CanClose);
         Assert.Null(failed.Action);
-        Assert.NotNull(window.Error); // the sentence the window always had
         Assert.Single(GpmcBackupFormat.List(folder.Path));
         Assert.False(window.IsBusy);
         Assert.True(window.RunCommand.CanExecute(null));
@@ -311,7 +308,6 @@ public sealed class GpoBackupStatusTests
         Assert.Equal((PageStatusKind.Idle, found), (window.Status.Current.Kind, window.Status.Current.Message));
         Assert.Equal(2, window.Backups.Count);
         Assert.Null(window.Status.Lasting);
-        Assert.Null(window.Error);
         Assert.False(window.Status.IsWorking);
     }
 
@@ -327,7 +323,6 @@ public sealed class GpoBackupStatusTests
         await window.LoadBackupsCommand.ExecuteAsync(null);
 
         Assert.Equal((PageStatusKind.Idle, none), (window.Status.Current.Kind, window.Status.Current.Message));
-        Assert.Equal(h.B2.Localizer[L.GroupPolicy.NoBackups], window.StatusText); // the sentence the window always had
 
         h.B2.Localizer.SetCulture(culture == "en-US" ? Polish : CultureInfo.GetCultureInfo("en-US"));
 
@@ -483,7 +478,7 @@ public sealed class GpoBackupStatusTests
         Assert.Equal("GpoBackup.Status.ListFailed [ArgumentException]", failed.Log.ToString());
         Assert.False(failed.CanClose);
         Assert.Same(failed, window.Status.Lasting);
-        Assert.NotNull(window.Error);
+        Assert.Contains(h.B2.Localizer[L.GroupPolicy.FolderFailed], failed.Message, StringComparison.Ordinal);
         Assert.Empty(window.Backups);
         Assert.Same(window.LoadBackupsCommand, Assert.IsType<PageStatusAction>(failed.Action).Command);
 
@@ -591,13 +586,12 @@ public sealed class GpoBackupStatusTests
         await window.InitializeAsync();
         await UntilAsync(() => window.DetailsStatus.Lasting is not null);
 
-        // The reason is the sentence the window always had, the code the kind of the failure, and Retry reads it again.
-        Assert.NotNull(window.Error);
+        // The reason is the kind of the failure in words, the code its kind, and Retry reads it again.
         var failed = window.Status.Current;
         Assert.Equal(PageStatusKind.Error, failed.Kind);
         Assert.StartsWith(lead, failed.Message, StringComparison.Ordinal);
         Assert.EndsWith(tail, failed.Message, StringComparison.Ordinal);
-        Assert.Contains(window.Error, failed.Message, StringComparison.Ordinal);
+        Assert.Contains(h.B2.Localizer[L.GroupPolicy.BackupInvalid], failed.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("XML – Łódź", failed.Message, StringComparison.Ordinal);
         Assert.Equal("GpoBackup.Status.BackupReadFailed [GpoBackupException]", failed.Log.ToString());
         Assert.False(failed.CanClose);
@@ -609,7 +603,6 @@ public sealed class GpoBackupStatusTests
         await ((IAsyncRelayCommand)retry.Command).ExecuteAsync(retry.Parameter);
 
         Assert.Null(window.DetailsStatus.Lasting);
-        Assert.Null(window.Error);
         Assert.True(window.RunCommand.CanExecute(null));
         Assert.Equal(PageStatusKind.Idle, window.Status.Current.Kind);
     }
@@ -633,7 +626,6 @@ public sealed class GpoBackupStatusTests
         Assert.True(Assert.Single(window.Backups).IsOtherDomain);
         Assert.Equal(note, window.OtherDomainText);
         Assert.True(window.HasOtherDomain);
-        Assert.Null(window.Error);
         Assert.Null(window.DetailsStatus.Lasting);
         Assert.Equal(PageStatusKind.Idle, window.Status.Current.Kind);
 
@@ -736,7 +728,6 @@ public sealed class GpoBackupStatusTests
         Assert.True(failed.CanClose);
         Assert.Empty(h.Windows.Previews);
         Assert.False(window.IsBusy);
-        Assert.NotNull(window.Error);
 
         // SYSVOL cannot be opened: an attention - the plan needs it - with the same Retry.
         h.Sysvol.Unavailable = SysvolUnavailableReason.AccessDenied;

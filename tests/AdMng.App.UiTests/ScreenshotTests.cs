@@ -385,12 +385,11 @@ public sealed class ScreenshotTests
                     culture.IsSelected = true;
                 }
 
-                await UiWait.UntilAsync(() => !update.IsWorking && update.Rows.Count == 6, "the comparison");
+                await UiWait.UntilAsync(() => !update.IsBusy && !update.IsComparing && update.Rows.Count == 6, "the comparison");
                 await UiTestSupport.WaitForIdleAsync(rounds: 3);
 
-                Assert.Null(update.Error);
                 Assert.Equal(InLanguage("Szablony Contoso 1.3.zip – szablony: 2, języki: 2", "Szablony Contoso 1.3.zip – templates: 2, languages: 2"), update.PackageText);
-                Assert.Equal(InLanguage("Do zapisania: 3, bez zmian: 3, pominięte: 0", "To write: 3, unchanged: 3, skipped: 0"), update.SummaryText);
+                Assert.Equal(InLanguage("Do zapisania: 3, bez zmian: 3, pominięte: 0", "To write: 3, unchanged: 3, skipped: 0"), update.Status.Idle.Message);
                 Assert.True(window.UpdateButton.IsEnabled);
                 await ScreenshotWriter.SaveAsync(window, CentralStoreUpdate, dark: false);
             }

@@ -44,7 +44,6 @@ public sealed class GpoComparisonStatusTests
         var loading = comparison.InitializeAsync();
         await hold.Reached.WaitAsync(Limit, Ct);
 
-        Assert.False(comparison.IsLoading);
         Assert.NotEmpty(comparison.Rows);
         var working = comparison.Status.Current;
         Assert.Equal((PageStatusKind.Working, stage), (working.Kind, working.Message));
@@ -57,10 +56,9 @@ public sealed class GpoComparisonStatusTests
         await loading.WaitAsync(Limit, Ct);
 
         // The rows are the result: the line shows how many differences they hold, and nothing else was said.
-        Assert.Equal([(PageStatusKind.Working, comparing), (PageStatusKind.Working, stage), (PageStatusKind.Idle, comparison.SummaryText)], seen.Plain);
+        Assert.Equal([(PageStatusKind.Working, comparing), (PageStatusKind.Working, stage), (PageStatusKind.Idle, comparison.Status.Idle.Message)], seen.Plain);
         Assert.Matches(summary, comparison.Status.Current.Message);
         Assert.Null(comparison.Status.Lasting);
-        Assert.Null(comparison.Error);
         Assert.False(comparison.Status.IsWorking);
     }
 
@@ -90,19 +88,19 @@ public sealed class GpoComparisonStatusTests
         using var held = new HeldDirectoryCall(k.H.Session);
         var loading = Task.Run(comparison.InitializeAsync, Ct);
         await held.Reached.WaitAsync(Limit, Ct);
-        Assert.True(comparison.IsLoading);
+        Assert.True(comparison.Status.IsWorking);
 
         // Stop answers at once: "Stopping…" on the page, and only then the comparison is asked to stop.
         comparison.Status.CancelCommand.Execute(null);
 
         Assert.True(comparison.Status.IsCancelling);
         Assert.Equal(stopping, comparison.Status.Current.Message);
-        Assert.True(comparison.IsLoading);
+        Assert.True(comparison.Status.IsWorking);
         held.Release();
         await loading.WaitAsync(Limit, Ct);
 
         // The state of the window until the comparison is repeated: an attention that cannot be closed, with Refresh.
-        Assert.False(comparison.IsLoading);
+        Assert.False(comparison.Status.IsWorking);
         Assert.Empty(comparison.Rows);
         Assert.Equal([PageStatusKind.Working, PageStatusKind.Working, PageStatusKind.Attention], seen.Plain.Select(s => s.Kind).ToList());
         var state = comparison.Status.Current;
@@ -119,7 +117,7 @@ public sealed class GpoComparisonStatusTests
 
         Assert.NotEmpty(comparison.Rows);
         Assert.Null(comparison.Status.Lasting);
-        Assert.Equal((PageStatusKind.Idle, comparison.SummaryText), (comparison.Status.Current.Kind, comparison.Status.Current.Message));
+        Assert.Equal((PageStatusKind.Idle, comparison.Status.Idle.Message), (comparison.Status.Current.Kind, comparison.Status.Current.Message));
     }
 
     [Theory]
@@ -150,7 +148,7 @@ public sealed class GpoComparisonStatusTests
         Assert.Same(state, comparison.Status.Lasting);
         await ((IAsyncRelayCommand)state.Action!.Command).ExecuteAsync(null);
         Assert.Null(comparison.Status.Lasting);
-        Assert.Equal((PageStatusKind.Idle, comparison.SummaryText), (comparison.Status.Current.Kind, comparison.Status.Current.Message));
+        Assert.Equal((PageStatusKind.Idle, comparison.Status.Idle.Message), (comparison.Status.Current.Kind, comparison.Status.Current.Message));
     }
 
     [Theory]
@@ -164,7 +162,7 @@ public sealed class GpoComparisonStatusTests
         var loading = comparison.InitializeAsync();
         await hold.Reached.WaitAsync(Limit, Ct);
         var rows = comparison.Rows.Count;
-        var summary = comparison.SummaryText;
+        var summary = comparison.Status.Idle.Message;
         Assert.NotEqual(0, rows);
 
         comparison.Status.CancelCommand.Execute(null);
@@ -197,17 +195,16 @@ public sealed class GpoComparisonStatusTests
         await comparison.InitializeAsync();
 
         Assert.Equal([PageStatusKind.Working, PageStatusKind.Error], seen.Plain.Select(s => s.Kind).ToList());
-        Assert.NotNull(comparison.Error);
         var failed = comparison.Status.Current;
         Assert.StartsWith(lead, failed.Message, StringComparison.Ordinal);
         Assert.EndsWith(tail, failed.Message, StringComparison.Ordinal);
-        Assert.Contains(comparison.Error, failed.Message, StringComparison.Ordinal);
+        Assert.True(failed.Message.Length > lead.Length + tail.Length); // the reason, in words
         Assert.DoesNotContain("DSID", failed.Message, StringComparison.Ordinal);
         Assert.Equal("GpoComparison.Status.CompareFailed [ServerUnavailable]", failed.Log.ToString());
         Assert.False(failed.CanClose);
         Assert.Same(failed, comparison.Status.Lasting);
         Assert.False(comparison.Status.CloseCommand.CanExecute(null));
-        Assert.False(comparison.IsLoading);
+        Assert.False(comparison.Status.IsWorking);
         Assert.Empty(comparison.Rows);
         var retry = Assert.IsType<PageStatusAction>(failed.Action);
         Assert.Equal(retryLabel, retry.Label);
@@ -217,7 +214,6 @@ public sealed class GpoComparisonStatusTests
         await ((IAsyncRelayCommand)retry.Command).ExecuteAsync(retry.Parameter);
 
         Assert.NotEmpty(comparison.Rows);
-        Assert.Null(comparison.Error);
         Assert.Null(comparison.Status.Lasting);
         Assert.Equal(PageStatusKind.Idle, comparison.Status.Current.Kind);
     }
@@ -236,10 +232,9 @@ public sealed class GpoComparisonStatusTests
         // settings and files that were not compared is the note under it.
         Assert.Contains("were not compared", comparison.Warning, StringComparison.Ordinal);
         Assert.Equal([PageStatusKind.Working, PageStatusKind.Idle], seen.Plain.Select(s => s.Kind).ToList());
-        Assert.Equal(comparison.SummaryText, comparison.Status.Current.Message);
+        Assert.Equal(comparison.Status.Idle.Message, comparison.Status.Current.Message);
         Assert.DoesNotContain("SYSVOL", comparison.Status.Current.Message, StringComparison.Ordinal);
         Assert.Null(comparison.Status.Lasting);
-        Assert.Null(comparison.Error);
     }
 
     /// <summary>
@@ -308,7 +303,7 @@ public sealed class GpoComparisonStatusTests
 
         hold.Release();
         await loading.WaitAsync(Limit, Ct);
-        Assert.Equal((PageStatusKind.Idle, comparison.SummaryText), (comparison.Status.Current.Kind, comparison.Status.Current.Message));
+        Assert.Equal((PageStatusKind.Idle, comparison.Status.Idle.Message), (comparison.Status.Current.Kind, comparison.Status.Current.Message));
     }
 
     [Fact]
@@ -330,7 +325,6 @@ public sealed class GpoComparisonStatusTests
         Assert.Equal("GpoComparison.Status.ExportFailed [DirectoryNotFoundException]", failed.Log.ToString());
         Assert.True(failed.CanClose);
         Assert.Null(comparison.Status.Lasting);
-        Assert.NotNull(comparison.Error);
         comparison.Status.CloseCommand.Execute(null);
         Assert.Equal((PageStatusKind.Idle, summary), (comparison.Status.Current.Kind, comparison.Status.Current.Message));
 
@@ -365,9 +359,8 @@ public sealed class GpoComparisonStatusTests
         await comparison.InitializeAsync();
 
         Assert.Empty(seen.Seen);
-        Assert.NotNull(comparison.Error);
         Assert.Empty(comparison.Rows);
-        Assert.False(comparison.IsLoading);
+        Assert.False(comparison.Status.IsWorking);
         Assert.Equal(before, k.H.Session.Operations.Count);
     }
 
@@ -388,7 +381,6 @@ public sealed class GpoComparisonStatusTests
 
             Assert.True(comparing.IsSessionEnded);
             Assert.False(comparing.Status.IsWorking);
-            Assert.False(comparing.IsLoading);
             Assert.Equal((PageStatusKind.Error, k.H.B2.Localizer[L.WindowSession.Ended]), (comparing.Status.Current.Kind, comparing.Status.Current.Message));
             Assert.False(comparing.Status.Current.CanClose);
             held.Release();
@@ -410,7 +402,7 @@ public sealed class GpoComparisonStatusTests
 
         Assert.Equal(PageStatusKind.Idle, comparison.Status.Current.Kind);
         Assert.Matches(@"^Różnice: \d+ z \d+ pozycji$", comparison.Status.Current.Message);
-        Assert.Equal(comparison.SummaryText, comparison.Status.Current.Message);
+        Assert.Equal(comparison.Status.Idle.Message, comparison.Status.Current.Message);
         await k.H.B2.Sessions.DisconnectAsync();
         Assert.Equal(k.H.B2.Localizer[L.WindowSession.Ended], comparison.Status.Current.Message);
     }

@@ -163,9 +163,8 @@ public sealed class GroupPolicyWindowTests
                 Assert.False(w.UpdateButton.IsEnabled);
 
                 await w.ViewModel.OpenFileCommand.ExecuteAsync(null);
-                await UiWait.UntilAsync(() => !w.ViewModel.IsWorking && w.ViewModel.Rows.Count == 3, "the comparison");
+                await UiWait.UntilAsync(() => !w.ViewModel.IsBusy && !w.ViewModel.IsComparing && w.ViewModel.Rows.Count == 3, "the comparison");
                 await UiTestSupport.WaitForIdleAsync(rounds: 2);
-                Assert.Null(w.ViewModel.Error);
                 Assert.Equal(["contoso.admx"], w.ViewModel.Package!.AdmxFiles);
                 Assert.Equal(["contoso.admx", "en-US/contoso.adml", "pl-PL/contoso.adml"], w.ViewModel.Rows.Select(r => r.Path));
                 Assert.Equal(3, w.FileList.Items.Count);
@@ -194,12 +193,11 @@ public sealed class GroupPolicyWindowTests
                 await w.ViewModel.UpdateCommand.ExecuteAsync(null);
                 await preview;
 
-                await UiWait.UntilAsync(() => !w.ViewModel.IsWorking && w.ViewModel.Rows.Count == 3
+                await UiWait.UntilAsync(() => !w.ViewModel.IsBusy && !w.ViewModel.IsComparing && w.ViewModel.Rows.Count == 3
                     && w.ViewModel.Rows.All(r => r.Status == Core.GroupPolicy.Management.CentralStoreFileStatus.Unchanged), "the new comparison");
                 await UiTestSupport.WaitForIdleAsync(rounds: 2);
                 await UiWait.UntilAsync(() => w.PageStatus.Kind == PageStatusKind.Done, "the result of the update in the line");
                 Assert.StartsWith("Magazyn centralny zaktualizowany: zapisano plików: ", w.PageStatus.Message, StringComparison.Ordinal);
-                Assert.StartsWith(w.ViewModel.ResultText!, w.PageStatus.Message, StringComparison.Ordinal);
                 Assert.Contains(backups.FullName, w.PageStatus.Message, StringComparison.Ordinal); // where the backup is
                 Assert.True(w.ViewModel.ChangedStore);
                 Assert.True(w.CloseButton.IsEnabled);
@@ -676,7 +674,7 @@ public sealed class GroupPolicyWindowTests
             Assert.True(backup.RunButton.IsEnabled);
             await backup.ViewModel.RunCommand.ExecuteAsync(null);
             await UiWait.UntilAsync(() => !backup.ViewModel.IsBusy, "the backup");
-            Assert.Null(backup.ViewModel.Error);
+            Assert.Equal(PageStatusKind.Idle, backup.ViewModel.Status.Current.Kind);
             var entry = Assert.Single(GpmcBackupFormat.List(folder));
             Assert.Equal(sample.WorkstationPasswords, entry.GpoId);
             Assert.Equal("Przed zmianą haseł – Łukasz", entry.Comment);
@@ -700,7 +698,7 @@ public sealed class GroupPolicyWindowTests
         await gp.Dialogs.ShowComparisonAsync(new GpoComparisonViewModel(gp, passwords, remoteDesktop));
         var comparison = Assert.Single(Application.Current.Windows.OfType<GpoComparisonWindow>());
         await UiWait.InitializedAsync(comparison.Initialization);
-        await UiWait.UntilAsync(() => !comparison.ViewModel.IsLoading && comparison.ViewModel.Rows.Count > 0, "the comparison");
+        await UiWait.UntilAsync(() => !comparison.ViewModel.Status.IsWorking && comparison.ViewModel.Rows.Count > 0, "the comparison");
         await UiTestSupport.WaitForIdleAsync();
         Assert.Equal("Stacje robocze – Zasady haseł", comparison.ColumnA.Header);
         Assert.Equal("Stacje robocze – Pulpit zdalny", comparison.ColumnB.Header);
@@ -711,7 +709,7 @@ public sealed class GroupPolicyWindowTests
         await UiTestSupport.WaitForIdleAsync();
         Assert.True(comparison.ComparisonList.Items.Count >= differences);
         await UiWait.UntilAsync(() => !comparison.ViewModel.Status.IsWorking, "the comparison ended (the templates named the policies)");
-        Assert.Equal(comparison.ViewModel.SummaryText, comparison.PageStatus.Message); // the summary moved from the footer to the line
+        Assert.Equal(comparison.ViewModel.Status.Idle.Message, comparison.PageStatus.Message); // the summary moved from the footer to the line
         context.AssertHealthy();
     });
 
@@ -731,7 +729,7 @@ public sealed class GroupPolicyWindowTests
             gp.Ui, gp.Reader, "Połącz istniejący GPO z Komputery", multiSelect: false, [sample.WorkstationPasswords]));
         UiTestSupport.ShowOffScreen(picker);
         await UiWait.InitializedAsync(picker.Initialization);
-        await UiWait.UntilAsync(() => !picker.ViewModel.IsLoading, "the GPOs of the domain");
+        await UiWait.UntilAsync(() => !picker.ViewModel.Status.IsWorking, "the GPOs of the domain");
         await UiTestSupport.WaitForIdleAsync();
         // Every window of a connection names its domain in the title (several connections at once).
         Assert.Equal("Połącz istniejący GPO z Komputery – contoso.test", picker.Title);

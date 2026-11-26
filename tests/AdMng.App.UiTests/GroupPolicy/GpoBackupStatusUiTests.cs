@@ -183,7 +183,7 @@ public sealed class GpoBackupStatusUiTests
         // The error of that selection: what was tried, the reason, what to do, the code - with Retry, and it cannot be closed.
         Assert.Equal("Error", line.Title);
         Assert.Equal(
-            $"Could not read the backup of “Stacje robocze – Zasady haseł”: {backup.Error} Press Retry to try again. (GpoBackupException)",
+            $"Could not read the backup of “Stacje robocze – Zasady haseł”: {context.Localizer()[L.GroupPolicy.BackupInvalid]} Press Retry to try again. (GpoBackupException)",
             line.Message);
         Assert.Equal(AppIcons.StatusError, line.IconKey);
         Assert.Equal(AutomationLiveSetting.Assertive, AutomationProperties.GetLiveSetting(line));
@@ -218,7 +218,6 @@ public sealed class GpoBackupStatusUiTests
         Assert.True(TopOf(foreign.BackupList, foreign) < TopOf(foreign.OtherDomainNote, foreign), "the note is not under the list");
         Assert.True(TopOf(foreign.OtherDomainNote, foreign) < TopOf(foreign.BackupDetailsText, foreign), "the note is not above the details");
         Assert.Equal(PageStatusKind.Idle, foreign.PageStatus.Kind);
-        Assert.Null(foreignBackup.Error);
 
         // The session of the window ends: an error that cannot be closed takes the line; the window can still be closed.
         await context.Services.GetRequiredService<ISessionManager>().DisconnectAsync();

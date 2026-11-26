@@ -78,7 +78,7 @@ public sealed class CentralStoreUpdateStatusUiTests
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
         Assert.Equal(PageStatusKind.Idle, line.Kind);
         Assert.Matches(@"^To write: \d+, unchanged: \d+, skipped: \d+$", line.Message);
-        Assert.Equal(update.SummaryText, line.Message);
+        Assert.Equal(update.Status.Idle.Message, line.Message);
 
         // The store does not exist yet: a note over the files - true for as long as they are shown - and no status.
         Assert.True(window.StoreNoteBar.IsVisible);
@@ -153,7 +153,6 @@ public sealed class CentralStoreUpdateStatusUiTests
         Assert.Equal(Visibility.Visible, action.Visibility);
         Assert.Equal("Retry", Assert.IsType<string>(action.Content));
         Assert.Equal(Visibility.Visible, close.Visibility);
-        Assert.NotNull(update.Error);
         ControlHost.Press(close);
         await UiWait.UntilAsync(() => line.Kind == PageStatusKind.Idle, "the error was closed");
         Assert.Equal(string.Empty, line.Message);

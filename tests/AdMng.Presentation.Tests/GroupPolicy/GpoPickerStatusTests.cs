@@ -41,7 +41,6 @@ public sealed class GpoPickerStatusTests
         await held.Reached.WaitAsync(Limit, Ct);
 
         // Working: what is read, with Stop; the dialog's own Cancel closes it at any time.
-        Assert.True(picker.IsLoading);
         Assert.True(picker.Status.IsWorking);
         Assert.Equal(PageStatusKind.Working, picker.Status.Current.Kind);
         Assert.Equal(working, picker.Status.Current.Message);
@@ -56,9 +55,7 @@ public sealed class GpoPickerStatusTests
         // The list is the result: the line shows its count as the summary, and nothing else was said.
         Assert.Equal([(PageStatusKind.Working, working), (PageStatusKind.Idle, found + total.ToString(CultureInfo.InvariantCulture))], seen.Plain);
         Assert.Equal(total, picker.Items.Count);
-        Assert.False(picker.IsLoading);
         Assert.False(picker.Status.IsWorking);
-        Assert.Null(picker.Error);
         Assert.Null(picker.Status.Lasting);
     }
 
@@ -110,7 +107,7 @@ public sealed class GpoPickerStatusTests
 
         // The read ended as the state of the dialog: nothing was listed, and the line says what to do - an attention that
         // cannot be closed, with Retry.
-        Assert.False(picker.IsLoading);
+        Assert.False(picker.Status.IsWorking);
         Assert.Empty(picker.Items);
         Assert.Equal([PageStatusKind.Working, PageStatusKind.Working, PageStatusKind.Attention], seen.Plain.Select(s => s.Kind).ToList());
         var state = picker.Status.Current;
@@ -127,7 +124,7 @@ public sealed class GpoPickerStatusTests
         Assert.NotEmpty(picker.Items);
         Assert.Null(picker.Status.Lasting);
         Assert.Equal(PageStatusKind.Idle, picker.Status.Current.Kind);
-        Assert.False(picker.IsLoading);
+        Assert.False(picker.Status.IsWorking);
     }
 
     [Theory]
@@ -143,17 +140,16 @@ public sealed class GpoPickerStatusTests
         await picker.InitializeAsync();
 
         Assert.Equal([PageStatusKind.Working, PageStatusKind.Error], seen.Plain.Select(s => s.Kind).ToList());
-        Assert.NotNull(picker.Error);
         var failed = picker.Status.Current;
         Assert.StartsWith(lead, failed.Message, StringComparison.Ordinal);
         Assert.EndsWith(tail, failed.Message, StringComparison.Ordinal);
-        Assert.Contains(picker.Error, failed.Message, StringComparison.Ordinal);
+        Assert.True(failed.Message.Length > lead.Length + tail.Length); // the reason, in words
         Assert.DoesNotContain("DSID", failed.Message, StringComparison.Ordinal);
         Assert.Equal("GpoPicker.Status.ReadFailed [ServerUnavailable]", failed.Log.ToString());
         Assert.False(failed.CanClose);
         Assert.Same(failed, picker.Status.Lasting);
         Assert.False(picker.Status.CloseCommand.CanExecute(null));
-        Assert.False(picker.IsLoading);
+        Assert.False(picker.Status.IsWorking);
         Assert.Empty(picker.Items);
         var retry = Assert.IsType<PageStatusAction>(failed.Action);
         Assert.Equal(retryLabel, retry.Label);
@@ -164,7 +160,6 @@ public sealed class GpoPickerStatusTests
         await ((IAsyncRelayCommand)retry.Command).ExecuteAsync(retry.Parameter);
 
         Assert.NotEmpty(picker.Items);
-        Assert.Null(picker.Error);
         Assert.Null(picker.Status.Lasting);
         Assert.Equal(PageStatusKind.Idle, picker.Status.Current.Kind);
     }
@@ -191,9 +186,8 @@ public sealed class GpoPickerStatusTests
         await picker.InitializeAsync();
 
         Assert.Empty(seen.Seen);
-        Assert.NotNull(picker.Error);
         Assert.Empty(picker.Items);
-        Assert.False(picker.IsLoading);
+        Assert.False(picker.Status.IsWorking);
         Assert.Equal(before, h.Session.Operations.Count);
     }
 
@@ -214,7 +208,6 @@ public sealed class GpoPickerStatusTests
 
             Assert.True(reading.IsSessionEnded);
             Assert.False(reading.Status.IsWorking);
-            Assert.False(reading.IsLoading);
             Assert.Equal(PageStatusKind.Error, reading.Status.Current.Kind);
             Assert.Equal(h.B2.Localizer[L.WindowSession.Ended], reading.Status.Current.Message);
             Assert.False(reading.Status.Current.CanClose);

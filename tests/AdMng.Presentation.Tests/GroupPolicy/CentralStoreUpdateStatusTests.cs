@@ -70,10 +70,9 @@ public sealed class CentralStoreUpdateStatusTests
         await loading.WaitAsync(Limit, Ct);
 
         // What the comparison found is the summary; nothing else was said.
-        Assert.Equal([(PageStatusKind.Working, reading), (PageStatusKind.Working, comparing), (PageStatusKind.Idle, update.SummaryText)], seen.Plain);
+        Assert.Equal([(PageStatusKind.Working, reading), (PageStatusKind.Working, comparing), (PageStatusKind.Idle, update.Status.Idle.Message)], seen.Plain);
         Assert.Matches(summary, update.Status.Current.Message);
         Assert.Null(update.Status.Lasting);
-        Assert.Null(update.Error);
         Assert.False(update.IsBusy);
         Assert.False(update.Status.IsWorking);
     }
@@ -117,8 +116,7 @@ public sealed class CentralStoreUpdateStatusTests
 
         Assert.NotNull(update.Package);
         Assert.Equal(PageStatusKind.Idle, update.Status.Current.Kind);
-        Assert.Equal(update.SummaryText, update.Status.Current.Message);
-        Assert.Null(update.Error);
+        Assert.Equal(update.Status.Idle.Message, update.Status.Current.Message);
     }
 
     [Theory]
@@ -135,11 +133,10 @@ public sealed class CentralStoreUpdateStatusTests
         await update.DownloadEdgeCommand.ExecuteAsync(null);
 
         Assert.Equal([PageStatusKind.Working, PageStatusKind.Error], seen.Plain.Select(s => s.Kind).ToList());
-        Assert.NotNull(update.Error);
         var failed = update.Status.Current;
         Assert.StartsWith(lead, failed.Message, StringComparison.Ordinal);
         Assert.EndsWith(tail, failed.Message, StringComparison.Ordinal);
-        Assert.Contains(update.Error, failed.Message, StringComparison.Ordinal);
+        Assert.Contains(h.B2.Localizer[L.CentralStore.ErrorDownload], failed.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("microsoft.com", failed.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal("CentralStore.Status.DownloadFailed", failed.Log.ToString());
         Assert.True(failed.CanClose);
@@ -170,13 +167,11 @@ public sealed class CentralStoreUpdateStatusTests
         Assert.True(failed.CanClose);
         Assert.Null(failed.Action); // a file the operator picks: there is nothing to repeat
         Assert.Null(update.Package);
-        Assert.NotNull(update.Error);
 
         // Another package: the error is gone, the comparison is shown.
         h.B2.Files.NextOpenPath = await ArchiveAsync(folder.Path);
         await update.OpenFileCommand.ExecuteAsync(null);
-        Assert.Equal((PageStatusKind.Idle, update.SummaryText), (update.Status.Current.Kind, update.Status.Current.Message));
-        Assert.Null(update.Error);
+        Assert.Equal((PageStatusKind.Idle, update.Status.Idle.Message), (update.Status.Current.Kind, update.Status.Current.Message));
     }
 
     // ---- The comparison -----------------------------------------------------------------------------------------
@@ -202,7 +197,7 @@ public sealed class CentralStoreUpdateStatusTests
         var failed = update.Status.Current;
         Assert.StartsWith(lead, failed.Message, StringComparison.Ordinal);
         Assert.EndsWith(tail, failed.Message, StringComparison.Ordinal);
-        Assert.Contains(update.Error!, failed.Message, StringComparison.Ordinal);
+        Assert.Contains(h.Services.SysvolText(SysvolUnavailableReason.Unreachable, h.Session.Info.Server), failed.Message, StringComparison.Ordinal);
         Assert.Equal("CentralStore.Status.CompareFailed", failed.Log.ToString());
         Assert.False(failed.CanClose);
         Assert.Same(failed, update.Status.Lasting);
@@ -217,8 +212,7 @@ public sealed class CentralStoreUpdateStatusTests
 
         Assert.NotEmpty(update.Rows);
         Assert.Null(update.Status.Lasting);
-        Assert.Null(update.Error);
-        Assert.Equal((PageStatusKind.Idle, update.SummaryText), (update.Status.Current.Kind, update.Status.Current.Message));
+        Assert.Equal((PageStatusKind.Idle, update.Status.Idle.Message), (update.Status.Current.Kind, update.Status.Current.Message));
     }
 
     [Theory]
@@ -324,7 +318,7 @@ public sealed class CentralStoreUpdateStatusTests
             Assert.NotSame(shown, update.Package);
             Assert.NotEmpty(update.Rows);
             Assert.Null(update.Status.Lasting);
-            Assert.Equal((PageStatusKind.Idle, update.SummaryText), (said.Kind, said.Message));
+            Assert.Equal((PageStatusKind.Idle, update.Status.Idle.Message), (said.Kind, said.Message));
             return;
         }
 
@@ -349,7 +343,7 @@ public sealed class CentralStoreUpdateStatusTests
         await ((IAsyncRelayCommand)retry.Command).ExecuteAsync(retry.Parameter);
         Assert.NotEmpty(update.Rows);
         Assert.Null(update.Status.Lasting);
-        Assert.Equal((PageStatusKind.Idle, update.SummaryText), (update.Status.Current.Kind, update.Status.Current.Message));
+        Assert.Equal((PageStatusKind.Idle, update.Status.Idle.Message), (update.Status.Current.Kind, update.Status.Current.Message));
     }
 
     [Theory]
@@ -477,7 +471,6 @@ public sealed class CentralStoreUpdateStatusTests
         var result = update.Status.Current;
         Assert.Equal(PageStatusKind.Done, result.Kind);
         Assert.StartsWith(done, result.Message, StringComparison.Ordinal);
-        Assert.StartsWith(update.ResultText!, result.Message, StringComparison.Ordinal);
         Assert.Contains("PolicyDefinitions-kopia", result.Message, StringComparison.Ordinal); // where the backup is
         Assert.StartsWith("CentralStore.Updated (", result.Log.ToString(), StringComparison.Ordinal);
         Assert.True(result.CanClose);
@@ -489,7 +482,7 @@ public sealed class CentralStoreUpdateStatusTests
 
         // Closed, the line says what the new comparison found.
         update.Status.CloseCommand.Execute(null);
-        Assert.Equal((PageStatusKind.Idle, update.SummaryText), (update.Status.Current.Kind, update.Status.Current.Message));
+        Assert.Equal((PageStatusKind.Idle, update.Status.Idle.Message), (update.Status.Current.Kind, update.Status.Current.Message));
     }
 
     [Theory]
@@ -554,7 +547,6 @@ public sealed class CentralStoreUpdateStatusTests
         Assert.Equal((PageStatusKind.Error, text), (failed.Kind, failed.Message));
         Assert.Equal("CentralStore.Status.NotUpdated [IOException]", failed.Log.ToString());
         Assert.True(failed.CanClose);
-        Assert.NotNull(update.Error);
         Assert.Empty(h.Windows.Previews);
         Assert.False(update.IsUpdating);
         Assert.False(update.IsBusy);

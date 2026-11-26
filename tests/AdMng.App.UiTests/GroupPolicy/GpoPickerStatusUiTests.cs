@@ -7,6 +7,7 @@ using AdMng.App.Infrastructure;
 using AdMng.App.Services;
 using AdMng.App.UiTests.Infrastructure;
 using AdMng.Core.Directory;
+using AdMng.Presentation.Errors;
 using AdMng.Presentation.Feedback;
 using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.Localization;
@@ -101,9 +102,9 @@ public sealed class GpoPickerStatusUiTests
         await UiWait.UntilAsync(() => picker.Status.IsCancelling && line.Message == "Stopping…", "the read is stopping");
         Assert.Equal(PageStatusKind.Working, line.Kind);
         Assert.Equal(Visibility.Collapsed, action.Visibility);
-        Assert.True(picker.IsLoading);
+        Assert.True(picker.Status.IsWorking);
         held.Release();
-        await UiWait.UntilAsync(() => !picker.IsLoading && line.Kind == PageStatusKind.Attention, "the read was stopped");
+        await UiWait.UntilAsync(() => !picker.Status.IsWorking && line.Kind == PageStatusKind.Attention, "the read was stopped");
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
 
         // Stopped: the list is empty, the line says so and offers Retry, and it cannot be closed (it is the only
@@ -124,7 +125,7 @@ public sealed class GpoPickerStatusUiTests
         // Retry, pressed in the line, reads the GPOs: the list is there and the line says how many.
         await UiWait.UntilAsync(() => action.IsEnabled, "the action of the line can be pressed");
         ControlHost.Press(action);
-        await UiWait.UntilAsync(() => !picker.IsLoading && picker.Items.Count > 0 && line.Kind == PageStatusKind.Idle, "the GPOs were listed");
+        await UiWait.UntilAsync(() => !picker.Status.IsWorking && picker.Items.Count > 0 && line.Kind == PageStatusKind.Idle, "the GPOs were listed");
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
         Assert.Equal($"Group policy objects: {picker.Items.Count}", line.Message);
         window.UpdateLayout();
@@ -156,8 +157,10 @@ public sealed class GpoPickerStatusUiTests
         var close = ControlHost.Part<Button>(line, "PART_CloseButton");
 
         // The error says what was tried, the reason, what to do and the code - with Retry - and cannot be closed.
+        var reason = context.Services.GetRequiredService<ErrorTranslator>()
+            .Translate(new DirectoryException(DirectoryErrorKind.AccessDenied, "access to the policies container was denied"));
         Assert.Equal("Error", line.Title);
-        Assert.Equal($"Could not read the group policy objects of {session.Info.DomainDnsName}: {picker.Error} Press Retry to try again. (AccessDenied)", line.Message);
+        Assert.Equal($"Could not read the group policy objects of {session.Info.DomainDnsName}: {reason} Press Retry to try again. (AccessDenied)", line.Message);
         Assert.Equal(AppIcons.StatusError, line.IconKey);
         Assert.Equal(AutomationLiveSetting.Assertive, AutomationProperties.GetLiveSetting(line));
         Assert.Equal(Visibility.Visible, action.Visibility);
@@ -173,7 +176,7 @@ public sealed class GpoPickerStatusUiTests
         ControlHost.Press(action);
         await UiWait.UntilAsync(() => picker.Items.Count > 0 && line.Kind == PageStatusKind.Idle, "the list was read");
         directory.BeforeOperation = null;
-        Assert.Null(picker.Error);
+        Assert.Null(picker.Status.Lasting);
 
         // The session of the dialog ends: an error that cannot be closed takes the line; the dialog can still be cancelled.
         await context.Services.GetRequiredService<ISessionManager>().DisconnectAsync();

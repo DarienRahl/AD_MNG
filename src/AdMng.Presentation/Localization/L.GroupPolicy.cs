@@ -280,11 +280,7 @@ public static partial class L
         public const string RestoreRun = "GroupPolicy.RestoreRun";
         public const string ImportRun = "GroupPolicy.ImportRun";
         public const string PickFolderTitle = "GroupPolicy.PickFolderTitle";
-        public const string NoBackups = "GroupPolicy.NoBackups";
-        public const string BackupsFound = "GroupPolicy.BackupsFound";
-        public const string BackupRunning = "GroupPolicy.BackupRunning";
         public const string BackupActivity = "GroupPolicy.BackupActivity";
-        public const string BackupFailed = "GroupPolicy.BackupFailed";
         public const string BackupDone = "GroupPolicy.BackupDone";
         public const string BackupWithoutDirectorySettings = "GroupPolicy.BackupWithoutDirectorySettings";
         public const string BackupDetails = "GroupPolicy.BackupDetails";

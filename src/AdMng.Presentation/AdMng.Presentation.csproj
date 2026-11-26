@@ -17,6 +17,8 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="AdMng.Presentation.Tests" />
+    <!-- CentralStoreUpdateViewModel.WriteBackup: the UI tests hold the backup of the store to see the update stopped. -->
+    <InternalsVisibleTo Include="AdMng.App.UiTests" />
   </ItemGroup>
   <ItemGroup>
     <!-- The bodies of the built-in Korespondencja templates (operator content, read once by CorrespondenceTemplateLibrary). -->

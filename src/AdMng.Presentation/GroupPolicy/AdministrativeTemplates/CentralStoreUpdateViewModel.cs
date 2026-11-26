@@ -116,9 +116,9 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
 
     /// <summary>
     /// Writes the backup of the store (folder, DC, files, time) and returns where it is; replaced in tests - also the UI
-    /// tests of the status line, which hold the backup to see the update stopped (hence public).
+    /// tests of the status line, which hold the backup to see the update stopped (internal: AdMng.App.UiTests sees it).
     /// </summary>
-    public Func<string, string, IReadOnlyDictionary<string, byte[]>, DateTimeOffset, CancellationToken, Task<string>> WriteBackup { get; init; } =
+    internal Func<string, string, IReadOnlyDictionary<string, byte[]>, DateTimeOffset, CancellationToken, Task<string>> WriteBackup { get; init; } =
         CentralStoreBackup.WriteAsync;
 
     /// <summary>The loaded package (null: none yet).</summary>
@@ -167,10 +167,6 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
 
     public bool HasRows => Rows.Count > 0;
 
-    /// <summary>"Do zapisania: 5, bez zmian: 12, pominięte: 1".</summary>
-    [ObservableProperty]
-    public partial string SummaryText { get; private set; } = string.Empty;
-
     /// <summary>"Magazyn centralny nie istnieje – aktualizacja go utworzy." (null when it exists or nothing was compared).</summary>
     [ObservableProperty]
     public partial string? StoreNote { get; private set; }
@@ -190,14 +186,12 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
 
     /// <summary>A package is being loaded or downloaded, or the store is being updated: the sources and the options wait.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsWorking), nameof(ProgressText))]
     [NotifyCanExecuteChangedFor(nameof(UpdateCommand), nameof(OpenFileCommand), nameof(OpenFolderCommand), nameof(UseLocalStoreCommand),
         nameof(DownloadEdgeCommand), nameof(DownloadChromeCommand), nameof(DownloadFirefoxCommand))]
     public partial bool IsBusy { get; private set; }
 
     /// <summary>The package is being compared with the store: "Zaktualizuj…" waits for the result.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsWorking), nameof(ProgressText))]
     [NotifyCanExecuteChangedFor(nameof(UpdateCommand))]
     public partial bool IsComparing { get; private set; }
 
@@ -206,27 +200,8 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
     [NotifyCanExecuteChangedFor(nameof(CloseCommand))]
     public partial bool IsUpdating { get; private set; }
 
-    /// <summary>Something runs (the progress indicator).</summary>
-    public bool IsWorking => IsBusy || IsComparing;
-
-    /// <summary>"Pobieranie szablonów Microsoft Edge…" while busy.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ProgressText))]
-    public partial string? BusyText { get; private set; }
-
-    /// <summary>What runs now ("Pobieranie…", "Tworzenie kopii zapasowej…", "Porównywanie z magazynem centralnym…"), else null.</summary>
-    public string? ProgressText => BusyText ?? (IsComparing ? Localizer[L.CentralStore.Comparing] : null);
-
-    /// <summary>The last failure (localized), null when none.</summary>
-    [ObservableProperty]
-    public partial string? Error { get; private set; }
-
     /// <summary>The central store was changed through this window (the editors read the templates again).</summary>
     public bool ChangedStore { get; private set; }
-
-    /// <summary>"Magazyn centralny zaktualizowany: zapisano 5 plików." after an update.</summary>
-    [ObservableProperty]
-    public partial string? ResultText { get; private set; }
 
     // ---- Sources -------------------------------------------------------------------------------------------------------
 
@@ -325,9 +300,6 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
         }
 
         IsBusy = true;
-        BusyText = kind.Busy;
-        Error = null;
-        ResultText = null;
         using var loading = Status.Begin(kind.Busy, new PageStatusLog(kind.BusyKey));
 
         // The operator's Stop, "the latest wins" (another package) and closing the window all end the load.
@@ -366,26 +338,22 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
         }
         catch (PolicyTemplatePackageException ex)
         {
-            Error = PackageError(ex.Error);
-            LoadFailed(loading, kind, Error, default);
+            LoadFailed(loading, kind, PackageError(ex.Error), default);
         }
         catch (JsonException ex)
         {
             // A release description that is not JSON (e.g. a proxy's block page answered with 200).
-            Error = Localizer[L.CentralStore.ErrorDownload];
-            LoadFailed(loading, kind, Error, ResultCode.Of(ex));
+            LoadFailed(loading, kind, Localizer[L.CentralStore.ErrorDownload], ResultCode.Of(ex));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
         {
-            Error = Localizer[L.CentralStore.ErrorExtraction];
-            LoadFailed(loading, kind, Error, ResultCode.Of(ex));
+            LoadFailed(loading, kind, Localizer[L.CentralStore.ErrorExtraction], ResultCode.Of(ex));
         }
         finally
         {
             if (_workId == id)
             {
                 IsBusy = false;
-                BusyText = null;
             }
         }
     }
@@ -432,7 +400,7 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
     /// <summary>
     /// Compares the package (chosen languages) with the central store of the session's DC. A newer comparison cancels this
     /// one; the previous result is cleared at once (so "Zaktualizuj…" never plans a result that no longer matches the
-    /// options), and this result – or its failure, in <see cref="Error"/> – is shown only when it is still the latest for the
+    /// options), and this result – or its failure – is shown only when it is still the latest for the
     /// current package. It is the operation of the window ("Comparing with the central store…", with Stop); the files and
     /// the summary are its result, and a comparison that was stopped or failed is the state of the window (Retry).
     /// </summary>
@@ -444,7 +412,6 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
         var latest = _compare.Next();
         _comparison = null;
         Rows = [];
-        SummaryText = string.Empty;
         StoreNote = null;
 
         // What the last comparison left is over: this one decides.
@@ -481,8 +448,7 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
             {
                 if (IsLatest(latest, package))
                 {
-                    Error = _gp.SysvolText(access.Reason ?? SysvolUnavailableReason.Failed, session.Info.Server);
-                    CompareFailed(Error, default);
+                    CompareFailed(_gp.SysvolText(access.Reason ?? SysvolUnavailableReason.Failed, session.Info.Server), default);
                 }
 
                 return;
@@ -503,8 +469,6 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
             _comparison = comparison;
             Rows = [.. comparison.Files.Select(Row)];
             StoreNote = comparison.StoreExists ? null : Localizer[L.CentralStore.StoreMissing];
-            SummaryText = BuildSummary();
-            Error = null;
             UpdateSummary();
         }
         catch (OperationCanceledException)
@@ -525,8 +489,9 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
             if (IsLatest(latest, package))
             {
                 // InvalidDataException: an entry of the archive cannot be decompressed (it is read only now, for the comparison).
-                Error = ex is InvalidDataException or JsonException ? Localizer[L.CentralStore.ErrorExtraction] : GroupPolicyText.Error(Localizer, _gp.Errors, ex);
-                CompareFailed(Error, ResultCode.Of(ex));
+                CompareFailed(
+                    ex is InvalidDataException or JsonException ? Localizer[L.CentralStore.ErrorExtraction] : GroupPolicyText.Error(Localizer, _gp.Errors, ex),
+                    ResultCode.Of(ex));
             }
         }
         finally
@@ -571,11 +536,10 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
         _workId++;
         IsBusy = true;
         IsUpdating = true;
-        Error = null;
-        ResultText = null;
         var changed = false;
         var said = false;
         string? backupText = null;
+        string? updatedText = null;
         using var updating = Status.Begin(Localizer[L.CentralStore.Updating], new PageStatusLog(L.CentralStore.Updating), writes: OperationWrites.Other);
         try
         {
@@ -583,8 +547,7 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
             var token = linked.Token;
             if (MakeBackup && comparison.StoreExists)
             {
-                BusyText = Localizer[L.CentralStore.BackingUp];
-                updating.Report(BusyText);
+                updating.Report(Localizer[L.CentralStore.BackingUp]);
                 var folder = BackupFolder.Trim();
                 var server = session.Info.Server;
                 var files = comparison.StoreFiles;
@@ -598,10 +561,9 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
                 {
-                    Error = Localizer[L.CentralStore.ErrorBackup];
                     var code = ResultCode.Of(ex);
                     updating.CompleteError(
-                        PageStatusText.Failure(Localizer[L.CentralStoreStatus.NotUpdated], Error, null, code),
+                        PageStatusText.Failure(Localizer[L.CentralStoreStatus.NotUpdated], Localizer[L.CentralStore.ErrorBackup], null, code),
                         new PageStatusLog(L.CentralStoreStatus.NotUpdated).WithCode(code));
                     said = true;
                     return;
@@ -610,13 +572,11 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
                 token.ThrowIfCancellationRequested(); // the window closed or the session ended meanwhile: nothing planned
                 await _gp.Settings.UpdateAsync(s => s.GroupPolicy.LastBackupFolder = folder).ConfigureAwait(true);
                 backupText = Localizer.Format(L.CentralStore.BackupWritten, written);
-                ResultText = backupText;
             }
 
             if (!IsDisposed && Session is not null && ReferenceEquals(comparison, _comparison))
             {
-                BusyText = Localizer[L.CentralStore.Updating];
-                updating.Report(BusyText);
+                updating.Report(Localizer[L.CentralStore.Updating]);
                 var title = Localizer.Format(L.CentralStore.PlanTitle, session.Info.Server);
                 var plan = _gp.Planner.PlanCentralStoreUpdate(session, comparison, title);
                 if (updating.IsCancelling)
@@ -635,7 +595,7 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
                         ChangedStore = true;
                         _definitions.Invalidate();
                         _gp.NotifyChanged();
-                        ResultText = Localizer.Format(L.CentralStore.Updated, comparison.WrittenCount);
+                        updatedText = Localizer.Format(L.CentralStore.Updated, comparison.WrittenCount);
                     }
                 }
             }
@@ -652,7 +612,6 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
         finally
         {
             IsUpdating = false;
-            BusyText = null;
 
             // The store was written: its new comparison is the last stage of the update, and the sources and the options
             // wait for it as they do for the comparison of a load (another comparison or a load would take the line from
@@ -675,7 +634,7 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
                 await CompareCoreAsync(after).ConfigureAwait(true);
                 if (!after.IsEnded)
                 {
-                    var text = backupText is null ? ResultText! : $"{ResultText} {backupText}";
+                    var text = backupText is null ? updatedText! : $"{updatedText} {backupText}";
                     after.CompleteDone(text, new PageStatusLog(L.CentralStore.Updated, comparison.WrittenCount));
                 }
             }
@@ -715,10 +674,8 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
         OnPropertyChanged(nameof(TrustText));
         OnPropertyChanged(nameof(PackageIssues));
         OnPropertyChanged(nameof(PackageIssuesTitle));
-        OnPropertyChanged(nameof(ProgressText));
 
         // The window's own sentences in the new language (how an operation ended stays as it was said).
-        SummaryText = BuildSummary();
         UpdateLasting();
         UpdateSummary();
     }
@@ -754,7 +711,7 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
         SessionEndedStatus ?? (Session is null ? PageStatus.Error(NoSessionMessage, new PageStatusLog(L.Errors.NotConnected), canClose: false) : _compareState));
 
     /// <summary>The summary: what the comparison found (nothing while there is none).</summary>
-    private void UpdateSummary() => Status.SetIdle(_comparison is null ? null : SummaryText);
+    private void UpdateSummary() => Status.SetIdle(_comparison is null ? null : BuildSummary());
 
     /// <summary>"To write: 5, unchanged: 12, skipped: 1" for the files shown.</summary>
     private string BuildSummary() => _comparison is null
