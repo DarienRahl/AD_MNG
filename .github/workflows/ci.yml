@@ -54,12 +54,14 @@ jobs:
   windows:
     name: Build, unit & UI smoke tests (Windows)
     runs-on: windows-latest
-    # The two test steps have their own limits (15 and 60 minutes). A test step that runs out of time fails, and the steps
-    # marked to run after a failure still run (UI tests, Slowest tests, publish, smoke test, layout check, test results);
-    # the other steps after it are skipped. When the job's own limit runs out, the job is cancelled and they are skipped
-    # too. 90 minutes: restore and build about 4, both test steps at their limits 75, publish, smoke tests, Watchdog
-    # steps and artifacts about 6, and a few minutes to spare.
-    timeout-minutes: 90
+    # The three test steps have their own limits (15, 10 and 60 minutes). A test step that runs out of time fails, and the
+    # steps marked to run after a failure still run (PowerShell engine tests, UI tests, Slowest tests, publish, smoke test,
+    # layout check, test results); the other steps after it are skipped. When the job's own limit runs out, the job is
+    # cancelled: the step that runs is stopped, and of the steps after it only the two marked always() run (Slowest tests,
+    # test results; run 45698130022, cut off by the old 40-minute limit, ran exactly those); the steps marked !cancelled()
+    # are skipped with all the others. 100 minutes: restore and build about 4, the three test steps at their limits 85,
+    # publish, smoke tests, Watchdog steps and artifacts about 6, and a few minutes to spare.
+    timeout-minutes: 100
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -73,15 +75,30 @@ jobs:
         id: build
         run: dotnet build AdMng.slnx -c Release --no-restore
       - name: Unit tests
-        # The whole solution but the UI tests (the next step), including the watchdog test projects (Windows-only tests
-        # such as the local Security-log reader and DPAPI-NG run here; the Samba-based watchdog integration tests skip
-        # without ADMNG_TEST_LDAP_*). AdMngSkipUiTests=true makes AdMng.App.UiTests no test project for this call.
-        # About 5 minutes.
+        # The whole solution but the PowerShell engine tests and the UI tests (the next two steps), including the watchdog
+        # test projects (Windows-only tests such as the local Security-log reader and DPAPI-NG run here; the Samba-based
+        # watchdog integration tests skip without ADMNG_TEST_LDAP_*). AdMngSkipPowerShellTests=true and AdMngSkipUiTests=true
+        # make AdMng.PowerShell.Tests and AdMng.App.UiTests no test projects for this call. About 3 minutes.
         timeout-minutes: 15
-        run: dotnet test AdMng.slnx -c Release --no-build --logger "trx" --results-directory TestResults -p:AdMngSkipUiTests=true
+        run: >-
+          dotnet test AdMng.slnx -c Release --no-build --logger "trx" --results-directory TestResults
+          -p:AdMngSkipPowerShellTests=true -p:AdMngSkipUiTests=true
         env:
           ADMNG_UI_TESTS: "1"
           ADMNG_WINDOWS_EVENTLOG_TESTS: "1"
+      - name: PowerShell engine tests
+        # A step of its own for the detailed console logger, which only these tests get (the other projects would fill the
+        # log): it lists every test as it ends, with its output, and an xUnit catastrophic failure (a crashed test process, an
+        # exception the tests left unhandled) with its stack in its place among them, where the default verbosity prints the
+        # failure's message and the count only - so the log shows which tests had ended when it came and from where. The trx
+        # logger as in the other test steps. Also after a red unit test step. About 2 to 3 minutes (the test run took 2 m 18 s
+        # in the unit test step of ea9c4c5d).
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 10
+        run: >-
+          dotnet test tests/AdMng.PowerShell.Tests -c Release --no-build --logger "trx" --results-directory TestResults
+          --logger "console;verbosity=detailed"
+        env:
           # The 40 s proof that the PowerShell engine never writes its module analysis cache: on Windows its path is NUL\ModuleAnalysisCache,
           # which only a Windows run can show to be unwritable (docs/dev/r1-powershell-window.md 4.2).
           ADMNG_POWERSHELL_SLOW_TESTS: "1"
@@ -89,15 +106,14 @@ jobs:
         # A step of its own, with its own limit: the job's longest part, 14 to more than 36 minutes on unchanged code (run
         # 45698130022 on 7ff2e6c3, a docs-only commit after 260c4d4d, hit the old 40-minute job limit with the UI tests
         # still running, about 2.6 times slower than the 14 minutes of 260c4d4d).
-        # Also after a red unit test step, as when both ran in one call. The environment is the one of the unit tests step.
+        # Also after a red test step before it, as when all ran in one call. The environment is the one of the unit tests step.
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         timeout-minutes: 60
         run: dotnet test tests/AdMng.App.UiTests -c Release --no-build --logger "trx" --results-directory TestResults
         env:
           ADMNG_UI_TESTS: "1"
           ADMNG_WINDOWS_EVENTLOG_TESTS: "1"
-          ADMNG_POWERSHELL_SLOW_TESTS: "1"
-      # The UI tests grew from 11 to 27 minutes within a day of new tests: the thirty slowest of both test steps, from the trx
+      # The UI tests grew from 11 to 27 minutes within a day of new tests: the thirty slowest of the three test steps, from the trx
       # files, say where the time goes (a test that waits for its own timeout shows up here), and one line per test assembly
       # says how long its run took from start to end. A test step that ran out of time may have written no trx file, and its
       # tests are then missing from the count.
@@ -249,10 +265,13 @@ jobs:
       - name: Watchdog Service tests (Linux)
         run: dotnet test tests/AdMng.Watchdog.Service.Tests -c Release
       # The PowerShell window's engine runs on Linux too: the allow-list, the escape probes of the R1 audit, the host and the
-      # "no files" test with its positive control, which the Windows job cannot run - and, with the job's lab variables, the
-      # lab tests of the read commands (Lab/PowerShellReadLabTests; skipped in the Windows job, which has no lab).
+      # "no files" test with its positive control, as in the Windows job (only here must the control's engine send
+      # telemetry and the test see its telemetry.uuid: the Windows runner's diagnostic data setting keeps telemetry off) -
+      # and, with the job's lab variables, the lab tests of the read commands (Lab/PowerShellReadLabTests; skipped in the
+      # Windows job, which has no lab). The detailed console logger lists every test as it ends, with its output, and an
+      # xUnit catastrophic failure with its stack in its place among them (the default verbosity: its message only).
       - name: PowerShell engine tests (Linux)
-        run: dotnet test tests/AdMng.PowerShell.Tests -c Release
+        run: dotnet test tests/AdMng.PowerShell.Tests -c Release --logger "console;verbosity=detailed"
       - name: Start Mailpit
         run: tools/testlab/watchdog/start-mailpit.sh
       - name: Watchdog integration tests (Samba lab + Mailpit)

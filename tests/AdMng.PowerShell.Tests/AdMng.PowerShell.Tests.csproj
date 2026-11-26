@@ -2,11 +2,14 @@
   <!-- R1 part 1 (docs/dev/r1-powershell-window.md 9.1): the embedded engine - the session, the host, the language mode, the
        guards, the environment, the history policy, syntax, completion and the command catalog - against the real
        PowerShell engine. Runs on Linux and Windows; nothing here contacts a directory or a computer, except the lab tests of
-       the read commands (Lab/), which are skipped unless ADMNG_TEST_LDAP_SERVER is set (the CI lab job sets it). -->
+       the read commands (Lab/), which are skipped unless ADMNG_TEST_LDAP_SERVER is set (the CI lab job sets it).
+       `dotnet test AdMng.slnx -p:AdMngSkipPowerShellTests=true` makes it no test project for that call: the Windows workflows
+       run the other test projects in one step and these tests in a step of their own, with the detailed console logger. -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
+    <IsTestProject Condition="'$(AdMngSkipPowerShellTests)' == 'true'">false</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\AdMng.PowerShell\AdMng.PowerShell.csproj" />
