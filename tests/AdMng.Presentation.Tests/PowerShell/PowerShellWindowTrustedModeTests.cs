@@ -150,6 +150,38 @@ public sealed class PowerShellWindowTrustedModeTests
         Assert.Contains("Turning it off starts a new PowerShell session in the window: the variables, functions and aliases defined until then are gone.", question, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Audit DLR-9 and PS-TRUSTED-CRED-TEXT: the question and the note of the trusted mode named "the audit log and the rollback"
+    /// ("dziennika audytu i wycofywania"), which the program calls the session log and Undo ("dziennik sesji", "cofanie"), and did not
+    /// say that the code of the mode can reach the window's directory session and its credentials (ADR 0010, decision 1).
+    /// </summary>
+    [Theory]
+    [InlineData(
+        "en-US",
+        "In trusted mode a script can run any .NET code in the process of AD Manager: it can reach the program's memory, the window's directory session and its credentials included, and change the directory directly, around the change plan – without the preview, the session log and Undo of AD Manager. It is a protection against mistakes, not a security boundary.",
+        "Trusted mode is on: scripts in this window can run any .NET code, reach the window's directory session and its credentials, and change the directory around the change plan, without the preview, the session log and Undo of AD Manager. The switch turns it off.")]
+    [InlineData(
+        "pl-PL",
+        "W trybie zaufanym skrypt może uruchamiać dowolny kod .NET w procesie programu: może sięgnąć do jego pamięci, także do sesji katalogu okna i jej poświadczeń, i zmieniać katalog bezpośrednio, z pominięciem planu zmian – bez podglądu, dziennika sesji i cofania zmian w AD Manager. To zabezpieczenie przed pomyłkami, a nie granica bezpieczeństwa.",
+        "Tryb zaufany jest włączony: skrypty w tym oknie mogą uruchamiać dowolny kod .NET, sięgać do sesji katalogu okna i jej poświadczeń oraz zmieniać katalog z pominięciem planu zmian, bez podglądu, dziennika sesji i cofania zmian w AD Manager. Przełącznik wyłącza ten tryb.")]
+    public async Task TheQuestionAndTheNoteOfTheTrustedMode_SayThatItsCodeReachesTheCredentials_InTheTermsOfTheProgram(string culture, string question, string note)
+    {
+        var harness = await PowerShellHarness.CreateAsync(CultureInfo.GetCultureInfo(culture));
+        using var window = await harness.OpenAsync();
+        harness.Directory.Dialogs.ConfirmAnswers.Enqueue(true);
+
+        await window.ToggleTrustedModeCommand.ExecuteAsync(null);
+
+        var asked = Assert.Single(harness.Directory.Dialogs.Shown, shown => shown.StartsWith("confirm:", StringComparison.Ordinal));
+        Assert.Contains(question, asked, StringComparison.Ordinal);
+        Assert.True(window.IsTrustedMode);
+        Assert.Equal(note, window.Status.Current.Message);
+        foreach (var old in new[] { "audit", "rollback", "wycofywania" })
+        {
+            Assert.DoesNotContain(old, asked + window.Status.Current.Message, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
     [Fact]
     public async Task AfterTheTrustedMode_TheLockdownIsAskedOfTheNewRunspace()
     {

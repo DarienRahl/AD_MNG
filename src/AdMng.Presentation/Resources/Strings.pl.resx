@@ -25630,7 +25630,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Rejestrowanie bloków skryptów jest włączone ({0}): treść poleceń wykonywanych w tym oknie jest zapisywana w dzienniku zdarzeń systemu Windows (PowerShellCore/Operational).</value>
   </data>
   <data name="PowerShell.Policy.ModuleLogging" xml:space="preserve">
-    <value>Rejestrowanie modułów jest włączone ({0}, moduły: {1}): szczegóły poleceń tych modułów są zapisywane w dzienniku zdarzeń systemu Windows.</value>
+    <value>Rejestrowanie modułów jest włączone ({0}, moduły: {1}): szczegóły poleceń tych modułów, które mogą obejmować ich wyniki, także dane z katalogu, są zapisywane w dzienniku zdarzeń systemu Windows.</value>
   </data>
   <data name="PowerShell.Policy.NoModules" xml:space="preserve">
     <value>brak na liście</value>
@@ -25696,7 +25696,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Tryb zaufany</value>
   </data>
   <data name="PowerShell.Trusted.ConfirmMessage" xml:space="preserve">
-    <value>Włączyć tryb zaufany w oknie PowerShell domeny {0}?&#10;&#10;W trybie zaufanym skrypt może uruchamiać dowolny kod .NET i zmieniać katalog bezpośrednio, z pominięciem planu zmian: bez podglądu, dziennika audytu i wycofywania zmian w AD Manager. To zabezpieczenie przed pomyłkami, a nie granica bezpieczeństwa.&#10;&#10;Tryb dotyczy tylko tego okna i nie jest zapamiętywany. Jego wyłączenie uruchamia w oknie nową sesję PowerShell: zmiennych, funkcji i aliasów zdefiniowanych do tego czasu już nie będzie.</value>
+    <value>Włączyć tryb zaufany w oknie PowerShell domeny {0}?&#10;&#10;W trybie zaufanym skrypt może uruchamiać dowolny kod .NET w procesie programu: może sięgnąć do jego pamięci, także do sesji katalogu okna i jej poświadczeń, i zmieniać katalog bezpośrednio, z pominięciem planu zmian – bez podglądu, dziennika sesji i cofania zmian w AD Manager. To zabezpieczenie przed pomyłkami, a nie granica bezpieczeństwa.&#10;&#10;Tryb dotyczy tylko tego okna i nie jest zapamiętywany. Jego wyłączenie uruchamia w oknie nową sesję PowerShell: zmiennych, funkcji i aliasów zdefiniowanych do tego czasu już nie będzie.</value>
   </data>
   <data name="PowerShell.Trusted.BlockedLockdown" xml:space="preserve">
     <value>Zasady systemowe (WDAC lub AppLocker) wymuszają tryb ConstrainedLanguage.</value>
@@ -25801,7 +25801,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Wyłączanie trybu zaufanego: uruchamianie nowej sesji PowerShell…</value>
   </data>
   <data name="PowerShell.Status.TrustedNote" xml:space="preserve">
-    <value>Tryb zaufany jest włączony: skrypty w tym oknie mogą uruchamiać dowolny kod .NET i zmieniać katalog z pominięciem planu zmian, bez podglądu, audytu i wycofywania zmian w AD Manager. Przełącznik wyłącza ten tryb.</value>
+    <value>Tryb zaufany jest włączony: skrypty w tym oknie mogą uruchamiać dowolny kod .NET, sięgać do sesji katalogu okna i jej poświadczeń oraz zmieniać katalog z pominięciem planu zmian, bez podglądu, dziennika sesji i cofania zmian w AD Manager. Przełącznik wyłącza ten tryb.</value>
   </data>
   <data name="PowerShell.Status.Notes" xml:space="preserve">
     <value>Do tego okna odnosi się kilka uwag.</value>

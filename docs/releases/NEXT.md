@@ -117,6 +117,12 @@
   ale Ctrl+Z przywracało w nim uruchomione polecenie – także takie, którego historia nie zapamiętuje, bo zawiera hasło
   jawnym tekstem – a po odpowiedzi na pytanie polecenia tę odpowiedź. Teraz Ctrl+Z cofa tylko to, co wpisano od tej chwili;
   wiersz z historii albo podpowiedź (Tab) da się cofnąć jak dotąd.
+- **Okno PowerShell: uwaga o rejestrowaniu modułów i pytanie o tryb zaufany mówią dokładniej, co się dzieje.** Uwaga o
+  rejestrowaniu modułów (zasady grupy) mówi teraz, że szczegóły poleceń zapisywane w dzienniku zdarzeń mogą obejmować ich
+  wyniki, także dane z katalogu – tak jak mówi to instrukcja. Pytanie przed włączeniem trybu zaufanego i wiersz stanu w tym
+  trybie mówią, że kod .NET działa w procesie programu i może sięgnąć do sesji katalogu okna i jej poświadczeń, a zamiast
+  „dziennika audytu i wycofywania” nazywają to, czego zmiana z pominięciem planu nie ma, tak jak program: dziennik sesji i
+  cofanie zmian (po angielsku *session log* i *Undo*).
 
 ## AdMng Watchdog {{VERSION}}
 

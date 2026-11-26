@@ -85,6 +85,25 @@ public sealed class PowerShellPolicyNoteTests
         Assert.Equal([PowerShellPolicyNotes.ModuleLoggingBit], note.Log.Counts);
     }
 
+    /// <summary>
+    /// Audit DB-MODULE-LOGGING-NOTE: the note said only "details of the commands" are written, while module logging (event 4103) can
+    /// record their results too - directory data, as the guide says (chapter 8).
+    /// </summary>
+    [Fact]
+    public void ModuleLogging_SaysThatTheDetailsCanIncludeTheResults_InBothLanguages()
+    {
+        var policies = new PowerShellPolicies { ModuleLogging = new PowerShellModuleLoggingPolicy(true, ["ActiveDirectory"], CoreComputer) };
+
+        Assert.Equal(
+            "Module logging is on (computer policy, modules: ActiveDirectory): details of the commands of these modules, which can include their results and so directory data, are written to the Windows event log. "
+            + "AD Manager does not change these policies and does not get around them.",
+            PowerShellPolicyNotes.For(policies, English)!.Message);
+        Assert.Equal(
+            "Rejestrowanie modułów jest włączone (zasady komputera, moduły: ActiveDirectory): szczegóły poleceń tych modułów, które mogą obejmować ich wyniki, także dane z katalogu, są zapisywane w dzienniku zdarzeń systemu Windows. "
+            + "AD Manager nie zmienia tych zasad i ich nie omija.",
+            PowerShellPolicyNotes.For(policies, Polish)!.Message);
+    }
+
     [Fact]
     public void Several_AreOneNote_InOrder_WithOneClosingSentence_AndTheMaskOfAll()
     {

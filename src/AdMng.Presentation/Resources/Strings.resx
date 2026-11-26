@@ -25630,7 +25630,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Script block logging is on ({0}): the text of the commands you run here is written to the Windows event log (PowerShellCore/Operational).</value>
   </data>
   <data name="PowerShell.Policy.ModuleLogging" xml:space="preserve">
-    <value>Module logging is on ({0}, modules: {1}): details of the commands of these modules are written to the Windows event log.</value>
+    <value>Module logging is on ({0}, modules: {1}): details of the commands of these modules, which can include their results and so directory data, are written to the Windows event log.</value>
   </data>
   <data name="PowerShell.Policy.NoModules" xml:space="preserve">
     <value>none listed</value>
@@ -25696,7 +25696,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Trusted mode</value>
   </data>
   <data name="PowerShell.Trusted.ConfirmMessage" xml:space="preserve">
-    <value>Turn on trusted mode in the PowerShell window of {0}?&#10;&#10;In trusted mode a script can run any .NET code and change the directory directly, around the change plan: without the preview, the audit log and the rollback of AD Manager. It is a protection against mistakes, not a security boundary.&#10;&#10;The mode applies to this window only and is not remembered. Turning it off starts a new PowerShell session in the window: the variables, functions and aliases defined until then are gone.</value>
+    <value>Turn on trusted mode in the PowerShell window of {0}?&#10;&#10;In trusted mode a script can run any .NET code in the process of AD Manager: it can reach the program's memory, the window's directory session and its credentials included, and change the directory directly, around the change plan – without the preview, the session log and Undo of AD Manager. It is a protection against mistakes, not a security boundary.&#10;&#10;The mode applies to this window only and is not remembered. Turning it off starts a new PowerShell session in the window: the variables, functions and aliases defined until then are gone.</value>
   </data>
   <data name="PowerShell.Trusted.BlockedLockdown" xml:space="preserve">
     <value>A system policy (WDAC or AppLocker) enforces ConstrainedLanguage mode.</value>
@@ -25801,7 +25801,7 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
     <value>Turning the trusted mode off: starting a new PowerShell session…</value>
   </data>
   <data name="PowerShell.Status.TrustedNote" xml:space="preserve">
-    <value>Trusted mode is on: scripts in this window can run any .NET code and change the directory around the change plan, without the preview, audit and rollback of AD Manager. The switch turns it off.</value>
+    <value>Trusted mode is on: scripts in this window can run any .NET code, reach the window's directory session and its credentials, and change the directory around the change plan, without the preview, the session log and Undo of AD Manager. The switch turns it off.</value>
   </data>
   <data name="PowerShell.Status.Notes" xml:space="preserve">
     <value>Several notes apply to this window.</value>

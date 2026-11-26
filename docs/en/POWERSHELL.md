@@ -340,9 +340,10 @@ password box stops the command, as anywhere in the command line, and what you ty
 
 **The trusted mode (FullLanguage)** is a switch under the command line:
 
-- turning it **on** asks first. The question names the domain and says what the mode allows: any .NET code, and changes to the
-  directory made directly, **around the change plan** – without AD Manager's preview, audit and rollback – and that turning the
-  mode off starts a new session. Nothing in R1 stops a script from writing in this mode (the commands of R1 only read, but .NET
+- turning it **on** asks first. The question names the domain and says what the mode allows: any .NET code in the AD Manager
+  process, which can reach the window's directory session and its credentials, and changes to the directory made directly,
+  **around the change plan** – without AD Manager's preview, session log and Undo – and that turning the mode off starts a new
+  session. While the mode is on, the status line says the same. Nothing in R1 stops a script from writing in this mode (the commands of R1 only read, but .NET
   can do more): .NET code reaches anything in the AD Manager process, the window's directory session and its credentials
   included. Turning it on keeps the session and its variables (the functions defined before in ConstrainedLanguage the
   PowerShell engine itself drops);
@@ -376,8 +377,8 @@ their window in a table of the engine that a script cannot read. Each way around
 three later attempts to get around the window – is an automated test that must stay refused.
 
 The language mode and the list of commands are **a protection against mistakes, not a security boundary.** The boundary is the
-rights of the window's account in AD: the window never gives more than the account has, and a change made around the plan has no
-audit or rollback in the program (the AdMng Watchdog sees it like any other change in AD).
+rights of the window's account in AD: the window never gives more than the account has, and a change made around the plan is not
+in the program's session log and cannot be undone with Undo (the AdMng Watchdog sees it like any other change in AD).
 
 ## 8. What Group Policy logging does to the window
 

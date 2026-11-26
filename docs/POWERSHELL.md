@@ -338,9 +338,10 @@ wierszu poleceń, a to, co wpisano w pole, jest odrzucane.
 
 **Tryb zaufany (FullLanguage)** to przełącznik pod wierszem poleceń:
 
-- jego **włączenie** najpierw pyta. Pytanie wymienia domenę i mówi, na co tryb pozwala: na dowolny kod .NET i zmiany katalogu
-  wykonywane bezpośrednio, **z pominięciem planu zmian** – bez podglądu, audytu i cofania AD Managera, a także że wyłączenie
-  trybu uruchamia nową sesję. Nic w R1 nie powstrzymuje skryptu przed zapisem w tym trybie (polecenia R1 tylko czytają, ale .NET
+- jego **włączenie** najpierw pyta. Pytanie wymienia domenę i mówi, na co tryb pozwala: na dowolny kod .NET w procesie AD
+  Managera, który może sięgnąć do sesji katalogu okna i jej poświadczeń, i zmiany katalogu wykonywane bezpośrednio, **z
+  pominięciem planu zmian** – bez podglądu, dziennika sesji i cofania zmian AD Managera, a także że wyłączenie trybu uruchamia
+  nową sesję. Dopóki tryb jest włączony, mówi to samo wiersz stanu. Nic w R1 nie powstrzymuje skryptu przed zapisem w tym trybie (polecenia R1 tylko czytają, ale .NET
   potrafi więcej): kod .NET sięga do wszystkiego w procesie AD Managera, także do sesji katalogu okna i jej poświadczeń.
   Włączenie zachowuje sesję i jej zmienne (funkcje zdefiniowane wcześniej w ConstrainedLanguage silnik PowerShella sam usuwa);
 - nie dodaje poleceń: lista wyżej jest ta sama. Zadanie, które kod .NET umieści w sesji (własne `ForEach-Object -Parallel
@@ -373,8 +374,8 @@ w tablicy silnika, której skrypt nie odczyta. Każdy znaleziony dotąd sposób 
 próby obejścia okna – jest testem automatycznym, który musi pozostać odrzucony.
 
 Tryb języka i lista poleceń to **zabezpieczenie przed pomyłką, a nie granica bezpieczeństwa.** Granicą są uprawnienia konta okna
-w AD: okno nigdy nie daje więcej, niż konto ma, a zmiana wykonana z pominięciem planu nie ma w programie audytu ani cofnięcia
-(AdMng Watchdog widzi ją jak każdą inną zmianę w AD).
+w AD: okno nigdy nie daje więcej, niż konto ma, a zmiany wykonanej z pominięciem planu nie ma w dzienniku sesji programu i nie
+można jej cofnąć (*Cofnij*) – AdMng Watchdog widzi ją jak każdą inną zmianę w AD.
 
 ## 8. Co robi z oknem rejestrowanie z zasad grupy
 
