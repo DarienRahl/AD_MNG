@@ -266,11 +266,59 @@ public sealed class RemoteComputerStatusTests
         var state = window.Status.Current;
         Assert.Equal(PageStatusKind.Error, state.Kind);
         Assert.StartsWith("PREST-PC201 has no DNS host name in Active Directory", state.Message, StringComparison.Ordinal);
+        Assert.Equal("Computers.NoDnsName", state.Log.ToString());
+        Assert.Equal(state.Message, window.Error);
         Assert.False(state.CanClose);
         Assert.Null(state.Action);
         Assert.Same(window.Status.Lasting, state);
         Assert.Empty(scenario.Harness.Dialogs.Errors);
         Assert.False(window.RefreshStatusCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task AnObjectThatIsNotAComputer_IsSaidAsSuch_NotAsAMissingDnsName()
+    {
+        var scenario = await ComputerScenario.CreateAsync();
+        using var window = scenario.Factory.CreateRemote(scenario.Company.JanKowalski);
+        await window.InitializeAsync();
+
+        var state = window.Status.Current;
+        Assert.Equal((PageStatusKind.Error, "The object is not a computer (any more)."), (state.Kind, state.Message));
+        Assert.Equal("Computers.NotAComputer", state.Log.ToString());
+        Assert.Equal(state.Message, window.Error);
+        Assert.False(state.CanClose);
+        Assert.False(window.RefreshStatusCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task AComputerThatCouldNotBeRead_IsTheStateOfTheWindow_WithWhatWasTriedWhyAndTheCode()
+    {
+        var scenario = await ComputerScenario.CreateAsync();
+        var dn = scenario.Sample.Pro24H2;
+        scenario.Harness.Session.FailNext(FakeOperationKind.Get, dn, Core.Directory.DirectoryErrorKind.ServerUnavailable);
+        using var window = scenario.Factory.CreateRemote(dn);
+        var logs = LogsOf(window.Status);
+        await window.InitializeAsync();
+
+        // Not "no DNS name": the directory could not be read, and the line says so with the reason and the code - in its
+        // log copy the key and the code, never the computer.
+        var state = window.Status.Current;
+        Assert.Equal(PageStatusKind.Error, state.Kind);
+        Assert.Equal("Could not read the computer “KRK-PC101”: The domain controller is not available. (LDAP 52)", state.Message);
+        Assert.Equal("Computers.TargetReadFailed [LDAP 52]", state.Log.ToString());
+        Assert.Equal(state.Message, window.Error);
+        Assert.False(state.CanClose);
+        Assert.Same(window.Status.Lasting, state);
+        Assert.Empty(scenario.Harness.Dialogs.Errors);
+        Assert.False(window.RefreshStatusCommand.CanExecute(null));
+        Assert.DoesNotContain(logs, log => log.Contains("krk", StringComparison.OrdinalIgnoreCase));
+
+        // The same in Polish.
+        scenario.Harness.Session.FailNext(FakeOperationKind.Get, dn, Core.Directory.DirectoryErrorKind.ServerUnavailable);
+        scenario.Harness.Localizer.SetCulture(CultureInfo.GetCultureInfo("pl-PL"));
+        using var polish = scenario.Factory.CreateRemote(dn);
+        await polish.InitializeAsync();
+        Assert.Equal("Nie udało się odczytać komputera „KRK-PC101”: Kontroler domeny jest niedostępny. (LDAP 52)", polish.Status.Current.Message);
     }
 
     [Fact]
@@ -283,6 +331,8 @@ public sealed class RemoteComputerStatusTests
 
         var state = window.Status.Current;
         Assert.Equal((PageStatusKind.Error, window.Error), (state.Kind, state.Message));
+        Assert.Equal("This action is available only in AD Manager on Windows.", state.Message);
+        Assert.Equal("Computers.ToolsNotAvailable", state.Log.ToString());
         Assert.False(state.CanClose);
         Assert.False(window.RefreshStatusCommand.CanExecute(null));
         Assert.True(window.RemoteDesktopCommand.CanExecute(null));

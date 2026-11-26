@@ -40,6 +40,9 @@ public static partial class L
         public const string AclRightOther = "Computers.Acl.Right.Other";
         public const string NotAComputer = "Computers.NotAComputer";
         public const string NoDnsName = "Computers.NoDnsName";
+
+        /// <summary>What was tried, without a full stop; {0} = the name of the computer. Also the log key of that failure.</summary>
+        public const string TargetReadFailed = "Computers.TargetReadFailed";
         public const string ToolsNotAvailable = "Computers.ToolsNotAvailable";
         public const string ToolCredentialConfirm = "Computers.ToolCredentialConfirm";
         public const string Ping = "Computers.Ping";

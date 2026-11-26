@@ -137,7 +137,9 @@ Akcje działają jak dla innych obiektów, z dodatkowymi regułami dla komputer�
 komputera i jego nazwę DNS, a w wierszu stanu pod nim sposób połączenia, np. *Połączenie: WinRM (HTTP 5985, Kerberos) jako
 CONTOSO\admin*. Ten sam wiersz mówi, która akcja trwa (z *Zatrzymaj*; przycisk akcji jest jej przyciskiem *Anuluj*) i jak
 się skończyła: odczyt zostawia wynik w karcie lub na liście, akcja mówi, co zrobiono, a zatrzymana akcja mówi, że nie
-wiadomo, czy komputer otrzymał żądanie.
+wiadomo, czy komputer otrzymał żądanie. Gdy okno nie może działać wcale, ten sam wiersz mówi dlaczego: obiekt nie jest
+(już) komputerem, komputer nie ma nazwy DNS, komputera nie udało się odczytać z katalogu (z powodem i kodem, np. *Nie
+udało się odczytać komputera „KRK-PC101”: Odmowa dostępu. (LDAP 50)*) albo zdalne akcje nie są dostępne w tym programie.
 
 | Akcja | Co robi |
 |---|---|

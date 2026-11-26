@@ -3971,7 +3971,11 @@ what each unit left behind on purpose), and what nobody has seen on a screen yet
     known whether the computer received the request." without an action; **failed** - an error "Could not read the services
     of KRK-PC101: The computer does not answer. Check … (Unreachable)" with Retry for a read and without it for an action.
     **What lasts:** the session of the window ended, no session, the computer has no DNS name ("PREST-PC201 has no DNS host
-    name in Active Directory…"), remote actions are not available in this host.
+    name in Active Directory…"), remote actions are not available in this host. *Corrected in 0.16.1 (audit BCER-6):* the
+    window logged `Computers.NoDnsName` for every one of these and set `Error` to the no-DNS-name sentence whatever the
+    problem was; `FindTargetAsync` now returns a `TargetProblem` (the sentence, its log key and the code of a failed read),
+    so the line and its log copy name the real problem - also "The object is not a computer (any more)." and "Could not
+    read the computer “KRK-PC101”: Access is denied. (LDAP 50)" (`Computers.TargetReadFailed [LDAP 50]`).
   - *How the old places were sorted* (1 error bar, 1 warning bar, 1 progress bar).
 
     | Old place | Kind | Now |

@@ -7632,6 +7632,9 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="Computers.NoDnsName" xml:space="preserve">
     <value>{0} nie ma w Active Directory nazwy hosta DNS, a zdalne akcje i narzędzia jej wymagają (Kerberos nie działa z adresami IP).</value>
   </data>
+  <data name="Computers.TargetReadFailed" xml:space="preserve">
+    <value>Nie udało się odczytać komputera „{0}”</value>
+  </data>
   <data name="Computers.ToolsNotAvailable" xml:space="preserve">
     <value>Ta akcja jest dostępna tylko w AD Manager w systemie Windows.</value>
   </data>

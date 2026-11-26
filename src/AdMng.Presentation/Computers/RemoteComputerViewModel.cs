@@ -38,7 +38,8 @@ public sealed record RemoteServiceRow(string Name, string DisplayName, string St
 /// the refresh of Group Policy, a restart, its cancellation - as an operation with Stop, and how it ended: a read ends without
 /// a message (the card or the list is the result), an action as done, a stopped one as an attention that says it is not known
 /// whether the computer got the request, a failed one as an error with what to do. What lasts: the session of the window
-/// ended, the computer has no DNS name, remote actions are not available. The action log of the window (a history of its own,
+/// ended, why there is no computer to act on (<see cref="TargetProblem"/>: not a computer, no DNS name, the directory read
+/// failed), remote actions are not available. The action log of the window (a history of its own,
 /// in memory) is unchanged. The six buttons that start an action are the Cancel of the one they started.
 /// </remarks>
 public sealed partial class RemoteComputerViewModel : WindowViewModelBase, IHasPageStatus
@@ -52,9 +53,12 @@ public sealed partial class RemoteComputerViewModel : WindowViewModelBase, IHasP
     private readonly SerialCancellation _calls = new();
     private readonly CancellationTokenSource _closed = new();
 
-    /// <summary>Which action runs (the flags of the six buttons follow it) and why the window cannot act at all.</summary>
+    /// <summary>
+    /// Which action runs (the flags of the six buttons follow it) and why the window cannot act at all - the sentence, its
+    /// log key and the code of a failed read together, so the log copy says what the line said.
+    /// </summary>
     private RemoteAction _active;
-    private string? _unavailable;
+    private TargetProblem? _unavailable;
 
     public RemoteComputerViewModel(
         DialogServices services,
@@ -189,8 +193,8 @@ public sealed partial class RemoteComputerViewModel : WindowViewModelBase, IHasP
         Target = target;
         if (Target is null)
         {
-            Error = Localizer.Format(L.Computers.NoDnsName, Name);
-            _unavailable = problem ?? Error;
+            _unavailable = problem!;
+            Error = _unavailable.Text;
             UpdateLasting();
             NotifyCommands();
             return;
@@ -207,8 +211,8 @@ public sealed partial class RemoteComputerViewModel : WindowViewModelBase, IHasP
             session.Info.BoundIdentity);
         if (_remote is null)
         {
-            Error = Localizer[L.Computers.ToolsNotAvailable];
-            _unavailable = Error;
+            _unavailable = TargetProblem.Of(Localizer[L.Computers.ToolsNotAvailable], L.Computers.ToolsNotAvailable);
+            Error = _unavailable.Text;
             UpdateLasting();
         }
 
@@ -532,7 +536,7 @@ public sealed partial class RemoteComputerViewModel : WindowViewModelBase, IHasP
         SessionEndedStatus
         ?? (Session is null
             ? PageStatus.Error(NoSessionMessage, new PageStatusLog(L.Errors.NotConnected), canClose: false)
-            : _unavailable is { } reason ? PageStatus.Error(reason, new PageStatusLog(L.Computers.NoDnsName), canClose: false) : null));
+            : _unavailable is { } problem ? PageStatus.Error(problem.Text, problem.Log, canClose: false) : null));
 
     partial void OnConnectionTextChanged(string value) => Status.SetIdle(value);
 

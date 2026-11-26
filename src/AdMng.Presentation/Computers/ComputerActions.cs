@@ -51,6 +51,30 @@ public interface IComputerDialogs
 /// <param name="Code">The kind of the failure, when the remote action failed.</param>
 public sealed record PingAttempt(PingResult? Result, string? Problem, Feedback.ResultCode Code = default);
 
+/// <summary>
+/// Why there is no computer to act on (<see cref="ComputerActions.FindTargetAsync"/>), as one record: what the operator
+/// reads, the key of its value-free copy in the diagnostic log and the result code of a directory read that failed - so
+/// that a window keeps all three together and a problem report says what the operator saw.
+/// </summary>
+/// <param name="Text">
+/// The problem as a sentence of its own: "Could not read the computer “KRK-PC101”: Access is denied. (LDAP 50)", "The object
+/// is not a computer (any more).", "PREST-PC201 has no DNS host name…", "This action is available only…".
+/// </param>
+/// <param name="Reason">
+/// Why, without what was tried - for a caller that says what it tried in front of it ("Could not ping KRK-PC101: …"). The
+/// same as <paramref name="Text"/> except for a failed read.
+/// </param>
+/// <param name="LogKey">The resource key of the log copy (a constant of <c>L.Computers</c>): never a name or a host.</param>
+/// <param name="Code">The result code of a read that failed; none for the other problems.</param>
+public sealed record TargetProblem(string Text, string Reason, string LogKey, Feedback.ResultCode Code = default)
+{
+    /// <summary>A problem that is one sentence and has no code (not a computer, no DNS name, no remote client).</summary>
+    public static TargetProblem Of(string text, string logKey) => new(text, text, logKey);
+
+    /// <summary>The copy for the diagnostic log: the key and the code.</summary>
+    public Feedback.PageStatusLog Log => new Feedback.PageStatusLog(LogKey).WithCode(Code);
+}
+
 /// <summary>What the restart dialog returns.</summary>
 /// <param name="Delay">Delay before the restart.</param>
 /// <param name="Message">The message shown to the logged-on users (verbatim).</param>
@@ -127,17 +151,18 @@ public sealed class ComputerActions(
         var (target, problem) = await FindTargetAsync(session, distinguishedName, cancellationToken).ConfigureAwait(true);
         if (target is null)
         {
-            await _services.Dialogs.ShowErrorAsync(title, problem!).ConfigureAwait(true);
+            await _services.Dialogs.ShowErrorAsync(title, problem!.Reason).ConfigureAwait(true);
         }
 
         return target;
     }
 
     /// <summary>
-    /// The remote target of a computer DN, or why there is none (a sentence) - for a window that says it in its own status
-    /// line and opens no dialog.
+    /// The remote target of a computer DN, or why there is none (<see cref="TargetProblem"/>: the sentence, its log key and
+    /// the code of a failed read; never null when there is no target) - for a window that says it in its own status line
+    /// and opens no dialog.
     /// </summary>
-    public async Task<(RemoteTarget? Target, string? Problem)> FindTargetAsync(IDirectorySession session, string distinguishedName, CancellationToken cancellationToken = default)
+    public async Task<(RemoteTarget? Target, TargetProblem? Problem)> FindTargetAsync(IDirectorySession session, string distinguishedName, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(session);
         DirectoryObject? computer;
@@ -147,18 +172,22 @@ public sealed class ComputerActions(
         }
         catch (Exception ex) when (ex is DirectoryException or InvalidOperationException or ObjectDisposedException)
         {
-            return (null, _services.Errors.Translate(ex));
+            var reason = _services.Errors.Translate(ex);
+            var code = Feedback.ResultCode.Of(ex);
+            var name = Core.Ldap.DistinguishedName.TryParse(distinguishedName, out var dn) && !dn.IsRoot ? dn.Name : distinguishedName;
+            return (null, new TargetProblem(
+                Feedback.PageStatusText.Failure(Localizer.Format(L.Computers.TargetReadFailed, name), reason, null, code), reason, L.Computers.TargetReadFailed, code));
         }
 
         if (computer is null || computer.Kind != ObjectKind.Computer)
         {
-            return (null, Localizer[L.Computers.NotAComputer]);
+            return (null, TargetProblem.Of(Localizer[L.Computers.NotAComputer], L.Computers.NotAComputer));
         }
 
         var facts = ComputerFacts.From(computer);
         return HostNames.IsValid(facts.DnsHostName)
             ? (new RemoteTarget(facts.DistinguishedName, facts.Name, facts.DnsHostName!, facts.Type), null)
-            : (null, Localizer.Format(L.Computers.NoDnsName, facts.Name));
+            : (null, TargetProblem.Of(Localizer.Format(L.Computers.NoDnsName, facts.Name), L.Computers.NoDnsName));
     }
 
     /// <summary>Runs <paramref name="action"/> for the computers (tools and ping for the first one only).</summary>
@@ -238,7 +267,7 @@ public sealed class ComputerActions(
         var (target, problem) = await FindTargetAsync(session, distinguishedName, cancellationToken).ConfigureAwait(true);
         if (target is null)
         {
-            return new PingAttempt(null, problem);
+            return new PingAttempt(null, problem!.Reason, problem.Code);
         }
 
         try

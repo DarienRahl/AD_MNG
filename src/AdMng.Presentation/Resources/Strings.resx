@@ -7632,6 +7632,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Computers.NoDnsName" xml:space="preserve">
     <value>{0} has no DNS host name in Active Directory: remote actions and tools need it (Kerberos does not work with IP addresses).</value>
   </data>
+  <data name="Computers.TargetReadFailed" xml:space="preserve">
+    <value>Could not read the computer “{0}”</value>
+  </data>
   <data name="Computers.ToolsNotAvailable" xml:space="preserve">
     <value>This action is available only in AD Manager on Windows.</value>
   </data>

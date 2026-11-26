@@ -35,6 +35,12 @@
   odpowiedział, tylko odmówił. Teraz wiersz stanu podaje każdy z nich z powodem, np. „Nie udało się odczytać z:
   dc02.contoso.test (Upłynął limit czasu operacji); dc03.contoso.test (Odmowa dostępu).”, więc widać, czy kontroler jest
   niedostępny, czy brakuje uprawnień. Dziennik diagnostyczny nadal zapisuje tylko liczby, bez nazw kontrolerów.
+- **Okno *Zdalne akcje* nazywa właściwą przyczynę, gdy nie może działać.** Gdy komputera nie udało się odczytać z
+  katalogu, wiersz stanu okna podawał sam powód („Kontroler domeny jest niedostępny.”); teraz mówi też, czego nie udało
+  się zrobić, i podaje kod: *Nie udało się odczytać komputera „KRK-PC101”: Kontroler domeny jest niedostępny. (LDAP
+  52)*. Kopia komunikatu w dzienniku diagnostycznym mówiła przy każdej przyczynie, że komputer nie ma nazwy DNS; teraz
+  zapisuje właściwą: obiekt nie jest komputerem, brak nazwy DNS, nieudany odczyt (z kodem) albo brak zdalnych akcji w tym
+  programie. *Ping* w *Przeglądzie komputerów*, gdy nie udało się odczytać komputera, też podaje teraz kod błędu.
 
 ## AdMng Watchdog {{VERSION}}
 
