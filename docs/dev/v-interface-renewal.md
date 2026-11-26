@@ -1796,8 +1796,8 @@ above.
     long as the tab shows what that check left. **The exact last logon** (*Account state* tab): "Reading the exact last
     logon of the accounts (12) on all domain controllers…" with Stop; done "The exact last logon was read on 3 of 3
     domain controllers. Accounts that are active after all: 2."; attention when a controller could not be read ("… Could
-    not read from: dc02.contoso.test (Access is denied)."); stopped – attention "…: the list was not changed." with the button's own text as
-    the action; failed – error with Retry. As the state that lasts: the session of the window ended.
+    not read from: dc02.contoso.test (Access is denied)."); stopped – attention "…: the list was not changed." with the
+    button's own text as the action; failed – error with Retry. As the state that lasts: the session of the window ended.
   - *How the old places were sorted* (2 error bars, 2 warning bars, 3 progress bars, and the texts, the toast and the
     dialog that said the same).
 
@@ -1989,18 +1989,19 @@ above.
   string lost its last user in that unit. Added by V2b-4, unit 1: the strings `BulkCreate.Reading`, `BulkCheck.Computing` and
   `BulkCheck.StaleNote` have no user any more; no longer shown but read by tests or by the view models themselves - `Error` of
   the source and of the check step of the bulk creation wizard, `ProfileStatus`, `OptionsError`, `ComputedRows` and
-  `TotalRows`; `StopCommand` of the check step has no view (*removed in 0.16.1, audit BCER-5*). Added by V2b-4, unit 2: the strings `Readiness.Stale`,
-  `EvtLog.Cancelled`, `EvtLog.StatusReading`, `EvtLog.LoadingChannels`, `EvtFail.StageFailures`, `EvtFail.StageSuccesses`,
-  `EvtFail.StageAnalysis` and `EvtLock.StageAccount`, `.StageDomainControllers`, `.StageLogs` and `.StageAnalysis` have no
-  user any more (the stages are `EventLogsStatus.*` now); no longer shown but read by tests or by the view models
-  themselves - `ProgressText` and `ProgressValue` of readiness, `LastRunText`, `WasCancelled` and `IsStale` of readiness
-  (the state of the line is computed from them), `Error`, `StatusText`, `SelectionText`, `IsReading`, `AsOf` and
-  `StopCommand` of the computer review, `ConnectionText`, `Error` and `StopCommand` of the remote window,
-  `LoadedText`, `ProgressText`, `StatusText`, `IsSupported`, `NotSupportedText` and `Error` of the event log documents;
-  `Cancel()` and `CancelCommand` of the documents and of readiness are the Stop of the line. *Removed in 0.16.1 (audit
-  BCER-5):* `StopCommand` of the review and of the remote window and `Cancel()` / `CancelCommand` of the event log documents
-  and of readiness - no view bound them, and part of the Stop coverage was of buttons that did not exist; the tests press
-  `Status.CancelCommand`. Added by V2b-4, unit 3: the strings `Pki.ReadProgress`, `PkiEsc.StageSnapshot`, `PkiEsc.StageAccounts`,
+  `TotalRows`; `StopCommand` of the check step has no view (*removed in 0.16.1, audit BCER-5*). Added by V2b-4, unit 2:
+  the strings `Readiness.Stale`, `EvtLog.Cancelled`, `EvtLog.StatusReading`, `EvtLog.LoadingChannels`,
+  `EvtFail.StageFailures`, `EvtFail.StageSuccesses`, `EvtFail.StageAnalysis` and `EvtLock.StageAccount`,
+  `.StageDomainControllers`, `.StageLogs` and `.StageAnalysis` have no user any more (the stages are `EventLogsStatus.*`
+  now); no longer shown but read by tests or by the view models themselves - `ProgressText` and `ProgressValue` of
+  readiness, `LastRunText`, `WasCancelled` and `IsStale` of readiness (the state of the line is computed from them),
+  `Error`, `StatusText`, `SelectionText`, `IsReading`, `AsOf` and `StopCommand` of the computer review, `ConnectionText`,
+  `Error` and `StopCommand` of the remote window, `LoadedText`, `ProgressText`, `StatusText`, `IsSupported`,
+  `NotSupportedText` and `Error` of the event log documents; `Cancel()` and `CancelCommand` of the documents and of
+  readiness are the Stop of the line. *Removed in 0.16.1 (audit BCER-5):* `StopCommand` of the review and of the remote
+  window and `Cancel()` / `CancelCommand` of the event log documents and of readiness - no view bound them, and part of
+  the Stop coverage was of buttons that did not exist; the tests press `Status.CancelCommand`. Added by V2b-4, unit 3: the
+  strings `Pki.ReadProgress`, `PkiEsc.StageSnapshot`, `PkiEsc.StageAccounts`,
   `PkiEsc.StageAccessControl`, `PkiEsc.StagePrincipals`, `PkiEsc.StageAnalysis`, `PkiReady.StageSnapshot`,
   `PkiReady.StageDomainControllers`, `PkiReady.StageAccounts` and `PkiReady.StageLdaps` have no user any more (the stages are
   `PkiDoc.Status.Stage*` now); no longer shown but read by tests or by the view models themselves - `ProgressText`, `StatusText`,
@@ -3864,11 +3865,14 @@ what each unit left behind on purpose), and what nobody has seen on a screen yet
       and the arrival of the global-catalog session all begin it on the page's holder, a newer one replaces the running one
       without a word, and Stop - the line's and the button's, the same Stop - says "Stopping…" and ends as
       the state of the page. *Corrected in 0.16.1 (audit BCER-5, owner's answer 10):* `StopCommand`, which no view bound,
-      is gone; what only it did - drop a recompute that an edit asked for and that still waits for its 300 ms - the Stop of
-      the line does now (`OnStatusChanged` on `IsCancelling`), so a Stop is not followed by a check that starts again. Both buttons are action buttons with one holder, so each has its own flag: *Sprawdź ponownie*
-      is the Cancel of every check except the one *Numeruj od nowa* started (`CheckRunKind`), as *Refresh* of the Recycle
-      Bin is the Cancel of the read whoever started it. The planner reports at the start, every 250 rows and at the end:
-      "Checking the rows: 0 of 120…" and "120 of 120…" are what a small sheet shows.
+      is gone; what only it did - drop a recompute that an edit or an exclusion asked for and that still waits for its
+      300 ms - the Stop of the line does now (`OnStatusChanged` on `IsCancelling`), so a Stop is not followed by a check
+      that starts again. The line offers that Stop only while the check the edit replaced has not yet noticed that it was
+      cancelled (a long planner pass, a call to the domain controller), so this is a rare case. Both buttons are action
+      buttons with one holder, so each has its own flag: *Sprawdź ponownie* is the Cancel of every check except the one
+      *Numeruj od nowa* started (`CheckRunKind`), as *Refresh* of the Recycle Bin is the Cancel of the read whoever started
+      it. The planner reports at the start, every 250 rows and at the end: "Checking the rows: 0 of 120…" and "120 of 120…"
+      are what a small sheet shows.
     - **Stopped, failed and out of date are states, not results.** The grid then stands without an explanation of its
       own - empty after a first check that was stopped, older after a recompute - and the sentence is true until the next
       check applies. They are computed from the facts in one method (`UpdateLasting`: the failure, the stop, `IsStale`),
@@ -3962,12 +3966,10 @@ what each unit left behind on purpose), and what nobody has seen on a screen yet
       `ResolveTargetAsync` is built on it and behaves as before.
     - **The silent refresh after a change keeps its toast** on failure: it never said "working", it re-reads the rows that a
       change touched and finished elsewhere (6.7), as in the account review.
-    - `Error`, `StatusText`, `SelectionText`, `IsRunning`, `IsReading` and `IsBusy` are unchanged for the tests
-      and the code that read them (`StopCommand` was the same Stop as the line's; *removed in 0.16.1, audit BCER-5: no
-      view bound it; the tests press `Status.CancelCommand`*. The line's Stop reaches
-      the check and both reads through the linked token, so the extra cancels of `_runs` / `_reads` had nothing left to
-      do). The window is 36 px higher by default (860
-      to 896).
+    - `Error`, `StatusText`, `SelectionText`, `IsRunning`, `IsReading` and `IsBusy` are unchanged for the tests and the code
+      that read them (`StopCommand` was the same Stop as the line's; *removed in 0.16.1, audit BCER-5:* no view bound it, the
+      tests press `Status.CancelCommand`, and the line's Stop reaches the check and both reads through the linked token, so
+      the extra cancels of `_runs` / `_reads` had nothing left to do). The window is 36 px higher by default (860 to 896).
 - **The remote actions window and the restart dialog** (`Computers/RemoteComputerWindow.xaml`, `RestartComputerWindow.xaml`;
   `RemoteComputerViewModel`, `RestartComputerViewModel`).
   - *What the line says.* Under the header (the computer and its DNS name), above the actions. **At rest** the connection:
@@ -4453,13 +4455,14 @@ what each unit left behind on purpose), and what nobody has seen on a screen yet
     profiles, the account that can join computers - not found, a failing read, closed by the next pick -, the sentence
     back when the step is shown again), `BulkCheckStatusTests` (11: the part done from the first row with its fractions in
     both languages, no cell in a log copy, Stop with a read held on its way to the domain controller - "Stopping…" at once,
-    the stopped state and its action -, `StopCommand` as the same Stop, the two buttons' flags and their Cancel, a failed
-    check with Retry, incomplete input, the stale state in both languages and its action, an edit that replaces a running
-    check without a word, the end of the session during a check - straight to the end, nothing from the call that returns
-    later -, closing the window), `BulkCreateStatusTests` (5: the chain window → wizard → page through the steps, the
-    preview and *Back*, closing, the wizard's own holder empty, and the creation as the execution of the window - the canary
-    and the rest add up from "0 z 5" to "5 z 5" and the result names the domain). `BulkCreateBatchEditorTests`, `BulkCheckTests`,
-    `BulkSourceTests`, `BulkRulesTests` and `BulkCreateProfileTests` are unchanged. UI (Windows CI, written without a screen):
+    the stopped state and its action -, `StopCommand` as the same Stop (*in 0.16.1, audit BCER-5:* the line's Stop that also
+    drops a waiting recompute), the two buttons' flags and their Cancel, a failed check with Retry, incomplete input, the
+    stale state in both languages and its action, an edit that replaces a running check without a word, the end of the
+    session during a check - straight to the end, nothing from the call that returns later -, closing the window),
+    `BulkCreateStatusTests` (5: the chain window → wizard → page through the steps, the preview and *Back*, closing, the
+    wizard's own holder empty, and the creation as the execution of the window - the canary and the rest add up from "0 z 5"
+    to "5 z 5" and the result names the domain). `BulkCreateBatchEditorTests`, `BulkCheckTests`, `BulkSourceTests`,
+    `BulkRulesTests` and `BulkCreateProfileTests` are unchanged. UI (Windows CI, written without a screen):
     `BulkCreateStatusUiTests` (5: one line in the whole window and the summary in it, the notes of the table, the answer to a
     profile command and the note of the rules - with `GrowthOf` -, the check in the line with Stop and the button as its
     Cancel - the grid moves by as much as the line grew -, the notes of the check and of the results). Adapted where the
@@ -4487,7 +4490,9 @@ what each unit left behind on purpose), and what nobody has seen on a screen yet
     ping, an action that ends as done and a stopped one that says it is not known whether the computer got the request, a read
     that fails with Retry and an action that fails without one, Polish, no DNS name, no remote client, the end of the session,
     closing the window, the language switch) and `ComputerActionsTests` (+1: `FindTargetAsync` says why there is no target with
-    no dialog, `TryPingAsync` hands back the outcome with no toast). UI (Windows CI, written without a screen, 15):
+    no dialog, `TryPingAsync` hands back the outcome with no toast). *In 0.16.1 (audit BCER-5)* the tests of `CancelCommand`
+    and `StopCommand` as the same Stop went with the commands (the remote window's became a Stop during the ping); the
+    others press `Status.CancelCommand`. UI (Windows CI, written without a screen, 15):
     `ReadinessStatusUiTests` (3: one line under the header with the summary and the notes as a note, the area of a full
     check in the line with the button as its Cancel and the stopped state with *Check again*, the end of the connection),
     `EventLogStatusUiTests` (5: one line under the header of every document with its run button as an action button, a run
@@ -4619,8 +4624,8 @@ what each unit left behind on purpose), and what nobody has seen on a screen yet
     thirteen converted views none. Left behind on purpose (added to *After V2b-1*): the strings `BulkCreate.Reading`,
     `BulkCheck.Computing` and `BulkCheck.StaleNote`, which have no user any more; no longer shown but read by tests or by the
     view models themselves - `Error` of the source and of the check, `ProfileStatus`, `OptionsError`, `ComputedRows` and
-    `TotalRows`, and `StopCommand` of the check, which has no view. The three views that were notes already (`MappingError`,
-    the scope of the check, the first free number) were not renamed.
+    `TotalRows`, and `StopCommand` of the check, which has no view (*removed in 0.16.1, audit BCER-5*). The three views that
+    were notes already (`MappingError`, the scope of the check, the first free number) were not renamed.
   - *Unit 2, at the end of that unit* (counted in the XAML, comments excluded): **5 uses of `Ad.ErrorBar` and 7 of `Ad.WarningBar` in
     14 view files, 15 progress bars in 15 view files** (one is the row of an activity in the main window, which stays).
     By area: `Views/Watchdog/` 2 + 4 and 7 in 9 files; `Pki/` 2 + 2 and 4 in 4 files; `Correspondence/` 1 + 1 and 3 in 1 file -
@@ -4638,7 +4643,9 @@ what each unit left behind on purpose), and what nobody has seen on a screen yet
     stage), `WasCancelled` and `IsStale` of readiness (the state is computed from them), `Error`, `StatusText`, `SelectionText`,
     `IsReading`, `AsOf` and `StopCommand` of the review, `ConnectionText` and `Error` of the remote window, `LoadedText`,
     `IsSupported` and `NotSupportedText` of the event log documents (the last is the sentence of the line). No command lost
-    its last user: `Cancel()` and `CancelCommand` of the documents are the same Stop as the line's.
+    its last user: `Cancel()` and `CancelCommand` of the documents are the same Stop as the line's. *Corrected in 0.16.1
+    (audit BCER-5):* no view bound them - `StopCommand` of the review and of the remote window and `Cancel()` /
+    `CancelCommand` of the event log documents and of readiness are removed, and the tests press `Status.CancelCommand`.
   - *Unit 3, at the end of that unit* (counted in the XAML, comments excluded): **3 uses of `Ad.ErrorBar` and 5 of `Ad.WarningBar` in 6 view
     files, 11 progress bars in 9 view files** (one is the row of an activity in the main window, which stays); **43 views have a
     status line and 14 converted views none.** By area: `Views/Watchdog/` 2 + 4 and 7 in 9 files and `Correspondence/` 1 + 1 and 3
@@ -4891,6 +4898,10 @@ the developer page (item 8), the checks, and what nobody has seen on a screen.
     review, `StopCommand` of the check step, the computer review, the remote window, the send page, the Recycle Bin and the account review
     (the tests and the window's `Closing` handler call them), `CancelSendCommand` of the message window (three test sites), `TestCancelCommand`
     of the two editors, `ConnectCancelCommand`, and `PreviewCancelCommand` and `CancelExecutionCommand` of the batch editor.
+    *Removed in 0.16.1 (audit BCER-5):* `Cancel()` and `CancelCommand` of the event log documents and of readiness, and
+    `StopCommand` of the check step, the computer review and the remote window - no view bound them and no `Closing` handler
+    called them; the tests press `Status.CancelCommand`, and the Stop of the check's line now also drops a recompute that
+    still waits for its delay. Of the documents, the Group Policy documents keep `Cancel()` and `CancelCommand`.
 - **The developer page (item 8).** `docs/dev/v2-status-controls.md`, listed in `docs/dev/README.md`: what each piece is for, the sorting of
   a message, the recipe for a view model and a view, the tests to copy and the Windows lessons, the two source-rule lists, what is settled
   and what is the owner's. The header comment of `Themes/Controls.xaml` points at it. `tools/docs/check_docs.py` passes (every

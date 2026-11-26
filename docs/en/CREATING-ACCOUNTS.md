@@ -432,9 +432,9 @@ into *Cancel* of that check for the time. It reads the directory through the win
 numbers, managers, groups, possibly existing accounts, the domain's password policy, permissions on the container – and
 writes nothing. A check that was stopped leaves a note in the status line: *Checking the rows was stopped: the results may
 not match the data and your changes. Press "Check again" to check again.* *Stop* also drops a recompute that a corrected
-cell or a cleared row is still waiting for, so the check does not start again by itself a moment later; the preview
-computes the rows again anyway, with that change. The same note appears when the data, the rules
-or the created accounts changed since the check; a check that failed gives the reason and has the *Retry* command.
+cell, or a row whose *Create* box was cleared, is still waiting for, so the check does not start again by itself a moment
+later; the preview computes the rows again anyway, with that change. The same note appears when the data, the rules or
+the created accounts changed since the check; a check that failed gives the reason and has the *Retry* command.
 
 **Table.** Columns: *Create* (a check box), *Status*, *Row* (the row of the sheet), the given name and surname (for
 groups and computers – the name) pinned on the left, *Notes*, then the computed attributes (`cn`, logon name, UPN,
