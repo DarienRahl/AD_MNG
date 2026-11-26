@@ -12,7 +12,10 @@ namespace AdMng.Directory.IntegrationTests.Unit;
 /// dotnet/runtime#35189) - on Linux glibc aborts the process. The requests here never reach a server: the sender is a fake
 /// whose requests end when the test says so, and each connection records whether a request of it still ran when it was
 /// disposed. <c>CloseWhileRequestRunsTests</c> shows the same against the lab. Audit finding LDAP-MARKBROKEN-WINDOW: a request
-/// never goes out on a connection that has just been dropped under another request (it moves to another connection).
+/// that reaches the pool's lock after another request marked its connection broken is not sent there and moves to another
+/// connection, even when it had already passed the gate and the "dropped" check; one the lock admitted just before the mark
+/// still goes out on that connection and learns of the failure from its own request. A paged search still tries its own
+/// connection, where its result set lives.
 /// </summary>
 public sealed class PoolCloseTests
 {

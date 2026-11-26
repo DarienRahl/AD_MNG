@@ -23,10 +23,12 @@
   zerwane albo przestało odpowiadać pod innym żądaniem, żądanie, które w tej samej chwili miało nim wyjść, mogło jeszcze
   zostać nim wysłane i skończyć się błędem: od razu – przy zapisie, którego program nie powtarza, gdy ten mógł dotrzeć do
   serwera – albo dopiero po upływie limitu czasu żądania. Teraz pojedyncza operacja – zapis albo odczyt jednego obiektu –
-  nie wychodzi zerwanym połączeniem, tylko innym połączeniem z tym samym kontrolerem domeny. Wyszukiwanie (np. w oknie
-  wyszukiwania) działa jak dotąd: zostaje przy połączeniu, które dostało na początku, bo serwer wiąże z nim kolejne strony
-  wyniku, więc w tym samym wyścigu może się jeszcze skończyć błędem. Był to rzadki wyścig, możliwy przy kilku operacjach
-  naraz w jednym oknie.
+  nie wychodzi zerwanym połączeniem, tylko innym połączeniem z tym samym kontrolerem domeny. Wyszukiwanie stronicowane
+  (np. w oknie wyszukiwania) działa jak dotąd: jego strona wychodzi połączeniem, które wyszukiwanie dostało, także gdy to
+  właśnie zostało zerwane, bo serwer wiąże z nim kolejne strony wyniku. Pierwsza strona przechodzi wtedy na inne
+  połączenie, gdy serwer to połączenie zerwał; kolejna strona – i pierwsza, gdy połączenie przestało odpowiadać – może
+  w tym samym wyścigu jeszcze zakończyć wyszukiwanie błędem. Był to rzadki wyścig, możliwy przy kilku operacjach naraz
+  w jednym oknie.
 
 ## AdMng Watchdog {{VERSION}}
 
