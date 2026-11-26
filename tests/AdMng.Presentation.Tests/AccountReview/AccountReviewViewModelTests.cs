@@ -383,12 +383,12 @@ public class AccountReviewViewModelTests
         Assert.Equal(0, review.Tiles.Single(t => t.Check == AccountCheck.Inactive).Count);
 
         // How the read ended is said in the status line of the window (track V, stage V2b) - not a toast: an
-        // "attention", because one domain controller did not answer.
+        // "attention", because one domain controller could not be read.
         Assert.DoesNotContain(harness.Notifications.Items, n => n.Message.Contains("domain controllers", StringComparison.Ordinal));
         var result = review.Status.Current;
         Assert.Equal(PageStatusKind.Attention, result.Kind);
         Assert.Equal(
-            "The exact last logon was read on 2 of 3 domain controllers. Accounts that are active after all: 1. No answer from: dc03.contoso.test.",
+            "The exact last logon was read on 2 of 3 domain controllers. Accounts that are active after all: 1. Could not read from: dc03.contoso.test (The domain controller is not available).",
             result.Message);
         Assert.All(opened, s => Assert.True(s.IsDisposed));
 

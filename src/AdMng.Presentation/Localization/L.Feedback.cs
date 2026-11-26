@@ -370,8 +370,8 @@ public static partial class L
         /// <summary>{0} = the domain controllers that answered ("2 of 3"), {1} = the accounts that left the list.</summary>
         public const string ExactDone = "AccountReview.Status.ExactDone";
 
-        /// <summary>{0} = the names of the domain controllers that did not answer.</summary>
-        public const string ExactNoAnswer = "AccountReview.Status.ExactNoAnswer";
+        /// <summary>{0} = the domain controllers that could not be read, each with why ("dc02.contoso.test (Access is denied); …").</summary>
+        public const string ExactNotRead = "AccountReview.Status.ExactNotRead";
 
         /// <summary>{0} = the text of the button that reads again.</summary>
         public const string ExactStopped = "AccountReview.Status.ExactStopped";
@@ -1073,8 +1073,8 @@ public static partial class L
         /// <summary>{0} = the number of computers.</summary>
         public const string ReadingExact = "ComputerReview.Status.ReadingExact";
 
-        /// <summary>{0} = the names of the domain controllers that did not answer.</summary>
-        public const string ExactNoAnswer = "ComputerReview.Status.ExactNoAnswer";
+        /// <summary>{0} = the domain controllers that could not be read, each with why ("dc02.contoso.test (Access is denied); …").</summary>
+        public const string ExactNotRead = "ComputerReview.Status.ExactNotRead";
 
         /// <summary>{0} = the text of the button that reads again.</summary>
         public const string ExactStopped = "ComputerReview.Status.ExactStopped";

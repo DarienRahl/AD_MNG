@@ -29,6 +29,12 @@
   strona przechodzi wtedy na inne połączenie, gdy serwer to połączenie zerwał; kolejna strona – i pierwsza, gdy
   połączenie przestało odpowiadać – może w tym samym wyścigu jeszcze zakończyć wyszukiwanie błędem. Był to rzadki wyścig,
   możliwy przy kilku operacjach naraz w jednym oknie.
+- **Dokładne ostatnie logowanie znowu mówi, dlaczego kontrolera domeny nie udało się odczytać.** W *Przeglądzie kont*
+  (karta *Stan konta*) i w *Przeglądzie komputerów* wynik odczytu ze wszystkich kontrolerów domeny wymieniał tylko nazwy
+  kontrolerów, z których nie udało się odczytać – jako „Brak odpowiedzi: dc02.contoso.test.”, także gdy kontroler
+  odpowiedział, tylko odmówił. Teraz wiersz stanu podaje każdy z nich z powodem, np. „Nie udało się odczytać z:
+  dc02.contoso.test (Upłynął limit czasu operacji); dc03.contoso.test (Odmowa dostępu).”, więc widać, czy kontroler jest
+  niedostępny, czy brakuje uprawnień. Dziennik diagnostyczny nadal zapisuje tylko liczby, bez nazw kontrolerów.
 
 ## AdMng Watchdog {{VERSION}}
 

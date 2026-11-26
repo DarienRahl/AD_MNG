@@ -24513,8 +24513,8 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="AccountReview.Status.ExactDone" xml:space="preserve">
     <value>Dokładne ostatnie logowanie odczytano na kontrolerach domeny: {0}. Konta, które jednak są aktywne: {1:N0}.</value>
   </data>
-  <data name="AccountReview.Status.ExactNoAnswer" xml:space="preserve">
-    <value>Brak odpowiedzi: {0}.</value>
+  <data name="AccountReview.Status.ExactNotRead" xml:space="preserve">
+    <value>Nie udało się odczytać z: {0}.</value>
   </data>
   <data name="AccountReview.Status.ExactStopped" xml:space="preserve">
     <value>Odczytywanie dokładnego ostatniego logowania zatrzymano: listy nie zmieniono. Wybierz „{0}”, aby odczytać je ponownie.</value>
@@ -25113,8 +25113,8 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="ComputerReview.Status.ReadingExact" xml:space="preserve">
     <value>Odczytywanie dokładnego ostatniego logowania komputerów ({0:N0}) na wszystkich kontrolerach domeny…</value>
   </data>
-  <data name="ComputerReview.Status.ExactNoAnswer" xml:space="preserve">
-    <value>Brak odpowiedzi: {0}.</value>
+  <data name="ComputerReview.Status.ExactNotRead" xml:space="preserve">
+    <value>Nie udało się odczytać z: {0}.</value>
   </data>
   <data name="ComputerReview.Status.ExactStopped" xml:space="preserve">
     <value>Odczytywanie dokładnego ostatniego logowania zatrzymano: listy nie zmieniono. Wybierz „{0}”, aby odczytać je ponownie.</value>

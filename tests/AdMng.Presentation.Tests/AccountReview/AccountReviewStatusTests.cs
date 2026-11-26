@@ -348,8 +348,8 @@ public sealed class AccountReviewStatusTests
     }
 
     [Theory]
-    [InlineData("en-US", "Reading the exact last logon of the accounts (1) on all domain controllers…", "The exact last logon was read on 2 of 3 domain controllers. Accounts that are active after all: 1. No answer from: dc03.contoso.test.")]
-    [InlineData("pl-PL", "Odczytywanie dokładnego ostatniego logowania kont (1) na wszystkich kontrolerach domeny…", "Dokładne ostatnie logowanie odczytano na kontrolerach domeny: 2 z 3. Konta, które jednak są aktywne: 1. Brak odpowiedzi: dc03.contoso.test.")]
+    [InlineData("en-US", "Reading the exact last logon of the accounts (1) on all domain controllers…", "The exact last logon was read on 2 of 3 domain controllers. Accounts that are active after all: 1. Could not read from: dc03.contoso.test (The domain controller is not available).")]
+    [InlineData("pl-PL", "Odczytywanie dokładnego ostatniego logowania kont (1) na wszystkich kontrolerach domeny…", "Dokładne ostatnie logowanie odczytano na kontrolerach domeny: 2 z 3. Konta, które jednak są aktywne: 1. Nie udało się odczytać z: dc03.contoso.test (Kontroler domeny jest niedostępny).")]
     public async Task TheExactLastLogon_IsAnOperationOfItsTab_AndItsResultIsSaidInTheLine(string culture, string working, string result)
     {
         var scenario = await ReviewScenario.CreateAsync(CultureInfo.GetCultureInfo(culture));
@@ -378,7 +378,7 @@ public sealed class AccountReviewStatusTests
         await review.ReadExactLastLogonCommand.ExecuteAsync(null);
 
         // The tab's own operation - the window is not checking - and then what happened: an "attention", because one
-        // domain controller did not answer. Its name is on screen only.
+        // domain controller could not be read - named with why. Its name is on screen only.
         Assert.Equal((PageStatusKind.Working, working), seen[0]);
         var said = review.Status.Current;
         Assert.Equal(PageStatusKind.Attention, said.Kind);
@@ -390,6 +390,46 @@ public sealed class AccountReviewStatusTests
         Assert.False(review.AccountsStatus.IsWorking);
         Assert.Empty(harness.Dialogs.Errors);
         Assert.Empty(review.Items);
+    }
+
+    [Fact]
+    public async Task TheExactLastLogon_NamesEachDomainControllerThatCouldNotBeRead_WithWhy_AndTheLogCopyHasTheCountsOnly()
+    {
+        var scenario = await ReviewScenario.CreateAsync();
+        var harness = scenario.Harness;
+        var session = harness.Session;
+        DomainControllerSeed.Add(session, "dc02.contoso.test");
+        DomainControllerSeed.Add(session, "dc03.contoso.test");
+
+        // One controller does not answer in time, the other one answers and refuses: two reasons the operator acts on
+        // differently - wait, or ask for the right to read it.
+        harness.ConnectToServer = (_, server, _) => server == "dc02.contoso.test"
+            ? throw new DirectoryException(DirectoryErrorKind.Timeout, "dc02 timed out")
+            : throw new DirectoryException(DirectoryErrorKind.AccessDenied, "dc03 refused the bind");
+        using var review = scenario.FactoryWithConnector().CreateAccountReview();
+        await review.InitializeAsync();
+        await review.RunCommand.ExecuteAsync(null);
+        review.SelectedTile = review.Tiles.Single(t => t.Check == AccountCheck.Inactive);
+        var logs = new List<string>();
+        review.Status.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(PageStatusHolder.Current))
+            {
+                logs.Add(review.Status.Current.Log.ToString());
+            }
+        };
+
+        await review.ReadExactLastLogonCommand.ExecuteAsync(null);
+
+        var said = review.Status.Current;
+        Assert.Equal(PageStatusKind.Attention, said.Kind);
+        Assert.StartsWith("The exact last logon was read on 1 of 3 domain controllers. ", said.Message, StringComparison.Ordinal);
+        Assert.EndsWith(
+            " Could not read from: dc02.contoso.test (The operation timed out); dc03.contoso.test (Access is denied).",
+            said.Message,
+            StringComparison.Ordinal);
+        Assert.StartsWith("AccountReview.Status.ExactDone (1, 3, ", said.Log.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain(logs, log => log.Contains("dc0", StringComparison.OrdinalIgnoreCase) || log.Contains("denied", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

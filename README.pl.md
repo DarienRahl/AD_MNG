@@ -1082,7 +1082,8 @@ Profesorze” we wklejonym formatowaniu z logo osadzonym, bezpośrednio przez SM
   bez ponownego przeglądu.
 - ✅ *Dokładne ostatnie logowanie (wszystkie DC)* na listach „Nieaktywne” i „Nigdy nie logowane”: `lastLogon` ze
   wszystkich kontrolerów domeny (lista z partycji konfiguracji), każdy przez własną, krótkotrwałą sesję przypiętą do
-  tego DC; konta aktywne mimo wszystko znikają z list, kontroler bez odpowiedzi jest wymieniony w komunikacie.
+  tego DC; konta aktywne mimo wszystko znikają z list, kontroler, z którego nie udało się odczytać, jest wymieniony w
+  komunikacie razem z powodem (np. upływ limitu czasu albo odmowa dostępu).
 - ✅ Zestawy sprawdzeń zapisywane pod nazwą (np. „Poranny przegląd helpdesku”): sprawdzenia, N dni i zakres (DN w postaci
   przenośnej `{domain}`) – bez danych katalogu.
 - ✅ Karta *Konto* okna właściwości – sekcja *Stan konta*: blokada (od kiedy), wygaśnięcie hasła z liczbą dni (z FGPP;

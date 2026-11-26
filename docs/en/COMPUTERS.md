@@ -66,7 +66,9 @@ the selected computer, the report findings and the catalog row. Clicking a heade
 - *Exact last logon* – `lastLogon` from every domain controller (up to 500 computers, at most 4 controllers at a time). A
   computer that turns out to be active disappears from the inactivity reports. When the selection or the list has more
   than 500 computers, the window first asks whether to check only the first 500 in the current order, and the result says
-  how many computers were checked out of how many.
+  how many computers were checked out of how many. A domain controller that could not be read is named in the result with
+  the reason (e.g. *Could not read from: dc02.contoso.test (Access is denied).*), because a controller that refused is not
+  the same as one that does not answer.
 - *Determine site* – the computer's DNS name is resolved with the operator workstation's resolver (2 s limit, 16 queries
   at a time), and the address is matched to the forest's subnets (longest prefix, IPv6 too). The site of a domain
   controller is the site of its server object. With more than 500 computers the window first asks for consent. Messages:

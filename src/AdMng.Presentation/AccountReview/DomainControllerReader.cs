@@ -18,6 +18,20 @@ public sealed record DomainControllerRead(string Server, IReadOnlyDictionary<str
     /// <summary>The object with <paramref name="distinguishedName"/>, or null.</summary>
     public DirectoryObject? Find(string distinguishedName) =>
         Objects.TryGetValue(DnKey.For(distinguishedName), out var obj) ? obj : null;
+
+    /// <summary>
+    /// The domain controllers of <paramref name="reads"/> that could not be read, each with why, in the order of the
+    /// reads: "dc02.contoso.test (The operation timed out); dc03.contoso.test (Access is denied)" - a controller that
+    /// answered with an error is not one that did not answer, and the reason tells the operator which. For the screen only:
+    /// host names never go into a log copy, which has the counts.
+    /// </summary>
+    public static string DescribeFailures(IEnumerable<DomainControllerRead> reads)
+    {
+        ArgumentNullException.ThrowIfNull(reads);
+        return string.Join("; ", reads
+            .Where(r => r.Error is not null)
+            .Select(r => $"{r.Server} ({r.Error!.Trim().TrimEnd('.')})"));
+    }
 }
 
 /// <summary>

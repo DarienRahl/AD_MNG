@@ -1102,7 +1102,8 @@ description: [docs/dev/u1-user-messages.md](docs/dev/u1-user-messages.md), U1c a
   re-evaluated – lists and counters update without a new review.
 - ✅ *Exact last logon (all DCs)* on the "Inactive" and "Never logged on" lists: `lastLogon` from
   all domain controllers (list from the configuration partition), each through its own short-lived session pinned to
-  that DC; accounts that are active after all disappear from the lists, a DC that does not answer is named in the message.
+  that DC; accounts that are active after all disappear from the lists, a DC that could not be read is named in the
+  message with the reason (e.g. a timeout or access denied).
 - ✅ Check sets saved under a name (e.g. "Morning helpdesk review"): checks, N days and scope (DN in the portable
   form `{domain}`) – no directory data.
 - ✅ The *Account* tab of the properties window – the *Account state* section: lockout (since when), password expiry with

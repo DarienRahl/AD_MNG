@@ -673,18 +673,17 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase, IHasPa
             RebuildItems();
 
             // What happened: on how many domain controllers the value was read and how many accounts left the list;
-            // with the ones that did not answer it is an "attention". Their names are on screen only - the log copy has
-            // the numbers.
-            var failed = reads.Where(r => !r.Succeeded).Select(r => r.Server).ToList();
+            // with the ones that could not be read - each named with why - it is an "attention". Their names are on
+            // screen only - the log copy has the numbers.
             var done = Localizer.Format(L.AccountReviewStatus.ExactDone, PageStatusText.Progress(Localizer, answered.Count, reads.Count), active);
             var log = new PageStatusLog(L.AccountReviewStatus.ExactDone, answered.Count, reads.Count, active);
-            if (failed.Count == 0)
+            if (answered.Count == reads.Count)
             {
                 reading.CompleteDone(done, log);
             }
             else
             {
-                reading.CompleteAttention($"{done} {Localizer.Format(L.AccountReviewStatus.ExactNoAnswer, string.Join(", ", failed))}", log);
+                reading.CompleteAttention($"{done} {Localizer.Format(L.AccountReviewStatus.ExactNotRead, DomainControllerRead.DescribeFailures(reads))}", log);
             }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)

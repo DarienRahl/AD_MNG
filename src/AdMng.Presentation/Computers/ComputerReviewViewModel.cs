@@ -475,8 +475,9 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase, IHasP
             RebuildItems();
 
             // What happened: how many domain controllers answered and how many computers left the lists; with the ones that
-            // did not answer it is an "attention". Their names are on screen only - the log copy has the numbers.
-            var failed = reads.Where(r => !r.Succeeded).Select(r => r.Server).ToList();
+            // could not be read - each named with why - it is an "attention". Their names are on screen only - the log copy
+            // has the numbers.
+            var failed = reads.Count - answered.Count;
             var message = Localizer.Format(L.ComputerReview.ExactDone, answered.Count, reads.Count, active);
             if (targets.Count > rows.Count)
             {
@@ -484,13 +485,13 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase, IHasP
             }
 
             var log = new PageStatusLog(L.ComputerReview.ExactDone, answered.Count, reads.Count, active);
-            if (failed.Count == 0)
+            if (failed == 0)
             {
                 reading.CompleteDone(message, log);
             }
             else
             {
-                reading.CompleteAttention($"{message} {Localizer.Format(L.ComputerReviewStatus.ExactNoAnswer, string.Join(", ", failed))}", log);
+                reading.CompleteAttention($"{message} {Localizer.Format(L.ComputerReviewStatus.ExactNotRead, DomainControllerRead.DescribeFailures(reads))}", log);
             }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)

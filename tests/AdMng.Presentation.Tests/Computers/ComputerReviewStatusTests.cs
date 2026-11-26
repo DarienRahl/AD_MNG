@@ -236,7 +236,7 @@ public sealed class ComputerReviewStatusTests
     }
 
     [Fact]
-    public async Task ExactLastLogon_SaysHowManyControllersAnswered_AndWhichDidNot_AsAnAttention()
+    public async Task ExactLastLogon_SaysHowManyControllersAnswered_AndWhichCouldNotBeReadWithWhy_AsAnAttention()
     {
         var scenario = await CreateAsync();
         var harness = scenario.Harness;
@@ -256,7 +256,7 @@ public sealed class ComputerReviewStatusTests
         var done = review.Status.Current;
         Assert.Equal(PageStatusKind.Attention, done.Kind);
         Assert.StartsWith("1 of 2 domain controllers answered; ", done.Message, StringComparison.Ordinal);
-        Assert.EndsWith(" No answer from: dc02.contoso.test.", done.Message, StringComparison.Ordinal);
+        Assert.EndsWith(" Could not read from: dc02.contoso.test (The domain controller is not available).", done.Message, StringComparison.Ordinal);
         Assert.Equal("ComputerReview.ExactDone (1, 2, 0)", done.Log.ToString());
         Assert.True(done.CanClose);
         Assert.DoesNotContain(logs, log => log.Contains("dc02", StringComparison.OrdinalIgnoreCase));

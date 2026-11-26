@@ -1795,8 +1795,8 @@ above.
     (read: 400). Press “Check” to check again." with *Check*; failed – error with the reason, the code and Retry, for as
     long as the tab shows what that check left. **The exact last logon** (*Account state* tab): "Reading the exact last
     logon of the accounts (12) on all domain controllers…" with Stop; done "The exact last logon was read on 3 of 3
-    domain controllers. Accounts that are active after all: 2."; attention when a controller did not answer ("… No
-    answer from: dc02.contoso.test."); stopped – attention "…: the list was not changed." with the button's own text as
+    domain controllers. Accounts that are active after all: 2."; attention when a controller could not be read ("… Could
+    not read from: dc02.contoso.test (Access is denied)."); stopped – attention "…: the list was not changed." with the button's own text as
     the action; failed – error with Retry. As the state that lasts: the session of the window ended.
   - *How the old places were sorted* (2 error bars, 2 warning bars, 3 progress bars, and the texts, the toast and the
     dialog that said the same).
@@ -1825,8 +1825,11 @@ above.
       error that can be closed – and is said with its own reason, without a code.
     - **The exact last logon is an operation of its tab** (`AccountsStatus`), with the button that started it as its
       Cancel; a check started meanwhile replaces it without a word. Its result is said in the line and no longer in a
-      toast or a dialog – it is what this window just did (6.7). The domain controllers that did not answer are named on
-      screen (their number is in the log copy); the reason of each, which the toast listed, is not said any more.
+      toast or a dialog – it is what this window just did (6.7). The domain controllers that could not be read are named on
+      screen (their number is in the log copy). *Corrected in 0.16.1 (audit BCER-4):* the reason of each, which the toast
+      listed, had been dropped, and "No answer from" was untrue for a controller that answered with an error; the line
+      says "Could not read from: dc02.contoso.test (The operation timed out); dc03.contoso.test (Access is denied)." again
+      (`DomainControllerRead.DescribeFailures`, shared with the computer review).
     - **Only a check the operator stopped says so**; a newer check and the end of the session cancel without a word.
     - `Error`, `StatusText`, `FooterText`, `SelectionText`, `IsBusy`, `IsRunning`, `IsReadingDomainControllers`,
       `StopCommand` and the tab's `Error` / `StatusText` are unchanged for the tests and the code that read them. The
@@ -3905,7 +3908,8 @@ what each unit left behind on purpose), and what nobody has seen on a screen yet
     cannot be resolved - "The computers were not checked: The saved view no longer exists." without an action and a code.
     **The exact last logon:** "Reading the exact last logon of the computers (12) on all domain controllers…" with Stop;
     done "2 of 2 domain controllers answered; 1 computers were active after all." (with "Checked 500 of 800 computers." in
-    front when the list was cut), an attention when a controller did not answer ("… No answer from: dc02.contoso.test."),
+    front when the list was cut), an attention when a controller could not be read ("… Could not read from:
+    dc02.contoso.test (The domain controller is not available)."),
     stopped - the list was not changed, with the button as the action; failed - an error with Retry. **The sites:** "Finding
     the sites of the computers (300)…", then "…: 120 of 300…" with the part done in the ring; done "Sites of the computers
     determined: 280 of 300.", or - once per check - an attention that adds the subnets that were skipped because of their
@@ -3938,9 +3942,11 @@ what each unit left behind on purpose), and what nobody has seen on a screen yet
     - **The check is begun before its first await** and `IsRunning` is true from that moment (the old code set it after the
       settings were saved and the tiles built), so the button and the line agree; the work between is inside the `try`, a
       failure there is the state of the window like any other.
-    - **The controllers that did not answer are named, their reasons are not** (as in the account review): the toast used to
-      list "dc02: reason" per controller; the line has the names and the counts, and what a reason says is one more thing to
-      read in a place that is gone after a few seconds. The log copy has the counts only.
+    - **The controllers that could not be read are named with their reasons** (as in the account review). The unit first
+      dropped the reasons that the toast used to list per controller ("dc02: reason") and said "No answer from: dc02…";
+      *corrected in 0.16.1 (audit BCER-4):* a controller that refused is not one that is down, and only the reason tells
+      the operator which, so the line says "Could not read from: dc02.contoso.test (reason); …" again. The log copy has
+      the counts only.
     - **The sites report how far they are.** `ComputerSites.ResolveAsync` got an optional `IProgress<int>` that reports about
       fifty times (one report per batch of computers, never one per computer) and once at the end, in order. The exact last
       logon has no count of its own (one read per controller, the same call for all computers): its line is indeterminate.

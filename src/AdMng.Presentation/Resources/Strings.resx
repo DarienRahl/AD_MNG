@@ -24513,8 +24513,8 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="AccountReview.Status.ExactDone" xml:space="preserve">
     <value>The exact last logon was read on {0} domain controllers. Accounts that are active after all: {1:N0}.</value>
   </data>
-  <data name="AccountReview.Status.ExactNoAnswer" xml:space="preserve">
-    <value>No answer from: {0}.</value>
+  <data name="AccountReview.Status.ExactNotRead" xml:space="preserve">
+    <value>Could not read from: {0}.</value>
   </data>
   <data name="AccountReview.Status.ExactStopped" xml:space="preserve">
     <value>Reading the exact last logon was stopped: the list was not changed. Press “{0}” to read it again.</value>
@@ -25113,8 +25113,8 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="ComputerReview.Status.ReadingExact" xml:space="preserve">
     <value>Reading the exact last logon of the computers ({0:N0}) on all domain controllers…</value>
   </data>
-  <data name="ComputerReview.Status.ExactNoAnswer" xml:space="preserve">
-    <value>No answer from: {0}.</value>
+  <data name="ComputerReview.Status.ExactNotRead" xml:space="preserve">
+    <value>Could not read from: {0}.</value>
   </data>
   <data name="ComputerReview.Status.ExactStopped" xml:space="preserve">
     <value>Reading the exact last logon was stopped: the list was not changed. Press “{0}” to read it again.</value>

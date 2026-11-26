@@ -67,7 +67,9 @@ wszystkie fakty o zaznaczonym komputerze, ustalenia raportów i wiersz katalogu.
 - *Dokładne ostatnie logowanie* – `lastLogon` z każdego kontrolera domeny (do 500 komputerów, najwyżej 4 kontrolery
   naraz). Komputer, który okazuje się aktywny, znika z raportów nieaktywności. Gdy zaznaczenie lub lista ma więcej niż
   500 komputerów, okno najpierw pyta, czy sprawdzić tylko pierwsze 500 w bieżącej kolejności, a wynik podaje, ile
-  komputerów sprawdzono z ilu.
+  komputerów sprawdzono z ilu. Kontroler domeny, z którego nie udało się odczytać, wynik wymienia razem z powodem
+  (np. *Nie udało się odczytać z: dc02.contoso.test (Odmowa dostępu).*), bo kontroler, który odmówił, to nie to samo co
+  kontroler, który nie odpowiada.
 - *Ustal lokację* – nazwa DNS komputera jest rozwiązywana resolverem stacji operatora (limit 2 s, 16 zapytań naraz), a
   adres dopasowywany do podsieci lasu (najdłuższy prefiks, także IPv6). Lokacja kontrolera domeny to lokacja jego obiektu
   serwera. Przy ponad 500 komputerach okno najpierw pyta o zgodę. Komunikaty: *brak podsieci*, *nie rozwiązano*.
