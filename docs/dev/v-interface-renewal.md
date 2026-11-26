@@ -4922,6 +4922,11 @@ the developer page (item 8), the checks, and what nobody has seen on a screen.
     `StopCommand` of the check step, the computer review and the remote window - no view bound them and no `Closing` handler
     called them; the tests press `Status.CancelCommand`, and the Stop of the check's line now also drops a recompute that
     still waits for its delay. Of the documents, the Group Policy documents keep `Cancel()` and `CancelCommand`.
+    *Removed in 0.16.1 (audit GP-6):* `StatusText` and `Error` of the backup window (with `GroupPolicy.BackupsFound`,
+    `.NoBackups`, `.BackupRunning` and `.BackupFailed`), `SummaryText`, `IsWorking`, `BusyText`, `ProgressText`, `ResultText`
+    and `Error` of the central store window, `IsLoading`, `Error` and `SummaryText` of the GPO comparison and `IsLoading` and
+    `Error` of the GPO picker - no view bound them; the backup's toast and the line's messages build their texts as locals,
+    and the tests read `Status`.
 - **The developer page (item 8).** `docs/dev/v2-status-controls.md`, listed in `docs/dev/README.md`: what each piece is for, the sorting of
   a message, the recipe for a view model and a view, the tests to copy and the Windows lessons, the two source-rule lists, what is settled
   and what is the owner's. The header comment of `Themes/Controls.xaml` points at it. `tools/docs/check_docs.py` passes (every
