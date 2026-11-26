@@ -157,7 +157,9 @@ that subscribes to an application-wide event must unsubscribe in `Dispose`. Add 
   palette and gallery in its README – never copy third-party icons). `tools/icon/build-icon-set.py` generates
   `src/AdMng.App/Themes/Icons.xaml` (`Icon.<Name>`) and `Controls/AppIcons.cs`; do not edit the generated files
   (`--check` runs in the CI job `checks`). The interface renewal is planned in `docs/dev/v-interface-renewal.md`.
-- User-visible strings only via localization resources (`AdMng.Presentation/Resources/Strings*.resx`; watchdog
-  notifications: `AdMng.Watchdog.Core/Resources/NotificationStrings*.resx`), both `en` and `pl` entries required.
+- User-visible strings only via localization resources (`AdMng.Presentation/Resources/Strings*.resx`; the messages of
+  the PowerShell window's `…-Adm…` commands – their errors, warnings and cell texts, in the window's language:
+  `AdMng.PowerShell/Resources/CommandStrings*.resx` through `Reading/AdmText`; watchdog notifications:
+  `AdMng.Watchdog.Core/Resources/NotificationStrings*.resx`), both `en` and `pl` entries required.
 - Every user-visible change adds its paragraph to `docs/releases/NEXT.md`, the draft of the next release notes
   (`docs/dev/releasing.md`); releases are made with `tools/release/release.sh`, never by editing the version by hand.
