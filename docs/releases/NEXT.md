@@ -55,24 +55,26 @@
   podawał, że w folderze nie ma kopii, a powód pustej listy znikał. Teraz zatrzymany odczyt zostawia listę i jej powód
   tak, jak były: wiersz znowu mówi, dlaczego listy nie wczytano, z przyciskiem *Ponów*, a liczbę kopii w folderze
   podaje dopiero po odczycie, który się udał.
-- **Okno *Aktualizacja szablonów ADMX* nie zostaje już z paczką bez plików i bez *Ponów*.** Gdy po zmianie języka albo
-  opcji *Zastąp stare szablony z tą samą przestrzenią nazw* trwało porównanie z magazynem centralnym, a operator w tym
-  czasie wczytał inną paczkę (plik, folder, szablony tego komputera, pobranie), wczytywanie przerywało porównanie bez
-  słowa. Jeśli nowej paczki nie wczytano – błąd albo *Zatrzymaj* – okno pokazywało poprzednią paczkę bez listy plików,
-  bez podsumowania i bez niczego, co porównałoby ją ponownie. Teraz pod komunikatem wczytywania wiersz stanu mówi, że
-  porównanie przerwano, aby wczytać inną paczkę, i że pliki nie są pokazane, z przyciskiem *Ponów*. Porównanie po
-  aktualizacji magazynu jest jej ostatnim etapem: źródła paczek i opcje czekają na nie tak jak przy wczytywaniu (zmiana
-  języka w tym czasie przerywała je i wiersz nie mówił już, co aktualizacja zapisała), a wynik aktualizacji – *Magazyn
-  centralny zaktualizowany: …* – wiersz podaje także wtedy, gdy to porównanie zatrzymano albo się nie udało.
+- **Okno *Aktualizacja szablonów ADMX* nie zostaje już z paczką bez plików i bez *Ponów*.** Gdy po zmianie wybranych
+  języków paczki albo opcji *Zastąp stare szablony z tą samą przestrzenią nazw* trwało porównanie z magazynem
+  centralnym, a operator w tym czasie wczytał inną paczkę (plik, folder, szablony tego komputera, pobranie), wczytywanie
+  przerywało porównanie bez słowa. Jeśli nowej paczki nie wczytano – błąd albo *Zatrzymaj* – okno pokazywało poprzednią
+  paczkę bez listy plików, bez podsumowania i bez niczego, co porównałoby ją ponownie. Teraz po zamknięciu komunikatu
+  wczytywania wiersz stanu mówi, że porównanie przerwano, aby wczytać inną paczkę, i że pliki nie są pokazane, z
+  przyciskiem *Ponów*. Porównanie po aktualizacji magazynu jest jej ostatnim etapem: źródła paczek i opcje czekają na
+  nie tak jak przy wczytywaniu (zmiana wybranych języków w tym czasie przerywała je i wiersz nie mówił już, co
+  aktualizacja zapisała), a wynik aktualizacji – *Magazyn centralny zaktualizowany: …* – wiersz podaje także wtedy, gdy
+  to porównanie zatrzymano albo się nie udało.
 - **Porównanie dwóch GPO: nieudany eksport w trakcie porównania i uwaga o SYSVOL po zatrzymanym odświeżeniu.** Wiersze
   porównania są widoczne, zanim skończy się wczytywanie szablonów administracyjnych, więc *Eksportuj CSV…* można wybrać
-  już wtedy; eksport, który się w tym czasie nie udał (np. folder nie istnieje), nie był nigdzie zgłaszany. Teraz mówi o
-  nim powiadomienie, a wiersz stanu zostaje przy trwającym porównaniu i jego *Zatrzymaj*. Uwaga nad wierszami o tym, czego
-  nie porównano (SYSVOL niedostępny), znikała, gdy *Odśwież* zatrzymano albo się nie udało, choć wiersze poprzedniego
-  porównania zostawały – teraz zostaje razem z nimi.
-- **Okno *Kopia zapasowa obiektów zasad grupy* odmienia liczbę GPO.** Zatrzymana albo nieudana kopia jednego GPO mówiła
-  „zapisano 0 z 1 obiektów GPO” i „Nie udało się utworzyć kopii zapasowych 1 z 1 obiektów GPO” – teraz „z 1 obiektu GPO”
-  (po angielsku „0 of 1 GPO was written”, „1 of 1 GPO”).
+  już wtedy; eksport, który się w tym czasie nie udał (np. plik jest otwarty w innym programie albo brak uprawnień do
+  folderu), nie był nigdzie zgłaszany. Teraz mówi o nim powiadomienie, a wiersz stanu zostaje przy trwającym porównaniu
+  i jego *Zatrzymaj*. Uwaga nad wierszami o tym, czego nie porównano (SYSVOL niedostępny), znikała, gdy *Odśwież*
+  zatrzymano albo się nie udało, choć wiersze poprzedniego porównania zostawały – teraz zostaje razem z nimi.
+- **Kopia zapasowa GPO odmienia liczbę GPO.** Zatrzymana albo nieudana kopia jednego GPO – w oknie *Kopia zapasowa
+  obiektów zasad grupy* i w kopii przed usunięciem GPO (*Utwórz kopię zapasową przed usunięciem*) – mówiła „zapisano 0 z
+  1 obiektów GPO” i „Nie udało się utworzyć kopii zapasowych 1 z 1 obiektów GPO” – teraz „z 1 obiektu GPO” (po angielsku
+  „0 of 1 GPO was written”, „1 of 1 GPO”).
 
 ## AdMng Watchdog {{VERSION}}
 

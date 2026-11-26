@@ -198,7 +198,7 @@ public sealed class GpoComparisonStatusTests
         var failed = comparison.Status.Current;
         Assert.StartsWith(lead, failed.Message, StringComparison.Ordinal);
         Assert.EndsWith(tail, failed.Message, StringComparison.Ordinal);
-        Assert.True(failed.Message.Length > lead.Length + tail.Length); // the reason, in words
+        Assert.Equal(lead + k.H.B2.Errors.Translate(DirectoryErrorKind.ServerUnavailable) + tail, failed.Message); // the reason, in words
         Assert.DoesNotContain("DSID", failed.Message, StringComparison.Ordinal);
         Assert.Equal("GpoComparison.Status.CompareFailed [ServerUnavailable]", failed.Log.ToString());
         Assert.False(failed.CanClose);

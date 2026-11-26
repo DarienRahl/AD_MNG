@@ -976,7 +976,10 @@ public sealed class GpoBackupStatusTests
         Assert.False(operation.IsWrite);
         Assert.Equal(OperationWrites.None, operation.Writes);
         h.B2.Dialogs.CloseQuestions.Clear();
-        await window.CanCloseAsync();
+
+        // No question; the window's own rule "not while it is busy" (CanCloseCoreAsync) still keeps it open - pinned, so
+        // that a change of it (a read that closes the window at once) is made on purpose.
+        Assert.False(await window.CanCloseAsync());
         Assert.Empty(h.B2.Dialogs.CloseQuestions);
 
         window.Status.CancelCommand.Execute(null);

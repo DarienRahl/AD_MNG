@@ -184,7 +184,10 @@ public sealed partial class CentralStoreUpdateViewModel : WindowViewModelBase, I
     [NotifyCanExecuteChangedFor(nameof(UpdateCommand))]
     public partial string BackupFolder { get; set; }
 
-    /// <summary>A package is being loaded or downloaded, or the store is being updated: the sources and the options wait.</summary>
+    /// <summary>
+    /// A package is being loaded or downloaded, or the store is being updated - with the new comparison that ends the update:
+    /// the sources and the options wait.
+    /// </summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(UpdateCommand), nameof(OpenFileCommand), nameof(OpenFolderCommand), nameof(UseLocalStoreCommand),
         nameof(DownloadEdgeCommand), nameof(DownloadChromeCommand), nameof(DownloadFirefoxCommand))]
