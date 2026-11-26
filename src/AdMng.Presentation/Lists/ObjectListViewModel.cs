@@ -665,6 +665,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         {
             _firstRead = true;
         }
+
         _readComplete = false;
         Location = location;
         if (!string.Equals(previousKey, location.ColumnLayoutKey, StringComparison.Ordinal) || Columns.Count == 0)
@@ -1960,7 +1961,10 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
             case nameof(LoadedCount) when IsLoading:
                 Status.Operation?.Report(ReadingText(LoadedCount), log: new PageStatusLog(L.ListStatus.Reading, LoadedCount));
                 break;
-            case nameof(IsLoading) or nameof(Error) or nameof(Partial) or nameof(Rows) or nameof(Location) or nameof(QuickFilterText):
+            // TotalCount: the rows read change while those shown stay empty (a live update brings or takes a row the text
+            // hides), and whether the text hides anything - the sentence and its action - changes with them.
+            case nameof(IsLoading) or nameof(Error) or nameof(Partial) or nameof(Rows) or nameof(Location) or nameof(QuickFilterText)
+                or nameof(TotalCount):
                 RaiseEmptiness();
                 break;
         }

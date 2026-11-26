@@ -113,6 +113,41 @@ public class ObjectListEmptyStateTests
     }
 
     [Fact]
+    public async Task AQuickFilterOverAnEmptyContainer_SaysSo_WhenALiveUpdateBringsARowItHides_AndAgainWhenTheRowGoes()
+    {
+        var harness = await TestHarness.ConnectedAsync();
+        harness.Directory.SupportsWatch = true;
+        var list = await harness.OpenContainerAsync(TestDirectory.System);
+        list.QuickFilterText = "kowal";
+        Assert.Equal("There are no items to show in this view.", list.EmptyState.Message);
+        var raised = 0;
+        list.PropertyChanged += (_, e) => raised += e.PropertyName == nameof(ObjectListViewModel.EmptyState) ? 1 : 0;
+
+        // Another operator creates an object the text hides: still no row on screen, but now the text hides one - the
+        // sentence changes and the view is told, though the (empty) rows did not change.
+        const string created = "CN=Ktoś Nowy,CN=System,DC=contoso,DC=test";
+        harness.Directory.Put(User(created, "ktos.nowy"));
+        harness.Directory.RaiseChange(created);
+        harness.Time.Advance(TimeSpan.FromMilliseconds(500));
+        await ObjectListViewModelTests.WaitUntilAsync(() => list.TotalCount == 1);
+        Assert.Empty(list.Items);
+        Assert.True(raised > 0, "EmptyState was not raised after the hidden row arrived");
+        Assert.Equal("No object matches the filter.", list.EmptyState.Message);
+        Assert.Same(list.ClearFiltersCommand, list.EmptyState.ActionCommand);
+
+        // The object is deleted again: nothing is hidden any more, the container is empty - Refresh, said to the view.
+        raised = 0;
+        harness.Directory.Remove(created);
+        harness.Directory.RaiseChange(created);
+        harness.Time.Advance(TimeSpan.FromMilliseconds(500));
+        await ObjectListViewModelTests.WaitUntilAsync(() => list.TotalCount == 0);
+        Assert.True(raised > 0, "EmptyState was not raised after the hidden row went");
+        Assert.Equal("There are no items to show in this view.", list.EmptyState.Message);
+        Assert.Same(list.RefreshCommand, list.EmptyState.ActionCommand);
+        list.Dispose();
+    }
+
+    [Fact]
     public async Task AFailedFirstRead_IsStillAFirstRead_WhenItIsRetried()
     {
         var harness = await TestHarness.ConnectedAsync(bulkUsers: 300);
