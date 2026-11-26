@@ -291,9 +291,22 @@ internal sealed class ScriptedDialogService : IDialogService
     /// <summary>The tables the grids were asked to show.</summary>
     public List<AdMng.Core.PowerShell.PowerShellGridTable> PowerShellGrids { get; } = [];
 
-    public Task ShowPowerShellGridAsync(AdMng.Core.PowerShell.PowerShellGridTable table)
+    /// <summary>What closes each grid that was shown, in the order of <see cref="PowerShellGrids"/>: a test calls it as the operator closes the window.</summary>
+    public List<Action> PowerShellGridClosers { get; } = [];
+
+    /// <summary>The next grid fails to show with this (then cleared).</summary>
+    public Exception? FailNextPowerShellGrid { get; set; }
+
+    public Task ShowPowerShellGridAsync(AdMng.Core.PowerShell.PowerShellGridTable table, Action? closed = null)
     {
+        if (FailNextPowerShellGrid is { } failure)
+        {
+            FailNextPowerShellGrid = null;
+            return Task.FromException(failure);
+        }
+
         PowerShellGrids.Add(table);
+        PowerShellGridClosers.Add(closed ?? (() => { }));
         return Task.CompletedTask;
     }
 

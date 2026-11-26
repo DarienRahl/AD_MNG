@@ -32,6 +32,69 @@ public sealed class PowerShellWindowActionsHostTests
         Assert.Same(table, Assert.Single(harness.Dialogs.PowerShellGrids));
     }
 
+    /// <summary>
+    /// Owner answer 12 (audit W-notes-out-admgrid-cap): <c>Out-AdmGrid</c> opened a window for every call, so a loop of a thousand calls
+    /// was a thousand windows. At most ten are open at a time, like the windows of one Open-AdmObject; the eleventh is refused.
+    /// </summary>
+    [Fact]
+    public async Task TheEleventhGrid_IsRefused_WhileTenAreOpen()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var actions = Create(harness);
+
+        for (var index = 0; index < PowerShellWindowActions.MaxGridWindows; index++)
+        {
+            await actions.ShowInGridAsync(Table(), Ct);
+        }
+
+        var refused = await Assert.ThrowsAsync<PowerShellGridLimitException>(() => actions.ShowInGridAsync(Table(), Ct));
+        Assert.Equal(10, refused.Limit);
+        Assert.Equal(10, PowerShellWindowActions.MaxGridWindows);
+        Assert.Equal(10, harness.Dialogs.PowerShellGrids.Count);
+    }
+
+    [Fact]
+    public async Task AClosedGrid_FreesItsPlace_Once()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var actions = Create(harness);
+        for (var index = 0; index < PowerShellWindowActions.MaxGridWindows; index++)
+        {
+            await actions.ShowInGridAsync(Table(), Ct);
+        }
+
+        // The operator closes the third grid: one more opens, and the next is refused again. A second "closed" of the same grid frees nothing.
+        harness.Dialogs.PowerShellGridClosers[2]();
+        harness.Dialogs.PowerShellGridClosers[2]();
+        await actions.ShowInGridAsync(Table(), Ct);
+        await Assert.ThrowsAsync<PowerShellGridLimitException>(() => actions.ShowInGridAsync(Table(), Ct));
+        Assert.Equal(11, harness.Dialogs.PowerShellGrids.Count);
+    }
+
+    [Fact]
+    public async Task AGridThatCouldNotBeShown_OrWasRefused_HoldsNoPlace()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var actions = Create(harness);
+
+        harness.Dialogs.FailNextPowerShellGrid = new InvalidOperationException("no window");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => actions.ShowInGridAsync(Table(), Ct));
+        for (var index = 0; index < PowerShellWindowActions.MaxGridWindows; index++)
+        {
+            await actions.ShowInGridAsync(Table(), Ct);
+        }
+
+        // Refusals do not count either: after three of them, closing one grid is enough for the next.
+        for (var index = 0; index < 3; index++)
+        {
+            await Assert.ThrowsAsync<PowerShellGridLimitException>(() => actions.ShowInGridAsync(Table(), Ct));
+        }
+
+        harness.Dialogs.PowerShellGridClosers[0]();
+        await actions.ShowInGridAsync(Table(), Ct);
+        Assert.Equal(11, harness.Dialogs.PowerShellGrids.Count);
+    }
+
     [Fact]
     public async Task AnObject_IsOpenedByItsDistinguishedName_AndNothingElseIsGuessed()
     {

@@ -82,7 +82,7 @@ internal sealed class ScriptedDialogService : IDialogService
 
     public List<AdMng.Core.PowerShell.PowerShellGridTable> PowerShellGrids { get; } = [];
 
-    public Task ShowPowerShellGridAsync(AdMng.Core.PowerShell.PowerShellGridTable table)
+    public Task ShowPowerShellGridAsync(AdMng.Core.PowerShell.PowerShellGridTable table, Action? closed = null)
     {
         PowerShellGrids.Add(table);
         return Task.CompletedTask;

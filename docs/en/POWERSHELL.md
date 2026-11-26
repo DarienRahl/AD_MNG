@@ -196,7 +196,9 @@ last 20,000 lines, and a line holds at most 8,000 characters – a longer text g
 by dot with `Write-Host -NoNewline`, which does not slow the window down).
 
 **`Out-AdmGrid`** opens the objects of the pipeline in a **window of its own** (each call is a new window, like
-`Out-GridView`; it belongs to the connection window and closes with it):
+`Out-GridView`; it belongs to the connection window and closes with it). At most **10 grid windows** are open at a time, as
+`Open-AdmObject` opens at most 10 windows: a call while 10 are open opens none and is an error that says so – close one of
+them and run the command again. In the grid:
 
 - the columns are the properties of the objects, the distinguished name first; dates are shown as `2026-11-16 08:30:00`, lists
   joined with `; `, binary values as `(binary, 12 bytes)`;
@@ -503,6 +505,7 @@ The editor colours the command as you type it: commands, parameters, variables, 
 | The trusted mode switch is disabled | Its tool tip says why: a command is running, PowerShell is starting, is turning the trusted mode off or could not be started, this installation has no engine, the session of the connection ended, or the system enforces ConstrainedLanguage (WDAC, AppLocker). |
 | A note says transcription or logging is on | Chapter 8. It is a Group Policy setting of this computer or account (script block logging: or of your own `powershell.config.json`), not of AD Manager. |
 | *There are no objects to show: no grid was opened* | The pipeline of `Out-AdmGrid` was empty. |
+| *10 grid windows of Out-AdmGrid are already open …* | At most 10 grid windows are open at a time (chapter 4). Close one of them and run the command again. |
 | *The file … exists. Nothing was written; use -Force* / *No file was chosen: nothing was written.* | `Export-AdmList` replaces a file only with `-Force`, and writes nothing without a path or a file chosen in *Save As*. |
 | `Get-Help` shows no examples | The file `AdMng.PowerShell.dll-Help.xml` beside `AdMng.exe` was removed. Restore it from the package. |
 

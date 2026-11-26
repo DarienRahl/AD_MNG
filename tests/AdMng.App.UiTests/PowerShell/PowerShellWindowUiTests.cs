@@ -521,6 +521,42 @@ public sealed class PowerShellWindowUiTests
         context.AssertHealthy();
     });
 
+    /// <summary>
+    /// Owner answer 12 (audit W-notes-out-admgrid-cap): every call of <c>Out-AdmGrid</c> opened a window, so a loop was a window per
+    /// object. Ten grid windows are open at most: the eleventh call is an error and opens none, and a grid the operator closes frees its
+    /// place (the program learns it from the window's Closed event). The texts of the error in both languages are the engine tests'.
+    /// </summary>
+    [Fact]
+    public Task OutAdmGrid_OpensAtMostTenGridsAtATime_TheEleventhIsAnError_AndAClosedGridFreesItsPlace() => WpfTestHost.RunAsync(async () =>
+    {
+        var (context, _, _, window) = await PowerShellUiSupport.OpenAsync();
+        await using var _c = context;
+        static List<PowerShellGridWindow> Grids() => [.. Application.Current.Windows.OfType<PowerShellGridWindow>()];
+
+        await PowerShellUiSupport.RunAsync(
+            window,
+            "foreach ($i in 1..11) { $i | Out-AdmGrid -Title \"Grid $i\" -ErrorVariable +refused -ErrorAction SilentlyContinue }; " +
+            "'refused=' + $refused.Count; $refused[0].FullyQualifiedErrorId.Split(',')[0]");
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        Assert.Equal(10, Grids().Count);
+        Assert.DoesNotContain(Grids(), grid => grid.Title.StartsWith("Grid 11", StringComparison.Ordinal));
+        Assert.Contains("refused=1", PowerShellUiSupport.Lines(window));
+        Assert.Contains("AdmTooManyGrids", PowerShellUiSupport.Lines(window));
+
+        // The operator closes one grid: the next call opens one, and the one after is refused again.
+        Grids().First(grid => grid.Title.StartsWith("Grid 3", StringComparison.Ordinal)).Close();
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal(9, Grids().Count);
+        await PowerShellUiSupport.RunAsync(window, "'x' | Out-AdmGrid -Title 'Again'; 'y' | Out-AdmGrid -Title 'Once more' -ErrorAction SilentlyContinue -ErrorVariable again; 'again=' + $again.Count");
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        Assert.Equal(10, Grids().Count);
+        Assert.Contains(Grids(), grid => grid.Title.StartsWith("Again", StringComparison.Ordinal));
+        Assert.Contains("again=1", PowerShellUiSupport.Lines(window));
+        context.AssertHealthy();
+    });
+
     [Fact]
     public Task ExportAdmList_WritesOnlyToThePathItWasGiven_OrToTheFileTheOperatorChose_AndNothingWithoutOne() => WpfTestHost.RunAsync(async () =>
     {

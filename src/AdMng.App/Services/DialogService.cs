@@ -276,14 +276,25 @@ public sealed partial class DialogService : IDialogService, IUserMessageLauncher
         return true;
     });
 
-    public Task ShowPowerShellGridAsync(Core.PowerShell.PowerShellGridTable table)
+    public async Task ShowPowerShellGridAsync(Core.PowerShell.PowerShellGridTable table, Action? closed = null)
     {
         ArgumentNullException.ThrowIfNull(table);
-        return OnUiThreadAsync(() =>
+        var shown = await OnUiThreadAsync(() =>
         {
-            _tools.ShowPowerShellGrid(table);
+            var window = _tools.ShowPowerShellGrid(table);
+            if (closed is not null)
+            {
+                // The PowerShell window counts its open grids (at most ten at a time): a closed grid frees its place.
+                window.Closed += (_, _) => closed();
+            }
+
             return true;
-        });
+        }).ConfigureAwait(true);
+        if (!shown)
+        {
+            // The connection window is closing and no grid was shown: nothing holds a place.
+            closed?.Invoke();
+        }
     }
 
     // ---- Problem report, Pomoc → Zgłoś problem… (modeless, one window) ----

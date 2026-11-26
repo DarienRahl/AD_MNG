@@ -198,7 +198,9 @@ ekranie). `Select-Object -First 50` kończy odczyt po 50 obiektach. Obszar wynik
 kropce przez `Write-Host -NoNewline`, który nie spowalnia okna).
 
 **`Out-AdmGrid`** otwiera obiekty potoku w **osobnym oknie** (każde wywołanie to nowe okno, jak `Out-GridView`; należy do okna
-połączenia i zamyka się razem z nim):
+połączenia i zamyka się razem z nim). Naraz otwartych jest najwyżej **10 okien siatki**, tak jak `Open-AdmObject` otwiera
+najwyżej 10 okien: wywołanie, gdy 10 jest otwartych, żadnego nie otwiera i kończy się błędem, który to mówi – zamknij któreś z
+nich i uruchom polecenie ponownie. W siatce:
 
 - kolumny to właściwości obiektów, najpierw nazwa wyróżniająca; daty są pokazane jako `2026-11-16 08:30:00`, listy złączone
   przez `; `, wartości binarne jako `(binary, 12 bytes)`;
@@ -500,6 +502,7 @@ Edytor koloruje polecenie w trakcie pisania: polecenia, parametry, zmienne, cią
 | Przełącznik trybu zaufanego jest wyłączony | Podpowiedź mówi, dlaczego: trwa polecenie, PowerShell się uruchamia, właśnie wyłącza tryb zaufany albo nie dał się uruchomić, w tej instalacji nie ma silnika, sesja połączenia się skończyła albo system wymusza ConstrainedLanguage (WDAC, AppLocker). |
 | Uwaga mówi, że włączono transkrypcję lub rejestrowanie | Rozdział 8. To ustawienie zasad grupy tego komputera lub konta (rejestrowanie bloków skryptów: albo Twojego `powershell.config.json`), nie AD Managera. |
 | *Nie ma obiektów do pokazania: nie otwarto siatki* | Potok `Out-AdmGrid` był pusty. |
+| *Otwartych jest już 10 okien siatki Out-AdmGrid …* | Naraz otwartych jest najwyżej 10 okien siatki (rozdział 4). Zamknij któreś z nich i uruchom polecenie ponownie. |
 | *Plik … istnieje. Nic nie zapisano; użyj -Force* / *Nie wybrano pliku: nic nie zapisano.* | `Export-AdmList` zastępuje plik tylko z `-Force` i nie zapisuje niczego bez ścieżki ani pliku wybranego w oknie *Zapisz jako*. |
 | `Get-Help` nie pokazuje przykładów | Usunięto plik `AdMng.PowerShell.dll-Help.xml` obok `AdMng.exe`. Przywróć go z pakietu. |
 

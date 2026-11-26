@@ -677,7 +677,7 @@ public class ChangePipelineTests
 
         public Task ShowPowerShellAsync() => inner.ShowPowerShellAsync();
 
-        public Task ShowPowerShellGridAsync(Core.PowerShell.PowerShellGridTable table) => inner.ShowPowerShellGridAsync(table);
+        public Task ShowPowerShellGridAsync(Core.PowerShell.PowerShellGridTable table, Action? closed = null) => inner.ShowPowerShellGridAsync(table, closed);
 
         public Task ShowProblemReportAsync() => inner.ShowProblemReportAsync();
 

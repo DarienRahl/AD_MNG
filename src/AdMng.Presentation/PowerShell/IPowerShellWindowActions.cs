@@ -29,7 +29,11 @@ public enum PowerShellOpenOutcome
 /// </remarks>
 public interface IPowerShellWindowActions
 {
-    /// <summary><c>Out-AdmGrid</c>: shows the objects in the program's object list (sorting, filters, columns, copy and CSV export work as for any list).</summary>
+    /// <summary>
+    /// <c>Out-AdmGrid</c>: shows the objects in the program's object list (sorting, filters, columns, copy and CSV export work as for any
+    /// list). Throws <see cref="PowerShellGridLimitException"/> while the most grid windows there may be are open (the command says so in
+    /// the window's language).
+    /// </summary>
     Task ShowInGridAsync(PowerShellGridTable table, CancellationToken cancellationToken);
 
     /// <summary>

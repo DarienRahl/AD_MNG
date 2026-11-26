@@ -103,6 +103,12 @@
   „Wyślij”, …”, jak pozostałe okna programu, a nazwy przycisków (*Wyślij*, *Utwórz wersje robocze*, *Test do siebie*,
   *Ponów nieudane*, *Ponów*) i pola *Pomijaj już wysłane* biorą z tych samych tekstów co okno. Zatrzymane wczytywanie
   jednego pliku odbiorców mówi „po 0 z 1 pliku”, a nie „po 0 z 1 plików” (po angielsku „after 0 of 1 file”).
+- **Okno PowerShell: `Out-AdmGrid` otwiera najwyżej 10 okien siatki naraz.** Każde wywołanie otwierało nowe okno, więc
+  pętla w rodzaju `foreach ($u in Get-AdmUser) { $u | Out-AdmGrid }` otwierała okno dla każdego obiektu. Teraz, tak jak
+  `Open-AdmObject` otwiera najwyżej 10 okien, naraz otwartych jest najwyżej 10 okien siatki: wywołanie, gdy 10 jest
+  otwartych, żadnego nie otwiera i kończy się błędem *Otwartych jest już 10 okien siatki Out-AdmGrid – najwięcej, ile może
+  być naraz: nie otwarto siatki. Zamknij któreś z nich i uruchom polecenie ponownie.* (po angielsku *10 grid windows of
+  Out-AdmGrid are already open …*); zamknięte okno siatki zwalnia miejsce.
 
 ## AdMng Watchdog {{VERSION}}
 

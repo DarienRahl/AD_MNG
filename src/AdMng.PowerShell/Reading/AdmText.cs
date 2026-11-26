@@ -69,6 +69,9 @@ internal static class AdmText
         public const string OpenTooMany = "Open.TooMany";
         public const string OpenNotOpened = "Open.NotOpened";
         public const string GridNoObjects = "Grid.NoObjects";
+
+        /// <summary>{0} = the most grid windows open at a time.</summary>
+        public const string GridTooMany = "Grid.TooMany";
         public const string ContextMissing = "Context.Missing";
         public const string ServicesUnavailable = "Services.Unavailable";
         public const string ExportInvalidDelimiter = "Export.InvalidDelimiter";

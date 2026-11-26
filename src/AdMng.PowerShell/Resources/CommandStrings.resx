@@ -113,6 +113,9 @@
   <data name="Grid.NoObjects" xml:space="preserve">
     <value>There are no objects to show: no grid was opened.</value>
   </data>
+  <data name="Grid.TooMany" xml:space="preserve">
+    <value>{0} grid windows of Out-AdmGrid are already open, the most there may be at a time: no grid was opened. Close one of them and run the command again.</value>
+  </data>
   <data name="Identity.Empty" xml:space="preserve">
     <value>The identity is empty.</value>
   </data>

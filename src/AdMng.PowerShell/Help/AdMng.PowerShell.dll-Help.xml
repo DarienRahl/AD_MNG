@@ -1095,7 +1095,7 @@
       <command:verb>Out</command:verb>
       <command:noun>AdmGrid</command:noun>
     </command:details>
-    <maml:description><maml:para>Out-AdmGrid opens a window with the objects as rows and their properties as columns, the way the lists of the program look: click a column to sort, type in the filter box to narrow the rows, copy the selected rows with Ctrl+C, export them to CSV (formulas are protected), and open an object with Enter or a double-click when the objects have a DistinguishedName. Every value is turned into text before the grid opens, and nothing is written anywhere unless you export from the grid. Like Out-GridView it opens a new window each time.</maml:para></maml:description>
+    <maml:description><maml:para>Out-AdmGrid opens a window with the objects as rows and their properties as columns, the way the lists of the program look: click a column to sort, type in the filter box to narrow the rows, copy the selected rows with Ctrl+C, export them to CSV (formulas are protected), and open an object with Enter or a double-click when the objects have a DistinguishedName. Every value is turned into text before the grid opens, and nothing is written anywhere unless you export from the grid. Like Out-GridView it opens a new window each time; at most 10 grid windows are open at a time, and a call while 10 are open is an error and opens none - close one of them to open another.</maml:para></maml:description>
     <command:syntax>
       <command:syntaxItem>
         <maml:name>Out-AdmGrid</maml:name>

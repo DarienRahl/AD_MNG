@@ -50,11 +50,22 @@ internal sealed class RecordingWindowServices : IAdmWindowServices
     /// <summary>Completes when the first call arrives (a test waits for it instead of sleeping, then stops the command).</summary>
     public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
+    /// <summary>
+    /// The most grids the program shows (as it does: <c>PowerShellWindowActions.MaxGridWindows</c>); a call past it is refused with
+    /// <see cref="PowerShellGridLimitException"/>. Null shows every grid.
+    /// </summary>
+    public int? GridLimit { get; set; }
+
     public async Task ShowGridAsync(PowerShellGridTable table, CancellationToken cancellationToken)
     {
         LastToken = cancellationToken;
         Entered.TrySetResult();
         await WaitAsync(cancellationToken);
+        if (GridLimit is { } limit && Grids.Count >= limit)
+        {
+            throw new PowerShellGridLimitException(limit);
+        }
+
         Grids.Add(table);
     }
 

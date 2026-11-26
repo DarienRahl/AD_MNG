@@ -630,7 +630,7 @@ The table is the plan; what was built, with the parameters it has, is section 12
 | `Get-AdmGroupMember` | `-Identity`, `-Recursive` | Direct members (ranged retrieval beyond 1500) or the nested closure with a cycle guard. |
 | `Search-AdmObject` | `-Name`, `-Attribute`, `-Value`, `-SearchBase`, `-Scope`, `-ObjectClass` | The filter is built from the parameters through `LdapFilter`; a value such as `Łukasz (Kraków)*` is escaped (RFC 4515) and `*` is a wildcard only where the parameter says so. |
 | `Open-AdmObject` | `-Identity` (DN or `objectGUID`) | Asks the window to open the object's properties. |
-| `Out-AdmGrid` | `-InputObject`, `-Title` | Collects the objects, turns them into a table (columns from their properties) and hands it to the window, which shows it in the program's object list. |
+| `Out-AdmGrid` | `-InputObject`, `-Title` | Collects the objects, turns them into a table (columns from their properties) and hands it to the window, which shows it in the program's object list. At most 10 grid windows are open at a time (`PowerShellWindowActions.MaxGridWindows`, counted down by the grid window's `Closed` event; 0.16.1, owner answer 12): past that the window throws `PowerShellGridLimitException` and the command writes the error `AdmTooManyGrids` in the window's language. |
 | `Export-AdmList` | `-InputObject`, `-Path`, `-Delimiter` | CSV with formula protection as in the list export; only to the path given or the one chosen in *Save As*; never to a default path. |
 
 Common behaviour: results stream as the server pages arrive (paged results control, 1000 per page), the read is cancelled by

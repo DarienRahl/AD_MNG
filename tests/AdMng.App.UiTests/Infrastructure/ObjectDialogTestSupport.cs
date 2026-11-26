@@ -87,7 +87,7 @@ internal sealed class TestDialogService(DialogService inner) : IDialogService
 
     public Task ShowPowerShellAsync() => Inner.ShowPowerShellAsync();
 
-    public Task ShowPowerShellGridAsync(AdMng.Core.PowerShell.PowerShellGridTable table) => Inner.ShowPowerShellGridAsync(table);
+    public Task ShowPowerShellGridAsync(AdMng.Core.PowerShell.PowerShellGridTable table, Action? closed = null) => Inner.ShowPowerShellGridAsync(table, closed);
 
     public Task ShowProblemReportAsync() => Inner.ShowProblemReportAsync();
 

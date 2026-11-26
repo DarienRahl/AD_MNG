@@ -113,6 +113,9 @@
   <data name="Grid.NoObjects" xml:space="preserve">
     <value>Nie ma obiektów do pokazania: nie otwarto siatki.</value>
   </data>
+  <data name="Grid.TooMany" xml:space="preserve">
+    <value>Otwartych jest już {0} okien siatki Out-AdmGrid – najwięcej, ile może być naraz: nie otwarto siatki. Zamknij któreś z nich i uruchom polecenie ponownie.</value>
+  </data>
   <data name="Identity.Empty" xml:space="preserve">
     <value>Tożsamość jest pusta.</value>
   </data>

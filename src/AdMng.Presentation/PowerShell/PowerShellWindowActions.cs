@@ -13,7 +13,8 @@ namespace AdMng.Presentation.PowerShell;
 /// <summary>
 /// What <c>Out-AdmGrid</c>, <c>Open-AdmObject</c> and <c>Export-AdmList</c> do in the program (track R, stage R1): the grid window
 /// opens, the properties of an object open, a CSV file is written - all through the services of the connection window the
-/// PowerShell window belongs to. It holds no state and never reads the directory (the command has read what it opens).
+/// PowerShell window belongs to. Its one state is the count of the grid windows open (at most <see cref="MaxGridWindows"/>); it
+/// never reads the directory (the command has read what it opens).
 /// </summary>
 /// <remarks>
 /// <b>Threads.</b> A command calls these on the pipeline thread; every call that shows a window or a dialog is handed to the UI
@@ -23,15 +24,50 @@ namespace AdMng.Presentation.PowerShell;
 /// </remarks>
 public sealed class PowerShellWindowActions(DialogServices services, ICsvCodec csv) : IPowerShellWindowActions
 {
+    /// <summary>
+    /// The most grid windows of <c>Out-AdmGrid</c> open at a time (owner answer 12 of the 0.16.1 plan, like the ten property windows
+    /// of one <c>Open-AdmObject</c>): a loop that calls the command a thousand times is not a thousand windows. A closed grid frees
+    /// its place. One per connection window, like the PowerShell window the actions serve.
+    /// </summary>
+    public const int MaxGridWindows = 10;
+
     private readonly DialogServices _services = services ?? throw new ArgumentNullException(nameof(services));
     private readonly ICsvCodec _csv = csv ?? throw new ArgumentNullException(nameof(csv));
 
+    /// <summary>The grid windows shown and not closed yet, and the one being shown (the pipeline thread counts up, the UI thread down).</summary>
+    private int _openGrids;
+
     /// <inheritdoc />
-    public Task ShowInGridAsync(PowerShellGridTable table, CancellationToken cancellationToken)
+    /// <exception cref="PowerShellGridLimitException"><see cref="MaxGridWindows"/> grid windows are open: no grid is shown.</exception>
+    public async Task ShowInGridAsync(PowerShellGridTable table, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(table);
         cancellationToken.ThrowIfCancellationRequested();
-        return _services.Dialogs.ShowPowerShellGridAsync(table);
+        if (Interlocked.Increment(ref _openGrids) > MaxGridWindows)
+        {
+            Interlocked.Decrement(ref _openGrids);
+            throw new PowerShellGridLimitException(MaxGridWindows);
+        }
+
+        // The place is freed once: when the window closes, or when it could not be shown.
+        var freed = 0;
+        void Free()
+        {
+            if (Interlocked.Exchange(ref freed, 1) == 0)
+            {
+                Interlocked.Decrement(ref _openGrids);
+            }
+        }
+
+        try
+        {
+            await _services.Dialogs.ShowPowerShellGridAsync(table, Free).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            Free();
+            throw;
+        }
     }
 
     /// <inheritdoc />

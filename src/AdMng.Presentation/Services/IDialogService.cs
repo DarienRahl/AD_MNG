@@ -68,7 +68,12 @@ public interface IDialogService
     /// The grid of <c>Out-AdmGrid</c> (track R, stage R1): the objects of a pipeline as rows that can be sorted, filtered, copied,
     /// exported and opened in the program (modeless, a new window for every call, like <c>Out-GridView</c>).
     /// </summary>
-    Task ShowPowerShellGridAsync(Core.PowerShell.PowerShellGridTable table);
+    /// <param name="table">The rows.</param>
+    /// <param name="closed">
+    /// Called once when the grid window has closed (by the operator, or with its connection window) - or at once when no window was
+    /// shown because the connection window is closing. The PowerShell window counts its open grids with it (at most ten at a time).
+    /// </param>
+    Task ShowPowerShellGridAsync(Core.PowerShell.PowerShellGridTable table, Action? closed = null);
 
     /// <summary>
     /// "Pomoc → Zgłoś problem…": the value-free problem report of this connection window (modeless, one per connection

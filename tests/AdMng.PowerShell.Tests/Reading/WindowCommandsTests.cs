@@ -146,6 +146,26 @@ public sealed class WindowCommandsTests
         Assert.Equal(0, result.Errors.Length);
     }
 
+    /// <summary>
+    /// Owner answer 12 (audit W-notes-out-admgrid-cap): a loop of Out-AdmGrid opened a window for every call. The program refuses a grid
+    /// while ten are open; the command says so in the window's language, as an error of the call that was refused, and the pipeline goes on.
+    /// </summary>
+    [Theory]
+    [InlineData("en-US", "10 grid windows of Out-AdmGrid are already open, the most there may be at a time: no grid was opened. Close one of them and run the command again.")]
+    [InlineData("pl-PL", "Otwartych jest już 10 okien siatki Out-AdmGrid – najwięcej, ile może być naraz: nie otwarto siatki. Zamknij któreś z nich i uruchom polecenie ponownie.")]
+    public async Task Out_AdmGrid_refused_by_the_program_past_its_ten_windows_says_so_and_the_pipeline_goes_on(string culture, string expected)
+    {
+        var services = new RecordingWindowServices { GridLimit = 10 };
+        await using var harness = await ReadHarness.CreateAsync(services: services, culture: System.Globalization.CultureInfo.GetCultureInfo(culture));
+
+        var result = await harness.RunAsync(
+            "foreach ($i in 1..12) { $i | Out-AdmGrid -ErrorVariable +refused -ErrorAction SilentlyContinue }; " +
+            "$refused.Count; $refused[0].FullyQualifiedErrorId.Split(',')[0]; [string]$refused[0].CategoryInfo.Category; $refused[0].Exception.Message; 'after'");
+
+        Assert.Equal(10, services.Grids.Count);
+        Assert.Equal(["2", "AdmTooManyGrids", "LimitsExceeded", expected, "after"], result.Objects.Select(o => o.ToString()).ToArray());
+    }
+
     [Fact]
     public async Task The_window_commands_say_so_when_the_window_has_no_services_or_no_window()
     {
