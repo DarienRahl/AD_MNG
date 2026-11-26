@@ -306,7 +306,7 @@ public sealed partial class UserMessageComposerViewModel
 
     /// <summary>"Wyślij bezpośrednio przez SMTP" (for this run only – the setting stays): the direct transport, with the
     /// password from the window's box when the server needs one, then the blocked action again.</summary>
-    [RelayCommand(CanExecute = nameof(CanSendDirectForRun))]
+    [RelayCommand(CanExecute = nameof(CanChooseDirectForRun))]
     private async Task SendDirectForRunAsync()
     {
         var password = SmtpPasswordInput?.GetPassword();
@@ -348,7 +348,7 @@ public sealed partial class UserMessageComposerViewModel
 
     /// <summary>"Wyślij bez obrazów": plans the same accounts again with every image replaced by its description; the
     /// preview then shows exactly what will be sent.</summary>
-    [RelayCommand(CanExecute = nameof(CanSendWithoutImages))]
+    [RelayCommand(CanExecute = nameof(CanChooseWithoutImages))]
     private async Task SendWithoutImagesAsync()
     {
         _omitImages = true;
@@ -360,6 +360,13 @@ public sealed partial class UserMessageComposerViewModel
 
     [RelayCommand]
     private void DismissTransportFit() => ClearTransportFit();
+
+    // The choices of the bar start a send or a new plan - operations of the window's one holder, where a new operation
+    // replaces the running one. They wait while the window works: a new preview being read (the bar still describes the
+    // old one until the plan asks for its images), or the test message on its way.
+    private bool CanChooseDirectForRun() => CanSendDirectForRun && !IsBusy;
+
+    private bool CanChooseWithoutImages() => CanSendWithoutImages && !IsBusy;
 
     // ---- Hooks of the main file ----------------------------------------------------------------------------------
 

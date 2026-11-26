@@ -142,7 +142,9 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase, 
 
     /// <summary>Reading or planning, or a test message is on its way.</summary>
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(PlanCommand), nameof(SendCommand), nameof(SendTestCommand), nameof(RetryFailedCommand))]
+    [NotifyCanExecuteChangedFor(
+        nameof(PlanCommand), nameof(SendCommand), nameof(SendTestCommand), nameof(RetryFailedCommand), nameof(SendDirectForRunCommand),
+        nameof(SendWithoutImagesCommand))]
     public partial bool IsBusy { get; private set; }
 
     /// <summary>The preview is being prepared (the accounts are read and the messages rendered): the Preview button is its Cancel.</summary>

@@ -185,6 +185,54 @@ public sealed class WatchdogUserMessageTransportImagesTests
     }
 
     [Fact]
+    public async Task Window_TheChoicesOfTheBar_WaitWhileANewPreviewIsPrepared()
+    {
+        var (scenario, composer) = await OpenWithLogoAsync(watchdogImages: false);
+        await composer.SendCommand.ExecuteAsync(null);
+        Assert.True(composer.IsTransportFitVisible);
+        Assert.True(composer.SendDirectForRunCommand.CanExecute(null));
+        Assert.True(composer.SendWithoutImagesCommand.CanExecute(null));
+
+        // The preview is prepared again. Until the accounts are read the bar still describes the old preview, and its
+        // choices wait: a send through it would take the line from the read (a new operation replaces the running one)
+        // and send the messages of the old preview.
+        using var arrived = new SemaphoreSlim(0);
+        using var release = new ManualResetEventSlim();
+        var hold = 1;
+        scenario.Harness.Session.BeforeOperation = operation =>
+        {
+            if (operation.Kind == FakeOperationKind.Search && Interlocked.Exchange(ref hold, 0) == 1)
+            {
+                arrived.Release();
+                release.Wait(TimeSpan.FromSeconds(60));
+            }
+        };
+        Task planning;
+        try
+        {
+            planning = composer.PlanCommand.ExecuteAsync(null);
+            Assert.True(await arrived.WaitAsync(TimeSpan.FromSeconds(20), Ct));
+            Assert.True(composer.IsBusy);
+            Assert.True(composer.IsTransportFitVisible);
+            Assert.False(composer.SendDirectForRunCommand.CanExecute(null));
+            Assert.False(composer.SendWithoutImagesCommand.CanExecute(null));
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        await planning.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+        scenario.Harness.Session.BeforeOperation = null;
+
+        // The new preview ends the bar of the old one; nothing was sent.
+        Assert.Equal(UserMessageStage.Preview, composer.Stage);
+        Assert.False(composer.IsTransportFitVisible);
+        Assert.Empty(scenario.Transport.Attempts);
+        Assert.Empty(scenario.Watchdog.UserMessages);
+    }
+
+    [Fact]
     public async Task Window_WithACurrentService_SendsTheImagesThroughIt()
     {
         var (scenario, composer) = await OpenWithLogoAsync(watchdogImages: true);
