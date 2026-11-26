@@ -87,8 +87,15 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
     /// </summary>
     private bool _listed;
 
-    /// <summary>Why the list is empty after a read of the folder that failed (null: nothing wrong).</summary>
+    /// <summary>Why the list is empty after a read of the folder that failed (null: nothing wrong, or a read runs).</summary>
     private PageStatus? _listState;
+
+    /// <summary>
+    /// What <see cref="_listState"/> was when the last read of the folder ended (null after a read that ended well): a
+    /// stopped read goes back to it. Only a read that ended sets it - a read that another one replaced, and the one stopped,
+    /// leave it -, so it survives any number of reads that overlapped.
+    /// </summary>
+    private PageStatus? _listEndState;
 
     /// <summary>
     /// How the last plan of a restore or an import ended when nothing came of it (null: it was previewed, or there was
@@ -311,7 +318,7 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
         {
             Backups = [];
             _listed = false;
-            _listState = null;
+            _listState = _listEndState = null;
             UpdateLasting();
             UpdateSummary();
             return;
@@ -321,8 +328,8 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(latest, reading.Token);
         var token = linked.Token;
 
-        // What the last read left is over: this one decides - unless the operator stops it, which leaves the list as it was.
-        var before = _listState;
+        // What the last read left is over: this one decides - unless the operator stops it, which leaves the list as it was
+        // (as the last read that ended left it: a read this one replaced may have cleared the state already).
         var listed = true;
         _listState = null;
         UpdateLasting();
@@ -338,7 +345,7 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
             // could not be read), under the message.
             if (reading.IsCancelling)
             {
-                _listState = before;
+                _listState = _listEndState;
                 UpdateLasting();
                 var retry = Localizer[L.Common.Retry];
                 reading.CompleteAttention(
@@ -363,6 +370,7 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
         }
 
         _listed = listed;
+        _listEndState = _listState;
         var domain = Session?.Info.DomainDnsName;
         Backups = [.. _entries.Select(e => new GpoBackupRowViewModel(e, GroupPolicyText.Date(Localizer, e.BackupTime, TimeZoneInfo.Local),
             domain is not null && !string.Equals(e.Domain, domain, StringComparison.OrdinalIgnoreCase)))];

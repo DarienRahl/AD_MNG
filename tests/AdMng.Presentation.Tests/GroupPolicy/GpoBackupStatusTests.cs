@@ -439,8 +439,66 @@ public sealed class GpoBackupStatusTests
     }
 
     /// <summary>
-    /// A read that failed is not a read of the folder: closing what a later stopped read says leaves no count of backups,
-    /// also when the window had listed a folder before the failure.
+    /// The state a stopped read goes back to is the one the last read that ended left, not the one it found when it began:
+    /// a read that another read replaced while both waited for a share puts nothing back, so stopping the second one after
+    /// a folder that could not be read still leaves the reason with Retry (audit GP-3, verification round 1).
+    /// </summary>
+    [Fact]
+    public async Task Stop_OfAReadThatReplacedAnotherOne_AfterAFolderThatCouldNotBeRead_KeepsTheReasonWithRetry()
+    {
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "A FIFO stands in for a folder on a share that hangs (mkfifo).");
+        var h = await GroupPolicyHarness.CreateAsync(CultureInfo.GetCultureInfo("en-US"));
+        using var window = new GpoBackupViewModel(h.Services, GpoBackupMode.Restore, []) { Folder = "\0" };
+        await window.LoadBackupsCommand.ExecuteAsync(null);
+        var failed = window.Status.Current;
+        Assert.Equal(PageStatusKind.Error, failed.Kind);
+        var failedWork = window.FolderReadWork;
+
+        // A folder on a share that does not answer; while its read waits, the operator browses to another such folder
+        // (Browse stays enabled during a read of the folder): the second read replaces the first one.
+        using var first = new TempFolder();
+        var firstManifest = Path.Combine(first.Path, GpmcBackupFormat.ManifestFile);
+        await MakeFifoAsync(firstManifest);
+        window.Folder = first.Path;
+        var firstReading = Task.Run(() => window.LoadBackupsCommand.ExecuteAsync(null), Ct);
+        await UntilAsync(() => window.Status.IsWorking && !ReferenceEquals(window.FolderReadWork, failedWork));
+        var firstWork = window.FolderReadWork;
+
+        using var second = new TempFolder();
+        var secondManifest = Path.Combine(second.Path, GpmcBackupFormat.ManifestFile);
+        await MakeFifoAsync(secondManifest);
+        window.Folder = second.Path;
+        var secondReading = Task.Run(() => window.LoadBackupsCommand.ExecuteAsync(null), Ct);
+        await firstReading.WaitAsync(Limit, Ct);
+        await UntilAsync(() => window.Status.IsWorking && !ReferenceEquals(window.FolderReadWork, firstWork));
+        var secondWork = window.FolderReadWork;
+
+        // The operator stops the second read: the list is still the empty list of the folder that could not be read.
+        window.Status.CancelCommand.Execute(null);
+        await secondReading.WaitAsync(Limit, Ct);
+        var stopped = window.Status.Current;
+        Assert.Equal((PageStatusKind.Attention, "GpoBackup.Status.ListStopped"), (stopped.Kind, stopped.Log.ToString()));
+        Assert.Empty(window.Backups);
+        Assert.True(failed.HasSameContentAs(window.Status.Lasting));
+
+        // Closing what the stop says shows why the list is empty again, with Retry - never a blank line.
+        window.Status.CloseCommand.Execute(null);
+        var now = window.Status.Current;
+        Assert.Equal((PageStatusKind.Error, failed.Message), (now.Kind, now.Message));
+        Assert.Same(window.LoadBackupsCommand, Assert.IsType<PageStatusAction>(now.Action).Command);
+
+        // Both shares answer at last: nothing either read found reaches the window.
+        await ReleaseFifoAsync(firstManifest);
+        await ReleaseFifoAsync(secondManifest);
+        await AbandonedReadEndedAsync(firstWork);
+        await AbandonedReadEndedAsync(secondWork);
+        Assert.Equal((PageStatusKind.Error, failed.Message), (window.Status.Current.Kind, window.Status.Current.Message));
+        Assert.Empty(window.Backups);
+    }
+
+    /// <summary>
+    /// A read that failed is not a read of the folder: once its empty list is shown, the line has no count of backups to
+    /// say under the reason, also when the window had listed a folder before the failure.
     /// </summary>
     [Fact]
     public async Task AFolderThatCouldNotBeRead_IsNotAFolderWithoutBackups_AlsoAfterAFolderThatWasListed()
