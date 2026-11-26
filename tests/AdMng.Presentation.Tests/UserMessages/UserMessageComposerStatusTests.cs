@@ -673,6 +673,54 @@ public sealed class UserMessageComposerStatusTests
     }
 
     [Fact]
+    public async Task TheTestMessage_IsASendOfMessages_ClosingTheWindowAsksFirst_AndStopAndCloseWaitsForItsEnd()
+    {
+        var scenario = await CreateAsync();
+        using var composer = await scenario.OpenAsync([scenario.Company.JanKowalski], BuiltInMessageTemplates.PasswordExpiring, 14);
+        await composer.PlanCommand.ExecuteAsync(null);
+        composer.SelectedItem = Item(composer, "Jan Kowalski");
+        using var send = new HeldCall();
+        scenario.Transport.BeforeSend = _ => send.HoldOnce();
+        Task testing;
+        Task<bool> closing;
+        try
+        {
+            testing = composer.SendTestCommand.ExecuteAsync(null);
+            Assert.True(await send.Held.WaitAsync(Limit, Ct));
+
+            // The test message is a message that goes out: the operation declares it, so the window does not close without a word.
+            Assert.True(composer.Status.Operation is { Writes: OperationWrites.Messages, IsWrite: true, CanCancel: true });
+
+            // The operator closes the window: the question of a send, without "continue in the background" - Don't close keeps
+            // the window and the test goes on.
+            scenario.Harness.Dialogs.Shown.Clear();
+            scenario.Harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.KeepOpen);
+            Assert.False(await composer.CanCloseAsync());
+            Assert.StartsWith(
+                "close:Sending the test message to operator@contoso.test…\n\nStop the running operation and close the window? The messages not yet sent are not sent",
+                Assert.Single(scenario.Harness.Dialogs.Shown),
+                StringComparison.Ordinal);
+            Assert.False(Assert.Single(scenario.Harness.Dialogs.CloseQuestions).CanContinue);
+            Assert.False(composer.Status.IsCancelling);
+            Assert.True(composer.IsBusy);
+
+            // Stop and close: Stop of the line, and the window closes after the test ended, not before.
+            scenario.Harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.StopAndClose);
+            closing = composer.CanCloseAsync();
+            Assert.True(composer.Status.IsCancelling);
+            Assert.False(closing.IsCompleted);
+        }
+        finally
+        {
+            send.Release();
+        }
+
+        Assert.True(await closing.WaitAsync(Limit, Ct));
+        await testing.WaitAsync(Limit, Ct);
+        Assert.False(composer.IsBusy);
+    }
+
+    [Fact]
     public async Task ATestMessage_ThatWasStoppedOrHasNoAddress_IsAttention()
     {
         var scenario = await CreateAsync();

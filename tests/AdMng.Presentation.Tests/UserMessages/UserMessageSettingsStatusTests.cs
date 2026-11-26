@@ -5,6 +5,7 @@ using AdMng.Core.Messaging;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Lists;
+using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
 using AdMng.Presentation.Tests.Dialogs;
 using AdMng.Testing;
@@ -364,6 +365,76 @@ public sealed class UserMessageSettingsStatusTests
         Assert.Equal(PageStatusKind.Attention, settings.Status.Current.Kind);
         Assert.Equal("Sending the test message was stopped: the message was not sent.", settings.Status.Current.Message);
         Assert.Equal("MessageWindow.Status.TestStopped", settings.Status.Current.Log.ToString());
+        Assert.False(tab.IsTesting);
+    }
+
+    [Fact]
+    public async Task TheTestMessage_IsASendOfMessages_SoClosingTheWindowAsksFirst_TheConnectionTestDoesNot()
+    {
+        var scenario = await CreateAsync();
+
+        // The connection test only reads: the window closes without a question.
+        using (var reading = scenario.Factory.CreateSettings())
+        using (var test = new HeldCall())
+        {
+            reading.SelectedTabIndex = SettingsViewModel.MessagesTab;
+            scenario.Transport.BeforeTestConnection = test.HoldOnce;
+            var testing = reading.Messages!.TestConnectionCommand.ExecuteAsync(null);
+            try
+            {
+                Assert.True(await test.Held.WaitAsync(Limit, Ct));
+                Assert.True(reading.Messages.Status.Operation is { Writes: OperationWrites.None, IsWrite: false });
+                Assert.True(await reading.CanCloseAsync());
+                Assert.Empty(scenario.Harness.Dialogs.CloseQuestions);
+            }
+            finally
+            {
+                test.Release();
+            }
+
+            await testing.WaitAsync(Limit, Ct);
+            scenario.Transport.BeforeTestConnection = null;
+        }
+
+        // The test message goes out: the operation declares it, so closing the window asks first - also from another tab.
+        using var settings = scenario.Factory.CreateSettings();
+        settings.SelectedTabIndex = SettingsViewModel.MessagesTab;
+        var tab = settings.Messages!;
+        using var send = new HeldCall();
+        scenario.Transport.BeforeSend = _ => send.HoldOnce();
+        Task sending;
+        Task<bool> closing;
+        try
+        {
+            sending = tab.SendTestMessageCommand.ExecuteAsync(null);
+            Assert.True(await send.Held.WaitAsync(Limit, Ct));
+            Assert.True(tab.Status.Operation is { Writes: OperationWrites.Messages, IsWrite: true, CanCancel: true });
+            settings.SelectedTabIndex = 0;
+
+            scenario.Harness.Dialogs.Shown.Clear();
+            scenario.Harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.KeepOpen);
+            Assert.False(await settings.CanCloseAsync());
+            Assert.StartsWith(
+                "close:Sending the test message to operator@contoso.test…\n\nStop the running operation and close the window? The messages not yet sent are not sent",
+                Assert.Single(scenario.Harness.Dialogs.Shown),
+                StringComparison.Ordinal);
+            Assert.False(Assert.Single(scenario.Harness.Dialogs.CloseQuestions).CanContinue);
+            Assert.False(tab.Status.IsCancelling);
+            Assert.True(tab.IsTesting);
+
+            // Stop and close: the window closes after the test ended.
+            scenario.Harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.StopAndClose);
+            closing = settings.CanCloseAsync();
+            Assert.True(tab.Status.IsCancelling);
+            Assert.False(closing.IsCompleted);
+        }
+        finally
+        {
+            send.Release();
+        }
+
+        Assert.True(await closing.WaitAsync(Limit, Ct));
+        await sending.WaitAsync(Limit, Ct);
         Assert.False(tab.IsTesting);
     }
 
