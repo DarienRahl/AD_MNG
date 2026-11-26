@@ -1986,7 +1986,8 @@ above.
   comparison, `SummaryText` of the comparison and the central store window, `StatusText` of the backup window (with the
   strings `GroupPolicy.BackupsFound`, `GroupPolicy.NoBackups` and `GroupPolicy.BackupRunning`), `ProgressText`, `BusyText`,
   `IsWorking` and `ResultText` of the central store window (*all removed in 0.16.1, audit GP-6, with the four strings
-  that only fed them; the tests read `Status`*); `CancelWorkCommand` of the backup window never had a view. No string lost
+  that only fed them - these three and `GroupPolicy.BackupFailed`, the old "N of M backups failed" sentence of `Error`;
+  the tests read `Status`*); `CancelWorkCommand` of the backup window never had a view (removed in V2b-5a). No string lost
   its last user in that unit. Added by V2b-4, unit 1: the strings `BulkCreate.Reading`, `BulkCheck.Computing` and
   `BulkCheck.StaleNote` have no user any more; no longer shown but read by tests or by the view models themselves - `Error` of
   the source and of the check step of the bulk creation wizard, `ProfileStatus`, `OptionsError`, `ComputedRows` and
@@ -3275,7 +3276,8 @@ and what nobody has seen on a screen yet.
 
   - *Decisions.* A read that was stopped or failed leaves an empty list and is the state of the dialog until it is read again
     (*Dialogs* 19 and 20) - not a result: the list has no other explanation. The count is the summary and follows the
-    filter. `IsLoading`, `Error` and `LoadCommand` are unchanged for the tests that read them.
+    filter. `LoadCommand` is unchanged; `IsLoading` and `Error`, kept then for the tests, were removed in 0.16.1 (audit
+    GP-6) and the tests read `Status`.
 - **The comparison of two GPOs** (`GroupPolicy/GpoComparisonWindow.xaml`; `GpoComparisonViewModel` and its partial file).
   - *What the line says.* Under the title and its options, above the note and the rows. **Working:** "Comparing “A” with
     “B”…" with Stop, then - once the rows are shown with the registry names of the settings - the stage "Reading the
@@ -3297,9 +3299,9 @@ and what nobody has seen on a screen yet.
     | `SummaryText` in the footer | summary | `SetIdle` of the window; gone from the footer |
 
   - *Decisions.* One scope runs through the whole of `LoadAsync`, the stage of the templates included: ending it when the rows
-    appeared (as `IsLoading` does) would have left the names arriving a moment later unannounced and unstoppable. The
-    summary is computed from the rows again after a language switch (it was left in the old language). The Refresh button
-    stays an icon button that never had a Stop of its own (*Group Policy documents* 4).
+    appeared (as `IsLoading` did; removed in 0.16.1, audit GP-6) would have left the names arriving a moment later
+    unannounced and unstoppable. The summary is computed from the rows again after a language switch (it was left in the
+    old language). The Refresh button stays an icon button that never had a Stop of its own (*Group Policy documents* 4).
 - **The backup, restore and import window** (`GroupPolicy/GpoBackupWindow.xaml`; `GpoBackupViewModel`).
   - *What the line says.* At the very top. **Working:** "Reading the backups in the folder…", "Reading the backup of “…”…"
     (holder of the selection), "Backing up the GPOs: 1 of 3…" with the part done in the ring, "Restore “…” from a backup:
@@ -3328,8 +3330,9 @@ and what nobody has seen on a screen yet.
 
   - *Decisions.* *Browse…* stays a button (the picker is a dialog of its own and the listing after it is stopped in the line).
     The folder is remembered after a listing as before (`RememberFolderAsync`, also after a failing folder; unchanged).
-    `Error` and `StatusText` keep their sentences for the tests; `Error` no longer holds the other-domain sentence.
-    `CancelWorkCommand` has no view and never had one; it is left.
+    `Error` and `StatusText` kept their sentences for the tests until 0.16.1 (removed, audit GP-6; the tests read
+    `Status`); `Error` no longer held the other-domain sentence. `CancelWorkCommand` had no view and never had one; it was
+    left then, and V2b-5a removed it (no view and no test used it).
 - **The central store window** (`GroupPolicy/CentralStoreUpdateWindow.xaml`; `AdministrativeTemplates/CentralStoreUpdateViewModel`).
   - *What the line says.* At the top, above the target and the sources. **Working:** "Reading the templates…" or "Downloading
     the templates of Microsoft Edge…" with Stop, then "Comparing with the central store…" (a stage; of its own when a
@@ -3426,10 +3429,10 @@ and what nobody has seen on a screen yet.
   - *Unit 4: nothing of the base, the model or the controls changed, and no document was touched.* The windows use the
     foundations and the sub-list *The windows*; new are four L classes (`GpoPickerStatus`, `GpoComparisonStatus`,
     `GpoBackupStatus`, `CentralStoreStatus`) and 32 pairs of strings. The things of other units that were touched are
-    their windows only: `WriteBackup` of the central store view model became public (the UI tests hold the backup); the
-    comparison computes its summary again after a language switch.
-  - *Unit 4: a property changed its meaning.* `Error` of the backup window no longer holds "this backup comes from another
-    domain" (it is `OtherDomainText`, a note); nothing read it for that.
+    their windows only: `WriteBackup` of the central store view model became public (the UI tests hold the backup;
+    internal again in 0.16.1, audit GP-6); the comparison computes its summary again after a language switch.
+  - *Unit 4: a property changed its meaning.* `Error` of the backup window no longer held "this backup comes from another
+    domain" (it is `OtherDomainText`, a note); nothing read it for that. (`Error` itself was removed in 0.16.1, audit GP-6.)
   - *Unit 4: the line of the backup window is above its title*, not under it (*The windows* 2), and the three windows with
     a plain footer have a footer of buttons only.
   - *Unit 4: "Reading the folder" is waited for, not stopped* (*The windows* 6): the thread of a call that takes no token
@@ -4908,10 +4911,11 @@ the developer page (item 8), the checks, and what nobody has seen on a screen.
     **The contract of the shell:** `StatusText` and
     `SelectionText` of the documents (the shell reads them for a tab that has no line; `ShellViewModel.StatusBarText` is tested).
     **Tests need them as their oracle and the line is another holder or a hop away:** `IsLoading` of the Group Policy comparison and the
-    GPO picker (22 test sites, among them the wait predicates of Windows UI tests that cannot be run here), `FooterText` of the account
-    review and `Summary` and `ResultText` of the plan preview (the tests assert that the line says exactly that), `StatusText` and
-    `IsNestedLoading` of the comparison (`StatusText` is also the accessible name of the list of candidates), `IsWorking` and
-    `ProgressText` of the central store window, `ReadAtText` and `CountStatusText` of the PKI documents (`AssertNotSaidTwice` looks for that text on the
+    GPO picker (22 test sites, among them the wait predicates of Windows UI tests that cannot be run here; *removed in
+    0.16.1*), `FooterText` of the account review and `Summary` and `ResultText` of the plan preview (the tests assert that
+    the line says exactly that), `StatusText` and `IsNestedLoading` of the comparison (`StatusText` is also the accessible name of the
+    list of candidates), `IsWorking` and `ProgressText` of the central store window (*removed in 0.16.1*), `ReadAtText` and
+    `CountStatusText` of the PKI documents (`AssertNotSaidTwice` looks for that text on the
     screen), `BannerMessage` of the Watchdog tab (its change notification is tested), `SummaryText` of the delivery test (five assertions
     of what the test says), `SessionEndedMessage` (the base class builds `SessionEndedStatus` from it). **Commands that are the Stop of a
     line** stay as the commands they are: `Cancel()` and `CancelCommand` of the documents, readiness, the mailboxes page and the security
