@@ -305,6 +305,53 @@ public sealed class RecipientsStatusTests
     }
 
     [Fact]
+    public async Task AnExclusionFileThatCannotBeRead_IsPartOfTheOneAnswer_InTheLine_OrInOneToastWhileAReadRuns()
+    {
+        using var scenario = await CorrespondenceShellScenario.CreateAsync(Polish);
+        using var window = await scenario.OpenAsync();
+        var page = window.Recipients;
+        var good = File(scenario, "nie-wysylac.csv", Cp1250.GetBytes(ContactsCsv));
+        var broken = File(scenario, "zepsuty.xlsx", System.Text.Encoding.ASCII.GetBytes("to nie jest arkusz"));
+        scenario.Dialogs.Files.Enqueue([broken, good]);
+        var line = new StatusRecorder(window.Status);
+
+        await page.ExclusionsFromFileCommand.ExecuteAsync(null);
+
+        // What was added and what was not read are one answer, an attention: the addresses of the file that was not read may
+        // still be on the list, and must not be written to.
+        var answer = Assert.Single(line.Seen);
+        Assert.Equal(PageStatusKind.Attention, answer.Kind);
+        Assert.StartsWith(
+            "„Nie wysyłać”: dodano 2, na liście 2. Nie wczytano: Nie udało się wczytać „zepsuty.xlsx”: plik jest uszkodzony",
+            answer.Message,
+            StringComparison.Ordinal);
+        Assert.Equal("Correspondence.Recipients.Status.ImportPartly (2, 1)", window.Status.Current.Log.ToString());
+        Assert.True(window.Status.Current.CanClose);
+        Assert.Equal(page.StatusText, answer.Message);
+        window.Status.CloseCommand.Execute(null);
+
+        // While a read of the directory has the line, the same answer is one toast - a warning - and the read keeps the line.
+        page.SelectedObjects = [scenario.Company.JanKowalski];
+        using var held = new HeldDirectoryCall(scenario.Harness.Session);
+        var run = page.AddFromSelectionCommand.ExecuteAsync(null);
+        await held.Reached.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+        var toastsBefore = scenario.Harness.Notifications.Items.Count;
+        scenario.Dialogs.Files.Enqueue([broken]);
+
+        await page.ExclusionsFromFileCommand.ExecuteAsync(null);
+
+        var toast = Assert.Single(scenario.Harness.Notifications.Items.Skip(toastsBefore));
+        Assert.Equal(Presentation.Services.NotificationSeverity.Warning, toast.Severity);
+        Assert.StartsWith(
+            "„Nie wysyłać”: dodano 0, na liście 2. Nie wczytano: Nie udało się wczytać „zepsuty.xlsx”: ", toast.Message, StringComparison.Ordinal);
+        Assert.Equal(PageStatusKind.Working, window.Status.Current.Kind);
+        Assert.Equal("Correspondence.Recipients.Status.DirectoryReading (1)", window.Status.Current.Log.ToString());
+        held.Release();
+        await run.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+        Assert.Equal(PageStatusKind.Done, window.Status.Current.Kind);
+    }
+
+    [Fact]
     public async Task AQuickActionOfTheList_AnswersInTheLine_ButNeverEndsAReadThatRuns()
     {
         using var scenario = await CorrespondenceShellScenario.CreateAsync(Polish);

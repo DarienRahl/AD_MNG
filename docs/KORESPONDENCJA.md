@@ -179,7 +179,9 @@ tylko definicje pól (nazwa i wyrażenie), nigdy wartości.
 
 Własna lista adresów do pominięcia: *Z pliku…* (z każdego obsługiwanego pliku), *Wklej* (ze schowka albo wpisane) i
 *Wyczyść*. Lista żyje tylko w pamięci okna – jak w Korespondencji WPiA po zamknięciu jest pusta. Licznik obok pokazuje
-obie przyczyny pominięcia, np. *Pominięcia: 12 własnych + 340 z dziennika*.
+obie przyczyny pominięcia, np. *Pominięcia: 12 własnych + 340 z dziennika*. Plik, którego *Z pliku…* nie wczytało,
+wiersz stanu podaje w jednej uwadze razem z liczbą dodanych adresów – jego adresy mogą nadal być na liście odbiorców
+(w czasie odczytu z katalogu jest to jedno powiadomienie).
 
 ### Dziennik „już wysłane”
 

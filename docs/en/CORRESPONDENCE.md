@@ -185,7 +185,9 @@ the field definitions (name and expression) are saved, never the values.
 
 Your own list of addresses to skip: *From a file…* (from any supported file), *Paste* (from the clipboard or typed) and
 *Clear*. The list lives only in the memory of the window – as in Korespondencja WPiA it is empty after closing. The
-counter next to it shows both reasons for skipping, e.g. *Skipped: 12 of your own + 340 from the journal*.
+counter next to it shows both reasons for skipping, e.g. *Skipped: 12 of your own + 340 from the journal*. A file that
+*From a file…* could not load is named by the status line in one attention together with the number of addresses
+added – its addresses may still be on the recipient list (while the directory is being read, it is one notification).
 
 ### The "already sent" journal
 

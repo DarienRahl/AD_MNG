@@ -456,14 +456,19 @@ public sealed partial class RecipientsPageViewModel
             }
         }
 
-        AddExclusions(addresses);
-        if (errors.Count > 0)
+        var (added, text) = AddExclusionsQuietly(addresses);
+        if (errors.Count == 0)
         {
-            // The files that could not be read are part of the answer: what was added and what was not read. Never
-            // dropped: an exclusion file that was silently not read leaves addresses on the list that must not be written to.
-            StatusText = Localizer.Format(L.RecipientsStatus.ImportPartly, StatusText, FileErrors(errors));
-            Say(PageStatus.Attention(StatusText, new PageStatusLog(L.RecipientsStatus.ImportPartly, addresses.Count, errors.Count)));
+            ReportStatus(text, L.CorrespondenceRecipients.ExclusionsAdded, false, added, _excluded.Count);
+            return;
         }
+
+        // The files that could not be read are part of the one answer: what was added and what was not read - not a done
+        // first and the files after it (two toasts while a read has the line). Never dropped: an exclusion file that was
+        // silently not read leaves addresses on the list that must not be written to.
+        StatusText = string.Empty;
+        StatusText = Localizer.Format(L.RecipientsStatus.ImportPartly, text, FileErrors(errors));
+        Say(PageStatus.Attention(StatusText, new PageStatusLog(L.RecipientsStatus.ImportPartly, addresses.Count, errors.Count)));
     }
 
     /// <summary>The clipboard's addresses, else a prompt.</summary>
@@ -497,6 +502,13 @@ public sealed partial class RecipientsPageViewModel
 
     private void AddExclusions(IEnumerable<string> addresses)
     {
+        var (added, text) = AddExclusionsQuietly(addresses);
+        ReportStatus(text, L.CorrespondenceRecipients.ExclusionsAdded, false, added, _excluded.Count);
+    }
+
+    /// <summary>Adds the "Nie wysyłać" entries and marks the rows; the caller says the answer (how many were added, and the sentence).</summary>
+    private (int Added, string Text) AddExclusionsQuietly(IEnumerable<string> addresses)
+    {
         var added = 0;
         foreach (var address in addresses)
         {
@@ -508,8 +520,7 @@ public sealed partial class RecipientsPageViewModel
         }
 
         ApplyExclusions();
-        ReportStatus(Localizer.Format(L.CorrespondenceRecipients.ExclusionsAdded, added, _excluded.Count), L.CorrespondenceRecipients.ExclusionsAdded,
-            false, added, _excluded.Count);
+        return (added, Localizer.Format(L.CorrespondenceRecipients.ExclusionsAdded, added, _excluded.Count));
     }
 
     /// <summary>A file name pattern without directories (a pattern with a path falls back to the default).</summary>

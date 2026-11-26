@@ -92,6 +92,11 @@
   obiektów zasad grupy* i w kopii przed usunięciem GPO (*Utwórz kopię zapasową przed usunięciem*) – mówiła „zapisano 0 z
   1 obiektów GPO” i „Nie udało się utworzyć kopii zapasowych 1 z 1 obiektów GPO” – teraz „z 1 obiektu GPO” (po angielsku
   „0 of 1 GPO was written”, „1 of 1 GPO”).
+- **Korespondencja: plik listy *Nie wysyłać*, którego nie udało się wczytać, to jedna odpowiedź.** Gdy wśród plików
+  wybranych w *Nie wysyłać → Z pliku…* był taki, którego nie udało się wczytać, karta *Odbiorcy* mówiła najpierw, że
+  adresy dodano, a zaraz potem to samo z nazwą pliku, którego nie wczytano; w czasie odczytu z katalogu były to dwa
+  powiadomienia, pierwsze jako sukces. Teraz wiersz stanu podaje jedną uwagę – ile adresów dodano i którego pliku nie
+  wczytano – a w czasie odczytu z katalogu jest to jedno powiadomienie z ostrzeżeniem.
 
 ## AdMng Watchdog {{VERSION}}
 
