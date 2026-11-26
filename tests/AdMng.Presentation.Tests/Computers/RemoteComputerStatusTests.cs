@@ -5,6 +5,7 @@ using AdMng.Presentation.Computers;
 using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Tests.GroupPolicy;
 using AdMng.Testing;
+using CommunityToolkit.Mvvm.Input;
 
 namespace AdMng.Presentation.Tests.Computers;
 
@@ -204,6 +205,65 @@ public sealed class RemoteComputerStatusTests
         Assert.Equal("Scheduling the restart of KRK-PC101 was stopped: it is not known whether the computer received the request.", stopped.Message);
         Assert.Null(stopped.Action);
         Assert.False(window.IsSchedulingRestart);
+    }
+
+    /// <summary>
+    /// What each action declares it changes (V2b-5b): the three reads change nothing - the window closes without a question
+    /// -, the refresh of Group Policy, a restart and its cancellation do something to the computer, so closing the window while
+    /// one is on its way asks first ("do not close" keeps the window and the call).
+    /// </summary>
+    [Theory]
+    [InlineData("status", false)]
+    [InlineData("users", false)]
+    [InlineData("services", false)]
+    [InlineData("policy", true)]
+    [InlineData("restart", true)]
+    [InlineData("abort-restart", true)]
+    public async Task AnActionThatChangesTheComputer_IsAWrite_AndClosingTheWindowAsksFirst_AReadIsNot(string action, bool changes)
+    {
+        var (scenario, window) = await OpenAsync();
+        using var _window = window;
+        scenario.Dialogs.RestartHandler = d =>
+        {
+            d.ConfirmCommand.Execute(null);
+            return true;
+        };
+        IAsyncRelayCommand command = action switch
+        {
+            "status" => window.RefreshStatusCommand,
+            "users" => window.LoadUsersCommand,
+            "services" => window.LoadServicesCommand,
+            "policy" => window.RefreshPolicyCommand,
+            "restart" => window.RestartCommand,
+            _ => window.AbortRestartCommand,
+        };
+        scenario.Remote.HoldNextOperation = true;
+
+        var call = command.ExecuteAsync(null);
+        await scenario.Remote.Held.Task.WaitAsync(Limit, TestContext.Current.CancellationToken);
+
+        var operation = Assert.IsType<OperationScope>(window.Status.Operation);
+        Assert.Equal(changes, operation.IsWrite);
+        Assert.Equal(changes ? OperationWrites.Other : OperationWrites.None, operation.Writes);
+        var dialogs = scenario.Harness.Dialogs;
+        dialogs.CloseQuestions.Clear();
+        var closes = await window.CanCloseAsync();
+        if (changes)
+        {
+            Assert.False(closes);
+            Assert.Single(dialogs.CloseQuestions);
+            Assert.False(window.Status.IsCancelling);
+            Assert.Same(operation, window.Status.Operation);
+        }
+        else
+        {
+            Assert.True(closes);
+            Assert.Empty(dialogs.CloseQuestions);
+        }
+
+        window.Status.CancelCommand.Execute(null);
+        await call.WaitAsync(Limit, TestContext.Current.CancellationToken);
+        Assert.False(window.IsBusy);
     }
 
     [Fact]
