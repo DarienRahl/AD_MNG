@@ -55,8 +55,8 @@ How each is wired (the first uses are the model):
   server was on: a chip, or the quick filter text of a very large container), otherwise *Refresh*. A text filter of loaded rows hides only
   rows that were read: over an empty list it is no such filter, and the sentence is the empty one with *Refresh*. The view binds the four properties one way (`Message`, `Icon`, `ActionText`, `ActionCommand`) and needs no visibility
   of its own. The list's own text for "nothing matches" is removed, not kept beside it.
-- **Skeleton.** The view model has `ShowsSkeleton` (loading, the first read of a location that was not shown, no error, no rows - a reload of
-  the same source that was shown, `ReplaceLocationAsync`, a stop and a failure never are; a read that failed or was stopped before its first
+- **Skeleton.** The view model has `ShowsSkeleton` (loading, the first read of a location that was not shown, no error, no rows - a reload or a
+  `ReplaceLocationAsync` of the same source that was shown, a stop and a failure never are; a read that failed or was stopped before its first
   row showed nothing, so the next read of it is still the first); the view puts the control in the grid cell of the list with a top
   margin of the column header (29 px) and binds `IsActive`. The 150 ms before the bars are the control's own (`IStatusScheduler`, as the
   status line's), so a test replaces `Skeleton.Scheduler` with a `ManualStatusScheduler` and never waits.
@@ -138,8 +138,10 @@ things. The test for the first two: *is this the answer to something the operato
    `execution.StaysWithWindow(L.CloseWork.NoBackground…)` when its result must stay with the window (generated passwords, a caller
    that reads the result) - `WindowNotifies = true` when a toast of its own is the whole report (a success; then the connection does not
    say it again when the window closes right after the run), and `execution.NotifyWhileOpen(...)` for a toast meant for an open window
-   only (the batch editor's counts: held while a close looks at the run, said if the window stays, left to the connection if it closes). Its progress is on the taskbar button of the window like every other (a part done through
-   `PageProgress.Of(done, total)` in `Report`), with nothing to wire.
+   only (the batch editor's counts: held while a close looks at the run, said if the window stays, left to the connection if it closes). Its progress is on the taskbar button of the window when the window has
+   one (the batch editor, the Recycle Bin), like every other window with a button (a part done through `PageProgress.Of(done, total)`
+   in `Report`), with nothing to wire; the plan preview and Reset Password have none (`ShowInTaskbar="False"`) and say it in their
+   status line only (the owner's decision of 2026-11-25).
 4. **A state that lasts is computed in one method.** "Could not be read", "was deleted", "is out of date", "the session of this window ended"
    are true for as long as the page shows what it shows. A cancelled or failed read that leaves the content empty or stale is
    `SetLasting(error with Retry)` and the operation ends without a message; one that leaves the content as it was is a result

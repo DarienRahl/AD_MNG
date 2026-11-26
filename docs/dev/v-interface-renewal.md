@@ -5222,7 +5222,7 @@ releases.
     that is not the one shown** (a different kind, base, scope, filter, view or search text; set when a location is shown, cleared when a read
     of it ended well or put rows on screen - a read that failed or was stopped before its first row showed nothing, so Retry, Refresh or
     the same location again is still its first read), no error and no row yet. A reload of a list that was shown (F5, a chip, a sort),
-    `ReplaceLocationAsync` of the same list, a stopped read and a failed read never show it. *The opacity pulse instead of the sweep* of 5.2 (row 10) is the owner's instruction for this unit: no
+    `ReplaceLocationAsync` of a list that was shown, a stopped read and a failed read never show it. *The opacity pulse instead of the sweep* of 5.2 (row 10) is the owner's instruction for this unit: no
     gradient, no opacity mask, one animation on one element.
   - *Decisions of the unit.* **(1)** The pill takes its kind from a view model property and never from a converter in XAML: the mapping is a
     value-free function of an enum, tested on Linux (`StatusPillKindTests`). **(2)** The empty state is a value of the view model, not a set of
@@ -5270,7 +5270,7 @@ releases.
     button keeps what it showed, as the line does.
   - *Where it is wired.* `Behaviors/TaskbarProgress.cs`: `TaskbarProgress.Register()` adds one class handler for the `Loaded` event of every
     `Window`, called from `AppHost.InitializeAsync` - the one place the application, the smoke test and every UI test run before the first
-    window exists. No XAML file and no window class names it, so every present and future window follows its status without being told.
+    window exists. No XAML file and no window class names it, so every present and future window follows its status on its taskbar button, when it has one, without being told.
     Per window one `Follower` (an attached property) owns a tracker, hands it the holder of the window's view model (`IHasFrontStatus`,
     else `IHasPageStatus`, else none; again when the `DataContext` changes) and puts `State` on `Window.TaskbarItemInfo` (the main window's,
     which carries the connection's dot, or one it creates when there is something to show; a button with nothing to show that never had

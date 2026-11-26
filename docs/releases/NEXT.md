@@ -74,11 +74,11 @@
 - **Lista obiektów: pusty kontener z tekstem filtra, ponowiony pierwszy odczyt i *Wyczyść filtr* dużego kontenera.**
   Gdy w kontenerze bez obiektów wpisano tekst szybkiego filtra, lista mówiła *Żaden obiekt nie pasuje do filtra.* z
   działaniem *Wyczyść filtr*, choć tekst niczego nie ukrywał – a *Wyczyść filtr* prowadził tylko do drugiego zdania;
-  teraz mówi *Brak elementów do pokazania w tym widoku.* z *Odśwież* (przycisk filtra, np. *Włączone*, nadal liczy się
-  jako filtr, bo filtruje na serwerze). Gdy pierwszy odczyt kontenera nie udał się albo zatrzymano go przed pierwszym
+  teraz mówi *Brak elementów do pokazania w tym widoku.* z *Odśwież* (gotowy szybki filtr, np. *Włączone*, nadal liczy
+  się jako filtr, bo filtruje na serwerze). Gdy pierwszy odczyt kontenera nie udał się albo zatrzymano go przed pierwszym
   obiektem, *Ponów* lub *Odśwież* w wierszu stanu – albo ponowne otwarcie tego samego kontenera – pokazywały pustą
   listę; teraz pokazują szare wiersze zastępcze pierwszego odczytu, dopóki nie przyjdą obiekty. *Wyczyść filtr* na
-  bardzo dużym kontenerze (lista wirtualna VLV, gdzie tekst filtruje na serwerze) z włączonym przyciskiem filtra i
+  bardzo dużym kontenerze (lista wirtualna VLV, gdzie tekst filtruje na serwerze) z włączonym gotowym szybkim filtrem i
   tekstem czytał kontener dwa razy – drugi raz po chwili, gdy minęło opóźnienie wpisywanego tekstu; teraz czyta go raz,
   od razu, także gdy włączony był sam tekst.
 - **Okno *Wyślij wiadomość do użytkowników*: wybór z paska transportu czeka, aż okno skończy pracę.** Gdy wiadomości nie
