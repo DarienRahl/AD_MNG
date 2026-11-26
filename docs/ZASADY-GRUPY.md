@@ -205,7 +205,9 @@ są pokazywane. *Eksportuj CSV…* zapisuje porównanie tylko na żądanie. Oba 
 Wiersz stanu pod tytułem okna mówi, co jest porównywane (z poleceniem **Zatrzymaj**; po pokazaniu wierszy – etap
 *Wczytywanie szablonów administracyjnych, aby nazwać zasady…*), a w spoczynku, ile jest różnic. Porównanie, które zatrzymano
 albo które się nie udało, zanim cokolwiek pokazało, wiersz opisuje, dopóki nie powtórzysz go (*Odśwież*, *Ponów*); co się
-nie dało porównać (SYSVOL niedostępny) mówi uwaga nad wierszami.
+nie dało porównać (SYSVOL niedostępny) mówi uwaga nad wierszami – razem z wierszami zostaje też po odświeżeniu, które
+zatrzymano albo które się nie udało. Eksport, który się nie udał, wiersz podaje jako wynik; w trakcie porównania (wiersze są
+już widoczne, gdy wczytywane są szablony) mówi o nim powiadomienie.
 
 ## 7. Szablony administracyjne (ADMX)
 

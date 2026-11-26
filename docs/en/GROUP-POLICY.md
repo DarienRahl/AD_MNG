@@ -206,7 +206,9 @@ shown. *Export CSV…* saves the comparison only on request. Both GPOs come from
 The status line under the title of the window says what is being compared (with **Stop**; once the rows are shown, the
 stage *Reading the administrative templates to name the policies…*) and, at rest, how many differences there are. A
 comparison that was stopped or failed before it showed anything is described by the line until you repeat it (*Refresh*,
-*Retry*); what could not be compared (SYSVOL not available) is said by a note above the rows.
+*Retry*); what could not be compared (SYSVOL not available) is said by a note above the rows – it stays with the rows after
+a refresh that was stopped or failed, too. An export that failed is a result in the line; while the comparison runs (the
+rows are already shown while the templates are read), a notification says it.
 
 ## 7. Administrative Templates (ADMX)
 

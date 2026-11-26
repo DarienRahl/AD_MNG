@@ -3283,14 +3283,15 @@ and what nobody has seen on a screen yet.
     before it showed anything ("Comparing was stopped: nothing is shown. Press “Refresh” to compare again.", attention that
     lasts; "…the rows may be out of date…" when the rows of the comparison before are still shown) or failed (an error with the reason, the code and Retry that lasts); a comparison stopped while the templates
     were read is a result that can be closed ("…the policies are shown under their registry names"), because the rows are
-    all there; a failed export ("The comparison was not exported: …") is a result that can be closed, a good one keeps its
-    toast; the end of the session, or no session.
+    all there; a failed export ("The comparison was not exported: …") is a result that can be closed - an error toast while
+    the comparison still runs (the rows are there during the stage of the templates, so Export can be pressed; audit GP-5,
+    0.16.1) -, a good one keeps its toast; the end of the session, or no session.
   - *How the old places were sorted* (1 error bar, 1 warning bar, 1 progress bar, the summary text).
 
     | Old place | Kind | Now |
     |---|---|---|
     | error bar `Error` (a failed comparison or export, "not connected", the session that ended) | status | the state of the window with Retry; a failed export a result; "not connected" and the end of the session the state of the window |
-    | warning bar `Warning` ("SYSVOL unavailable… Settings and files were not compared.", a GPO too large) | note | `Ad.Note.Attention` above the rows: how complete the rows are, true while they are shown |
+    | warning bar `Warning` ("SYSVOL unavailable… Settings and files were not compared.", a GPO too large) | note | `Ad.Note.Attention` above the rows: how complete the rows are, true while they are shown - it changes with the rows, so a Refresh that is stopped or fails before it shows any keeps the note of the rows that stay (0.16.1) |
     | progress bar in the middle of the list (`IsLoading`) | status | the operation of the window, with Stop |
     | `SummaryText` in the footer | summary | `SetIdle` of the window; gone from the footer |
 

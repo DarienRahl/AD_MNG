@@ -5,6 +5,7 @@ using AdMng.Core.GroupPolicy.Management;
 using AdMng.Presentation.Feedback;
 using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.Localization;
+using AdMng.Presentation.Services;
 using AdMng.Presentation.Tests.GroupPolicy.Copy;
 using AdMng.Testing;
 using CommunityToolkit.Mvvm.Input;
@@ -239,6 +240,75 @@ public sealed class GpoComparisonStatusTests
         Assert.DoesNotContain("SYSVOL", comparison.Status.Current.Message, StringComparison.Ordinal);
         Assert.Null(comparison.Status.Lasting);
         Assert.Null(comparison.Error);
+    }
+
+    /// <summary>
+    /// A Refresh that the operator stops before it showed anything leaves the rows of the comparison before - and with them
+    /// the note on what that comparison could not compare: the note is about the rows shown (the auditor's note to GP-4: the
+    /// stopped refresh cleared it, and the rows looked complete).
+    /// </summary>
+    [Fact]
+    public async Task Stop_OfARefresh_KeepsTheNoteOfTheRowsThatStay()
+    {
+        var k = await K7Harness.CreateAsync(culture: CultureInfo.GetCultureInfo("en-US"));
+        k.H.Sysvol.Unavailable = SysvolUnavailableReason.AccessDenied;
+        using var comparison = await NewAsync(k);
+        await comparison.InitializeAsync();
+        var note = comparison.Warning;
+        var rows = comparison.Rows.Count;
+        Assert.Contains("were not compared", note, StringComparison.Ordinal);
+
+        // Refresh, with a SYSVOL that answers now: its first read waits for the test, and the operator stops it.
+        k.H.Sysvol.Unavailable = null;
+        using (var held = new HeldDirectoryCall(k.H.Session))
+        {
+            var refreshing = Task.Run(() => comparison.LoadCommand.ExecuteAsync(null), Ct);
+            await held.Reached.WaitAsync(Limit, Ct);
+            comparison.Status.CancelCommand.Execute(null);
+            held.Release();
+            await refreshing.WaitAsync(Limit, Ct);
+        }
+
+        Assert.Equal("GpoComparison.Status.StoppedStale", comparison.Status.Current.Log.ToString());
+        Assert.Equal(rows, comparison.Rows.Count);
+        Assert.Equal(note, comparison.Warning);
+
+        // A comparison that shows its rows says what it could not compare - here: nothing.
+        await comparison.LoadCommand.ExecuteAsync(null);
+        Assert.Null(comparison.Warning);
+    }
+
+    /// <summary>
+    /// An export that fails while the comparison still runs - the rows are there and the templates are read, so Export can be
+    /// pressed - is an error toast: the line keeps the running comparison and its Stop, and the answer to the press is not
+    /// lost (audit GP-5: it was said nowhere since the error bar went). Afterwards the line has nothing of it.
+    /// </summary>
+    [Fact]
+    public async Task AnExportThatFailedWhileTheTemplatesAreRead_IsAnErrorToast_AndTheLineKeepsTheComparison()
+    {
+        var k = await K7Harness.CreateAsync(culture: CultureInfo.GetCultureInfo("en-US"));
+        using var comparison = await NewAsync(k);
+        var hold = k.H.Sysvol.HoldNext("ListDefinitions");
+        var loading = comparison.InitializeAsync();
+        await hold.Reached.WaitAsync(Limit, Ct);
+        Assert.NotEmpty(comparison.Rows);
+        var working = comparison.Status.Current;
+        using var folder = new TempFolder();
+        k.H.B2.Files.NextSavePath = Path.Combine(folder.Path, "no-such-folder", "porównanie.csv");
+        var toasts = k.H.B2.Notifications.Items.Count;
+
+        await comparison.ExportCommand.ExecuteAsync(null);
+
+        var toast = Assert.Single(k.H.B2.Notifications.Items.Skip(toasts));
+        Assert.Equal(NotificationSeverity.Error, toast.Severity);
+        Assert.StartsWith("The comparison was not exported: ", toast.Message, StringComparison.Ordinal);
+        Assert.EndsWith(" (DirectoryNotFoundException)", toast.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(folder.Path, toast.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Same(working, comparison.Status.Current);
+
+        hold.Release();
+        await loading.WaitAsync(Limit, Ct);
+        Assert.Equal((PageStatusKind.Idle, comparison.SummaryText), (comparison.Status.Current.Kind, comparison.Status.Current.Message));
     }
 
     [Fact]

@@ -144,7 +144,6 @@ public sealed partial class GpoComparisonViewModel : WindowViewModelBase, IHasPa
 
         IsLoading = true;
         Error = null;
-        Warning = null;
         using var comparing = Status.Begin(
             Localizer.Format(L.GpoComparisonStatus.Comparing, A.DisplayName, B.DisplayName), new PageStatusLog(L.GpoComparisonStatus.Comparing));
         _comparing = comparing;
@@ -157,6 +156,10 @@ public sealed partial class GpoComparisonViewModel : WindowViewModelBase, IHasPa
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(latest, comparing.Token);
         var token = linked.Token;
         var shown = false;
+
+        // What this comparison could not compare: the note of its rows once they are shown. Until then the rows of the
+        // comparison before stay - after a Stop or a failure too - and so does their note.
+        string? warning = null;
         try
         {
             var reader = _gp.Reader;
@@ -182,13 +185,13 @@ public sealed partial class GpoComparisonViewModel : WindowViewModelBase, IHasPa
                     catch (Exception ex) when (ex is GpoTooLargeException or SysvolWriteException)
                     {
                         contentA = contentB = null;
-                        Warning = GroupPolicyText.Error(Localizer, Errors, ex) + " " + Localizer[L.GroupPolicy.CompareWithoutContent];
+                        warning = GroupPolicyText.Error(Localizer, Errors, ex) + " " + Localizer[L.GroupPolicy.CompareWithoutContent];
                     }
                 }
             }
             else
             {
-                Warning = _gp.SysvolText(access.Reason ?? SysvolUnavailableReason.Failed, session.Info.Server) + " " + Localizer[L.GroupPolicy.CompareWithoutContent];
+                warning = _gp.SysvolText(access.Reason ?? SysvolUnavailableReason.Failed, session.Info.Server) + " " + Localizer[L.GroupPolicy.CompareWithoutContent];
             }
 
             var rows = await Task.Run(
@@ -205,6 +208,7 @@ public sealed partial class GpoComparisonViewModel : WindowViewModelBase, IHasPa
             var linkMap = linksA.Concat(linksB).GroupBy(l => l.ContainerDn, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First().ContainerName, StringComparer.OrdinalIgnoreCase);
             var other = rows.Where(r => r.Section != GpoComparisonSection.Settings).Select(r => ToRow(r, names, filterNames, linkMap, linksA, linksB)).ToList();
             var (presenterA, presenterB) = Presenters(Localizer, names, rows, contentA, contentB, null);
+            Warning = warning;
             ShowRows(other, SettingRows(rows, presenterA, presenterB));
             shown = true;
 
@@ -322,15 +326,18 @@ public sealed partial class GpoComparisonViewModel : WindowViewModelBase, IHasPa
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // The answer to the press: nothing was exported, and why - in the line, unless a comparison runs (it keeps the line).
+            // The answer to the press: nothing was exported, and why - in the line, or as a toast while the comparison runs
+            // (the rows are there while the templates are read): it keeps the line and its Stop.
             Error = Localizer[L.GroupPolicy.FolderFailed];
-            if (!Status.IsWorking)
+            var code = ResultCode.Of(ex);
+            var text = PageStatusText.Failure(Localizer[L.GpoComparisonStatus.ExportFailed], Error, null, code);
+            if (Status.IsWorking)
             {
-                var code = ResultCode.Of(ex);
-                Status.Show(PageStatus.Error(
-                    PageStatusText.Failure(Localizer[L.GpoComparisonStatus.ExportFailed], Error, null, code),
-                    new PageStatusLog(L.GpoComparisonStatus.ExportFailed).WithCode(code)));
+                Services.Notifications.Show(NotificationSeverity.Error, text);
+                return;
             }
+
+            Status.Show(PageStatus.Error(text, new PageStatusLog(L.GpoComparisonStatus.ExportFailed).WithCode(code)));
         }
     }
 

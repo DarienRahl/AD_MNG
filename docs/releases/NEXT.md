@@ -64,6 +64,12 @@
   aktualizacji magazynu jest jej ostatnim etapem: źródła paczek i opcje czekają na nie tak jak przy wczytywaniu (zmiana
   języka w tym czasie przerywała je i wiersz nie mówił już, co aktualizacja zapisała), a wynik aktualizacji – *Magazyn
   centralny zaktualizowany: …* – wiersz podaje także wtedy, gdy to porównanie zatrzymano albo się nie udało.
+- **Porównanie dwóch GPO: nieudany eksport w trakcie porównania i uwaga o SYSVOL po zatrzymanym odświeżeniu.** Wiersze
+  porównania są widoczne, zanim skończy się wczytywanie szablonów administracyjnych, więc *Eksportuj CSV…* można wybrać
+  już wtedy; eksport, który się w tym czasie nie udał (np. folder nie istnieje), nie był nigdzie zgłaszany. Teraz mówi o
+  nim powiadomienie, a wiersz stanu zostaje przy trwającym porównaniu i jego *Zatrzymaj*. Uwaga nad wierszami o tym, czego
+  nie porównano (SYSVOL niedostępny), znikała, gdy *Odśwież* zatrzymano albo się nie udało, choć wiersze poprzedniego
+  porównania zostawały – teraz zostaje razem z nimi.
 
 ## AdMng Watchdog {{VERSION}}
 
