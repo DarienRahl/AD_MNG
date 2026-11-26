@@ -152,6 +152,74 @@ public sealed class GpoBackupStatusTests
         Assert.True(window.RunCommand.CanExecute(null));
     }
 
+    /// <summary>
+    /// Stop before the first GPO - while SYSVOL is opened, before the activity started: nothing was written, the line says
+    /// so with the button that backs up, and the window stays (audit TI-4: no test had run this branch).
+    /// </summary>
+    [Theory]
+    [InlineData("en-US", "The backup was stopped: 0 of 2 GPOs were written to the folder. Press “Back Up” to try again.")]
+    [InlineData("pl-PL", "Tworzenie kopii zapasowych zatrzymano: do folderu zapisano 0 z 2 obiektów GPO. Wybierz „Utwórz kopię”, aby spróbować ponownie.")]
+    public async Task Stop_BeforeTheFirstGpo_SaysNoneWasWritten_AndTheButtonOfTheWindowStartsItAgain(string culture, string stoppedText)
+    {
+        var h = await GroupPolicyHarness.CreateAsync(CultureInfo.GetCultureInfo(culture));
+        using var folder = new TempFolder();
+        using var window = await NewAsync(h, GpoBackupMode.Backup, folder.Path, h.Sample.WorkstationPasswords, h.Sample.DriveMappings);
+        bool? closed = null;
+        window.CloseRequested += (_, result) => closed = result;
+        var hold = h.Sysvol.HoldNext("Open");
+        var running = window.RunCommand.ExecuteAsync(null);
+        await hold.Reached.WaitAsync(Limit, Ct);
+        Assert.Empty(h.B2.Activities.Activities);
+
+        window.Status.CancelCommand.Execute(null);
+        hold.Release();
+        await running.WaitAsync(Limit, Ct);
+
+        Assert.Null(closed);
+        Assert.False(window.IsBusy);
+        var state = window.Status.Current;
+        Assert.Equal((PageStatusKind.Attention, stoppedText), (state.Kind, state.Message));
+        Assert.Equal("GpoBackup.Status.BackupStopped (0, 2)", state.Log.ToString());
+        Assert.True(state.CanClose);
+        Assert.Same(window.RunCommand, Assert.IsType<PageStatusAction>(state.Action).Command);
+        Assert.Empty(GpmcBackupFormat.List(folder.Path));
+        Assert.Empty(h.B2.Activities.Activities);
+    }
+
+    /// <summary>
+    /// A backup that cannot begin - the folder cannot be created, because a file has its name - is an error with the reason
+    /// and the code; nothing is written and the window stays (audit TI-4: the catch-all of the backup had never run).
+    /// </summary>
+    [Theory]
+    [InlineData("en-US", "The backup was not made: ")]
+    [InlineData("pl-PL", "Nie utworzono kopii zapasowej: ")]
+    public async Task ABackupThatCannotBegin_IsAnErrorWithTheReasonAndTheCode_AndNothingIsWritten(string culture, string lead)
+    {
+        var h = await GroupPolicyHarness.CreateAsync(CultureInfo.GetCultureInfo(culture));
+        using var folder = new TempFolder();
+        var file = Path.Combine(folder.Path, "Kopie GPO – Łódź");
+        await File.WriteAllTextAsync(file, "to jest plik, nie folder", Ct);
+        using var window = await NewAsync(h, GpoBackupMode.Backup, file, h.Sample.WorkstationPasswords);
+        bool? closed = null;
+        window.CloseRequested += (_, result) => closed = result;
+
+        await window.RunCommand.ExecuteAsync(null);
+
+        Assert.Null(closed);
+        Assert.False(window.IsBusy);
+        var failed = window.Status.Current;
+        Assert.Equal(PageStatusKind.Error, failed.Kind);
+        Assert.StartsWith(lead, failed.Message, StringComparison.Ordinal);
+        Assert.EndsWith(" (IOException)", failed.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(file, failed.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("GpoBackup.Status.NotBackedUp [IOException]", failed.Log.ToString());
+        Assert.True(failed.CanClose);
+        Assert.Null(failed.Action);
+        Assert.True(File.Exists(file));
+        Assert.Empty(h.B2.Activities.Activities);
+        Assert.True(window.RunCommand.CanExecute(null));
+    }
+
     [Fact]
     public async Task WhenSysvolCannotBeOpened_NothingIsBackedUp_AndTheLineSaysWhyWithRetry()
     {
