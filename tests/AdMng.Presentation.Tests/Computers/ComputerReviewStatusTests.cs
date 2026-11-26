@@ -8,6 +8,7 @@ using AdMng.Presentation.Navigation;
 using AdMng.Presentation.Settings;
 using AdMng.Presentation.Tests.GroupPolicy;
 using AdMng.Testing;
+using CommunityToolkit.Mvvm.Input;
 using static AdMng.Presentation.Tests.Computers.ComputerScenario;
 
 namespace AdMng.Presentation.Tests.Computers;
@@ -329,6 +330,81 @@ public sealed class ComputerReviewStatusTests
         Assert.EndsWith($" of {rows}. Subnets with an invalid name were skipped: 10.99.0.0/33", review.Status.Current.Message, StringComparison.Ordinal);
         Assert.True(review.HasSites);
         Assert.False(review.IsResolvingSites);
+    }
+
+    [Fact]
+    public async Task ExactLastLogon_ThatFailsAsAWhole_IsAnErrorWithRetry_AndTheListIsAsItWas()
+    {
+        var scenario = await CreateAsync();
+        var harness = scenario.Harness;
+        harness.ConnectToServer = (_, server, _) => Task.FromResult<IDirectorySession>(new FakeDomainControllerSession(harness.Session, server));
+        using var review = await scenario.RunAsync();
+        review.SelectedTile = review.Tiles.Single(t => t.Report == ComputerReport.Inactive);
+        var names = review.Items.Select(r => r.Name).ToList();
+        var logs = LogsOf(review.Status);
+
+        // The list of the domain controllers fails with an error the reader does not sort out per controller (it says a
+        // controller that cannot be read with its reason, but this is no controller's answer): the read fails as a whole.
+        harness.Session.BeforeOperation = operation =>
+        {
+            if (operation is { Kind: FakeOperationKind.Search, Search.BaseDn: { } baseDn } && baseDn.StartsWith("CN=Sites,", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new TimeoutException("the configuration partition did not answer");
+            }
+        };
+
+        await review.ReadExactLastLogonCommand.ExecuteAsync(null);
+
+        var failed = review.Status.Current;
+        Assert.Equal(PageStatusKind.Error, failed.Kind);
+        Assert.Equal("Could not read the exact last logon: The operation timed out. Press Retry to try again. (TimeoutException)", failed.Message);
+        Assert.Equal("ComputerReview.Status.ExactFailed [TimeoutException]", failed.Log.ToString());
+        Assert.True(failed.CanClose);
+        Assert.Equal("Retry", failed.Action?.Label);
+        Assert.Same(review.ReadExactLastLogonCommand, failed.Action?.Command);
+        Assert.Equal(names, review.Items.Select(r => r.Name).ToList());
+        Assert.False(review.IsReadingExact);
+        Assert.False(review.IsReading);
+        Assert.DoesNotContain(logs, log => log.Contains("configuration", StringComparison.OrdinalIgnoreCase));
+
+        // Retry reads again: every controller answers now.
+        harness.Session.BeforeOperation = null;
+        await ((IAsyncRelayCommand)failed.Action!.Command).ExecuteAsync(null);
+        Assert.Equal(PageStatusKind.Done, review.Status.Current.Kind);
+        Assert.Equal("ComputerReview.ExactDone (2, 2, 0)", review.Status.Current.Log.ToString());
+    }
+
+    [Fact]
+    public async Task ResolveSites_ThatCannotReadTheSites_IsAnErrorWithRetry_AndNothingIsApplied()
+    {
+        var scenario = await CreateAsync();
+        scenario.Resolver.Add("krk-pc101.contoso.test", "10.20.5.17");
+        using var review = await scenario.RunAsync();
+        review.SelectedTile = review.Tiles.Single(t => t.Report == ComputerReport.EndOfSupport);
+        var columns = review.Columns.Count;
+        var logs = LogsOf(review.Status);
+
+        // The sites and subnets of the forest cannot be read: no computer is looked at, no site column appears.
+        scenario.Harness.Session.FailNext(FakeOperationKind.Search, null, DirectoryErrorKind.AccessDenied);
+        await review.ResolveSitesCommand.ExecuteAsync(null);
+
+        var failed = review.Status.Current;
+        Assert.Equal(PageStatusKind.Error, failed.Kind);
+        Assert.Equal("Could not find the sites of the computers: Access is denied. Press Retry to try again. (LDAP 50)", failed.Message);
+        Assert.Equal("ComputerReview.Status.SitesFailed [LDAP 50]", failed.Log.ToString());
+        Assert.True(failed.CanClose);
+        Assert.Equal("Retry", failed.Action?.Label);
+        Assert.Same(review.ResolveSitesCommand, failed.Action?.Command);
+        Assert.False(review.HasSites);
+        Assert.Equal(columns, review.Columns.Count);
+        Assert.Empty(scenario.Resolver.Lookups);
+        Assert.False(review.IsResolvingSites);
+        Assert.DoesNotContain(logs, log => log.Contains("krk", StringComparison.OrdinalIgnoreCase));
+
+        // Retry finds them.
+        await ((IAsyncRelayCommand)failed.Action!.Command).ExecuteAsync(null);
+        Assert.True(review.HasSites);
+        Assert.NotEqual(PageStatusKind.Error, review.Status.Current.Kind);
     }
 
     [Fact]
