@@ -583,6 +583,70 @@ public sealed class CentralStoreUpdateStatusTests
         Assert.Equal(SampleAdministrativeTemplates.Utf8(SampleAdministrativeTemplates.ContosoAdmx), h.Sysvol.GetPolicyDefinition("contoso.admx"));
     }
 
+    // ---- What the operations write ------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The update writes - the backup of the store, then the plan up to the preview: it declares so, and closing the window
+    /// while it runs asks first; "do not close" keeps the window and the update (audit TI-2: the older test passed through
+    /// "the window is updating" alone, so the declaration could be dropped unnoticed).
+    /// </summary>
+    [Fact]
+    public async Task TheUpdate_IsAWrite_AndClosingTheWindowWhileItRunsAsksFirst()
+    {
+        var h = await StoreAsync(English);
+        using var folder = new TempFolder();
+        h.B2.Files.NextOpenPath = await ArchiveAsync(folder.Path, newer: true);
+        var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var update = New(h, backup: async (path, _, _, _, token) =>
+        {
+            reached.TrySetResult();
+            await gate.Task.WaitAsync(token);
+            return path;
+        });
+        update.BackupFolder = folder.Path;
+        await update.OpenFileCommand.ExecuteAsync(null);
+        var updating = update.UpdateCommand.ExecuteAsync(null);
+        await reached.Task.WaitAsync(Limit, Ct);
+
+        var operation = Assert.IsType<OperationScope>(update.Status.Operation);
+        Assert.True(operation.IsWrite);
+        Assert.Equal(OperationWrites.Other, operation.Writes);
+        Assert.True(operation.CanCancel);
+        h.B2.Dialogs.CloseQuestions.Clear();
+        Assert.False(await update.CanCloseAsync());
+        Assert.Single(h.B2.Dialogs.CloseQuestions);
+        Assert.Same(operation, update.Status.Operation);
+        Assert.False(update.Status.IsCancelling);
+        Assert.True(update.IsUpdating);
+
+        // Kept: the update goes on - the plan is previewed and executed.
+        gate.SetResult();
+        await updating.WaitAsync(Limit, Ct);
+        Assert.True(update.ChangedStore);
+        Assert.Single(h.Windows.Previews);
+    }
+
+    /// <summary>A load - here a download - reads: it declares no write, and the window closes without a question.</summary>
+    [Fact]
+    public async Task ALoad_IsARead_AndTheWindowClosesWithoutAQuestion()
+    {
+        var h = await StoreAsync(English);
+        var handler = new ScriptedHandler(Zip()) { Hold = true };
+        using var update = New(h, new PolicyTemplatePackageLoader(handler: () => handler));
+        var loading = update.DownloadEdgeCommand.ExecuteAsync(null);
+        await handler.Reached.WaitAsync(Limit, Ct);
+
+        var operation = Assert.IsType<OperationScope>(update.Status.Operation);
+        Assert.False(operation.IsWrite);
+        h.B2.Dialogs.CloseQuestions.Clear();
+        Assert.True(await update.CanCloseAsync());
+        Assert.Empty(h.B2.Dialogs.CloseQuestions);
+
+        update.Status.CancelCommand.Execute(null);
+        await loading.WaitAsync(Limit, Ct);
+    }
+
     // ---- The state that lasts, the log ----------------------------------------------------------------------------
 
     [Theory]

@@ -749,6 +749,72 @@ public sealed class GpoBackupStatusTests
         Assert.Contains(second.Name, preview.Title, StringComparison.Ordinal);
     }
 
+    // ---- What the operations write ------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The backup writes (into the folder the operator chose): it declares so, and closing the window while it runs asks
+    /// first - "do not close" keeps the window and the backup, which then ends as it would have (audit TI-2: no test read the
+    /// declaration, so dropping it passed the whole suite).
+    /// </summary>
+    [Fact]
+    public async Task TheBackup_IsAWrite_AndClosingTheWindowWhileItRunsAsksFirst()
+    {
+        var h = await GroupPolicyHarness.CreateAsync(CultureInfo.GetCultureInfo("en-US"));
+        using var folder = new TempFolder();
+        using var window = await NewAsync(h, GpoBackupMode.Backup, folder.Path, h.Sample.WorkstationPasswords, h.Sample.DriveMappings);
+        bool? closed = null;
+        window.CloseRequested += (_, result) => closed = result;
+        using var held = new HeldDirectoryCall(h.Session, operation => IsOf(operation, h.Sample.DriveMappings));
+        var running = Task.Run(() => window.RunCommand.ExecuteAsync(null), Ct);
+        await held.Reached.WaitAsync(Limit, Ct);
+
+        var operation = Assert.IsType<OperationScope>(window.Status.Operation);
+        Assert.True(operation.IsWrite);
+        Assert.Equal(OperationWrites.Other, operation.Writes);
+        Assert.True(operation.CanCancel);
+        h.B2.Dialogs.CloseQuestions.Clear();
+        Assert.False(await window.CanCloseAsync());
+        Assert.Single(h.B2.Dialogs.CloseQuestions);
+        Assert.Same(operation, window.Status.Operation);
+        Assert.False(window.Status.IsCancelling);
+
+        // Kept: the backup goes on to its end, and the window closes as after any backup that was written.
+        held.Release();
+        await running.WaitAsync(Limit, Ct);
+        Assert.True(closed);
+        Assert.Equal(2, GpmcBackupFormat.List(folder.Path).Count);
+    }
+
+    /// <summary>
+    /// Making the plan of a restore reads (the change plan preview, which writes, is a window of its own): it declares no
+    /// write, and closing the window meanwhile asks nothing.
+    /// </summary>
+    [Fact]
+    public async Task ThePlanOfARestore_IsARead_AndClosingTheWindowAsksNothing()
+    {
+        var h = await GroupPolicyHarness.CreateAsync(CultureInfo.GetCultureInfo("en-US"));
+        using var folder = new TempFolder();
+        await BackUpAsync(h, folder.Path, h.Sample.WorkstationPasswords);
+        using var window = new GpoBackupViewModel(h.Services, GpoBackupMode.Restore, []) { Folder = folder.Path };
+        await window.InitializeAsync();
+        await WaitForDetailsAsync(window);
+        using var held = new HeldDirectoryCall(h.Session);
+        var running = Task.Run(() => window.RunCommand.ExecuteAsync(null), Ct);
+        await held.Reached.WaitAsync(Limit, Ct);
+
+        var operation = Assert.IsType<OperationScope>(window.Status.Operation);
+        Assert.False(operation.IsWrite);
+        Assert.Equal(OperationWrites.None, operation.Writes);
+        h.B2.Dialogs.CloseQuestions.Clear();
+        await window.CanCloseAsync();
+        Assert.Empty(h.B2.Dialogs.CloseQuestions);
+
+        window.Status.CancelCommand.Execute(null);
+        held.Release();
+        await running.WaitAsync(Limit, Ct);
+        Assert.Empty(h.Windows.Previews);
+    }
+
     // ---- The state that lasts, the log ----------------------------------------------------------------------------
 
     [Theory]
