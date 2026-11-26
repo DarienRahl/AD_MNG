@@ -49,6 +49,12 @@
   *Anuluj* przycisku *Sprawdź ponownie*), ponowne wyliczenie, które czekało na tę zmianę, zaczynało się chwilę później i
   przykrywało uwagę o zatrzymaniu. Teraz *Zatrzymaj* odwołuje je razem ze sprawdzaniem: krok mówi, że sprawdzanie
   zatrzymano, a *Podgląd* i tak wylicza wiersze jeszcze raz, z tą zmianą. Był to rzadki przypadek.
+- **Okna *Przywróć z kopii zapasowej* i *Importuj ustawienia* nie mówią już „Brak kopii zapasowych w folderze” o
+  folderze, którego nie odczytały.** Gdy folderu z kopiami nie udało się odczytać, a potem zatrzymano (*Zatrzymaj*)
+  odczyt kolejnego folderu – np. na udziale, który nie odpowiada – wiersz stanu po zamknięciu komunikatu o zatrzymaniu
+  podawał, że w folderze nie ma kopii, a powód pustej listy znikał. Teraz zatrzymany odczyt zostawia listę i jej powód
+  tak, jak były: wiersz znowu mówi, dlaczego listy nie wczytano, z przyciskiem *Ponów*, a liczbę kopii w folderze
+  podaje dopiero po odczycie, który się udał.
 
 ## AdMng Watchdog {{VERSION}}
 

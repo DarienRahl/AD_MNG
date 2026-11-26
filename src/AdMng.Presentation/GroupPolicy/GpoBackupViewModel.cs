@@ -80,7 +80,10 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
     private IReadOnlyList<GpoBackupEntry> _entries = [];
     private GpoBackup? _selectedBackup;
 
-    /// <summary>The folder was read at least once: the line has the count of backups as the summary.</summary>
+    /// <summary>
+    /// The list shows what the last read of the folder found (a read that ended well): the line has the count of backups as
+    /// the summary. Not after a read that failed - its empty list is not the folder's -, and a stopped read changes nothing.
+    /// </summary>
     private bool _listed;
 
     /// <summary>Why the list is empty after a read of the folder that failed (null: nothing wrong).</summary>
@@ -316,7 +319,9 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(latest, reading.Token);
         var token = linked.Token;
 
-        // What the last read left is over: this one decides.
+        // What the last read left is over: this one decides - unless the operator stops it, which leaves the list as it was.
+        var before = _listState;
+        var listed = true;
         _listState = null;
         UpdateLasting();
         try
@@ -325,9 +330,12 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
         }
         catch (OperationCanceledException)
         {
-            // Only a read the operator stopped says so: the list is as it was.
+            // Only a read the operator stopped says so: the list is as it was, and so is why it is empty (a folder that
+            // could not be read), under the message.
             if (reading.IsCancelling)
             {
+                _listState = before;
+                UpdateLasting();
                 var retry = Localizer[L.Common.Retry];
                 reading.CompleteAttention(
                     Localizer.Format(L.GpoBackupStatus.ListStopped, retry),
@@ -339,7 +347,9 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or System.Security.SecurityException)
         {
+            // The empty list is the failure's, not the folder's: no count of backups is said under the reason.
             _entries = [];
+            listed = false;
             Error = Localizer[L.GroupPolicy.FolderFailed];
             var code = ResultCode.Of(ex);
             _listState = PageStatus.Error(
@@ -349,7 +359,7 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase, IHasPageSt
                 canClose: false);
         }
 
-        _listed = true;
+        _listed = listed;
         var domain = Session?.Info.DomainDnsName;
         Backups = [.. _entries.Select(e => new GpoBackupRowViewModel(e, GroupPolicyText.Date(Localizer, e.BackupTime, TimeZoneInfo.Local),
             domain is not null && !string.Equals(e.Domain, domain, StringComparison.OrdinalIgnoreCase)))];

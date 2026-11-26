@@ -282,6 +282,76 @@ public sealed class GpoBackupStatusTests
         Assert.Equal((PageStatusKind.Idle, "No backups in the folder"), (window.Status.Current.Kind, window.Status.Current.Message));
     }
 
+    /// <summary>
+    /// A folder that could not be read leaves an empty list that is not the folder's: a read of another folder that the
+    /// operator then stops leaves it as it was - with the reason - and the line never says that the folder holds no backups
+    /// (audit GP-3: the stopped read dropped the reason, and the failure had counted as a read of the folder).
+    /// </summary>
+    [Fact]
+    public async Task Stop_AfterAFolderThatCouldNotBeRead_KeepsTheReason_AndNeverSaysTheFolderHoldsNoBackups()
+    {
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "A FIFO stands in for a folder on a share that hangs (mkfifo).");
+        var h = await GroupPolicyHarness.CreateAsync(CultureInfo.GetCultureInfo("en-US"));
+        using var window = new GpoBackupViewModel(h.Services, GpoBackupMode.Restore, []) { Folder = "\0" };
+        await window.LoadBackupsCommand.ExecuteAsync(null);
+        var failed = window.Status.Current;
+        Assert.Equal(PageStatusKind.Error, failed.Kind);
+        Assert.Same(failed, window.Status.Lasting);
+
+        // Another folder, on a share that does not answer: the operator stops its read.
+        using var folder = new TempFolder();
+        var manifest = Path.Combine(folder.Path, GpmcBackupFormat.ManifestFile);
+        await MakeFifoAsync(manifest);
+        window.Folder = folder.Path;
+        var reading = Task.Run(() => window.LoadBackupsCommand.ExecuteAsync(null), Ct);
+        await UntilAsync(() => window.Status.IsWorking);
+        window.Status.CancelCommand.Execute(null);
+        await reading.WaitAsync(Limit, Ct);
+
+        // The list was not changed - it is still the empty list of the folder that could not be read, and the line says why.
+        var stopped = window.Status.Current;
+        Assert.Equal((PageStatusKind.Attention, "GpoBackup.Status.ListStopped"), (stopped.Kind, stopped.Log.ToString()));
+        Assert.True(stopped.CanClose);
+        Assert.Empty(window.Backups);
+        Assert.True(failed.HasSameContentAs(window.Status.Lasting));
+        window.Status.CloseCommand.Execute(null);
+        var now = window.Status.Current;
+        Assert.Equal((PageStatusKind.Error, failed.Message), (now.Kind, now.Message));
+        Assert.Same(window.LoadBackupsCommand, Assert.IsType<PageStatusAction>(now.Action).Command);
+        Assert.NotEqual("No backups in the folder", now.Message);
+
+        // The folder answers at last: Retry reads it, and only now does the line say what it holds.
+        await ReleaseFifoAsync(manifest);
+        File.Delete(manifest);
+        await ((IAsyncRelayCommand)now.Action!.Command).ExecuteAsync(null);
+        Assert.Null(window.Status.Lasting);
+        Assert.Equal((PageStatusKind.Idle, "No backups in the folder"), (window.Status.Current.Kind, window.Status.Current.Message));
+    }
+
+    /// <summary>
+    /// A read that failed is not a read of the folder: closing what a later stopped read says leaves no count of backups,
+    /// also when the window had listed a folder before the failure.
+    /// </summary>
+    [Fact]
+    public async Task AFolderThatCouldNotBeRead_IsNotAFolderWithoutBackups_AlsoAfterAFolderThatWasListed()
+    {
+        var h = await GroupPolicyHarness.CreateAsync(CultureInfo.GetCultureInfo("en-US"));
+        using var folder = new TempFolder();
+        await BackUpAsync(h, folder.Path, h.Sample.WorkstationPasswords);
+        using var window = new GpoBackupViewModel(h.Services, GpoBackupMode.Restore, []) { Folder = folder.Path };
+        await window.LoadBackupsCommand.ExecuteAsync(null);
+        await WaitForDetailsAsync(window);
+        Assert.Equal((PageStatusKind.Idle, "Backups in the folder: 1"), (window.Status.Current.Kind, window.Status.Current.Message));
+
+        window.Folder = "\0";
+        await window.LoadBackupsCommand.ExecuteAsync(null);
+
+        // The empty list is the failure's, not the folder's: there is no count to say under the reason.
+        Assert.Empty(window.Backups);
+        Assert.Equal(PageStatusKind.Error, window.Status.Current.Kind);
+        Assert.Same(PageStatus.Empty, window.Status.Idle);
+    }
+
     [Theory]
     [InlineData("en-US", "Could not list the backups: The folder could not be read or written. Press Retry to try again. (")]
     [InlineData("pl-PL", "Nie udało się wczytać listy kopii zapasowych: Nie można odczytać lub zapisać folderu. Wybierz Ponów, aby spróbować ponownie. (")]
