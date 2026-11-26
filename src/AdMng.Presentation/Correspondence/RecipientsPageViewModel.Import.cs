@@ -150,6 +150,12 @@ public sealed partial class RecipientsPageViewModel
     /// <summary>A test seam: a read on the thread pool waits for this task first, so a test can stop an import that nothing else can hold.</summary>
     internal Task? ReadGate { get; set; }
 
+    /// <summary>
+    /// A test seam: how many reads on the thread pool have ended (parsed, failed or cancelled; their result kept or dropped),
+    /// so a test of a stopped import can wait for the read it left behind instead of sleeping.
+    /// </summary>
+    internal int ReadsEnded => Volatile.Read(ref _readsEnded);
+
     /// <summary>Reads one file on the thread pool and parses it with <paramref name="parse"/> (file name, bytes, ANSI code page).</summary>
     /// <exception cref="InvalidDataException">Too large, corrupt or not readable as its format.</exception>
     private Task<T> ReadFileAsync<T>(string path, Func<string, byte[], int, T> parse)
@@ -158,18 +164,25 @@ public sealed partial class RecipientsPageViewModel
         var gate = ReadGate;
         return Task.Run(async () =>
         {
-            if (gate is not null)
+            try
             {
-                await gate.ConfigureAwait(false);
-            }
+                if (gate is not null)
+                {
+                    await gate.ConfigureAwait(false);
+                }
 
-            if (new FileInfo(path).Length > ContactFileReader.MaxFileBytes)
+                if (new FileInfo(path).Length > ContactFileReader.MaxFileBytes)
+                {
+                    throw new InvalidDataException("The file is larger than 50 MiB.");
+                }
+
+                var bytes = await File.ReadAllBytesAsync(path).ConfigureAwait(false);
+                return parse(Path.GetFileName(path), bytes, codePage);
+            }
+            finally
             {
-                throw new InvalidDataException("The file is larger than 50 MiB.");
+                Interlocked.Increment(ref _readsEnded);
             }
-
-            var bytes = await File.ReadAllBytesAsync(path).ConfigureAwait(false);
-            return parse(Path.GetFileName(path), bytes, codePage);
         });
     }
 

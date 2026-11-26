@@ -53,6 +53,8 @@ public sealed partial class RecipientsPageViewModel : ObservableObject, IHasPage
     // One operation that adds rows at a time (TakeAdditionTurnAsync). Never disposed: a read may still wait on it when the
     // window closes, and a semaphore without a wait handle holds no unmanaged resource.
     private readonly SemaphoreSlim _additions = new(1, 1);
+    private int _waitingForTurn;
+    private int _readsEnded;
     private bool _bulk;
     private IReadOnlyList<string> _lastDirectoryRead = [];
     private PageStatus? _sessionEnded;
@@ -311,9 +313,24 @@ public sealed partial class RecipientsPageViewModel : ObservableObject, IHasPage
     /// </summary>
     private async Task<IDisposable> TakeAdditionTurnAsync(CancellationToken cancellationToken = default)
     {
-        await _additions.WaitAsync(cancellationToken).ConfigureAwait(true);
+        Interlocked.Increment(ref _waitingForTurn);
+        try
+        {
+            await _additions.WaitAsync(cancellationToken).ConfigureAwait(true);
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _waitingForTurn);
+        }
+
         return new AdditionTurn(_additions);
     }
+
+    /// <summary>
+    /// A test seam: how many operations that add rows wait for their turn now (<see cref="TakeAdditionTurnAsync"/>), so a test
+    /// can see that a second one waits instead of sleeping and asserting that it did not run.
+    /// </summary>
+    internal int WaitingForTurn => Volatile.Read(ref _waitingForTurn);
 
     private sealed class AdditionTurn(SemaphoreSlim additions) : IDisposable
     {

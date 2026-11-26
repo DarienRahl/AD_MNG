@@ -126,12 +126,14 @@ public sealed class RecipientsStatusTests
         Assert.Equal("Wczytywanie zatrzymano po 0 z 1 plików: wiersze z już wczytanych plików są na liście.", stopped.Message);
         Assert.Equal("Correspondence.Recipients.Status.FilesStopped (0, 1)", stopped.Log.ToString());
         Assert.Empty(page.Items);
+        Assert.Equal(0, page.ReadsEnded);   // the thread is still held: Stop did not wait for it
 
-        // The thread runs to its end later; its result is dropped.
+        // The thread runs to its end later - it has read and parsed the file - and its result is dropped.
         gate.SetResult();
-        await Task.Delay(100, Ct);
+        await B2Harness.WaitUntilAsync(() => page.ReadsEnded == 1);
         Assert.Empty(page.Items);
         Assert.Equal(PageStatusKind.Attention, window.Status.Current.Kind);
+        Assert.Equal("Correspondence.Recipients.Status.FilesStopped (0, 1)", window.Status.Current.Log.ToString());
     }
 
     [Fact]
@@ -400,8 +402,8 @@ public sealed class RecipientsStatusTests
         Assert.True(page.ImportFilesCommand.CanExecute(null));
         var importing = page.ImportFilesCommand.ExecuteAsync(null);
 
-        // The read still has the line and its token: nothing replaced it.
-        await Task.Delay(100, Ct);
+        // The import waits for its turn; the read still has the line and its token: nothing replaced it.
+        await B2Harness.WaitUntilAsync(() => page.WaitingForTurn == 1);
         Assert.False(importing.IsCompleted);
         Assert.Equal("Correspondence.Recipients.Status.DirectoryReading (2)", window.Status.Current.Log.ToString());
         Assert.Empty(page.Items);
@@ -432,8 +434,9 @@ public sealed class RecipientsStatusTests
 
         page.SelectedObjects = [scenario.Company.JanKowalski];
         var reading = page.AddFromSelectionCommand.ExecuteAsync(null);
-        await Task.Delay(100, Ct);
+        await B2Harness.WaitUntilAsync(() => page.WaitingForTurn == 1);
         Assert.False(reading.IsCompleted);
+        Assert.Equal(0, page.ReadsEnded);
         Assert.StartsWith("Correspondence.Recipients.Status.FilesReading", window.Status.Current.Log.ToString(), StringComparison.Ordinal);
 
         gate.SetResult();
