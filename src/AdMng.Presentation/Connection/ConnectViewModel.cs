@@ -341,10 +341,11 @@ public sealed partial class ConnectViewModel : ObservableObject, IHasPageStatus
     /// <summary>
     /// Fills the drop-down of domain controllers. The search is an operation of the window (it and connecting never run
     /// together): the line says it with Stop - its button is its Cancel - and, when it is through, how many domain
-    /// controllers the drop-down offers: the summary of the window, because the list itself is the result.
+    /// controllers the drop-down offers: the summary of the window, because the list itself is the result. It is stopped
+    /// only through the line (<see cref="PageStatusHolder.CancelCommand"/>, which the button's Cancel is as well).
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanFindDomainControllers))]
-    private async Task FindDomainControllersAsync(CancellationToken cancellationToken)
+    private async Task FindDomainControllersAsync()
     {
         var domain = NullIfEmpty(Domain) ?? _connector.GetComputerDomain();
         if (domain is null)
@@ -358,7 +359,6 @@ public sealed partial class ConnectViewModel : ObservableObject, IHasPageStatus
         IsFindingDomainControllers = true;
         StatusText = _localizer.Format(L.Connect.FindingDomainControllers, domain);
         using var finding = Status.Begin(StatusText, new PageStatusLog(L.Connect.FindingDomainControllers));
-        using var stop = cancellationToken.Register(finding.Cancel);
         var token = finding.Token;
         try
         {
