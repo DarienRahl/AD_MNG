@@ -88,7 +88,10 @@ window's read commands in `tests/AdMng.PowerShell.Tests`) or `OU=WatchdogIT-<UTC
 interfere with each other. The OU description identifies the test process (`[run <host> pid <id> started <time>]`). At
 start, a run deletes the OUs of runs that have finished – the process on the same host is no longer running (an
 aborted run) or the OU is older than 2 hours (the owner is on another host, old `OU=AdMngIntegration` from earlier
-versions) – and leaves the OUs of runs in progress alone. At the end it deletes its own OU.
+versions) – and leaves the OUs of runs in progress alone. At the end it deletes its own OU. The detection lab tests of
+`tests/AdMng.Watchdog.Core.Tests` (`LabDetectionTests`) have no run OU: each test creates
+`OU=WD-Detect-<purpose>-<random>` directly under the domain and deletes it when it ends; an aborted run leaves it
+behind, and no later run removes it – delete it by hand.
 
 Samba executes only one write transaction at a time (in the lab about 0.1 s per deleted object) and aborts every
 LDAP request after 300 s. Deleting a tree on the server side (the tree delete control) for an OU with thousands of
@@ -105,7 +108,7 @@ Manually (only the tests' own OUs, never `OU=Firma`):
 
 ```bash
 ldapsearch -x -H ldap://127.0.0.1 -D 'Administrator@contoso.test' -w 'P@ssw0rd!2026' \
-  -b 'DC=contoso,DC=test' -s one '(|(ou=AdMngIntegration*)(ou=AdMngPowerShell-*)(ou=WatchdogIT-*))' dn description whenCreated
+  -b 'DC=contoso,DC=test' -s one '(|(ou=AdMngIntegration*)(ou=AdMngPowerShell-*)(ou=WatchdogIT-*)(ou=WD-Detect-*))' dn description whenCreated
 ldapdelete -x -H ldap://127.0.0.1 -D 'Administrator@contoso.test' -w 'P@ssw0rd!2026' -r 'OU=WatchdogIT-…,DC=contoso,DC=test'
 ```
 

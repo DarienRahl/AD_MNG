@@ -88,7 +88,10 @@ PowerShell w laboratorium, `tests/AdMng.PowerShell.Tests`) albo `OU=WatchdogIT-<
 przeszkadzają sobie. Opis OU wskazuje proces testów (`[run <host> pid <id> started <czas>]`). Na starcie przebieg usuwa
 OU przebiegów, które się skończyły – proces na tym samym hoście już nie działa (przebieg przerwany) albo OU jest
 starsze niż 2 godziny (właściciel na innym hoście, stare `OU=AdMngIntegration` wcześniejszych wersji) – a OU
-trwających przebiegów zostawia. Na końcu usuwa własne OU.
+trwających przebiegów zostawia. Na końcu usuwa własne OU. Testy wykrywania w laboratorium
+(`tests/AdMng.Watchdog.Core.Tests`, `LabDetectionTests`) nie mają OU przebiegu: każdy test zakłada
+`OU=WD-Detect-<cel>-<losowe>` bezpośrednio pod domeną i usuwa je na końcu; przerwany przebieg je zostawia, a żaden
+kolejny go nie usuwa – usuń je ręcznie.
 
 Samba wykonuje naraz tylko jedną transakcję zapisu (w laboratorium ok. 0,1 s na usunięty obiekt) i przerywa każde
 żądanie LDAP po 300 s. Usunięcie drzewa po stronie serwera (kontrolka tree delete) dla OU z tysiącami obiektów –
@@ -105,7 +108,7 @@ Ręcznie (tylko własne OU testów, nigdy `OU=Firma`):
 
 ```bash
 ldapsearch -x -H ldap://127.0.0.1 -D 'Administrator@contoso.test' -w 'P@ssw0rd!2026' \
-  -b 'DC=contoso,DC=test' -s one '(|(ou=AdMngIntegration*)(ou=AdMngPowerShell-*)(ou=WatchdogIT-*))' dn description whenCreated
+  -b 'DC=contoso,DC=test' -s one '(|(ou=AdMngIntegration*)(ou=AdMngPowerShell-*)(ou=WatchdogIT-*)(ou=WD-Detect-*))' dn description whenCreated
 ldapdelete -x -H ldap://127.0.0.1 -D 'Administrator@contoso.test' -w 'P@ssw0rd!2026' -r 'OU=WatchdogIT-…,DC=contoso,DC=test'
 ```
 
