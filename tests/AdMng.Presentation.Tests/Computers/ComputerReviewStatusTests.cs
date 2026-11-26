@@ -219,7 +219,7 @@ public sealed class ComputerReviewStatusTests
     }
 
     [Fact]
-    public async Task ExactLastLogon_SaysHowManyControllersAnswered_AndWhichCouldNotBeReadWithWhy_AsAnAttention()
+    public async Task ExactLastLogon_SaysOnHowManyControllersItWasRead_AndWhichCouldNotBeReadWithWhy_AsAnAttention()
     {
         var scenario = await CreateAsync();
         var harness = scenario.Harness;
@@ -238,14 +238,14 @@ public sealed class ComputerReviewStatusTests
         Assert.Equal($"Reading the exact last logon of the computers ({rows}) on all domain controllers…", seen.Plain[0].Message);
         var done = review.Status.Current;
         Assert.Equal(PageStatusKind.Attention, done.Kind);
-        Assert.StartsWith("1 of 2 domain controllers answered; ", done.Message, StringComparison.Ordinal);
+        Assert.StartsWith("The exact last logon was read on 1 of 2 domain controllers; ", done.Message, StringComparison.Ordinal);
         Assert.EndsWith(" Could not read from: dc02.contoso.test (The domain controller is not available).", done.Message, StringComparison.Ordinal);
         Assert.Equal("ComputerReview.ExactDone (1, 2, 0)", done.Log.ToString());
         Assert.True(done.CanClose);
         Assert.DoesNotContain(logs, log => log.Contains("dc02", StringComparison.OrdinalIgnoreCase));
         Assert.False(review.IsReadingExact);
         Assert.False(review.IsReading);
-        Assert.DoesNotContain(harness.Notifications.Items, n => n.Message.Contains("domain controllers answered", StringComparison.Ordinal));
+        Assert.DoesNotContain(harness.Notifications.Items, n => n.Message.Contains("was read on", StringComparison.Ordinal));
     }
 
     [Fact]

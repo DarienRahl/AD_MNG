@@ -625,7 +625,7 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase, IHasPa
         }
 
         // The read is the operation of this tab: the line says so with Stop (the button that started it is its Cancel),
-        // and how it ended - how many domain controllers answered and what that changed - is its result. A new check
+        // and how it ended - on how many domain controllers it was read and what that changed - is its result. A new check
         // replaces it without a word.
         var latest = _exactReads.Next();
         using var reading = AccountsStatus.Begin(

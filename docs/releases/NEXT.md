@@ -34,7 +34,9 @@
   kontrolerów, z których nie udało się odczytać – jako „Brak odpowiedzi: dc02.contoso.test.”, także gdy kontroler
   odpowiedział, tylko odmówił. Teraz wiersz stanu podaje każdy z nich z powodem, np. „Nie udało się odczytać z:
   dc02.contoso.test (Upłynął limit czasu operacji); dc03.contoso.test (Odmowa dostępu).”, więc widać, czy kontroler jest
-  niedostępny, czy brakuje uprawnień. Dziennik diagnostyczny nadal zapisuje tylko liczby, bez nazw kontrolerów.
+  niedostępny, czy brakuje uprawnień. W *Przeglądzie komputerów* wynik zaczyna się teraz od „Dokładne ostatnie logowanie
+  odczytano na 1 z 3 kontrolerów domeny”, a nie od „Odpowiedziało 1 z 3 kontrolerów domeny”, bo kontroler, który odmówił,
+  też odpowiedział. Dziennik diagnostyczny nadal zapisuje tylko liczby, bez nazw kontrolerów.
 - **Okno *Zdalne akcje* nazywa właściwą przyczynę, gdy nie może działać.** Gdy komputera nie udało się odczytać z
   katalogu, wiersz stanu okna podawał sam powód („Kontroler domeny jest niedostępny.”); teraz mówi też, czego nie udało
   się zrobić, i podaje kod: *Nie udało się odczytać komputera „KRK-PC101”: Kontroler domeny jest niedostępny. (LDAP

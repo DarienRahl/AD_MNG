@@ -407,7 +407,7 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase, IHasP
         }
 
         // The read is the operation of the window: the line says so with Stop (the button that started it is its Cancel),
-        // and how it ended - how many domain controllers answered and what that changed - is its result. A new check
+        // and how it ended - on how many domain controllers it was read and what that changed - is its result. A new check
         // replaces it without a word.
         var latest = _reads.Next();
         using var reading = Status.Begin(
@@ -459,7 +459,7 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase, IHasP
             UpdateTiles(complete: true);
             RebuildItems();
 
-            // What happened: how many domain controllers answered and how many computers left the lists; with the ones that
+            // What happened: on how many domain controllers it was read and how many computers left the lists; with the ones that
             // could not be read - each named with why - it is an "attention". Their names are on screen only - the log copy
             // has the numbers.
             var failed = reads.Count - answered.Count;

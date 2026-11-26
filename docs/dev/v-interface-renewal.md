@@ -3917,17 +3917,18 @@ what each unit left behind on purpose), and what nobody has seen on a screen yet
     an error that lasts: "Could not check the computers: reason. Press Retry to try again. (code)" with Retry; a scope that
     cannot be resolved - "The computers were not checked: The saved view no longer exists." without an action and a code.
     **The exact last logon:** "Reading the exact last logon of the computers (12) on all domain controllers…" with Stop;
-    done "2 of 2 domain controllers answered; 1 computers were active after all." (with "Checked 500 of 800 computers." in
-    front when the list was cut), an attention when a controller could not be read ("… Could not read from:
-    dc02.contoso.test (The domain controller is not available)."),
-    stopped - the list was not changed, with the button as the action; failed - an error with Retry. **The sites:** "Finding
-    the sites of the computers (300)…", then "…: 120 of 300…" with the part done in the ring; done "Sites of the computers
-    determined: 280 of 300.", or - once per check - an attention that adds the subnets that were skipped because of their
-    names; stopped - nothing is applied (the sites are applied after the last computer). **A ping:** "Pinging SRV-APP02…" with
-    Stop, then done with the replies ("Ping srv-app02.contoso.test (10.10.1.15): 4 of 4 replies, average 3 ms."), an attention
-    when there was no reply or it was stopped, an error when there was nothing to ping ("Could not ping PREST-PC201: PREST-PC201
-    has no DNS host name in Active Directory…"). **What lasts:** the session of the window ended; the window was opened without
-    one ("Not connected to a domain."); the check failed.
+    done "The exact last logon was read on 2 of 2 domain controllers; 1 computers were active after all." (with "Checked 500
+    of 800 computers." in front when the list was cut; until 0.16.1 "2 of 2 domain controllers answered", which counted a
+    controller that refused as one that did not answer), an attention when a controller could not be read ("… Could not
+    read from: dc02.contoso.test (The domain controller is not available)."), stopped - the list was not changed, with the
+    button as the action; failed - an error with Retry. **The sites:** "Finding the sites of the computers (300)…", then
+    "…: 120 of 300…" with the part done in the ring; done "Sites of the computers determined: 280 of 300.", or - once per
+    check - an attention that adds the subnets that were skipped because of their names; stopped - nothing is applied (the
+    sites are applied after the last computer). **A ping:** "Pinging SRV-APP02…" with Stop, then done with the replies ("Ping
+    srv-app02.contoso.test (10.10.1.15): 4 of 4 replies, average 3 ms."), an attention when there was no reply or it was
+    stopped, an error when there was nothing to ping ("Could not ping PREST-PC201: PREST-PC201 has no DNS host name in Active
+    Directory…"). **What lasts:** the session of the window ended; the window was opened without one ("Not connected to a
+    domain."); the check failed.
   - *How the old places were sorted* (1 error bar, 2 warning bars, 2 progress bars, and the texts and toasts that said the
     same).
 

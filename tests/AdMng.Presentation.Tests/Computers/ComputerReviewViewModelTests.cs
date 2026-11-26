@@ -264,7 +264,7 @@ public class ComputerReviewViewModelTests
         // How it ended is said by the status line of the window, not by a toast.
         var done = review.Status.Current;
         Assert.Equal(PageStatusKind.Done, done.Kind);
-        Assert.Equal("2 of 2 domain controllers answered; 1 computers were active after all.", done.Message);
+        Assert.Equal("The exact last logon was read on 2 of 2 domain controllers; 1 computers were active after all.", done.Message);
         Assert.All(opened, s => Assert.True(s.IsDisposed));
 
         // LOD-PC107 stays in the end-of-support report, now with the exact value and its DC.
@@ -337,7 +337,7 @@ public class ComputerReviewViewModelTests
         harness.Dialogs.ConfirmAnswers.Enqueue(true);
         await review.ReadExactLastLogonCommand.ExecuteAsync(null);
         Assert.True(connected > 0);
-        Assert.StartsWith($"Sprawdzono 500 z {total} komputerów. Odpowiedziało ", review.Status.Current.Message, StringComparison.Ordinal);
+        Assert.StartsWith($"Sprawdzono 500 z {total} komputerów. Dokładne ostatnie logowanie odczytano na ", review.Status.Current.Message, StringComparison.Ordinal);
         Assert.Equal(PageStatusKind.Done, review.Status.Current.Kind);
     }
 
