@@ -10873,12 +10873,6 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="PlanPreview.Executing" xml:space="preserve">
     <value>Wykonywanie…</value>
   </data>
-  <data name="PlanPreview.ResultSucceeded" xml:space="preserve">
-    <value>Gotowe: wykonano wszystkie zmiany.</value>
-  </data>
-  <data name="PlanPreview.ResultFailed" xml:space="preserve">
-    <value>Nie wykonano wszystkich zmian: {0} z {1} obiektów z błędem. Cofnij odwraca to, co wykonano.</value>
-  </data>
   <data name="PlanPreview.RollbackShown" xml:space="preserve">
     <value>Pokazano plan cofnięcia. Wykonaj go, aby odwrócić zmianę.</value>
   </data>
@@ -10905,9 +10899,6 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   </data>
   <data name="PlanPreview.Item" xml:space="preserve">
     <value>Atrybut lub plik</value>
-  </data>
-  <data name="PlanPreview.SessionEnded" xml:space="preserve">
-    <value>Połączenie tego okna zakończyło się; planu nie można już wykonać.</value>
   </data>
   <data name="GroupPolicy.ObjectsTitle" xml:space="preserve">
     <value>Obiekty zasad grupy</value>

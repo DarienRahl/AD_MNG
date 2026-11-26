@@ -105,7 +105,10 @@ public sealed class ChangePlanPreviewStatusTests
 
         Assert.Equal(PageStatusKind.Idle, preview.Status.Current.Kind);
         Assert.Equal(preview.Summary, preview.Status.Current.Message);
-        Assert.Equal(h.B2.Localizer[L.PlanPreview.RollbackShown], preview.ResultText);
+
+        // That the plan shown is the undo plan is the note above the tabs (PlanPreview.RollbackShown), not the line.
+        Assert.True(preview.IsRollbackNoteShown);
+        Assert.Null(preview.Result);
     }
 
     [Fact]
@@ -118,7 +121,6 @@ public sealed class ChangePlanPreviewStatusTests
 
         await preview.ExecuteCommand.ExecuteAsync(null);
 
-        Assert.True(preview.ResultHasFailures);
         var result = preview.Result!;
         var status = preview.Status.Current;
         Assert.True(result.FailedCount > 0);
@@ -332,7 +334,6 @@ public sealed class ChangePlanPreviewStatusTests
         Assert.False(ended.CanClose);
         Assert.Same(preview.Status.Lasting, ended);
         Assert.False(preview.ExecuteCommand.CanExecute(null));
-        Assert.Equal(h.B2.Localizer[L.PlanPreview.SessionEnded], preview.Error);
 
         // The command run all the same: nothing is executed, the line says why, and its log copy names nothing.
         await preview.ExecuteCommand.ExecuteAsync(null);

@@ -28,8 +28,6 @@ public static partial class L
         public const string Close = "PlanPreview.Close";
         public const string CopyPowerShell = "PlanPreview.CopyPowerShell";
         public const string Executing = "PlanPreview.Executing";
-        public const string ResultSucceeded = "PlanPreview.ResultSucceeded";
-        public const string ResultFailed = "PlanPreview.ResultFailed";
         public const string RollbackShown = "PlanPreview.RollbackShown";
         public const string NothingToUndo = "PlanPreview.NothingToUndo";
         public const string Reverted = "PlanPreview.Reverted";
@@ -39,7 +37,6 @@ public static partial class L
         public const string Warnings = "PlanPreview.Warnings";
         public const string Object = "PlanPreview.Object";
         public const string Item = "PlanPreview.Item";
-        public const string SessionEnded = "PlanPreview.SessionEnded";
     }
 
     /// <summary>Group Policy (K2): documents, tree nodes, windows and operations (docs/dev/k-computers-and-gpo.md 5).</summary>

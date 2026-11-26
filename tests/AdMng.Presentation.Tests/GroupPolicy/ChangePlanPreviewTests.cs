@@ -5,6 +5,7 @@ using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.Management;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Errors;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Localization;
 
 namespace AdMng.Presentation.Tests.GroupPolicy;
@@ -51,7 +52,7 @@ public sealed class ChangePlanPreviewTests
         await preview.ExecuteCommand.ExecuteAsync(null);
 
         Assert.True(preview.IsResultsStep);
-        Assert.False(preview.ResultHasFailures);
+        Assert.Equal(PageStatusKind.Done, preview.Status.Current.Kind);
         Assert.True(preview.ChangedDirectory);
         Assert.True(h.Sysvol.FolderExists(copyId));
         Assert.True(preview.UndoCommand.CanExecute(null));
@@ -61,7 +62,7 @@ public sealed class ChangePlanPreviewTests
         Assert.True(preview.IsPreviewStep);
         await preview.ExecuteCommand.ExecuteAsync(null);
 
-        Assert.False(preview.ResultHasFailures);
+        Assert.Equal(PageStatusKind.Done, preview.Status.Current.Kind);
         Assert.False(h.Session.Exists(h.GpoDn(copyId)));
         Assert.False(h.Sysvol.FolderExists(copyId));
     }
@@ -97,7 +98,8 @@ public sealed class ChangePlanPreviewTests
 
         await preview.ExecuteCommand.ExecuteAsync(null);
 
-        Assert.True(preview.ResultHasFailures);
+        Assert.True(preview.Result!.FailedCount > 0);
+        Assert.NotEqual(PageStatusKind.Done, preview.Status.Current.Kind);
         Assert.Contains(preview.ResultRows, r => !string.IsNullOrEmpty(r.Message));
         Assert.DoesNotContain(h.Sysvol.Files(copyId), f => f.EndsWith(".tmp", StringComparison.Ordinal));
     }

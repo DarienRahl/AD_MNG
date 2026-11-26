@@ -173,15 +173,6 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase, IH
     [ObservableProperty]
     public partial IReadOnlyList<ResultRowViewModel> ResultRows { get; private set; } = [];
 
-    [ObservableProperty]
-    public partial string ResultText { get; private set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial bool ResultHasFailures { get; private set; }
-
-    [ObservableProperty]
-    public partial string? Error { get; private set; }
-
     /// <summary>The activity of the running execution (progress, cancel).</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(CancelExecutionCommand))]
@@ -240,8 +231,6 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase, IH
             }
         }
 
-        Error = null;
-
         // Executing is the operation of the window: the status line says how far the activity is, Stop - in the line
         // or on the Execute button - cancels it, and the end is the result, with the domain (design note 4.5).
         // The window this one was opened from acts on its result the moment it closes (a GPO editor reloads or marks itself
@@ -267,9 +256,8 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase, IH
         {
             if (!execution.LeftWindow)
             {
-                Error = Errors.Translate(ex);
                 Step = PlanPreviewStep.Preview;
-                execution.Fail(Error, ResultCode.Of(ex));
+                execution.Fail(Errors.Translate(ex), ResultCode.Of(ex));
             }
 
             return;
@@ -329,14 +317,13 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase, IH
             return;
         }
 
-        // The line said how the execution ended; from here on it is about the undo plan.
+        // The line said how the execution ended; from here on it is about the undo plan (that it is the undo plan is the
+        // note above the tabs, IsRollbackNoteShown).
         Status.Clear();
         _plan = rollback;
         IsRollbackPreview = true;
         Result = null;
         ResultRows = [];
-        ResultText = Localizer[L.PlanPreview.RollbackShown];
-        ResultHasFailures = false;
         Rebuild();
         Step = PlanPreviewStep.Preview;
         ExecuteCommand.NotifyCanExecuteChanged();
@@ -358,7 +345,6 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase, IH
     protected override void OnSessionEnded()
     {
         // The line says for good that the session of this window ended; a running execution still says how it ended.
-        Error = Localizer[L.PlanPreview.SessionEnded];
         Status.SetLasting(SessionEndedStatus);
         ExecuteCommand.NotifyCanExecuteChanged();
         UndoCommand.NotifyCanExecuteChanged();
@@ -420,11 +406,8 @@ public sealed partial class ChangePlanPreviewViewModel : WindowViewModelBase, IH
             var failed = o.Changes.FirstOrDefault(c => !c.Succeeded);
             return failed is null ? row : new ResultRowViewModel(o, row.StatusText, TranslateFailure(Localizer, Errors, failed.ErrorKind, failed.ErrorMessage));
         })];
-        var failedCount = result.FailedCount;
-        ResultHasFailures = failedCount > 0 || result.WasCutShort;
-        ResultText = failedCount == 0 && !result.WasCutShort
-            ? Localizer[L.PlanPreview.ResultSucceeded]
-            : Localizer.Format(L.PlanPreview.ResultFailed, failedCount, result.Objects.Count);
+
+        // How it ended, in numbers, is the line's (ExecutionStatus): the window does not say it a second time.
         Step = PlanPreviewStep.Results;
         UndoCommand.NotifyCanExecuteChanged();
     }

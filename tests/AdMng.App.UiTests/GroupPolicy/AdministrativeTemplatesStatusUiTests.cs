@@ -261,7 +261,7 @@ public sealed class AdministrativeTemplatesStatusUiTests
             Assert.Equal(summary, line.Message);
             await preview.ViewModel.ExecuteCommand.ExecuteAsync(null);
             await UiWait.UntilAsync(() => preview.ViewModel.Step == PlanPreviewStep.Results, "the results of the save");
-            Assert.False(preview.ViewModel.ResultHasFailures);
+            Assert.True(preview.ViewModel.Status.Current.Kind == PageStatusKind.Done, preview.ViewModel.Status.Current.Message);
             preview.ViewModel.CloseCommand.Execute(null);
         });
         ControlHost.Press(action);

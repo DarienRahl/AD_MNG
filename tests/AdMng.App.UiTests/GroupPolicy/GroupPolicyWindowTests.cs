@@ -187,7 +187,7 @@ public sealed class GroupPolicyWindowTests
                     Assert.Contains("PolicyDefinitions", p.ViewModel.PowerShellScript, StringComparison.Ordinal);
                     await p.ViewModel.ExecuteCommand.ExecuteAsync(null);
                     await UiWait.UntilAsync(() => p.ViewModel.Step == PlanPreviewStep.Results, "the results");
-                    Assert.False(p.ViewModel.ResultHasFailures);
+                    Assert.True(p.ViewModel.Status.Current.Kind == PageStatusKind.Done, p.ViewModel.Status.Current.Message);
                     p.ViewModel.CloseCommand.Execute(null);
                 });
                 await w.ViewModel.UpdateCommand.ExecuteAsync(null);
@@ -387,7 +387,7 @@ public sealed class GroupPolicyWindowTests
             Assert.Contains("Set-GPRegistryValue", w.ViewModel.PowerShellScript, StringComparison.Ordinal);
             await w.ViewModel.ExecuteCommand.ExecuteAsync(null);
             await UiWait.UntilAsync(() => w.ViewModel.Step == PlanPreviewStep.Results, "the results");
-            Assert.False(w.ViewModel.ResultHasFailures);
+            Assert.True(w.ViewModel.Status.Current.Kind == PageStatusKind.Done, w.ViewModel.Status.Current.Message);
             w.ViewModel.CloseCommand.Execute(null);
         });
         await editor.SaveCommand.ExecuteAsync(null);
@@ -476,7 +476,7 @@ public sealed class GroupPolicyWindowTests
             Assert.Contains("Get-GPO", w.ViewModel.PowerShellScript, StringComparison.Ordinal);
             await w.ViewModel.ExecuteCommand.ExecuteAsync(null);
             await UiWait.UntilAsync(() => w.ViewModel.Step == PlanPreviewStep.Results, "the results");
-            Assert.False(w.ViewModel.ResultHasFailures);
+            Assert.True(w.ViewModel.Status.Current.Kind == PageStatusKind.Done, w.ViewModel.Status.Current.Message);
             w.ViewModel.CloseCommand.Execute(null);
         });
         await editor.SaveCommand.ExecuteAsync(null);
@@ -589,7 +589,7 @@ public sealed class GroupPolicyWindowTests
             await UiTestSupport.WaitForIdleAsync(rounds: 2);
             Assert.Same(w.ResultsTab, w.PreviewTabs.SelectedItem);
             Assert.NotEmpty(w.ResultsList.Items);
-            Assert.False(w.ViewModel.ResultHasFailures);
+            Assert.True(w.ViewModel.Status.Current.Kind == PageStatusKind.Done, w.ViewModel.Status.Current.Message);
             Assert.True(w.UndoButton.IsEnabled);
             w.ViewModel.CloseCommand.Execute(null);
         });
@@ -630,7 +630,7 @@ public sealed class GroupPolicyWindowTests
             Assert.Contains("New-GPO", w.PowerShellBox.Text, StringComparison.Ordinal);
             await w.ViewModel.ExecuteCommand.ExecuteAsync(null);
             await UiWait.UntilAsync(() => w.ViewModel.Step == PlanPreviewStep.Results, "the results");
-            Assert.False(w.ViewModel.ResultHasFailures, w.ViewModel.ResultText);
+            Assert.True(w.ViewModel.Status.Current.Kind == PageStatusKind.Done, w.ViewModel.Status.Current.Message);
             w.ViewModel.CloseCommand.Execute(null);
         });
         await main.Shell.NewLinkedGpoCommand.ExecuteAsync(context.Company.ComputersOu);

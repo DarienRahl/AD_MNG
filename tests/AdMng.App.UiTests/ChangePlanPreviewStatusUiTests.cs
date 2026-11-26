@@ -168,10 +168,9 @@ public sealed class ChangePlanPreviewStatusUiTests
         Assert.False(ring.IsActive);
         Assert.Equal(Visibility.Collapsed, action.Visibility);
         Assert.Equal(Visibility.Visible, close.Visibility);
-        Assert.NotEqual(string.Empty, preview.ResultText);
         Assert.DoesNotContain(
             UiWait.Descendants<TextBlock>(window),
-            text => text.IsVisible && !text.IsDescendantOf(line) && text.Text == preview.ResultText);
+            text => text.IsVisible && !text.IsDescendantOf(line) && text.Text == line.Message);
         Assert.Same(window.ResultsTab, window.PreviewTabs.SelectedItem);
         Assert.False(window.ExecuteButton.IsVisible);
         Assert.True(window.UndoButton.IsVisible);
@@ -311,7 +310,7 @@ public sealed class ChangePlanPreviewStatusUiTests
         // One of two: what was changed, what was not, where the reasons are and what to do - in the line, and not a
         // second time in the window.
         Assert.True(preview.IsResultsStep);
-        Assert.True(preview.ResultHasFailures);
+        Assert.Equal(1, preview.Result!.FailedCount);
         Assert.Equal(PageStatusKind.Attention, line.Kind);
         Assert.Equal(
             $"“{Title}” was executed only in part in {domain}: 1 object changed, failed: 1. "
@@ -323,10 +322,9 @@ public sealed class ChangePlanPreviewStatusUiTests
         Assert.Same(window.ResultsTab, window.PreviewTabs.SelectedItem);
         Assert.Equal(2, preview.ResultRows.Count);
         Assert.Equal(preview.ResultRows.Count, window.ResultsList.Items.Count);
-        Assert.NotEqual(string.Empty, preview.ResultText);
         Assert.DoesNotContain(
             UiWait.Descendants<TextBlock>(window),
-            text => text.IsVisible && !text.IsDescendantOf(line) && text.Text == preview.ResultText);
+            text => text.IsVisible && !text.IsDescendantOf(line) && text.Text == line.Message);
         AssertNoOldFeedback(window);
 
         // The session of the window ends: an error that cannot be closed takes the line, and nothing can be undone or

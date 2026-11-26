@@ -1712,7 +1712,8 @@ above.
   - *Decisions.* The result card was a card, not a banner – but it said what the window just did, and the line says
     that now: one place. After Undo the same property carried a sentence about the plan shown; that is a note, and it
     belongs to the plan only while it waits to be executed (its result is said by the line). `ResultText`, `Error`,
-    `Summary` and `CancelExecutionCommand` are unchanged for their tests; the window still cannot be closed while it
+    `Summary` and `CancelExecutionCommand` are unchanged for their tests (*0.16.1: `ResultText`, `ResultHasFailures` and
+    `Error` removed - see "Kept, and why" of V2b-5a*); the window still cannot be closed while it
     executes. It is 36 px higher by default (700 to 736).
 - **The main window** (`Views/MainWindow.xaml`). The shell is not a page: it has **no status line of its own** – a
   document says its status in its own line (the object list since V2a; the other documents with their units). Its four
@@ -4912,8 +4913,8 @@ the developer page (item 8), the checks, and what nobody has seen on a screen.
     `SelectionText` of the documents (the shell reads them for a tab that has no line; `ShellViewModel.StatusBarText` is tested).
     **Tests need them as their oracle and the line is another holder or a hop away:** `IsLoading` of the Group Policy comparison and the
     GPO picker (22 test sites, among them the wait predicates of Windows UI tests that cannot be run here; *removed in
-    0.16.1*), `FooterText` of the account review and `Summary` and `ResultText` of the plan preview (the tests assert that
-    the line says exactly that), `StatusText` and `IsNestedLoading` of the comparison (`StatusText` is also the accessible name of the
+    0.16.1*), `FooterText` of the account review and `Summary` of the plan preview (the tests assert that the line says
+    exactly that; its `ResultText` was *removed in 0.16.1*), `StatusText` and `IsNestedLoading` of the comparison (`StatusText` is also the accessible name of the
     list of candidates), `IsWorking` and `ProgressText` of the central store window (*removed in 0.16.1*), `ReadAtText` and
     `CountStatusText` of the PKI documents (`AssertNotSaidTwice` looks for that text on the
     screen), `BannerMessage` of the Watchdog tab (its change notification is tested), `SummaryText` of the delivery test (five assertions
@@ -4930,7 +4931,10 @@ the developer page (item 8), the checks, and what nobody has seen on a screen.
     `.NoBackups`, `.BackupRunning` and `.BackupFailed`), `SummaryText`, `IsWorking`, `BusyText`, `ProgressText`, `ResultText`
     and `Error` of the central store window, `IsLoading`, `Error` and `SummaryText` of the GPO comparison and `IsLoading` and
     `Error` of the GPO picker - no view bound them; the backup's toast and the line's messages build their texts as locals,
-    and the tests read `Status`.
+    and the tests read `Status`. *Removed in 0.16.1 (audit note on the plan preview):* `ResultText`, `ResultHasFailures`
+    and `Error` of the plan preview, with `PlanPreview.ResultSucceeded`, `.ResultFailed` and `.SessionEnded`, the three
+    strings that only fed them - no view bound them (the line says how the execution ended and that the session ended, the
+    note above the tabs that the undo plan is shown); the tests read `Status`, `Result` and `IsRollbackNoteShown`.
 - **The developer page (item 8).** `docs/dev/v2-status-controls.md`, listed in `docs/dev/README.md`: what each piece is for, the sorting of
   a message, the recipe for a view model and a view, the tests to copy and the Windows lessons, the two source-rule lists, what is settled
   and what is the owner's. The header comment of `Themes/Controls.xaml` points at it. `tools/docs/check_docs.py` passes (every

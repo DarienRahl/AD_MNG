@@ -10873,12 +10873,6 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="PlanPreview.Executing" xml:space="preserve">
     <value>Executing…</value>
   </data>
-  <data name="PlanPreview.ResultSucceeded" xml:space="preserve">
-    <value>Done: every change was made.</value>
-  </data>
-  <data name="PlanPreview.ResultFailed" xml:space="preserve">
-    <value>Not every change was made: {0} of {1} objects failed. Undo reverts what was made.</value>
-  </data>
   <data name="PlanPreview.RollbackShown" xml:space="preserve">
     <value>The undo plan is shown. Execute it to revert the change.</value>
   </data>
@@ -10905,9 +10899,6 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="PlanPreview.Item" xml:space="preserve">
     <value>Attribute or file</value>
-  </data>
-  <data name="PlanPreview.SessionEnded" xml:space="preserve">
-    <value>The connection of this window ended; the plan can no longer be executed.</value>
   </data>
   <data name="GroupPolicy.ObjectsTitle" xml:space="preserve">
     <value>Group Policy Objects</value>
