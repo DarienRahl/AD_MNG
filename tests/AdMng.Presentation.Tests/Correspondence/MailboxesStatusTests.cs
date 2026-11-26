@@ -19,9 +19,10 @@ public sealed class MailboxesStatusTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private static async Task<(CorrespondenceShellScenario Scenario, CorrespondenceViewModel Window, MailboxOwnerSample Sample)> OpenAsync()
+    private static async Task<(CorrespondenceShellScenario Scenario, CorrespondenceViewModel Window, MailboxOwnerSample Sample)> OpenAsync(
+        System.Globalization.CultureInfo? culture = null)
     {
-        var scenario = await CorrespondenceShellScenario.CreateAsync(Polish);
+        var scenario = await CorrespondenceShellScenario.CreateAsync(culture ?? Polish);
         var sample = MailboxSample(scenario);
         var window = await scenario.OpenAsync(new CorrespondenceRequest([], CorrespondenceStart.MailboxOwners));
         await UseSampleOuAsync(scenario, window.Mailboxes, sample);
@@ -83,7 +84,7 @@ public sealed class MailboxesStatusTests
         var stopped = window.Status.Current;
         Assert.Equal(PageStatusKind.Attention, stopped.Kind);
         Assert.Equal(
-            "Wyszukiwanie właścicieli skrzynek zatrzymano: Lista może być niepełna. Naciśnij „Ponów”, aby wyszukać jeszcze raz.",
+            "Wyszukiwanie właścicieli skrzynek zatrzymano: Lista może być niepełna. Wybierz „Ponów”, aby wyszukać jeszcze raz.",
             stopped.Message);
         Assert.Equal("Correspondence.Mailboxes.Status.FindStopped (0)", stopped.Log.ToString());
         Assert.True(stopped.CanClose);
@@ -97,6 +98,28 @@ public sealed class MailboxesStatusTests
         await page.FindOwnersCommand.ExecuteAsync(null);
         Assert.Equal(PageStatusKind.Idle, window.Status.Current.Kind);
         Assert.NotEmpty(page.Rows);
+    }
+
+    [Theory]
+    [InlineData("pl-PL", "Wyszukiwanie właścicieli skrzynek zatrzymano: Lista może być niepełna. Wybierz „Ponów”, aby wyszukać jeszcze raz.")]
+    [InlineData("en-US", "The search for mailbox owners was stopped: The list may be incomplete. Press “Retry” to search again.")]
+    public async Task AStoppedSearch_NamesTheActionOfTheLine_InBothLanguages(string culture, string text)
+    {
+        var (scenario, window, _) = await OpenAsync(System.Globalization.CultureInfo.GetCultureInfo(culture));
+        using var _ = scenario;
+        using var __ = window;
+        var page = window.Mailboxes;
+        using var held = new HeldDirectoryCall(scenario.Harness.Session, operation => operation.Search?.Filter.Contains("givenName=*", StringComparison.Ordinal) == true);
+        var run = page.FindOwnersCommand.ExecuteAsync(null);
+        await held.Reached.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+        window.Status.Current.Action!.Command.Execute(null);
+        held.Release();
+        await run.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+
+        // The sentence names the action of the line by its own caption - "Ponów" / "Retry" - in the word of the program.
+        var stopped = window.Status.Current;
+        Assert.Equal(text, stopped.Message);
+        Assert.Contains($"„{stopped.Action!.Label}”", stopped.Message.Replace("“", "„", StringComparison.Ordinal), StringComparison.Ordinal);
     }
 
     [Fact]

@@ -97,6 +97,12 @@
   adresy dodano, a zaraz potem to samo z nazwą pliku, którego nie wczytano; w czasie odczytu z katalogu były to dwa
   powiadomienia, pierwsze jako sukces. Teraz wiersz stanu podaje jedną uwagę – ile adresów dodano i którego pliku nie
   wczytano – a w czasie odczytu z katalogu jest to jedno powiadomienie z ostrzeżeniem.
+- **Korespondencja: zdania o tym, co wybrać dalej, nazywają przyciski tak jak okno.** Wynik zatrzymanej wysyłki, wersji
+  roboczych albo testu i wysyłki z błędami (karta *Wysyłka*) oraz zatrzymanego wyszukiwania właścicieli skrzynek (karta
+  *Skrzynki*) mówił „Naciśnij „Wyślij”, …”, a nazwy przycisków były wpisane w zdania na stałe. Teraz mówią „Wybierz
+  „Wyślij”, …”, jak pozostałe okna programu, a nazwy przycisków (*Wyślij*, *Utwórz wersje robocze*, *Test do siebie*,
+  *Ponów nieudane*, *Ponów*) i pola *Pomijaj już wysłane* biorą z tych samych tekstów co okno. Zatrzymane wczytywanie
+  jednego pliku odbiorców mówi „po 0 z 1 pliku”, a nie „po 0 z 1 plików” (po angielsku „after 0 of 1 file”).
 
 ## AdMng Watchdog {{VERSION}}
 

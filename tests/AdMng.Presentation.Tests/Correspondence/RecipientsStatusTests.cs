@@ -123,7 +123,7 @@ public sealed class RecipientsStatusTests
         Assert.Equal((PageStatusKind.Working, "Zatrzymywanie…"), (line.Seen[0].Kind, line.Seen[0].Message));
         var stopped = window.Status.Current;
         Assert.Equal(PageStatusKind.Attention, stopped.Kind);
-        Assert.Equal("Wczytywanie zatrzymano po 0 z 1 plików: wiersze z już wczytanych plików są na liście.", stopped.Message);
+        Assert.Equal("Wczytywanie zatrzymano po 0 z 1 pliku: wiersze z już wczytanych plików są na liście.", stopped.Message);
         Assert.Equal("Correspondence.Recipients.Status.FilesStopped (0, 1)", stopped.Log.ToString());
         Assert.Empty(page.Items);
         Assert.Equal(0, page.ReadsEnded);   // the thread is still held: Stop did not wait for it
@@ -134,6 +134,32 @@ public sealed class RecipientsStatusTests
         Assert.Empty(page.Items);
         Assert.Equal(PageStatusKind.Attention, window.Status.Current.Kind);
         Assert.Equal("Correspondence.Recipients.Status.FilesStopped (0, 1)", window.Status.Current.Log.ToString());
+    }
+
+    [Theory]
+    [InlineData("pl-PL", 1, "Wczytywanie zatrzymano po 0 z 1 pliku: wiersze z już wczytanych plików są na liście.")]
+    [InlineData("pl-PL", 2, "Wczytywanie zatrzymano po 0 z 2 plików: wiersze z już wczytanych plików są na liście.")]
+    [InlineData("pl-PL", 5, "Wczytywanie zatrzymano po 0 z 5 plików: wiersze z już wczytanych plików są na liście.")]
+    [InlineData("en-US", 1, "Loading was stopped after 0 of 1 file: the rows of the files read so far are on the list.")]
+    [InlineData("en-US", 2, "Loading was stopped after 0 of 2 files: the rows of the files read so far are on the list.")]
+    public async Task AStoppedImport_CountsTheFiles_InThePluralFormOfTheLanguage(string culture, int files, string text)
+    {
+        using var scenario = await CorrespondenceShellScenario.CreateAsync(System.Globalization.CultureInfo.GetCultureInfo(culture));
+        using var window = await scenario.OpenAsync();
+        var page = window.Recipients;
+        var gate = new TaskCompletionSource();
+        page.ReadGate = gate.Task;
+        scenario.Dialogs.Files.Enqueue([.. Enumerable.Range(1, files).Select(i => File(scenario, $"kontakty-{i}.csv", Cp1250.GetBytes(ContactsCsv)))]);
+        var run = page.ImportFilesCommand.ExecuteAsync(null);
+        await B2Harness.WaitUntilAsync(() => page.Status.IsWorking);
+
+        window.Status.Current.Action!.Command.Execute(null);
+        await run.WaitAsync(TimeSpan.FromSeconds(20), Ct);
+        gate.SetResult();
+
+        var stopped = window.Status.Current;
+        Assert.Equal((PageStatusKind.Attention, text), (stopped.Kind, stopped.Message));
+        Assert.Equal($"Correspondence.Recipients.Status.FilesStopped (0, {files})", stopped.Log.ToString());
     }
 
     [Fact]

@@ -4810,7 +4810,7 @@ what each unit left behind on purpose), and what nobody has seen on a screen yet
       its width of 140 px and its accent.
     - *The notes.* The note of the paste under the editor (its own row above the editor), the note of the signature under its
       hint in the narrow right column, and one note per finding of the preview: the glyph is 12 px where it was 14 px.
-    - *Long results.* "Wysyłka przerwana: udane 12, błędy 0, niewysłane 83. Naciśnij „Wyślij”, aby wysłać resztę: adresy, do
+    - *Long results.* "Wysyłka przerwana: udane 12, błędy 0, niewysłane 83. Wybierz „Wyślij”, aby wysłać resztę: adresy, do
       których już wysłano, są pomijane, dopóki włączone jest „Pomijaj już wysłane”." (about 190 characters) and an error with
       the cause of Outlook, the advice and the code wrap to two or three lines at the width of the window and move the tabs
       down with them; a send of 300 messages ends with such a sentence under the line for as long as it is not closed.

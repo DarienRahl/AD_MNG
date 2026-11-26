@@ -258,7 +258,9 @@ public sealed partial class RecipientsPageViewModel
             if (scope.IsCancelling)
             {
                 StatusText = string.Empty;
-                StatusText = Localizer.Format(L.RecipientsStatus.FilesStopped, read, paths.Count);
+                StatusText = Localizer.Format(
+                    L.RecipientsStatus.FilesStopped,
+                    Localizer.Format(CorrespondenceText.PluralKey(paths.Count, L.RecipientsStatus.FilesOfOne, L.RecipientsStatus.FilesOfFew, L.RecipientsStatus.FilesOfMany), read, paths.Count));
                 scope.CompleteAttention(StatusText, new PageStatusLog(L.RecipientsStatus.FilesStopped, read, paths.Count));
             }
 

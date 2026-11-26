@@ -1474,8 +1474,19 @@ public static partial class L
         /// <summary>{0} = how far ("2 of 5").</summary>
         public const string FilesReading = "Correspondence.Recipients.Status.FilesReading";
 
-        /// <summary>{0} = files read, {1} = files.</summary>
+        /// <summary>
+        /// {0} = how many files were read of how many (<see cref="FilesOfOne"/>…). Its log copy carries the files read and the
+        /// files.
+        /// </summary>
         public const string FilesStopped = "Correspondence.Recipients.Status.FilesStopped";
+
+        /// <summary>
+        /// A part of the files, in the three plural forms of the files (one, few, many): {0} = the part, {1} = the files ("0 of
+        /// 1 file" - "0 z 1 pliku").
+        /// </summary>
+        public const string FilesOfOne = "Correspondence.Recipients.Status.FilesOf.One";
+        public const string FilesOfFew = "Correspondence.Recipients.Status.FilesOf.Few";
+        public const string FilesOfMany = "Correspondence.Recipients.Status.FilesOf.Many";
 
         /// <summary>{0} = what was loaded, {1} = why the other files were not.</summary>
         public const string ImportPartly = "Correspondence.Recipients.Status.ImportPartly";
@@ -1501,7 +1512,7 @@ public static partial class L
         /// <summary>What was stopped, without a full stop.</summary>
         public const string FindStopped = "Correspondence.Mailboxes.Status.FindStopped";
 
-        /// <summary>What the list is like after a stop and what to do.</summary>
+        /// <summary>What the list is like after a stop and what to do; {0} = the text of the Retry action.</summary>
         public const string FindStoppedReason = "Correspondence.Mailboxes.Status.FindStoppedReason";
 
         /// <summary>What was tried, without a full stop.</summary>
@@ -1535,14 +1546,25 @@ public static partial class L
         /// <summary>Where the result of every message is.</summary>
         public const string ResultsBelow = "Correspondence.Send.Status.ResultsBelow";
 
+        /// <summary>What to do after failures; {0} = the text of the "Retry failed" button of the page.</summary>
         public const string FailedNext = "Correspondence.Send.Status.FailedNext";
+
+        /// <summary>
+        /// What continues a stopped send; {0} = the text of the Send button, {1} = the text of the "Skip addresses already sent
+        /// to" box of the recipients page.
+        /// </summary>
         public const string StoppedNextSend = "Correspondence.Send.Status.StoppedNextSend";
+
+        /// <summary>What continues stopped drafts; {0} = the text of the "Create drafts" button.</summary>
         public const string StoppedNextDrafts = "Correspondence.Send.Status.StoppedNextDrafts";
+
+        /// <summary>What repeats a stopped test; {0} = the text of the "Test to myself" button.</summary>
         public const string StoppedNextTest = "Correspondence.Send.Status.StoppedNextTest";
 
-        /// <summary>{0} = how many failures in a row.</summary>
+        /// <summary>{0} = how many failures in a row, {1} = the text of the "Retry failed" button.</summary>
         public const string StoppedFailuresInRow = "Correspondence.Send.Status.StoppedFailuresInRow";
 
+        /// <summary>What to do when Outlook stopped the run; {0} = the text of the "Retry failed" button.</summary>
         public const string OutlookStoppedNext = "Correspondence.Send.Status.OutlookStoppedNext";
 
         /// <summary>What was tried, without a full stop (a press that came to nothing).</summary>

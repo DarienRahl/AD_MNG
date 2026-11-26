@@ -123,7 +123,7 @@ public sealed class SendStatusTests
         var stopped = window.Status.Current;
         Assert.Equal(PageStatusKind.Attention, stopped.Kind);
         Assert.Equal(
-            "Wysyłka przerwana: udane 1, błędy 0, niewysłane 2. Naciśnij „Wyślij”, aby wysłać resztę: adresy, do których już wysłano, są pomijane, dopóki włączone jest „Pomijaj już wysłane”.",
+            "Wysyłka przerwana: udane 1, błędy 0, niewysłane 2. Wybierz „Wyślij”, aby wysłać resztę: adresy, do których już wysłano, są pomijane, dopóki włączone jest „Pomijaj już wysłane”.",
             stopped.Message);
         Assert.Equal("Correspondence.Send.DoneStopped (1, 0, 2)", stopped.Log.ToString());
         Assert.True(stopped.CanClose);
@@ -132,6 +132,41 @@ public sealed class SendStatusTests
         Assert.Single(scenario.Outlook.Items);
         Assert.Equal((PageStatusKind.Working, "Zatrzymywanie…"), (line.Seen[0].Kind, line.Seen[0].Message));
         Assert.Equal(PageStatusKind.Attention, line.Seen[^1].Kind);
+    }
+
+    [Theory]
+    [InlineData("pl-PL", "send", "Wysyłka przerwana: udane 0, błędy 0, niewysłane 3. Wybierz „Wyślij”, aby wysłać resztę: adresy, do których już wysłano, są pomijane, dopóki włączone jest „Pomijaj już wysłane”.")]
+    [InlineData("pl-PL", "drafts", "Wysyłka przerwana: udane 0, błędy 0, niewysłane 3. Wybierz „Utwórz wersje robocze”, aby utworzyć resztę.")]
+    [InlineData("pl-PL", "test", "Wysyłka przerwana: udane 0, błędy 0, niewysłane 1. Wybierz „Test do siebie”, aby wysłać go jeszcze raz.")]
+    [InlineData("en-US", "send", "Sending stopped: 0 succeeded, 0 failed, 3 not sent. Press “Send” to send the rest: addresses already sent to are skipped while “Skip addresses already sent to” is on.")]
+    [InlineData("en-US", "drafts", "Sending stopped: 0 succeeded, 0 failed, 3 not sent. Press “Create drafts” to create the rest.")]
+    [InlineData("en-US", "test", "Sending stopped: 0 succeeded, 0 failed, 1 not sent. Press “Test to myself” to send it again.")]
+    public async Task AStoppedRun_NamesTheButtonOfThePageThatContinuesIt_InBothLanguages(string culture, string kind, string text)
+    {
+        using var scenario = await CorrespondencePagesScenario.CreateAsync(System.Globalization.CultureInfo.GetCultureInfo(culture));
+        using var window = await OpenOnSendAsync(scenario);
+        CorrespondencePagesScenario.AddRows(window, CorrespondencePagesScenario.Offices());
+
+        // Stop while Outlook takes the first message, before it took it.
+        scenario.Outlook.BeforeSend = (_, _) =>
+        {
+            window.Send.StopCommand.Execute(null);
+            throw new OperationCanceledException();
+        };
+        scenario.Ui.ConfirmAnswers.Enqueue(true);
+
+        await (kind switch
+        {
+            "drafts" => window.Send.CreateDraftsCommand.ExecuteAsync(null),
+            "test" => window.Send.SendTestCommand.ExecuteAsync(null),
+            _ => window.Send.SendCommand.ExecuteAsync(null),
+        });
+
+        // The sentence names the button by its caption on the page (and the box of the journal by its caption).
+        var stopped = window.Status.Current;
+        Assert.Equal(PageStatusKind.Attention, stopped.Kind);
+        Assert.Equal(text, stopped.Message);
+        Assert.Empty(scenario.Outlook.Items);
     }
 
     [Fact]
@@ -155,10 +190,12 @@ public sealed class SendStatusTests
         Assert.StartsWith("Wysyłka przerwana: udane 1, błędy 0, niewysłane 2.", window.Status.Current.Message, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public async Task AFailedMessage_EndsTheRunAsAnAttention_WithTheButtonThatRepeatsIt()
+    [Theory]
+    [InlineData("pl-PL", "Wysyłka zakończona: udane 2, błędy 1. Wybierz „Ponów nieudane”, aby spróbować jeszcze raz.")]
+    [InlineData("en-US", "Sending finished: 2 succeeded, 1 failed. Press “Retry failed” to try them again.")]
+    public async Task AFailedMessage_EndsTheRunAsAnAttention_WithTheButtonThatRepeatsIt(string culture, string text)
     {
-        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var scenario = await CorrespondencePagesScenario.CreateAsync(System.Globalization.CultureInfo.GetCultureInfo(culture));
         using var window = await OpenOnSendAsync(scenario);
         CorrespondencePagesScenario.AddRows(window, CorrespondencePagesScenario.Offices());
         scenario.Outlook.Script("ug@brojce.pl", FakeOutlookClient.Failed(OutlookFailureKind.RecipientUnresolved, "recipients"));
@@ -168,16 +205,29 @@ public sealed class SendStatusTests
 
         var result = window.Status.Current;
         Assert.Equal(PageStatusKind.Attention, result.Kind);
-        Assert.Equal("Wysyłka zakończona: udane 2, błędy 1. Naciśnij „Ponów nieudane”, aby spróbować jeszcze raz.", result.Message);
+        Assert.Equal(text, result.Message);
         Assert.Equal("Correspondence.Send.DoneSend (2, 1, 0)", result.Log.ToString());
         Assert.Null(result.Action);   // the button below repeats it, after its own confirmation: no link repeats a send
         Assert.True(window.Send.RetryFailedCommand.CanExecute(null));
     }
 
-    [Fact]
-    public async Task OutlookThatStopsTheRun_IsAnError_WithTheKindOfTheFailureAsItsCode_AndNothingOfTheAddresses()
+    [Theory]
+    [InlineData(
+        "pl-PL",
+        "Wysyłka przerwana: udane 1, błędy 1, niewysłane 1: Połączenie z Outlookiem zostało przerwane (Outlook zamknięty?) – uruchom Outlooka i połącz ponownie. "
+        + "Sprawdź Outlooka, potem wybierz „Ponów nieudane”. (Disconnected)",
+        "Outlook jest niedostępny: ",
+        "Połącz z Outlookiem")]
+    [InlineData(
+        "en-US",
+        "Sending stopped: 1 succeeded, 1 failed, 1 not sent: The connection to Outlook was lost (Outlook closed?) – start Outlook and connect again. "
+        + "Check Outlook, then press “Retry failed”. (Disconnected)",
+        "Outlook is not available: ",
+        "Connect to Outlook")]
+    public async Task OutlookThatStopsTheRun_IsAnError_WithTheKindOfTheFailureAsItsCode_AndNothingOfTheAddresses(
+        string culture, string text, string lastingLead, string connect)
     {
-        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var scenario = await CorrespondencePagesScenario.CreateAsync(System.Globalization.CultureInfo.GetCultureInfo(culture));
         using var window = await OpenOnSendAsync(scenario);
         CorrespondencePagesScenario.AddRows(window, CorrespondencePagesScenario.Offices());
         scenario.Outlook.Script("ug@brojce.pl", FakeOutlookClient.Failed(OutlookFailureKind.Disconnected));
@@ -187,24 +237,23 @@ public sealed class SendStatusTests
 
         var result = window.Status.Current;
         Assert.Equal(PageStatusKind.Error, result.Kind);
-        Assert.Equal(
-            "Wysyłka przerwana: udane 1, błędy 1, niewysłane 1: Połączenie z Outlookiem zostało przerwane (Outlook zamknięty?) – uruchom Outlooka i połącz ponownie. "
-            + "Sprawdź Outlooka, potem naciśnij „Ponów nieudane”. (Disconnected)",
-            result.Message);
+        Assert.Equal(text, result.Message);
         Assert.Equal("Correspondence.Send.DoneStopped (1, 1, 1) [Disconnected]", result.Log.ToString());
 
         // The state of the page that lasts is back once the error is closed: Outlook has to be connected again.
         window.Send.Status.CloseCommand.Execute(null);
         var lasting = window.Send.Status.Current;
         Assert.Equal(PageStatusKind.Attention, lasting.Kind);
-        Assert.StartsWith("Outlook jest niedostępny: ", lasting.Message, StringComparison.Ordinal);
-        Assert.Equal("Połącz z Outlookiem", lasting.Action?.Label);
+        Assert.StartsWith(lastingLead, lasting.Message, StringComparison.Ordinal);
+        Assert.Equal(connect, lasting.Action?.Label);
     }
 
-    [Fact]
-    public async Task FiveFailuresInARow_EndTheRunAsAnAttention_ThatSaysWhatToDo()
+    [Theory]
+    [InlineData("pl-PL", "Wysyłka przerwana: udane 0, błędy 5, niewysłane 4. Zatrzymano po 5 błędach z rzędu: sprawdź Outlooka, potem wybierz „Ponów nieudane”.")]
+    [InlineData("en-US", "Sending stopped: 0 succeeded, 5 failed, 4 not sent. Stopped after 5 failures in a row: check Outlook, then press “Retry failed”.")]
+    public async Task FiveFailuresInARow_EndTheRunAsAnAttention_ThatSaysWhatToDo(string culture, string text)
     {
-        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        using var scenario = await CorrespondencePagesScenario.CreateAsync(System.Globalization.CultureInfo.GetCultureInfo(culture));
         using var window = await OpenOnSendAsync(scenario);
         var rows = Enumerable.Range(1, 9).Select(i => CorrespondencePagesScenario.Row($"urzad{i}@gmina.pl", "", ("Miejscowość", "Łódź"))).ToArray();
         CorrespondencePagesScenario.AddRows(window, rows);
@@ -215,9 +264,7 @@ public sealed class SendStatusTests
 
         var result = window.Status.Current;
         Assert.Equal(PageStatusKind.Attention, result.Kind);
-        Assert.Equal(
-            "Wysyłka przerwana: udane 0, błędy 5, niewysłane 4. Zatrzymano po 5 błędach z rzędu: sprawdź Outlooka, potem naciśnij „Ponów nieudane”.",
-            result.Message);
+        Assert.Equal(text, result.Message);
     }
 
     [Theory]

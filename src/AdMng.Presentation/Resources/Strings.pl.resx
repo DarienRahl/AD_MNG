@@ -25445,7 +25445,16 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Wczytuję pliki: {0}…</value>
   </data>
   <data name="Correspondence.Recipients.Status.FilesStopped" xml:space="preserve">
-    <value>Wczytywanie zatrzymano po {0} z {1} plików: wiersze z już wczytanych plików są na liście.</value>
+    <value>Wczytywanie zatrzymano po {0}: wiersze z już wczytanych plików są na liście.</value>
+  </data>
+  <data name="Correspondence.Recipients.Status.FilesOf.One" xml:space="preserve">
+    <value>{0} z {1} pliku</value>
+  </data>
+  <data name="Correspondence.Recipients.Status.FilesOf.Few" xml:space="preserve">
+    <value>{0} z {1} plików</value>
+  </data>
+  <data name="Correspondence.Recipients.Status.FilesOf.Many" xml:space="preserve">
+    <value>{0} z {1} plików</value>
   </data>
   <data name="Correspondence.Recipients.Status.ImportPartly" xml:space="preserve">
     <value>{0} Nie wczytano: {1}</value>
@@ -25469,7 +25478,7 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Wyszukiwanie właścicieli skrzynek zatrzymano</value>
   </data>
   <data name="Correspondence.Mailboxes.Status.FindStoppedReason" xml:space="preserve">
-    <value>Lista może być niepełna. Naciśnij „Ponów”, aby wyszukać jeszcze raz.</value>
+    <value>Lista może być niepełna. Wybierz „{0}”, aby wyszukać jeszcze raz.</value>
   </data>
   <data name="Correspondence.Mailboxes.Status.FindFailed" xml:space="preserve">
     <value>Nie udało się znaleźć właścicieli skrzynek</value>
@@ -25499,22 +25508,22 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
     <value>Każda wiadomość jest na liście wyników.</value>
   </data>
   <data name="Correspondence.Send.Status.FailedNext" xml:space="preserve">
-    <value>Naciśnij „Ponów nieudane”, aby spróbować jeszcze raz.</value>
+    <value>Wybierz „{0}”, aby spróbować jeszcze raz.</value>
   </data>
   <data name="Correspondence.Send.Status.StoppedNextSend" xml:space="preserve">
-    <value>Naciśnij „Wyślij”, aby wysłać resztę: adresy, do których już wysłano, są pomijane, dopóki włączone jest „Pomijaj już wysłane”.</value>
+    <value>Wybierz „{0}”, aby wysłać resztę: adresy, do których już wysłano, są pomijane, dopóki włączone jest „{1}”.</value>
   </data>
   <data name="Correspondence.Send.Status.StoppedNextDrafts" xml:space="preserve">
-    <value>Naciśnij „Utwórz wersje robocze”, aby utworzyć resztę.</value>
+    <value>Wybierz „{0}”, aby utworzyć resztę.</value>
   </data>
   <data name="Correspondence.Send.Status.StoppedNextTest" xml:space="preserve">
-    <value>Naciśnij „Test do siebie”, aby wysłać go jeszcze raz.</value>
+    <value>Wybierz „{0}”, aby wysłać go jeszcze raz.</value>
   </data>
   <data name="Correspondence.Send.Status.StoppedFailuresInRow" xml:space="preserve">
-    <value>Zatrzymano po {0} błędach z rzędu: sprawdź Outlooka, potem naciśnij „Ponów nieudane”.</value>
+    <value>Zatrzymano po {0} błędach z rzędu: sprawdź Outlooka, potem wybierz „{1}”.</value>
   </data>
   <data name="Correspondence.Send.Status.OutlookStoppedNext" xml:space="preserve">
-    <value>Sprawdź Outlooka, potem naciśnij „Ponów nieudane”.</value>
+    <value>Sprawdź Outlooka, potem wybierz „{0}”.</value>
   </data>
   <data name="Correspondence.Send.Status.NothingSent" xml:space="preserve">
     <value>Nic nie wysłano</value>

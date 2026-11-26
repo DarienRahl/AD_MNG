@@ -97,7 +97,7 @@ public sealed partial class MailboxOwnersPageViewModel
             if (finding.IsCancelling)
             {
                 finding.CompleteAttention(
-                    PageStatusText.Failure(Localizer[L.MailboxesStatus.FindStopped], Localizer[L.MailboxesStatus.FindStoppedReason]),
+                    PageStatusText.Failure(Localizer[L.MailboxesStatus.FindStopped], Localizer.Format(L.MailboxesStatus.FindStoppedReason, Localizer[L.Common.Retry])),
                     new PageStatusLog(L.MailboxesStatus.FindStopped, Rows.Count),
                     new PageStatusAction(Localizer[L.Common.Retry], FindOwnersCommand));
             }

@@ -597,6 +597,7 @@ public sealed partial class SendPageViewModel : ObservableObject, IHasPageStatus
         }
 
         var head = ProgressText;   // the closing line of the results: "Sending finished: 12 succeeded, 1 failed."
+        var retryFailed = Localizer[L.CorrespondenceApp.SendRetryFailed];   // the sentences name the buttons by their captions
         var counts = new PageStatusLog(HeadKey(kind, result), result.Succeeded, result.Failed, result.NotAttempted);
         switch (result.Stop)
         {
@@ -604,28 +605,34 @@ public sealed partial class SendPageViewModel : ObservableObject, IHasPageStatus
                 scope.CompleteDone($"{head} {Localizer[L.SendStatus.ResultsBelow]}", counts);
                 break;
             case SendStopReason.None:
-                scope.CompleteAttention($"{head} {Localizer[L.SendStatus.FailedNext]}", counts);
+                scope.CompleteAttention($"{head} {Localizer.Format(L.SendStatus.FailedNext, retryFailed)}", counts);
                 break;
             case SendStopReason.Cancelled:
-                scope.CompleteAttention($"{head} {Localizer[kind switch
-                {
-                    SendRunKind.Drafts => L.SendStatus.StoppedNextDrafts,
-                    SendRunKind.Test => L.SendStatus.StoppedNextTest,
-                    _ => L.SendStatus.StoppedNextSend,
-                }]}", counts);
+                scope.CompleteAttention($"{head} {StoppedNext(kind)}", counts);
                 break;
             case SendStopReason.FailuresInRow:
-                scope.CompleteAttention($"{head} {Localizer.Format(L.SendStatus.StoppedFailuresInRow, CorrespondenceSender.MaxFailuresInRow)}", counts);
+                scope.CompleteAttention($"{head} {Localizer.Format(L.SendStatus.StoppedFailuresInRow, CorrespondenceSender.MaxFailuresInRow, retryFailed)}", counts);
                 break;
             default:
                 // Outlook stopped the run (a lost connection, an Outlook that does not answer): why, and what to do.
                 var code = result.StopFailure is { } failure ? ResultCode.Outlook(failure.Kind) : ResultCode.None;
                 scope.CompleteError(
-                    PageStatusText.Failure(head, result.StopFailure is { } stop ? CorrespondenceText.FailureText(Localizer, stop) : null, Localizer[L.SendStatus.OutlookStoppedNext], code),
+                    PageStatusText.Failure(head, result.StopFailure is { } stop ? CorrespondenceText.FailureText(Localizer, stop) : null, Localizer.Format(L.SendStatus.OutlookStoppedNext, retryFailed), code),
                     counts.WithCode(code));
                 break;
         }
     }
+
+    /// <summary>
+    /// What continues a stopped run, with the caption of the button that does it ("Press “Send” to send the rest: …"; the send
+    /// also names the "Skip addresses already sent to" box of the recipients page).
+    /// </summary>
+    private string StoppedNext(SendRunKind kind) => kind switch
+    {
+        SendRunKind.Drafts => Localizer.Format(L.SendStatus.StoppedNextDrafts, Localizer[L.CorrespondenceApp.SendDrafts]),
+        SendRunKind.Test => Localizer.Format(L.SendStatus.StoppedNextTest, Localizer[L.CorrespondenceApp.SendTest]),
+        _ => Localizer.Format(L.SendStatus.StoppedNextSend, Localizer[L.CorrespondenceApp.SendButton], Localizer[L.CorrespondenceApp.RecipientsSkipAlreadySent]),
+    };
 
     /// <summary>"Sending messages: 12 of 95 · about 4 min left…" - what the line says while the run goes on.</summary>
     private string RunningText(SendRunKind kind, int done, int total, TimeSpan? remaining) => kind switch
