@@ -551,6 +551,7 @@ public class VirtualListTests
         // of the whole container, not one for the chip and another for the text when its delay is over.
         var before = harness.Directory.VirtualListRequests.Count;
         list.EmptyState.ActionCommand!.Execute(list.EmptyState.ActionParameter);
+        await list.CurrentLoad; // the chip's read ends before the typing delay is over, as on a real DC
         harness.Time.Advance(TimeSpan.FromMilliseconds(500));
         await list.ServerFilterRun;
         await list.CurrentLoad;
