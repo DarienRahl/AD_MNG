@@ -109,6 +109,14 @@
   otwartych, żadnego nie otwiera i kończy się błędem *Otwartych jest już 10 okien siatki Out-AdmGrid – najwięcej, ile może
   być naraz: nie otwarto siatki. Zamknij któreś z nich i uruchom polecenie ponownie.* (po angielsku *10 grid windows of
   Out-AdmGrid are already open …*); zamknięte okno siatki zwalnia miejsce.
+- **Okno PowerShell: Ctrl+C przy pytaniu o hasło zatrzymuje polecenie.** Gdy polecenie pytało o hasło (`Read-Host
+  -AsSecureString`, obowiązkowy parametr typu `SecureString`), Ctrl+C w polu hasła nic nie robiło, choć instrukcja mówi,
+  że Ctrl+C zatrzymuje polecenie. Teraz zatrzymuje je jak w każdym innym miejscu wiersza poleceń, a to, co wpisano w pole
+  hasła, od razu jest odrzucane.
+- **Okno PowerShell: Ctrl+Z nie przywraca już polecenia, które zostało uruchomione.** Po *Enter* wiersz poleceń jest pusty,
+  ale Ctrl+Z przywracało w nim uruchomione polecenie – także takie, którego historia nie zapamiętuje, bo zawiera hasło
+  jawnym tekstem – a po odpowiedzi na pytanie polecenia tę odpowiedź. Teraz Ctrl+Z cofa tylko to, co wpisano od tej chwili;
+  wiersz z historii albo podpowiedź (Tab) da się cofnąć jak dotąd.
 
 ## AdMng Watchdog {{VERSION}}
 

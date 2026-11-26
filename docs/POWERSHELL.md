@@ -333,7 +333,8 @@ Parametr obowiązkowy, który przyjmuje listę (np. `-Identity`), okno – jak k
 wyróżniająca to jedna tożsamość. Pytanie, które przyjdzie, gdy piszesz już następne polecenie, nie kasuje go: wpisany tekst wraca do
 wiersza poleceń po odpowiedzi. Pierwsze puste **Enter** po takim pytaniu z wyborem (np. `-Confirm`) nie wybiera odpowiedzi
 domyślnej – okno pyta jeszcze raz, bo to Enter było najpewniej przeznaczone dla polecenia. Hasło z pola hasła trafia do polecenia
-od razu jako `SecureString`; pole jest puste po odpowiedzi.
+od razu jako `SecureString`; pole jest puste po odpowiedzi. **Ctrl+C** w polu hasła zatrzymuje polecenie, jak wszędzie w
+wierszu poleceń, a to, co wpisano w pole, jest odrzucane.
 
 **Tryb zaufany (FullLanguage)** to przełącznik pod wierszem poleceń:
 
@@ -475,7 +476,8 @@ usuwa (rozdział 6), jak każdy PowerShell; uprzedź zespół bezpieczeństwa (S
 | | **Góra**, **Dół** | Wiersze polecenia wielowierszowego, potem historia, potem z powrotem do tego, co pisałeś |
 | | **Ctrl+R** | Przeszukuje historię; wpisuj, aby zawężać, **Backspace** usuwa znak |
 | | **Ctrl+L** | Czyści wyniki (`cls` w poleceniu robi to samo) |
-| | **Ctrl+C** | Kopiuje, gdy zaznaczono tekst; w przeciwnym razie **zatrzymuje trwające polecenie** |
+| | **Ctrl+C** | Kopiuje, gdy zaznaczono tekst; w przeciwnym razie **zatrzymuje trwające polecenie** – także w polu hasła pytania, którego wpisany tekst jest odrzucany |
+| | **Ctrl+Z** | Cofa ostatnią zmianę tekstu; polecenie, które zostało uruchomione, i wysłana odpowiedź nie wracają |
 | Obszar wyników | **Ctrl+C** | Kopiuje zaznaczone wiersze (bez zaznaczenia: zatrzymuje polecenie) |
 | | **Enter** | Otwiera pierwszą nazwę wyróżniającą zaznaczonego wiersza |
 | | **Esc** | Powrót do wiersza poleceń |

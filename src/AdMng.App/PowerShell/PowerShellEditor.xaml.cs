@@ -15,7 +15,8 @@ namespace AdMng.App.PowerShell;
 /// The line editor of the PowerShell window (track R, stage R1, decision D5; see the header of <c>PowerShellEditor.xaml</c> for how it
 /// is built). It forwards keys to <see cref="PowerShellInputModel"/> - Enter runs (or inserts a line when the input is not complete),
 /// Shift+Enter inserts a line, Tab completes, Up and Down walk through the lines and then the history, Ctrl+R searches the history,
-/// Esc closes the list or the search, Ctrl+C copies a selection and otherwise stops the command, Ctrl+L clears the window - and draws what
+/// Esc closes the list or the search, Ctrl+C copies a selection and otherwise stops the command (also at a secret question, whose box it
+/// empties), Ctrl+L clears the window - and draws what
 /// the model says: the text with the colours of its tokens, the list of completions under the caret, the line of the search. The text
 /// lives in memory only; nothing of it is written anywhere.
 /// </summary>
@@ -53,6 +54,8 @@ public partial class PowerShellEditor : UserControl
 
     private bool _applying;
     private bool _layerQueued;
+    /// <summary>The mode changed: the next text the model puts into the line forgets the undo of what was there (see <see cref="ForgetUndo"/>).</summary>
+    private bool _forgetUndo;
     private PowerShellInputModel? _model;
 
     public PowerShellEditor()
@@ -92,7 +95,7 @@ public partial class PowerShellEditor : UserControl
         set => SetValue(SubmitSecretCommandProperty, value);
     }
 
-    /// <summary>Ctrl+C with nothing selected.</summary>
+    /// <summary>Ctrl+C with nothing selected, and Ctrl+C in the password box of a secret question.</summary>
     public ICommand? StopCommand
     {
         get => (ICommand?)GetValue(StopCommandProperty);
@@ -241,7 +244,31 @@ public partial class PowerShellEditor : UserControl
             {
                 _applying = false;
             }
+
+            if (model.Text.Length == 0)
+            {
+                ForgetUndo();
+            }
+            else if (_forgetUndo)
+            {
+                // The text of a new mode (what was typed ahead before a question): nothing before it can be undone into the line.
+                _forgetUndo = false;
+                ForgetUndo();
+            }
         }
+    }
+
+    /// <summary>
+    /// Empties the undo stack of the command line (audit W-notes-undo-stack). The box keeps an undo step for every text the model puts
+    /// into it, so after Enter Ctrl+Z brought back the line that had run - also one the history keeps out because it holds a password
+    /// in plain text - and after a question the answer. So the model's emptying of the line (a run, an answer) and its change of mode
+    /// leave nothing to undo; a history line or a completion the model puts in can still be undone. Turning undo off empties the
+    /// stack.
+    /// </summary>
+    private void ForgetUndo()
+    {
+        InputBox.IsUndoEnabled = false;
+        InputBox.IsUndoEnabled = true;
     }
 
     private void ApplyCaret()
@@ -281,14 +308,19 @@ public partial class PowerShellEditor : UserControl
         HighlightLayer.Visibility = secret ? Visibility.Collapsed : Visibility.Visible;
 
         // The password box is empty in every mode but while a secret is typed (audit W-08: it kept the answer for the life of the
-        // window), and the command line follows the model on every change of mode (it kept text the model no longer had).
+        // window), and the command line follows the model on every change of mode (it kept text the model no longer had). What the
+        // line held before the change cannot be undone into it: the model sets the text of the new mode right after the mode, and
+        // that set forgets the undo too.
         SecretBox.Clear();
+        _forgetUndo = true;
         if (!secret)
         {
             SyncBox(model);
             RebuildLayer();
             SizeTheBox();
         }
+
+        ForgetUndo();
 
         UpdateHint();
         if (hadFocus || secret)
@@ -309,6 +341,8 @@ public partial class PowerShellEditor : UserControl
             return;
         }
 
+        // The operator types: the text of the new mode is not coming any more (a later history line or completion stays undoable).
+        _forgetUndo = false;
         _applying = true;
         try
         {
@@ -431,7 +465,13 @@ public partial class PowerShellEditor : UserControl
             case Key.L when control && !shift && !alt:
                 ClearCommand?.Execute(null);
                 return true;
-            case Key.C when control && !shift && !alt && InputBox.SelectionLength == 0 && SecretBox.Visibility != Visibility.Visible:
+            case Key.C when control && !shift && !alt && model.IsSecret:
+                // At a secret question Ctrl+C is Stop too, as at a console (owner answer 11; the password box copies nothing): what
+                // was typed of the secret is thrown away first, so nothing of it outlives the question.
+                SecretBox.Clear();
+                StopCommand?.Execute(null);
+                return true;
+            case Key.C when control && !shift && !alt && InputBox.SelectionLength == 0:
                 // Ctrl+C copies a selection (the box does it); with nothing selected it is Stop, as at a console.
                 StopCommand?.Execute(null);
                 return true;

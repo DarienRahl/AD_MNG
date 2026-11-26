@@ -335,7 +335,8 @@ asks (`Identity[0]`, `Identity[1]`, …), until you answer with an empty line. A
 name is one identity. A question that comes while you are already typing the next command does not wipe it: what you typed comes
 back to the command line after the answer. The first empty **Enter** after such a question with choices (`-Confirm`, for example)
 does not take the default answer – the window asks once more, since that Enter was most likely meant for the command. A password
-from the password box goes to the command at once as a `SecureString`; the box is empty after the answer.
+from the password box goes to the command at once as a `SecureString`; the box is empty after the answer. **Ctrl+C** in the
+password box stops the command, as anywhere in the command line, and what you typed in the box is thrown away.
 
 **The trusted mode (FullLanguage)** is a switch under the command line:
 
@@ -478,7 +479,8 @@ every PowerShell does; tell the security team (SOC) in advance.
 | | **Up**, **Down** | The lines of a multi-line command, then the history, then back to what you were typing |
 | | **Ctrl+R** | Searches the history; type to narrow, **Backspace** removes a character |
 | | **Ctrl+L** | Clears the output (`cls` in a command does the same) |
-| | **Ctrl+C** | Copies when text is selected; otherwise **stops the running command** |
+| | **Ctrl+C** | Copies when text is selected; otherwise **stops the running command** – also in the password box of a question, whose typed text is thrown away |
+| | **Ctrl+Z** | Undoes your last edit; a command that ran and an answer that was sent do not come back |
 | Output area | **Ctrl+C** | Copies the selected lines (nothing selected: stops the command) |
 | | **Enter** | Opens the first distinguished name of the selected line |
 | | **Esc** | Back to the command line |

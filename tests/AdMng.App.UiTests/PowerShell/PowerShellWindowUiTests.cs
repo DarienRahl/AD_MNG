@@ -256,6 +256,61 @@ public sealed class PowerShellWindowUiTests
     });
 
     /// <summary>
+    /// Audit W-notes-undo-stack: the command line keeps an undo step for every text the model puts into it, so after Enter Ctrl+Z
+    /// brought back the line that had run - also a line the history refuses because it holds a password in plain text - and after a
+    /// question the answer under the text typed ahead. The model's emptying of the line and its change of mode now leave nothing to
+    /// undo; what the operator types stays undoable (the first assertions show that the box records it at all).
+    /// </summary>
+    [Fact]
+    public Task CtrlZ_BringsBackNoLineThatRan_NorTheAnswerToAQuestion() => WpfTestHost.RunAsync(async () =>
+    {
+        var (context, _, _, window) = await PowerShellUiSupport.OpenAsync();
+        await using var _c = context;
+        var editor = window.EditorControl;
+        var vm = window.ViewModel;
+
+        // A line with a password in plain text: it runs, and the history refuses it.
+        editor.Box.Text = "ConvertTo-SecureString 'tajne-hasło' -AsPlainText -Force | Out-Null";
+        Assert.True(editor.Box.CanUndo, "the box records the typed text");
+        await vm.RunCommand.ExecuteAsync(null);
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+        Assert.Empty(vm.History.Entries);
+        Assert.Equal(string.Empty, editor.Box.Text);
+
+        Assert.False(editor.Box.CanUndo);
+        ApplicationCommands.Undo.Execute(null, editor.Box);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal(string.Empty, editor.Box.Text);
+        Assert.Equal(string.Empty, vm.Input.Text);
+
+        // A question that comes while the next command is typed: after the answer the typed-ahead text is back, and Ctrl+Z does not
+        // bring the answer back under it.
+        editor.Box.Text = "$a = Read-Host 'Name'; 'got ' + $a";
+        var run = vm.RunCommand.ExecuteAsync(null);
+        await UiWait.UntilAsync(() => vm.IsRunning, "the command runs");
+        editor.Box.Text = "Get-AdmVersion";
+        await UiWait.UntilAsync(() => vm.PendingPrompt is not null, "the question");
+        await UiTestSupport.WaitForIdleAsync();
+        editor.Box.Text = "Łukasz Żółć";
+        Assert.True(editor.HandleKey(Key.Enter, ModifierKeys.None));
+        await run;
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+        Assert.Contains("got Łukasz Żółć", PowerShellUiSupport.Lines(window));
+        Assert.Equal("Get-AdmVersion", editor.Box.Text);
+
+        Assert.False(editor.Box.CanUndo);
+        ApplicationCommands.Undo.Execute(null, editor.Box);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal("Get-AdmVersion", editor.Box.Text);
+        Assert.Equal("Get-AdmVersion", vm.Input.Text);
+
+        // What the operator types after that is the box's own undo, as before.
+        editor.Box.SelectedText = " ";
+        Assert.True(editor.Box.CanUndo);
+        context.AssertHealthy();
+    });
+
+    /// <summary>
     /// Audit W-08 and W-09: the secret went through the model's text, a string per key, and stayed in the hidden password box after the
     /// answer; text typed ahead of a question stayed in the hidden command line while the model had none. Enter in the password box now
     /// hands over a SecureString, the box is empty after the answer, and the command line shows what was typed ahead again.
@@ -290,6 +345,40 @@ public sealed class PowerShellWindowUiTests
         Assert.Equal(Visibility.Collapsed, editor.Secret.Visibility);
         Assert.Equal("Get-AdmVersion", editor.Box.Text);
         Assert.Equal("Get-AdmVersion", vm.Input.Text);
+        context.AssertHealthy();
+    });
+
+    /// <summary>
+    /// Owner answer 11 (audit W-notes-ctrlc-secret): Ctrl+C in the password box of a secret question did nothing, while the guide says
+    /// Ctrl+C stops the command. It stops it now, and what was typed of the secret is thrown away at once.
+    /// </summary>
+    [Fact]
+    public Task CtrlC_AtASecretQuestion_StopsTheCommand_AndEmptiesThePasswordBox() => WpfTestHost.RunAsync(async () =>
+    {
+        var (context, _, _, window) = await PowerShellUiSupport.OpenAsync();
+        await using var _c = context;
+        var editor = window.EditorControl;
+        var vm = window.ViewModel;
+
+        editor.Box.Text = "$s = Read-Host 'Secret' -AsSecureString; 'after the question'";
+        var run = vm.RunCommand.ExecuteAsync(null);
+        await UiWait.UntilAsync(() => vm.PendingPrompt is not null, "the secret question");
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal(Visibility.Visible, editor.Secret.Visibility);
+        editor.Secret.Password = "half-typed";
+
+        Assert.True(editor.HandleKey(Key.C, ModifierKeys.Control));
+        Assert.Equal(string.Empty, editor.Secret.Password);
+        await run.WaitAsync(TimeSpan.FromSeconds(30));
+        await UiWait.UntilAsync(() => !vm.IsRunning && window.PageStatus.Kind != PageStatusKind.Working, "the command stopped");
+
+        Assert.Equal(PageStatusKind.Attention, window.PageStatus.Kind);
+        Assert.Null(vm.PendingPrompt);
+        Assert.DoesNotContain("after the question", PowerShellUiSupport.Lines(window));
+        Assert.DoesNotContain(PowerShellUiSupport.Lines(window), line => line.Contains("half-typed", StringComparison.Ordinal));
+        Assert.Equal(Visibility.Collapsed, editor.Secret.Visibility);
+        Assert.Equal(Visibility.Visible, editor.Box.Visibility);
+        Assert.Equal(string.Empty, editor.Secret.Password);
         context.AssertHealthy();
     });
 
