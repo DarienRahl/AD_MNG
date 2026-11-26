@@ -3,7 +3,11 @@
   the left (DCs with the PDC emulator marked, computers typed or picked, .evtx files; channel, time, IDs, levels, providers,
   outcome, account/SID/IP/workstation or a raw XPath checked live; saved queries), the merged virtualized timeline with the
   search box (Ctrl+F) and the coverage and access of every source in the middle, the details of the selected record behind a
-  splitter at the right. The "not supported" banner replaces nothing: the builder stays usable for saved queries.
+  splitter at the right. That this window cannot read event logs is the state of the status line, and the builder stays usable
+  for saved queries.
+  Feedback (track V, stage V2b-4): one status line under the header (PageStatus) says what the last run read, the run with its
+  stage and Stop, the sources that were not read, and what lasts; "Wyszukaj" and "Wczytaj kanały" are action buttons that are
+  the Cancel of their own run. The state, coverage and access of each source stay in its row of the panel.
 -->
 <UserControl x:Class="AdMng.App.EventLogs.EventLogReaderView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -38,52 +42,29 @@
                  Text="{Binding Title, Mode=OneWay}"
                  TextTrimming="CharacterEllipsis" />
       <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
-        <Button x:Name="RunButton"
-                Margin="0,0,6,0"
-                Command="{Binding RunCommand}"
-                Content="{l:Tr EvtLog.Run}"
-                Style="{StaticResource AccentButtonStyle}" />
-        <Button x:Name="CancelButton" Margin="0,0,12,0" Command="{Binding CancelCommand}" Content="{l:Tr Common.Cancel}" />
+        <c:ActionButton x:Name="RunButton"
+                        Margin="0,0,12,0"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding RunCommand}"
+                        Content="{l:Tr EvtLog.Run}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsRunning="{Binding IsSearching, Mode=OneWay}"
+                        Style="{StaticResource Ad.AccentActionButton}" />
         <Button x:Name="ExportCsvButton" Margin="0,0,6,0" Command="{Binding ExportCsvCommand}" Content="{l:Tr EvtLog.ExportCsv}" />
         <Button x:Name="ExportHtmlButton" Command="{Binding ExportHtmlCommand}" Content="{l:Tr EvtLog.ExportHtml}" />
       </StackPanel>
     </Grid>
 
-    <!-- Not available in this window (not Windows, a simple bind) -->
-    <Border x:Name="NotSupportedBar"
-            Margin="0,0,0,6"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding IsNotSupported, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-      <DockPanel>
-        <TextBlock Margin="0,1,10,0"
-                   VerticalAlignment="Center"
-                   DockPanel.Dock="Left"
-                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Warning}" />
-        <TextBlock x:Name="NotSupportedText" VerticalAlignment="Center" Text="{Binding NotSupportedText, Mode=OneWay}" TextWrapping="Wrap" />
-      </DockPanel>
-    </Border>
-
-    <!-- The status of the last run, or the progress of the running one -->
-    <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
-      <ProgressBar x:Name="RunProgress"
-                   Width="220"
-                   Height="4"
-                   Margin="0,0,10,0"
-                   VerticalAlignment="Center"
-                   AutomationProperties.Name="{Binding StatusText, Mode=OneWay}"
-                   DockPanel.Dock="Left"
-                   IsIndeterminate="True"
-                   Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-      <TextBlock x:Name="StatusLine"
-                 VerticalAlignment="Center"
-                 AutomationProperties.LiveSetting="Polite"
-                 Style="{StaticResource Ad.SecondaryText}"
-                 Text="{Binding StatusText, Mode=OneWay}"
-                 TextTrimming="CharacterEllipsis" />
-    </DockPanel>
+    <!--
+      Status line (design note 6.1): what the last run read (and the selected record), the run with its stage - sources and
+      events so far - and Stop, sources that could not be read, a stopped or failed run, and what lasts: not connected, or
+      that this window cannot read event logs. Always present, so nothing under it moves while a run works.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="0,0,0,6"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
 
     <Grid>
       <Grid.ColumnDefinitions>
@@ -146,11 +127,14 @@
           <TextBlock Margin="0,12,0,0" Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr EvtLog.QueryHeading}" />
           <TextBlock Style="{StaticResource EventLog.Label}" Text="{l:Tr EvtLog.ChannelLabel}" />
           <DockPanel>
-            <Button x:Name="LoadChannelsButton"
-                    Margin="6,0,0,0"
-                    Command="{Binding LoadChannelsCommand}"
-                    Content="{l:Tr EvtLog.LoadChannels}"
-                    DockPanel.Dock="Right" />
+            <c:ActionButton x:Name="LoadChannelsButton"
+                            Margin="6,0,0,0"
+                            CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                            Command="{Binding LoadChannelsCommand}"
+                            Content="{l:Tr EvtLog.LoadChannels}"
+                            DockPanel.Dock="Right"
+                            IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                            IsRunning="{Binding IsLoadingChannels, Mode=OneWay}" />
             <ComboBox x:Name="ChannelBox"
                       AutomationProperties.Name="{l:Tr EvtLog.ChannelLabel}"
                       IsEditable="True"

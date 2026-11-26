@@ -458,6 +458,16 @@ public sealed class DistinguishedName : IEquatable<DistinguishedName>
         return portableDn.Replace(DomainPlaceholder, namingContext, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// A dictionary key for a DN string: its parsed form (so that differently escaped DNs match) in upper case; the text itself in
+    /// upper case when it does not parse.
+    /// </summary>
+    public static string KeyOf(string dn)
+    {
+        ArgumentNullException.ThrowIfNull(dn);
+        return (TryParse(dn, out var parsed) ? parsed.ToString() : dn).ToUpperInvariant();
+    }
+
     /// <summary>Case-insensitive comparison of two DN strings after normalization.</summary>
     public static bool AreEqual(string? a, string? b)
     {

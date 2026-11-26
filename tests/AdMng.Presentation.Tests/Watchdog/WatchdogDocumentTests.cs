@@ -238,7 +238,7 @@ public sealed class WatchdogDocumentTests
             Assert.False(admin.Config.IsReadOnly);
             Assert.False(admin.Config.IsRedacted);
             Assert.Null(admin.Config.ReadOnlyReason);
-            Assert.True(admin.Status.IsAdmin);
+            Assert.True(admin.ServiceStatus.IsAdmin);
 
             h.Client.IsAdmin = false;
             var viewer = await h.OpenAsync(visible: false);
@@ -251,7 +251,7 @@ public sealed class WatchdogDocumentTests
             Assert.Equal(h.Ad.Localizer[L.Watchdog.RequiresAdmin], viewer.Config.ReadOnlyReason);
             Assert.False(viewer.Config.SaveCommand.CanExecute(null));
             Assert.False(viewer.Rules.NewRuleCommand.CanExecute(null));
-            Assert.False(viewer.Status.IsAdmin);
+            Assert.False(viewer.ServiceStatus.IsAdmin);
         });
         h.AssertNoUiErrors();
     }
@@ -292,12 +292,12 @@ public sealed class WatchdogDocumentTests
 
             tab.SelectedSubTabIndex = (int)WatchdogSubTab.Status;
             await h.Client.Calls.CallsAsync(nameof(IWatchdogClient.GetOutboxAsync), 1);
-            await tab.Status.DeliveryLog.Loading;
+            await tab.ServiceStatus.DeliveryLog.Loading;
 
             Assert.Equal(WatchdogSubTab.Status, tab.SelectedSubTab);
             Assert.Equal("Status", h.Ad.Settings.Current.Watchdog.LastSubTab);
             Assert.True(h.Client.Calls.Count(nameof(IWatchdogClient.GetStatusAsync)) > statusCalls);
-            Assert.NotEmpty(tab.Status.DeliveryLog.Items);
+            Assert.NotEmpty(tab.ServiceStatus.DeliveryLog.Items);
 
             tab.SelectedSubTabIndex = 42;
             Assert.Equal(WatchdogSubTab.Events, tab.SelectedSubTab);
@@ -332,7 +332,7 @@ public sealed class WatchdogDocumentTests
                 Last24Hours = h.Client.Status.Last24Hours with { UnacknowledgedHighOrAbove = 120 },
                 RolloutModeUntil = null,
             };
-            await tab.Status.LoadAsync();
+            await tab.ServiceStatus.LoadAsync();
             Assert.Equal("99+", tab.BadgeText);
             Assert.False(tab.ShowRolloutBanner);
             Assert.Equal(string.Empty, tab.RolloutBannerText);
@@ -433,7 +433,7 @@ public sealed class WatchdogDocumentTests
             Assert.StartsWith("Zdarzeń: 30", tab.StatusText, StringComparison.Ordinal);
             Assert.Equal("poniedziałek", tab.Digest.WeeklySectionsDay.Text);
             Assert.Equal("Blokady kont", tab.Rules.Rules[12].Name);
-            Assert.Equal(h.Ad.Localizer[L.Watchdog.OutboxAllStatuses], tab.Status.DeliveryLog.Status.Text);
+            Assert.Equal(h.Ad.Localizer[L.Watchdog.OutboxAllStatuses], tab.ServiceStatus.DeliveryLog.Status.Text);
             Assert.False(tab.Config.IsDirty);
         });
         h.AssertNoUiErrors();
@@ -582,7 +582,7 @@ public sealed class WatchdogDocumentTests
             h.Time.Advance(WatchdogPoller.HiddenStatusInterval);
             await h.Client.Calls.CallsAsync(nameof(IWatchdogClient.GetStatusAsync), calls + 1);
             await h.Ui.IdleAsync();
-            await tab.Status.LoadAsync();
+            await tab.ServiceStatus.LoadAsync();
             Assert.Equal(WatchdogConnectionState.Unreachable, tab.ConnectionState);
             Assert.False(tab.IsConnected);
 
@@ -608,7 +608,7 @@ public sealed class WatchdogDocumentTests
             Assert.Equal(WatchdogConnectionState.Forbidden, tab.ConnectionState);
 
             // The status (Status sub-tab or the poller) answers again: the tab is usable again without Retry.
-            await tab.Status.LoadAsync();
+            await tab.ServiceStatus.LoadAsync();
             Assert.Equal(WatchdogConnectionState.Connected, tab.ConnectionState);
             Assert.False(tab.HasConnectionProblem);
 

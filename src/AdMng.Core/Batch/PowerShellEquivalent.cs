@@ -33,6 +33,20 @@ public enum PowerShellValueKind
 
     /// <summary>An array of literals <c>@('a', 'b')</c> (<see cref="PowerShellParameter.Values"/>).</summary>
     LiteralList,
+
+    /// <summary>
+    /// A secure string read at run time: <c>-Name (Read-Host -AsSecureString -Prompt '&lt;prompt&gt;')</c>
+    /// (<see cref="PowerShellParameter.Value"/> = the prompt; docs/dev/phase3-bulk-create.md 2.2). The secret itself is
+    /// never part of the script.
+    /// </summary>
+    SecurePrompt,
+
+    /// <summary>
+    /// A hashtable of attributes <c>-Name @{ key = value; … }</c> (<see cref="PowerShellParameter.Attributes"/>), written
+    /// through the exporter's attribute entries: keys quoted when they contain <c>-</c>, secret attributes prompted
+    /// (2.2, <c>-OtherAttributes</c>).
+    /// </summary>
+    AttributeTable,
 }
 
 /// <summary>One parameter of a <see cref="PowerShellCommand"/>.</summary>
@@ -51,11 +65,25 @@ public sealed record PowerShellParameter(string Name, string? Value, PowerShellV
     public static PowerShellParameter Literals(string name, IReadOnlyList<string> values) =>
         new(name, null, PowerShellValueKind.LiteralList) { Values = values ?? throw new ArgumentNullException(nameof(values)) };
 
+    /// <summary><c>-Name (Read-Host -AsSecureString -Prompt '<paramref name="prompt"/>')</c> – the value is typed when the script runs.</summary>
+    public static PowerShellParameter SecurePrompt(string name, string prompt) =>
+        new(name, prompt ?? throw new ArgumentNullException(nameof(prompt)), PowerShellValueKind.SecurePrompt);
+
+    /// <summary><c>-Name @{ attribute = value; … }</c> (e.g. <c>-OtherAttributes</c> of <c>New-ADUser</c>).</summary>
+    public static PowerShellParameter Table(string name, IReadOnlyList<AttributeChange> attributes) =>
+        new(name, null, PowerShellValueKind.AttributeTable) { Attributes = attributes ?? throw new ArgumentNullException(nameof(attributes)) };
+
     /// <summary>The literals of a <see cref="PowerShellValueKind.LiteralList"/> parameter.</summary>
     public IReadOnlyList<string> Values { get; init; } = [];
 
+    /// <summary>The attributes of a <see cref="PowerShellValueKind.AttributeTable"/> parameter.</summary>
+    public IReadOnlyList<AttributeChange> Attributes { get; init; } = [];
+
     /// <summary><c>-Server $server</c> (omitted when the script has no server).</summary>
     public static PowerShellParameter Server { get; } = new("Server", null, PowerShellValueKind.Server);
+
+    /// <summary>The name and the kind only: values are names, addresses and other personal data (docs/dev/phase3-bulk-create.md 2.8).</summary>
+    public override string ToString() => $"-{Name} ({Kind})";
 }
 
 /// <summary>
@@ -79,4 +107,8 @@ public sealed record PowerShellCommand(string Cmdlet, IReadOnlyList<PowerShellPa
     public string? Comment { get; init; }
 
     public static PowerShellCommand Of(string cmdlet, params PowerShellParameter[] parameters) => new(cmdlet, parameters);
+
+    /// <summary>The cmdlet and its parameter names and kinds only – never a value (docs/dev/phase3-bulk-create.md 2.8).</summary>
+    public override string ToString() =>
+        $"{Cmdlet}{(Property is null ? string.Empty : "." + Property)} [{string.Join(", ", Parameters.Select(p => p.ToString()))}]";
 }

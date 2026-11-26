@@ -262,7 +262,10 @@ public sealed class CorrespondenceTemplateLibrary
     {
         ArgumentNullException.ThrowIfNull(json);
         var room = Math.Max(0, CorrespondenceSettings.MaxTemplates - Saved.Count);
-        var (imported, accepted, lost) = await Task.Run(() => Prepare(json, room)).ConfigureAwait(true);
+        // Always give the caller's thread back, also when the parse finished before the await: the rest runs as a posted
+        // continuation on the caller's context (the UI thread), never inline in the caller's frame.
+        var (imported, accepted, lost) = await Task.Run(() => Prepare(json, room))
+            .ConfigureAwait(ConfigureAwaitOptions.ContinueOnCapturedContext | ConfigureAwaitOptions.ForceYielding);
         if (imported.Count == 0)
         {
             return new TemplateImportResult(0, lost);

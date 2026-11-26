@@ -1,0 +1,348 @@
+<!--
+  "Porządki w GPO" (GpoCleanupDocumentViewModel, K7, design note docs/dev/k-computers-and-gpo.md 21.6): the cleanup advisor –
+  refresh / read everything again (action buttons: while one runs, its button is its Cancel), the status line (the read
+  and the analysis with their stages, the number of proposals with when the GPOs were read, "Group Policy changed after the
+  analysis" with Refresh), the notes about what the analysis could not see, the chips per kind, the
+  filters (kind, GPO, text - Ctrl+F, Esc), the virtualized list of proposals and, beside it behind a splitter, the details
+  of the selected one with only the actions it offers ("Usuń GPO…", "Odłącz wszędzie…", "Wyłącz GPO", "Kopiuj do innego
+  GPO…", "Usuń duplikat z tego GPO", "Scal z…" – each a change plan with preview), "Otwórz GPO", "Porównaj", "Pokaż w
+  wyszukiwarce" and "Kopiuj"; exports to CSV and HTML. Layout and palette as "Diagnostyka zasad grupy".
+-->
+<UserControl x:Class="AdMng.App.GroupPolicy.GpoCleanupView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:AdMng.App.Controls"
+             xmlns:gp="clr-namespace:AdMng.App.GroupPolicy"
+             xmlns:gpcl="clr-namespace:AdMng.Presentation.GroupPolicy.Cleanup;assembly=AdMng.Presentation"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             AutomationProperties.Name="{Binding Title, Mode=OneWay}">
+  <UserControl.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="/AdMng;component/GroupPolicy/GroupPolicyDiagnosticsResources.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+      <sys:Double x:Key="GridViewColumnHeaderMinHeight">28</sys:Double>
+      <Style x:Key="ProposalRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+        <Setter Property="Height" Value="28" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="Padding" Value="2,0" />
+        <Setter Property="AutomationProperties.Name" Value="{Binding Title, Mode=OneWay}" />
+      </Style>
+      <Style x:Key="FilterLabel" TargetType="TextBlock">
+        <Setter Property="Margin" Value="0,0,6,0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+      </Style>
+      <Style x:Key="ActionButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Margin" Value="0,0,6,4" />
+      </Style>
+    </ResourceDictionary>
+  </UserControl.Resources>
+
+  <DockPanel Margin="8,6,8,8">
+    <!-- Header: the title trimmed in its column, refresh and exports in their own -->
+    <Grid Margin="0,0,0,6" DockPanel.Dock="Top">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <c:ObjectIconView Margin="0,0,8,0" VerticalAlignment="Center" Icon="{Binding Icon, Mode=OneWay}" Size="18" />
+      <TextBlock x:Name="TitleText"
+                 Grid.Column="1"
+                 Margin="0,0,12,0"
+                 VerticalAlignment="Center"
+                 FontWeight="SemiBold"
+                 Text="{Binding Title, Mode=OneWay}"
+                 TextTrimming="CharacterEllipsis"
+                 ToolTip="{Binding Title, Mode=OneWay}" />
+      <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
+        <!-- The reads: while one of them runs, its button is its Cancel (the line says how far it is, "Stopping…" after the press). -->
+        <c:ActionButton x:Name="AnalyzeButton"
+                        Margin="0,0,6,0"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding AnalyzeCommand}"
+                        Content="{l:Tr GpoCleanup.Analyze}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsRunning="{Binding IsAnalyzing, Mode=OneWay}"
+                        Style="{StaticResource Ad.AccentActionButton}"
+                        ToolTip="{l:Tr GpoCleanup.AnalyzeHint}" />
+        <c:ActionButton x:Name="ReadAllButton"
+                        Margin="0,0,12,0"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding ReadAllCommand}"
+                        Content="{l:Tr GpoCleanup.ReadAll}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsRunning="{Binding IsReadingAll, Mode=OneWay}"
+                        Style="{StaticResource Ad.ActionButton}"
+                        ToolTip="{l:Tr GpoCleanup.ReadAllHint}" />
+        <Button x:Name="ExportCsvButton" Margin="0,0,6,0" Command="{Binding ExportCsvCommand}" Content="{l:Tr GpoCleanup.ExportCsv}" />
+        <Button x:Name="ExportHtmlButton" Command="{Binding ExportHtmlCommand}" Content="{l:Tr GpoCleanup.ExportHtml}" />
+      </StackPanel>
+    </Grid>
+
+    <!--
+      Status line (design note 6.1): the read and the analysis with their stages and Stop, the summary (the number of
+      proposals, when the GPOs were read, the selected proposal), why it could not be read, "Group Policy changed after
+      the analysis" with Refresh, and what became of an action that is prepared for the change plan preview. Always
+      present, so nothing under it moves while the tab works. Under it the notes about SYSVOL and the PDC emulator
+      (GroupPolicyNotes), then the notes of this view.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="0,0,0,6"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+    <gp:GroupPolicyNotes x:Name="DocumentNotes" DockPanel.Dock="Top" />
+
+    <!-- What the analysis could not see: how complete the proposals are - notes about them, true for as long as they are shown. -->
+    <ContentControl x:Name="NotesBar"
+                    Margin="0,0,0,6"
+                    DockPanel.Dock="Top"
+                    Style="{StaticResource Ad.Note.Attention}"
+                    Visibility="{Binding HasNotes, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <ItemsControl x:Name="NotesList" AutomationProperties.LiveSetting="Polite" Focusable="False" ItemsSource="{Binding Notes, Mode=OneWay}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type sys:String}">
+            <TextBlock Margin="0,0,0,2" Text="{Binding Mode=OneWay}" TextWrapping="Wrap" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ContentControl>
+
+    <!-- Summary chips (click: only that kind) -->
+    <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+      <Button x:Name="ClearFiltersButton"
+              Margin="12,0,0,0"
+              VerticalAlignment="Center"
+              Command="{Binding ClearFiltersCommand}"
+              Content="{l:Tr GpoCleanup.ClearFilters}"
+              DockPanel.Dock="Right"
+              Visibility="{Binding IsFiltered, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+      <ItemsControl x:Name="ChipsList" AutomationProperties.Name="{l:Tr GpoCleanup.SummaryLabel}" Focusable="False" ItemsSource="{Binding Chips, Mode=OneWay}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type gpcl:GpoCleanupChipViewModel}">
+            <ToggleButton Margin="0,0,6,4"
+                          Padding="10,3"
+                          AutomationProperties.Name="{Binding Text, Mode=OneWay}"
+                          Content="{Binding Text, Mode=OneWay}"
+                          IsChecked="{Binding IsSelected}"
+                          IsEnabled="{Binding HasProposals, Mode=OneWay}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </DockPanel>
+
+    <!-- Filters: kind, GPO, text (Ctrl+F, Esc) -->
+    <WrapPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+      <StackPanel Margin="0,0,16,4" Orientation="Horizontal">
+        <TextBlock Style="{StaticResource FilterLabel}" Text="{l:Tr GpoCleanup.FilterKind}" />
+        <ComboBox x:Name="KindBox"
+                  MinWidth="200"
+                  AutomationProperties.Name="{l:Tr GpoCleanup.FilterKind}"
+                  DisplayMemberPath="Text"
+                  ItemsSource="{Binding KindOptions, Mode=OneWay}"
+                  SelectedItem="{Binding SelectedKind}" />
+      </StackPanel>
+      <StackPanel Margin="0,0,16,4" Orientation="Horizontal">
+        <TextBlock Style="{StaticResource FilterLabel}" Text="{l:Tr GpoCleanup.FilterGpo}" />
+        <ComboBox x:Name="GpoBox"
+                  MinWidth="200"
+                  MaxWidth="360"
+                  AutomationProperties.Name="{l:Tr GpoCleanup.FilterGpo}"
+                  DisplayMemberPath="Text"
+                  ItemsSource="{Binding GpoOptions, Mode=OneWay}"
+                  SelectedItem="{Binding SelectedGpo}" />
+      </StackPanel>
+      <Grid Width="340" Margin="0,0,0,4">
+        <TextBox x:Name="SearchBox"
+                 gp:GroupPolicyUi.IsDocumentSearch="True"
+                 AutomationProperties.Name="{l:Tr GpoCleanup.SearchPlaceholder}"
+                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged, Delay=250}"
+                 ToolTip="{l:Tr GpEditing.SearchHint}" />
+        <TextBlock Style="{StaticResource Ad.HintText}"
+                   Text="{l:Tr GpoCleanup.SearchPlaceholder}"
+                   Visibility="{Binding Text, ElementName=SearchBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+      </Grid>
+    </WrapPanel>
+
+    <!-- The proposals and, behind the splitter, the details of the selected one -->
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" MinWidth="360" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="420" MinWidth="280" />
+      </Grid.ColumnDefinitions>
+      <Grid>
+        <ListView x:Name="ProposalsList"
+                  gp:GroupPolicyUi.KeepsSelectionInView="True"
+                  AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                  ItemContainerStyle="{StaticResource ProposalRowStyle}"
+                  ItemsSource="{Binding Rows, Mode=OneWay}"
+                  ScrollViewer.CanContentScroll="True"
+                  SelectedItem="{Binding SelectedRow}"
+                  SelectionMode="Single"
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.VirtualizationMode="Recycling">
+          <ListView.View>
+            <GridView AllowsColumnReorder="False">
+              <GridViewColumn Width="230" Header="{l:Tr GpoCleanup.ColumnKind}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type gpcl:GpoCleanupRowViewModel}">
+                    <TextBlock FontWeight="SemiBold" Text="{Binding Title, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Title, Mode=OneWay}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="230" Header="{l:Tr GroupPolicy.ColumnGpo}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type gpcl:GpoCleanupRowViewModel}">
+                    <TextBlock Text="{Binding GpoName, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding GpoName, Mode=OneWay}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="460" Header="{l:Tr GpoCleanup.ColumnProposal}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type gpcl:GpoCleanupRowViewModel}">
+                    <TextBlock Text="{Binding Message, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Message, Mode=OneWay}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="280" Header="{l:Tr GpoCleanup.ColumnActions}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type gpcl:GpoCleanupRowViewModel}">
+                    <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding ActionsText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+            </GridView>
+          </ListView.View>
+        </ListView>
+        <TextBlock x:Name="ListNoteText"
+                   Margin="16,48,16,0"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Top"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{Binding ListNote, Mode=OneWay}"
+                   TextWrapping="Wrap"
+                   Visibility="{Binding ListNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+      </Grid>
+
+      <gp:PaneSplitter Grid.Column="1" ResizeDirection="Columns" />
+
+      <Border Grid.Column="2" Padding="12,8" Style="{StaticResource Ad.Card}">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr GpoCleanup.DetailsHeading}" />
+          <StackPanel Margin="0,8,0,0" DockPanel.Dock="Bottom" Visibility="{Binding HasSelection, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+            <!-- Only the actions the proposal offers; an informational one says so -->
+            <TextBlock x:Name="NoActionsText"
+                       Margin="0,0,0,6"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr GpoCleanup.NoActions}"
+                       TextWrapping="Wrap"
+                       Visibility="{Binding ShowsNoActions, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+            <WrapPanel x:Name="ActionsPanel">
+              <Button x:Name="DeleteButton"
+                      Command="{Binding DeleteCommand}"
+                      Content="{l:Tr GpoCleanup.Action.Delete}"
+                      Style="{StaticResource ActionButton}"
+                      Visibility="{Binding ShowsDelete, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              <Button x:Name="UnlinkButton"
+                      Command="{Binding UnlinkCommand}"
+                      Content="{l:Tr GpoCleanup.Action.Unlink}"
+                      Style="{StaticResource ActionButton}"
+                      Visibility="{Binding ShowsUnlink, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              <Button x:Name="DisableButton"
+                      Command="{Binding DisableCommand}"
+                      Content="{l:Tr GpoCleanup.Action.Disable}"
+                      Style="{StaticResource ActionButton}"
+                      Visibility="{Binding ShowsDisable, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              <Button x:Name="CopyToButton"
+                      Command="{Binding CopyToCommand}"
+                      Content="{l:Tr GpoCleanup.Action.CopyTo}"
+                      Style="{StaticResource ActionButton}"
+                      Visibility="{Binding ShowsCopyTo, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              <Button x:Name="RemoveSettingButton"
+                      Command="{Binding RemoveSettingCommand}"
+                      Content="{l:Tr GpoCleanup.Action.RemoveSetting}"
+                      Style="{StaticResource ActionButton}"
+                      Visibility="{Binding ShowsRemoveSetting, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              <Button x:Name="MergeButton"
+                      Command="{Binding MergeCommand}"
+                      Content="{l:Tr GpoCleanup.Action.Merge}"
+                      Style="{StaticResource ActionButton}"
+                      Visibility="{Binding ShowsMerge, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+            </WrapPanel>
+            <WrapPanel x:Name="NavigationPanel">
+              <Button x:Name="OpenGpoButton" Command="{Binding OpenGpoCommand}" Content="{l:Tr GpoCleanup.OpenGpo}" Style="{StaticResource ActionButton}" />
+              <Button x:Name="CompareButton" Command="{Binding CompareCommand}" Content="{l:Tr GpoCleanup.Compare}" Style="{StaticResource ActionButton}" />
+              <Button x:Name="ShowInSearchButton" Command="{Binding ShowInSearchCommand}" Content="{l:Tr GpoCleanup.ShowInSearch}" Style="{StaticResource ActionButton}" />
+              <Button x:Name="CopyButton" Command="{Binding CopyCommand}" Content="{l:Tr Common.Copy}" Style="{StaticResource ActionButton}" />
+            </WrapPanel>
+          </StackPanel>
+          <Grid>
+            <TextBlock x:Name="DetailsEmptyText"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr GpoCleanup.DetailsEmpty}"
+                       TextWrapping="Wrap"
+                       Visibility="{Binding HasSelection, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+            <ScrollViewer x:Name="DetailsScroll"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto"
+                          Visibility="{Binding HasSelection, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+              <StackPanel x:Name="DetailsPanel" DataContext="{Binding SelectedRow, Mode=OneWay}">
+                <TextBlock x:Name="DetailsTitle"
+                           Margin="0,0,0,6"
+                           FontSize="15"
+                           FontWeight="SemiBold"
+                           Text="{Binding Title, Mode=OneWay}"
+                           TextWrapping="Wrap" />
+                <TextBlock Style="{StaticResource GpoDiag.DetailHeading}" Text="{l:Tr GpoCleanup.GposHeading}" />
+                <TextBox x:Name="DetailsGpo"
+                         AutomationProperties.Name="{l:Tr GpoCleanup.GposHeading}"
+                         Style="{StaticResource Ad.SelectableText}"
+                         Text="{Binding GpoName, Mode=OneWay}"
+                         TextWrapping="Wrap" />
+                <TextBlock x:Name="DetailsRelated"
+                           Style="{StaticResource GpoDiag.DetailText}"
+                           Text="{Binding RelatedLine, Mode=OneWay}"
+                           Visibility="{Binding HasRelated, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                <TextBlock x:Name="DetailsLinks" Style="{StaticResource Ad.SecondaryText}" Text="{Binding LinksText, Mode=OneWay}" TextWrapping="Wrap" />
+                <StackPanel Visibility="{Binding HasSetting, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                  <TextBlock Style="{StaticResource GpoDiag.DetailHeading}" Text="{l:Tr GpoCleanup.SettingHeading}" />
+                  <TextBlock x:Name="DetailsSetting" Style="{StaticResource GpoDiag.DetailText}" Text="{Binding SettingName, Mode=OneWay}" />
+                  <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding SettingPath, Mode=OneWay}" TextWrapping="Wrap" />
+                  <TextBlock Style="{StaticResource GpoDiag.DetailText}" Text="{Binding SettingValue, Mode=OneWay}" />
+                </StackPanel>
+                <TextBlock Style="{StaticResource GpoDiag.DetailHeading}" Text="{l:Tr GpoCleanup.WhyHeading}" />
+                <TextBlock x:Name="DetailsMessage" Style="{StaticResource GpoDiag.DetailText}" Text="{Binding Message, Mode=OneWay}" />
+                <TextBlock Style="{StaticResource GpoDiag.DetailHeading}" Text="{l:Tr GpoCleanup.WhatHeading}" />
+                <TextBlock x:Name="DetailsRecommendation" Style="{StaticResource GpoDiag.DetailText}" Text="{Binding Recommendation, Mode=OneWay}" />
+                <TextBlock Margin="0,6,0,0"
+                           Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                           Text="{Binding BlockingText, Mode=OneWay}"
+                           TextWrapping="Wrap"
+                           Visibility="{Binding HasBlocking, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                <StackPanel Visibility="{Binding HasNotes, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                  <TextBlock Style="{StaticResource GpoDiag.DetailHeading}" Text="{l:Tr GpoCleanup.NotesHeading}" />
+                  <ItemsControl x:Name="NoteList" Focusable="False" ItemsSource="{Binding NoteTexts, Mode=OneWay}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="{x:Type sys:String}">
+                        <TextBlock Margin="0,1" Text="{Binding Mode=OneWay, StringFormat={}• {0}}" TextWrapping="Wrap" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
+        </DockPanel>
+      </Border>
+    </Grid>
+  </DockPanel>
+</UserControl>

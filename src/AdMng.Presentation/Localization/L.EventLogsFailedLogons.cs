@@ -27,14 +27,6 @@ public static partial class L
 
         public const string SuccessAfterLabel = "EvtFail.SuccessAfterLabel";
 
-        /// <summary>{0} = the reading progress.</summary>
-        public const string StageFailures = "EvtFail.StageFailures";
-
-        /// <summary>{0} = the account count.</summary>
-        public const string StageSuccesses = "EvtFail.StageSuccesses";
-
-        public const string StageAnalysis = "EvtFail.StageAnalysis";
-
         /// <summary>{0} failures, {1} successes, {2} findings, {3}–{4} the window.</summary>
         public const string Summary = "EvtFail.Summary";
 

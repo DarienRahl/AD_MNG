@@ -1,6 +1,7 @@
 using AdMng.Core.Directory;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.Management;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
@@ -91,6 +92,12 @@ public sealed record GpoOption<T>(T Value, string Text)
 /// leftovers of interrupted writes; "Wyrównaj wersje", "Napraw uprawnienia folderu"). Every change goes through
 /// <see cref="GroupPolicyActions"/> (plan → preview → execute).
 /// </summary>
+/// <remarks>
+/// The status line of the document (track V, stage V2b-3) also says what the "Stan" tab says while that tab is shown:
+/// the tab has a status of its own (<see cref="HealthStatus"/>), in front of the document's
+/// (<see cref="PageStatusHolder.Front"/>). A GPO that is gone is the state of the document, and "Usuń pozostały
+/// folder" the action of that state.
+/// </remarks>
 public sealed partial class GroupPolicyObjectDocumentViewModel : GroupPolicyDocumentBase
 {
     private readonly string _initialName;
@@ -101,6 +108,7 @@ public sealed partial class GroupPolicyObjectDocumentViewModel : GroupPolicyDocu
     {
         GpoId = gpoId;
         _initialName = name ?? GroupPolicyText.Guid(gpoId);
+        HealthStatus = new PageStatusHolder(Localizer, Gp.Dispatcher, Gp.Ui.Lists.StatusLog);
         SelectedTab = tab;
         StatusOptions = [];
         LevelOptions = [];
@@ -244,8 +252,19 @@ public sealed partial class GroupPolicyObjectDocumentViewModel : GroupPolicyDocu
             IsMissing = true;
             HasOrphanedFolder = sysvol is not null && await sysvol.GpoFolderExistsAsync(GpoId, cancellationToken).ConfigureAwait(true);
             Clear();
+
+            // The state of the document until it is read again; the folder that was left behind can be deleted from
+            // the line that says so.
+            if (HasOrphanedFolder)
+            {
+                ShowUnavailable(L.GroupPolicy.MissingWithFolder, new PageStatusAction(Localizer[L.GroupPolicy.DeleteOrphanedFolder], DeleteOrphanedFolderCommand));
+            }
+            else
+            {
+                ShowUnavailable(L.GroupPolicy.Missing);
+            }
+
             LoadedText = Localizer[HasOrphanedFolder ? L.GroupPolicy.MissingWithFolder : L.GroupPolicy.Missing];
-            Error = LoadedText;
             OnPropertyChanged(nameof(Title));
             return;
         }

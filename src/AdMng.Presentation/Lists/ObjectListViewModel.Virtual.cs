@@ -4,6 +4,7 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Presentation.Changes;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -396,11 +397,18 @@ public sealed partial class ObjectListViewModel
         return l.Format(L.ListVirtual.Summary, LoadedCount.ToString("N0", l.Culture), HeaderFor(sort), time);
     }
 
+    /// <summary>
+    /// The read of the quick filter text on a large location: waits for the typing to pause, then loads (tests await it);
+    /// completes at once when a newer text or the location's own read superseded it.
+    /// </summary>
+    internal Task ServerFilterRun { get; private set; } = Task.CompletedTask;
+
     /// <summary>The quick filter text changed on a large location: reload with the text as a server filter (debounced).</summary>
     private void ScheduleServerFilter()
     {
         _serverFilter ??= new Debouncer(_services.Time, ServerFilterDelay);
-        _serverFilter.RunAsync(_ => LoadAsync()).Forget();
+        ServerFilterRun = _serverFilter.RunAsync(_ => LoadAsync());
+        ServerFilterRun.Forget();
     }
 
     private void OnVirtualRowsPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -482,6 +490,10 @@ public sealed partial class ObjectListViewModel
         if (ReferenceEquals(sender, _virtualRows) && ReferenceEquals(_virtualSession, _session()))
         {
             Error = _services.Errors.Translate(e);
+            if (!_disposed)
+            {
+                Status.Show(ReadFailedStatus(Error, ResultCode.Of(e)));
+            }
         }
     }
 

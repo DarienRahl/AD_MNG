@@ -96,7 +96,7 @@ public sealed class ComputerWindowsTests
         Assert.Equal(Visibility.Visible, window.TilesList.Visibility);
         Assert.Equal(Visibility.Collapsed, window.NotRunHint.Visibility);
         Assert.Equal(review.Tiles.Count, window.TilesList.Items.Count);
-        Assert.Equal(review.StatusText, window.StatusText.Text);
+        Assert.Equal(review.StatusText, window.PageStatus.Message);
 
         // End of support: Windows 7 and Server 2012 R2 ended long ago (independent of the day the test runs).
         window.TilesList.SelectedItem = review.Tiles.Single(t => t.Report == ComputerReport.EndOfSupport);
@@ -160,7 +160,7 @@ public sealed class ComputerWindowsTests
         var vm = window.ViewModel;
         Assert.Null(vm.Error);
         Assert.Equal(FileServerHost, window.HostText.Text);
-        Assert.Contains("Kerberos", window.ConnectionText.Text, StringComparison.Ordinal);
+        Assert.Contains("Kerberos", window.PageStatus.Message, StringComparison.Ordinal);
 
         await vm.RefreshStatusCommand.ExecuteAsync(null);
         await vm.LoadUsersCommand.ExecuteAsync(null);

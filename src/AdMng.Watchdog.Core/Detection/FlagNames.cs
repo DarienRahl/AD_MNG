@@ -1,5 +1,6 @@
 using System.Globalization;
 using AdMng.Core.ActiveDirectory;
+using AdMng.Core.Pki;
 
 namespace AdMng.Watchdog.Core.Detection;
 
@@ -48,23 +49,21 @@ public static class FlagNames
         (0x10, "AES256_CTS_HMAC_SHA1_96"), (0x20, "AES256_CTS_HMAC_SHA1_96_SK"),
     ];
 
+    // The names come from AdMng.Core.Pki.PkiFlags (docs/dev/p-certificate-services.md decision 8); the bits and their order
+    // are the Watchdog's own subset, pinned by FlagNamesCertificateGoldenTests.
     private static readonly (long Bit, string Name)[] CertificateNameFlagNames =
     [
-        (0x1, "CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT"), (0x8, "CT_FLAG_OLD_CERT_SUPPLIES_SUBJECT_AND_ALT_NAME"),
-        (0x10000, "CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT_ALT_NAME"), (0x400000, "CT_FLAG_SUBJECT_ALT_REQUIRE_DOMAIN_DNS"),
-        (0x1000000, "CT_FLAG_SUBJECT_ALT_REQUIRE_DIRECTORY_GUID"), (0x2000000, "CT_FLAG_SUBJECT_ALT_REQUIRE_UPN"),
-        (0x4000000, "CT_FLAG_SUBJECT_ALT_REQUIRE_EMAIL"), (0x8000000, "CT_FLAG_SUBJECT_ALT_REQUIRE_DNS"),
-        (0x10000000, "CT_FLAG_SUBJECT_REQUIRE_DNS_AS_CN"), (0x20000000, "CT_FLAG_SUBJECT_REQUIRE_EMAIL"),
-        (0x40000000, "CT_FLAG_SUBJECT_REQUIRE_COMMON_NAME"), (0x80000000, "CT_FLAG_SUBJECT_REQUIRE_DIRECTORY_PATH"),
+        .. PkiFlags.Select(PkiFlagAttribute.NameFlag,
+            [
+                0x1, 0x8, 0x10000, 0x400000, 0x1000000, 0x2000000, 0x4000000, 0x8000000, 0x10000000, 0x20000000, 0x40000000,
+                0x80000000,
+            ]).Select(e => (e.Mask, e.Name)),
     ];
 
     private static readonly (long Bit, string Name)[] EnrollmentFlagNames =
     [
-        (0x1, "CT_FLAG_INCLUDE_SYMMETRIC_ALGORITHMS"), (0x2, "CT_FLAG_PEND_ALL_REQUESTS"), (0x4, "CT_FLAG_PUBLISH_TO_KRA_CONTAINER"),
-        (0x8, "CT_FLAG_PUBLISH_TO_DS"), (0x10, "CT_FLAG_AUTO_ENROLLMENT_CHECK_USER_DS_CERTIFICATE"), (0x20, "CT_FLAG_AUTO_ENROLLMENT"),
-        (0x40, "CT_FLAG_PREVIOUS_APPROVAL_VALIDATE_REENROLLMENT"), (0x100, "CT_FLAG_USER_INTERACTION_REQUIRED"),
-        (0x400, "CT_FLAG_REMOVE_INVALID_CERTIFICATE_FROM_PERSONAL_STORE"), (0x800, "CT_FLAG_ALLOW_ENROLL_ON_BEHALF_OF"),
-        (0x1000, "CT_FLAG_ADD_OCSP_NOCHECK"), (0x80000, "CT_FLAG_NO_SECURITY_EXTENSION"),
+        .. PkiFlags.Select(PkiFlagAttribute.EnrollmentFlag,
+            [0x1, 0x2, 0x4, 0x8, 0x10, 0x20, 0x40, 0x100, 0x400, 0x800, 0x1000, 0x80000]).Select(e => (e.Mask, e.Name)),
     ];
 
     /// <summary>True when the attribute's changes are reported as flags.</summary>

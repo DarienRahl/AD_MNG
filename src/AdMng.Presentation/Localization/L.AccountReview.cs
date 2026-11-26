@@ -45,7 +45,6 @@ public static partial class L
         public const string HideFromGal = "AccountReview.HideFromGal";
         public const string ExactLastLogon = "AccountReview.ExactLastLogon";
         public const string ReadingDomainControllers = "AccountReview.ReadingDomainControllers";
-        public const string ExactDone = "AccountReview.ExactDone";
         public const string SendMessage = "AccountReview.SendMessage";
         public const string Never = "AccountReview.Never";
         public const string EndOfDay = "AccountReview.EndOfDay";

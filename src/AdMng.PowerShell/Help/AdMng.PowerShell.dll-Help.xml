@@ -1,0 +1,1244 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The help of the commands of the AD Manager PowerShell window (R1, docs/dev/r1-powershell-window.md 12.2): MAML, English only (the engine's help is its own language). Every parameter of a command has a description here and every command an example: a test (CommandHelpTests) fails when one is missing. -->
+<helpItems schema="maml" xmlns="http://msh">
+  <command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+    <command:details>
+      <command:name>Get-AdmVersion</command:name>
+      <maml:description><maml:para>Shows the versions of AD Manager and of its PowerShell engine, the language mode and the connection of this window.</maml:para></maml:description>
+      <command:verb>Get</command:verb>
+      <command:noun>AdmVersion</command:noun>
+    </command:details>
+    <maml:description><maml:para>Get-AdmVersion tells which AD Manager and which PowerShell engine this window runs, the language mode (Constrained or Full), and the domain, the domain controller and the account of the connection the window belongs to. It reads nothing from the directory.</maml:para></maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Get-AdmVersion</maml:name>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+    </command:parameters>
+    <command:inputTypes><command:inputType><dev:type><maml:name>System.String[]</maml:name><maml:uri /></dev:type><maml:description><maml:para>None.</maml:para></maml:description></command:inputType></command:inputTypes>
+    <command:returnValues><command:returnValue><dev:type><maml:name>AdMng.PowerShell.Commands.AdmVersionInfo</maml:name><maml:uri /></dev:type><maml:description><maml:para>AdMng.PowerShell.Commands.AdmVersionInfo</maml:para></maml:description></command:returnValue></command:returnValues>
+    <command:examples>
+      <command:example>
+        <maml:title>Example 1</maml:title>
+        <dev:code>Get-AdmVersion</dev:code>
+        <dev:remarks><maml:para>Shows the versions, the language mode, the domain, the domain controller and the account of this window.</maml:para></dev:remarks>
+      </command:example>
+    </command:examples>
+    <maml:relatedLinks />
+  </command:command>
+  <command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+    <command:details>
+      <command:name>Get-AdmObject</command:name>
+      <maml:description><maml:para>Gets one object of the domain by its identity, or the objects that a ready LDAP filter finds.</maml:para></maml:description>
+      <command:verb>Get</command:verb>
+      <command:noun>AdmObject</command:noun>
+    </command:details>
+    <maml:description><maml:para>Get-AdmObject reads through the connection of this window only (one domain controller; there is no -Server and no -Credential). The identity is a distinguished name, an objectGUID, a SID, a sAMAccountName or a user principal name. The objects are of every kind: each is typed AdMng.Object first (so that the default display is one table), then AdMng.User, AdMng.Group or AdMng.Computer by what it is, and each has the properties ObjectKind and DistinguishedName. Attributes keep their type; the value of a secret that the Attribute Editor never shows is masked. An object that does not exist is a non-terminating error that names it. Results are streamed one object at a time and Stop (Ctrl+C) cancels the read.</maml:para></maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Get-AdmObject</maml:name>
+        <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByValue, ByPropertyName)" position="0">
+          <maml:name>Identity</maml:name>
+          <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SearchBase</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SearchScope</maml:name>
+          <command:parameterValue required="true" variableLength="false">SearchScope</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Properties</maml:name>
+          <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ResultPageSize</maml:name>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ResultSetSize</maml:name>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+      <command:syntaxItem>
+        <maml:name>Get-AdmObject</maml:name>
+        <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>LdapFilter</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SearchBase</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SearchScope</maml:name>
+          <command:parameterValue required="true" variableLength="false">SearchScope</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Properties</maml:name>
+          <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ResultPageSize</maml:name>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ResultSetSize</maml:name>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByValue, ByPropertyName)" position="0" aliases="DistinguishedName">
+        <maml:name>Identity</maml:name>
+        <maml:description><maml:para>The object: a distinguished name, an objectGUID, a SID, a sAMAccountName or a user principal name. Accepts what the pipeline brings: names as text, or objects that have a DistinguishedName.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        <dev:type><maml:name>String[]</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>SearchBase</maml:name>
+        <maml:description><maml:para>The distinguished name of the container to search in; the domain by default. Press Tab to complete the naming contexts and the containers this window has already shown. An identity that is a distinguished name is read where it is and ignores -SearchBase.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>The domain</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="Scope">
+        <maml:name>SearchScope</maml:name>
+        <maml:description><maml:para>How deep to search below -SearchBase: Base (the container itself), OneLevel (its direct children) or Subtree (everything below it, the default).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">SearchScope</command:parameterValue>
+        <dev:type><maml:name>SearchScope</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>Subtree</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Properties</maml:name>
+        <maml:description><maml:para>Attributes to return besides the default ones, by LDAP name; press Tab to complete them from the schema. * returns every attribute the account may read. Values keep their type (numbers, booleans, dates in local time, GUIDs, multi-valued attributes as arrays; SIDs as text); secrets that the Attribute Editor never shows are masked.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        <dev:type><maml:name>String[]</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>ResultPageSize</maml:name>
+        <maml:description><maml:para>How many objects the domain controller returns per page (1 to 10000, default 500). The objects are passed on as each page arrives.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        <dev:type><maml:name>Int32</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>500</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>ResultSetSize</maml:name>
+        <maml:description><maml:para>The most objects to return. 0, the default, returns all of them.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        <dev:type><maml:name>Int32</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>0 (all)</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>LdapFilter</maml:name>
+        <maml:description><maml:para>A ready LDAP filter, for example (&amp;(objectCategory=person)(department=IT)). Its syntax is checked first; a wrong filter is an error before anything is read.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes><command:inputType><dev:type><maml:name>System.String[]</maml:name><maml:uri /></dev:type><maml:description><maml:para>Identities as text, or objects that have a DistinguishedName.</maml:para></maml:description></command:inputType></command:inputTypes>
+    <command:returnValues><command:returnValue><dev:type><maml:name>AdMng.Object, AdMng.User, AdMng.Group, AdMng.Computer</maml:name><maml:uri /></dev:type><maml:description><maml:para>AdMng.Object, AdMng.User, AdMng.Group, AdMng.Computer</maml:para></maml:description></command:returnValue></command:returnValues>
+    <command:examples>
+      <command:example>
+        <maml:title>Example 1</maml:title>
+        <dev:code>Get-AdmObject -Identity 'OU=IT,OU=Pracownicy,OU=Firma,DC=contoso,DC=test' -Properties description</dev:code>
+        <dev:remarks><maml:para>Reads one organizational unit and its description.</maml:para></dev:remarks>
+      </command:example>
+    </command:examples>
+    <maml:relatedLinks />
+  </command:command>
+  <command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+    <command:details>
+      <command:name>Get-AdmUser</command:name>
+      <maml:description><maml:para>Gets user accounts, by identity or by filters.</maml:para></maml:description>
+      <command:verb>Get</command:verb>
+      <command:noun>AdmUser</command:noun>
+    </command:details>
+    <maml:description><maml:para>Get-AdmUser reads user accounts through the connection of this window. With -Identity it reads the accounts named (a distinguished name, objectGUID, SID, sAMAccountName or user principal name); without it, it searches with the filters of its parameters, all of which must match; a * in a text filter is a wildcard and everything else is literal. Besides the attributes it returns Enabled, LockedOut and UserAccountControlFlags. Results are streamed one object at a time and Stop (Ctrl+C) cancels the read.</maml:para></maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Get-AdmUser</maml:name>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Name</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SamAccountName</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>UserPrincipalName</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>GivenName</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Surname</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>DisplayName</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Mail</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Department</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Title</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Company</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Description</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Enabled</maml:name>
+          <command:parameterValue required="true" variableLength="false">Boolean</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>LdapFilter</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SearchBase</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SearchScope</maml:name>
+          <command:parameterValue required="true" variableLength="false">SearchScope</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Properties</maml:name>
+          <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ResultPageSize</maml:name>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ResultSetSize</maml:name>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+      <command:syntaxItem>
+        <maml:name>Get-AdmUser</maml:name>
+        <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByValue, ByPropertyName)" position="0">
+          <maml:name>Identity</maml:name>
+          <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SearchBase</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SearchScope</maml:name>
+          <command:parameterValue required="true" variableLength="false">SearchScope</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Properties</maml:name>
+          <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ResultPageSize</maml:name>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ResultSetSize</maml:name>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="true" globbing="true" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Name</maml:name>
+        <maml:description><maml:para>The name (name / cn); * is a wildcard, everything else is literal (a bracket, a backslash or a parenthesis in the value belongs to the value).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="true" pipelineInput="False" position="named" aliases="none">
+        <maml:name>SamAccountName</maml:name>
+        <maml:description><maml:para>The sAMAccountName; * is a wildcard, everything else is literal (a bracket, a backslash or a parenthesis in the value belongs to the value).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="true" pipelineInput="False" position="named" aliases="none">
+        <maml:name>UserPrincipalName</maml:name>
+        <maml:description><maml:para>The user principal name; * is a wildcard, everything else is literal (a bracket, a backslash or a parenthesis in the value belongs to the value).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="true" pipelineInput="False" position="named" aliases="none">
+        <maml:name>GivenName</maml:name>
+        <maml:description><maml:para>The first name (givenName); * is a wildcard, everything else is literal (a bracket, a backslash or a parenthesis in the value belongs to the value).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="true" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Surname</maml:name>
+        <maml:description><maml:para>The surname (sn); * is a wildcard, everything else is literal (a bracket, a backslash or a parenthesis in the value belongs to the value).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="true" pipelineInput="False" position="named" aliases="none">
+        <maml:name>DisplayName</maml:name>
+        <maml:description><maml:para>The display name; * is a wildcard, everything else is literal (a bracket, a backslash or a parenthesis in the value belongs to the value).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="true" pipelineInput="False" position="named" aliases="EmailAddress">
+        <maml:name>Mail</maml:name>
+        <maml:description><maml:para>The e-mail address (mail); * is a wildcard, everything else is literal (a bracket, a backslash or a parenthesis in the value belongs to the value).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="true" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Department</maml:name>
+        <maml:description><maml:para>The department; * is a wildcard, everything else is literal (a bracket, a backslash or a parenthesis in the value belongs to the value).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="true" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Title</maml:name>
+        <maml:description><maml:para>The job title; * is a wildcard, everything else is literal (a bracket, a backslash or a parenthesis in the value belongs to the value).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="true" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Company</maml:name>
+        <maml:description><maml:para>The company; * is a wildcard, everything else is literal (a bracket, a backslash or a parenthesis in the value belongs to the value).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="true" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Description</maml:name>
+        <maml:description><maml:para>The description; * is a wildcard, everything else is literal (a bracket, a backslash or a parenthesis in the value belongs to the value).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Enabled</maml:name>
+        <maml:description><maml:para>$true for enabled accounts, $false for disabled ones; both when omitted.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">Boolean</command:parameterValue>
+        <dev:type><maml:name>Boolean</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>LdapFilter</maml:name>
+        <maml:description><maml:para>A ready LDAP filter added to the other filters; its syntax is checked first, a wrong filter is an error before anything is read.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>SearchBase</maml:name>
+        <maml:description><maml:para>The distinguished name of the container to search in; the domain by default. Press Tab to complete the naming contexts and the containers this window has already shown. An identity that is a distinguished name is read where it is and ignores -SearchBase.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>The domain</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="Scope">
+        <maml:name>SearchScope</maml:name>
+        <maml:description><maml:para>How deep to search below -SearchBase: Base (the container itself), OneLevel (its direct children) or Subtree (everything below it, the default).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">SearchScope</command:parameterValue>
+        <dev:type><maml:name>SearchScope</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>Subtree</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Properties</maml:name>
+        <maml:description><maml:para>Attributes to return besides the default ones, by LDAP name; press Tab to complete them from the schema. * returns every attribute the account may read. Values keep their type (numbers, booleans, dates in local time, GUIDs, multi-valued attributes as arrays; SIDs as text); secrets that the Attribute Editor never shows are masked.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        <dev:type><maml:name>String[]</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>ResultPageSize</maml:name>
+        <maml:description><maml:para>How many objects the domain controller returns per page (1 to 10000, default 500). The objects are passed on as each page arrives.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        <dev:type><maml:name>Int32</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>500</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>ResultSetSize</maml:name>
+        <maml:description><maml:para>The most objects to return. 0, the default, returns all of them.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        <dev:type><maml:name>Int32</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>0 (all)</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByValue, ByPropertyName)" position="0" aliases="DistinguishedName">
+        <maml:name>Identity</maml:name>
+        <maml:description><maml:para>The user: a distinguished name, an objectGUID, a SID, a sAMAccountName or a user principal name. Accepts what the pipeline brings: names as text, or objects that have a DistinguishedName.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        <dev:type><maml:name>String[]</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes><command:inputType><dev:type><maml:name>System.String[]</maml:name><maml:uri /></dev:type><maml:description><maml:para>Identities as text, or objects that have a DistinguishedName.</maml:para></maml:description></command:inputType></command:inputTypes>
+    <command:returnValues><command:returnValue><dev:type><maml:name>AdMng.User</maml:name><maml:uri /></dev:type><maml:description><maml:para>AdMng.User</maml:para></maml:description></command:returnValue></command:returnValues>
+    <command:examples>
+      <command:example>
+        <maml:title>Example 1</maml:title>
+        <dev:code>Get-AdmUser -Department 'Księgowość' -Enabled $true -Properties mail,title</dev:code>
+        <dev:remarks><maml:para>Gets the enabled accounts of the department with their e-mail address and title.</maml:para></dev:remarks>
+      </command:example>
+    </command:examples>
+    <maml:relatedLinks />
+  </command:command>
+  <command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+    <command:details>
+      <command:name>Get-AdmGroup</command:name>
+      <maml:description><maml:para>Gets groups, by identity or by filters.</maml:para></maml:description>
+      <command:verb>Get</command:verb>
+      <command:noun>AdmGroup</command:noun>
+    </command:details>
+    <maml:description><maml:para>Get-AdmGroup reads groups through the connection of this window. With -Identity it reads the groups named; without it, it searches with the filters of its parameters, all of which must match; a * in a text filter is a wildcard and everything else is literal. Besides the attributes it returns GroupScope, GroupCategory and GroupTypeFlags. Results are streamed one object at a time and Stop (Ctrl+C) cancels the read.</maml:para></maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Get-AdmGroup</maml:name>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Name</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SamAccountName</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Description</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>GroupScope</maml:name>
+          <command:parameterValue required="true" variableLength="false">AdmGroupScope</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>GroupCategory</maml:name>
+          <command:parameterValue required="true" variableLength="false">AdmGroupCategory</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>LdapFilter</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SearchBase</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SearchScope</maml:name>
+          <command:parameterValue required="true" variableLength="false">SearchScope</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Properties</maml:name>
+          <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ResultPageSize</maml:name>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ResultSetSize</maml:name>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+      <command:syntaxItem>
+        <maml:name>Get-AdmGroup</maml:name>
+        <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByValue, ByPropertyName)" position="0">
+          <maml:name>Identity</maml:name>
+          <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SearchBase</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SearchScope</maml:name>
+          <command:parameterValue required="true" variableLength="false">SearchScope</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Properties</maml:name>
+          <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ResultPageSize</maml:name>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ResultSetSize</maml:name>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="true" globbing="true" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Name</maml:name>
+        <maml:description><maml:para>The name; * is a wildcard, everything else is literal (a bracket, a backslash or a parenthesis in the value belongs to the value).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="true" pipelineInput="False" position="named" aliases="none">
+        <maml:name>SamAccountName</maml:name>
+        <maml:description><maml:para>The sAMAccountName; * is a wildcard, everything else is literal (a bracket, a backslash or a parenthesis in the value belongs to the value).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="true" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Description</maml:name>
+        <maml:description><maml:para>The description; * is a wildcard, everything else is literal (a bracket, a backslash or a parenthesis in the value belongs to the value).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>GroupScope</maml:name>
+        <maml:description><maml:para>DomainLocal, Global or Universal.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">AdmGroupScope</command:parameterValue>
+        <dev:type><maml:name>AdmGroupScope</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>GroupCategory</maml:name>
+        <maml:description><maml:para>Security or Distribution.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">AdmGroupCategory</command:parameterValue>
+        <dev:type><maml:name>AdmGroupCategory</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>LdapFilter</maml:name>
+        <maml:description><maml:para>A ready LDAP filter added to the other filters; its syntax is checked first, a wrong filter is an error before anything is read.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>SearchBase</maml:name>
+        <maml:description><maml:para>The distinguished name of the container to search in; the domain by default. Press Tab to complete the naming contexts and the containers this window has already shown. An identity that is a distinguished name is read where it is and ignores -SearchBase.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>The domain</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="Scope">
+        <maml:name>SearchScope</maml:name>
+        <maml:description><maml:para>How deep to search below -SearchBase: Base (the container itself), OneLevel (its direct children) or Subtree (everything below it, the default).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">SearchScope</command:parameterValue>
+        <dev:type><maml:name>SearchScope</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>Subtree</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Properties</maml:name>
+        <maml:description><maml:para>Attributes to return besides the default ones, by LDAP name; press Tab to complete them from the schema. * returns every attribute the account may read. Values keep their type (numbers, booleans, dates in local time, GUIDs, multi-valued attributes as arrays; SIDs as text); secrets that the Attribute Editor never shows are masked.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        <dev:type><maml:name>String[]</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>ResultPageSize</maml:name>
+        <maml:description><maml:para>How many objects the domain controller returns per page (1 to 10000, default 500). The objects are passed on as each page arrives.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        <dev:type><maml:name>Int32</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>500</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>ResultSetSize</maml:name>
+        <maml:description><maml:para>The most objects to return. 0, the default, returns all of them.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        <dev:type><maml:name>Int32</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>0 (all)</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByValue, ByPropertyName)" position="0" aliases="DistinguishedName">
+        <maml:name>Identity</maml:name>
+        <maml:description><maml:para>The group: a distinguished name, an objectGUID, a SID or a sAMAccountName. Accepts what the pipeline brings: names as text, or objects that have a DistinguishedName.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        <dev:type><maml:name>String[]</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes><command:inputType><dev:type><maml:name>System.String[]</maml:name><maml:uri /></dev:type><maml:description><maml:para>Identities as text, or objects that have a DistinguishedName.</maml:para></maml:description></command:inputType></command:inputTypes>
+    <command:returnValues><command:returnValue><dev:type><maml:name>AdMng.Group</maml:name><maml:uri /></dev:type><maml:description><maml:para>AdMng.Group</maml:para></maml:description></command:returnValue></command:returnValues>
+    <command:examples>
+      <command:example>
+        <maml:title>Example 1</maml:title>
+        <dev:code>Get-AdmGroup -Name 'GG_*' -GroupScope Global -GroupCategory Security</dev:code>
+        <dev:remarks><maml:para>Gets the global security groups whose name starts with GG_.</maml:para></dev:remarks>
+      </command:example>
+    </command:examples>
+    <maml:relatedLinks />
+  </command:command>
+  <command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+    <command:details>
+      <command:name>Get-AdmComputer</command:name>
+      <maml:description><maml:para>Gets computer accounts, by identity or by filters.</maml:para></maml:description>
+      <command:verb>Get</command:verb>
+      <command:noun>AdmComputer</command:noun>
+    </command:details>
+    <maml:description><maml:para>Get-AdmComputer reads computer accounts through the connection of this window. With -Identity it reads the accounts named (the name of the computer works with or without the trailing $); without it, it searches with the filters of its parameters, all of which must match; a * in a text filter is a wildcard and everything else is literal. Results are streamed one object at a time and Stop (Ctrl+C) cancels the read.</maml:para></maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Get-AdmComputer</maml:name>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Name</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SamAccountName</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>DnsHostName</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>OperatingSystem</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Location</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Description</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Enabled</maml:name>
+          <command:parameterValue required="true" variableLength="false">Boolean</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>LdapFilter</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SearchBase</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SearchScope</maml:name>
+          <command:parameterValue required="true" variableLength="false">SearchScope</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Properties</maml:name>
+          <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ResultPageSize</maml:name>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ResultSetSize</maml:name>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+      <command:syntaxItem>
+        <maml:name>Get-AdmComputer</maml:name>
+        <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByValue, ByPropertyName)" position="0">
+          <maml:name>Identity</maml:name>
+          <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SearchBase</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SearchScope</maml:name>
+          <command:parameterValue required="true" variableLength="false">SearchScope</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Properties</maml:name>
+          <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ResultPageSize</maml:name>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ResultSetSize</maml:name>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="true" globbing="true" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Name</maml:name>
+        <maml:description><maml:para>The name; * is a wildcard, everything else is literal (a bracket, a backslash or a parenthesis in the value belongs to the value).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="true" pipelineInput="False" position="named" aliases="none">
+        <maml:name>SamAccountName</maml:name>
+        <maml:description><maml:para>The sAMAccountName, with the trailing $; * is a wildcard, everything else is literal (a bracket, a backslash or a parenthesis in the value belongs to the value).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="true" pipelineInput="False" position="named" aliases="none">
+        <maml:name>DnsHostName</maml:name>
+        <maml:description><maml:para>The DNS host name; * is a wildcard, everything else is literal (a bracket, a backslash or a parenthesis in the value belongs to the value).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="true" pipelineInput="False" position="named" aliases="none">
+        <maml:name>OperatingSystem</maml:name>
+        <maml:description><maml:para>The operating system; * is a wildcard, everything else is literal (a bracket, a backslash or a parenthesis in the value belongs to the value).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="true" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Location</maml:name>
+        <maml:description><maml:para>The location; * is a wildcard, everything else is literal (a bracket, a backslash or a parenthesis in the value belongs to the value).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="true" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Description</maml:name>
+        <maml:description><maml:para>The description; * is a wildcard, everything else is literal (a bracket, a backslash or a parenthesis in the value belongs to the value).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Enabled</maml:name>
+        <maml:description><maml:para>$true for enabled accounts, $false for disabled ones; both when omitted.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">Boolean</command:parameterValue>
+        <dev:type><maml:name>Boolean</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>LdapFilter</maml:name>
+        <maml:description><maml:para>A ready LDAP filter added to the other filters; its syntax is checked first, a wrong filter is an error before anything is read.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>SearchBase</maml:name>
+        <maml:description><maml:para>The distinguished name of the container to search in; the domain by default. Press Tab to complete the naming contexts and the containers this window has already shown. An identity that is a distinguished name is read where it is and ignores -SearchBase.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>The domain</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="Scope">
+        <maml:name>SearchScope</maml:name>
+        <maml:description><maml:para>How deep to search below -SearchBase: Base (the container itself), OneLevel (its direct children) or Subtree (everything below it, the default).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">SearchScope</command:parameterValue>
+        <dev:type><maml:name>SearchScope</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>Subtree</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Properties</maml:name>
+        <maml:description><maml:para>Attributes to return besides the default ones, by LDAP name; press Tab to complete them from the schema. * returns every attribute the account may read. Values keep their type (numbers, booleans, dates in local time, GUIDs, multi-valued attributes as arrays; SIDs as text); secrets that the Attribute Editor never shows are masked.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        <dev:type><maml:name>String[]</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>ResultPageSize</maml:name>
+        <maml:description><maml:para>How many objects the domain controller returns per page (1 to 10000, default 500). The objects are passed on as each page arrives.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        <dev:type><maml:name>Int32</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>500</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>ResultSetSize</maml:name>
+        <maml:description><maml:para>The most objects to return. 0, the default, returns all of them.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        <dev:type><maml:name>Int32</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>0 (all)</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByValue, ByPropertyName)" position="0" aliases="DistinguishedName">
+        <maml:name>Identity</maml:name>
+        <maml:description><maml:para>The computer: a distinguished name, an objectGUID, a SID or the name of the account (PC01 or PC01$). Accepts what the pipeline brings: names as text, or objects that have a DistinguishedName.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        <dev:type><maml:name>String[]</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes><command:inputType><dev:type><maml:name>System.String[]</maml:name><maml:uri /></dev:type><maml:description><maml:para>Identities as text, or objects that have a DistinguishedName.</maml:para></maml:description></command:inputType></command:inputTypes>
+    <command:returnValues><command:returnValue><dev:type><maml:name>AdMng.Computer</maml:name><maml:uri /></dev:type><maml:description><maml:para>AdMng.Computer</maml:para></maml:description></command:returnValue></command:returnValues>
+    <command:examples>
+      <command:example>
+        <maml:title>Example 1</maml:title>
+        <dev:code>Get-AdmComputer -OperatingSystem 'Windows 11*' -Enabled $true</dev:code>
+        <dev:remarks><maml:para>Gets the enabled computers that run Windows 11.</maml:para></dev:remarks>
+      </command:example>
+    </command:examples>
+    <maml:relatedLinks />
+  </command:command>
+  <command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+    <command:details>
+      <command:name>Get-AdmGroupMember</command:name>
+      <maml:description><maml:para>Gets the members of a group, with -Recursive also those of the groups nested in it.</maml:para></maml:description>
+      <command:verb>Get</command:verb>
+      <command:noun>AdmGroupMember</command:noun>
+    </command:details>
+    <maml:description><maml:para>Get-AdmGroupMember reads the direct members of a group (the values of member, also beyond 1500) through the connection of this window. With -Recursive it lists what the All (nested) list of the program shows: the direct and the indirect members, the domain controller evaluating the nesting (a cycle of groups ends there); the nested groups are listed too, -ExcludeGroups leaves them out. A member that cannot be read (another domain, deleted meanwhile, no permission) is counted in one warning. Results are streamed one object at a time and Stop (Ctrl+C) cancels the read.</maml:para></maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Get-AdmGroupMember</maml:name>
+        <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByValue, ByPropertyName)" position="0">
+          <maml:name>Identity</maml:name>
+          <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Recursive</maml:name>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ExcludeGroups</maml:name>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Properties</maml:name>
+          <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ResultPageSize</maml:name>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ResultSetSize</maml:name>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByValue, ByPropertyName)" position="0" aliases="DistinguishedName">
+        <maml:name>Identity</maml:name>
+        <maml:description><maml:para>The group: a distinguished name, an objectGUID, a SID or a sAMAccountName. Accepts what the pipeline brings: names as text, or objects that have a DistinguishedName.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        <dev:type><maml:name>String[]</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Recursive</maml:name>
+        <maml:description><maml:para>Also lists the members of the groups nested in the group, to any depth: what the All (nested) list of the program shows. The domain controller evaluates the nesting.</maml:para></maml:description>
+        <dev:type><maml:name>SwitchParameter</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>ExcludeGroups</maml:name>
+        <maml:description><maml:para>Leaves the groups out of the result: only the accounts and other objects that are members.</maml:para></maml:description>
+        <dev:type><maml:name>SwitchParameter</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Properties</maml:name>
+        <maml:description><maml:para>Attributes to return besides the default ones, by LDAP name; press Tab to complete them from the schema. * returns every attribute the account may read. Values keep their type (numbers, booleans, dates in local time, GUIDs, multi-valued attributes as arrays; SIDs as text); secrets that the Attribute Editor never shows are masked.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        <dev:type><maml:name>String[]</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>ResultPageSize</maml:name>
+        <maml:description><maml:para>How many objects the domain controller returns per page (1 to 10000, default 500). The objects are passed on as each page arrives.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        <dev:type><maml:name>Int32</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>500</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>ResultSetSize</maml:name>
+        <maml:description><maml:para>The most objects to return. 0, the default, returns all of them.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        <dev:type><maml:name>Int32</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>0 (all)</dev:defaultValue>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes><command:inputType><dev:type><maml:name>System.String[]</maml:name><maml:uri /></dev:type><maml:description><maml:para>Identities as text, or objects that have a DistinguishedName.</maml:para></maml:description></command:inputType></command:inputTypes>
+    <command:returnValues><command:returnValue><dev:type><maml:name>AdMng.User, AdMng.Group, AdMng.Computer, AdMng.Object</maml:name><maml:uri /></dev:type><maml:description><maml:para>AdMng.User, AdMng.Group, AdMng.Computer, AdMng.Object</maml:para></maml:description></command:returnValue></command:returnValues>
+    <command:examples>
+      <command:example>
+        <maml:title>Example 1</maml:title>
+        <dev:code>Get-AdmGroupMember -Identity DL_Wszyscy -Recursive -ExcludeGroups</dev:code>
+        <dev:remarks><maml:para>Gets every account that is a member of the group, directly or through nested groups.</maml:para></dev:remarks>
+      </command:example>
+    </command:examples>
+    <maml:relatedLinks />
+  </command:command>
+  <command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+    <command:details>
+      <command:name>Search-AdmObject</command:name>
+      <maml:description><maml:para>Finds objects of the domain by the value of an attribute, or by a ready LDAP filter.</maml:para></maml:description>
+      <command:verb>Search</command:verb>
+      <command:noun>AdmObject</command:noun>
+    </command:details>
+    <maml:description><maml:para>Search-AdmObject builds the LDAP filter itself from -Name, or from -Attribute and -Value, and escapes every value (RFC 4515): a value such as Łukasz (Kraków)*\ matches only itself, a * in it is a literal star and a value that looks like a filter is only a value. -Match says how a value is compared: Exact (the default), StartsWith, Contains or EndsWith. -Filter takes a ready LDAP filter, whose syntax is checked first. The search does not accept secret attributes. Results are streamed one object at a time and Stop (Ctrl+C) cancels the read.</maml:para></maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Search-AdmObject</maml:name>
+        <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="False" position="0">
+          <maml:name>Name</maml:name>
+          <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Match</maml:name>
+          <command:parameterValue required="true" variableLength="false">AdmMatch</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ObjectClass</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SearchBase</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SearchScope</maml:name>
+          <command:parameterValue required="true" variableLength="false">SearchScope</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Properties</maml:name>
+          <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ResultPageSize</maml:name>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ResultSetSize</maml:name>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+      <command:syntaxItem>
+        <maml:name>Search-AdmObject</maml:name>
+        <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Attribute</maml:name>
+          <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="False" position="1">
+          <maml:name>Value</maml:name>
+          <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Match</maml:name>
+          <command:parameterValue required="true" variableLength="false">AdmMatch</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ObjectClass</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SearchBase</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SearchScope</maml:name>
+          <command:parameterValue required="true" variableLength="false">SearchScope</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Properties</maml:name>
+          <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ResultPageSize</maml:name>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ResultSetSize</maml:name>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+      <command:syntaxItem>
+        <maml:name>Search-AdmObject</maml:name>
+        <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Filter</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ObjectClass</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SearchBase</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>SearchScope</maml:name>
+          <command:parameterValue required="true" variableLength="false">SearchScope</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Properties</maml:name>
+          <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ResultPageSize</maml:name>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>ResultSetSize</maml:name>
+          <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="False" position="0" aliases="none">
+        <maml:name>Name</maml:name>
+        <maml:description><maml:para>The name (name) to look for; several names find objects with any of them. A star in the name is a literal star; -Match says how it is compared.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        <dev:type><maml:name>String[]</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Match</maml:name>
+        <maml:description><maml:para>How a value is compared with the attribute: Exact (the default), StartsWith, Contains or EndsWith.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">AdmMatch</command:parameterValue>
+        <dev:type><maml:name>AdmMatch</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>Exact</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>ObjectClass</maml:name>
+        <maml:description><maml:para>Only objects of this class (user, group, organizationalUnit, ...).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>SearchBase</maml:name>
+        <maml:description><maml:para>The distinguished name of the container to search in; the domain by default. Press Tab to complete the naming contexts and the containers this window has already shown. An identity that is a distinguished name is read where it is and ignores -SearchBase.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>The domain</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="Scope">
+        <maml:name>SearchScope</maml:name>
+        <maml:description><maml:para>How deep to search below -SearchBase: Base (the container itself), OneLevel (its direct children) or Subtree (everything below it, the default).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">SearchScope</command:parameterValue>
+        <dev:type><maml:name>SearchScope</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>Subtree</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Properties</maml:name>
+        <maml:description><maml:para>Attributes to return besides the default ones, by LDAP name; press Tab to complete them from the schema. * returns every attribute the account may read. Values keep their type (numbers, booleans, dates in local time, GUIDs, multi-valued attributes as arrays; SIDs as text); secrets that the Attribute Editor never shows are masked.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        <dev:type><maml:name>String[]</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>ResultPageSize</maml:name>
+        <maml:description><maml:para>How many objects the domain controller returns per page (1 to 10000, default 500). The objects are passed on as each page arrives.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        <dev:type><maml:name>Int32</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>500</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>ResultSetSize</maml:name>
+        <maml:description><maml:para>The most objects to return. 0, the default, returns all of them.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">Int32</command:parameterValue>
+        <dev:type><maml:name>Int32</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>0 (all)</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Attribute</maml:name>
+        <maml:description><maml:para>The attribute(s) to compare, by LDAP name; press Tab to complete them from the schema. An object matches when any of the attributes matches any of the values. Secret attributes are refused.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        <dev:type><maml:name>String[]</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="False" position="1" aliases="none">
+        <maml:name>Value</maml:name>
+        <maml:description><maml:para>The value(s) to look for. A star or a bracket in a value is part of the value; -Match says how it is compared. Several values find objects that have any of them.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        <dev:type><maml:name>String[]</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Filter</maml:name>
+        <maml:description><maml:para>A ready LDAP filter, for example (&amp;(objectCategory=person)(department=IT)). Its syntax is checked first; a wrong filter is an error before anything is read.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes><command:inputType><dev:type><maml:name>System.String[]</maml:name><maml:uri /></dev:type><maml:description><maml:para>None.</maml:para></maml:description></command:inputType></command:inputTypes>
+    <command:returnValues><command:returnValue><dev:type><maml:name>AdMng.Object, AdMng.User, AdMng.Group, AdMng.Computer</maml:name><maml:uri /></dev:type><maml:description><maml:para>AdMng.Object, AdMng.User, AdMng.Group, AdMng.Computer</maml:para></maml:description></command:returnValue></command:returnValues>
+    <command:examples>
+      <command:example>
+        <maml:title>Example 1</maml:title>
+        <dev:code>Search-AdmObject -Attribute description -Value 'Łukasz (Kraków)*' -Match StartsWith -ObjectClass group</dev:code>
+        <dev:remarks><maml:para>Finds the groups whose description starts with the text, including its parenthesis and star.</maml:para></dev:remarks>
+      </command:example>
+    </command:examples>
+    <maml:relatedLinks />
+  </command:command>
+  <command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+    <command:details>
+      <command:name>Out-AdmGrid</command:name>
+      <maml:description><maml:para>Shows the objects of the pipeline in a grid of the program.</maml:para></maml:description>
+      <command:verb>Out</command:verb>
+      <command:noun>AdmGrid</command:noun>
+    </command:details>
+    <maml:description><maml:para>Out-AdmGrid opens a window with the objects as rows and their properties as columns, the way the lists of the program look: click a column to sort, type in the filter box to narrow the rows, copy the selected rows with Ctrl+C, export them to CSV (formulas are protected), and open an object with Enter or a double-click when the objects have a DistinguishedName. Every value is turned into text before the grid opens, and nothing is written anywhere unless you export from the grid. Like Out-GridView it opens a new window each time; at most 10 grid windows are open at a time, and a call while 10 are open is an error and opens none - close one of them to open another.</maml:para></maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Out-AdmGrid</maml:name>
+        <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByValue)" position="named">
+          <maml:name>InputObject</maml:name>
+          <command:parameterValue required="true" variableLength="false">PSObject</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Title</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByValue)" position="named" aliases="none">
+        <maml:name>InputObject</maml:name>
+        <maml:description><maml:para>The objects to show; normally they come from the pipeline. An array is shown row by row.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">PSObject</command:parameterValue>
+        <dev:type><maml:name>PSObject</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Title</maml:name>
+        <maml:description><maml:para>The title of the grid window. The default is the name of the command.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes><command:inputType><dev:type><maml:name>System.Management.Automation.PSObject</maml:name><maml:uri /></dev:type><maml:description><maml:para>Any objects.</maml:para></maml:description></command:inputType></command:inputTypes>
+    <command:returnValues><command:returnValue><dev:type><maml:name>None</maml:name><maml:uri /></dev:type><maml:description><maml:para>Nothing is returned.</maml:para></maml:description></command:returnValue></command:returnValues>
+    <command:examples>
+      <command:example>
+        <maml:title>Example 1</maml:title>
+        <dev:code>Out-AdmGrid -InputObject (Get-AdmUser -Department IT) -Title 'IT staff'</dev:code>
+        <dev:remarks><maml:para>Shows the users of the department in a grid that can be sorted, filtered, copied and exported. The same with the pipeline: Get-AdmUser -Department IT | Out-AdmGrid.</maml:para></dev:remarks>
+      </command:example>
+    </command:examples>
+    <maml:relatedLinks />
+  </command:command>
+  <command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+    <command:details>
+      <command:name>Open-AdmObject</command:name>
+      <maml:description><maml:para>Opens the properties of an object in the program.</maml:para></maml:description>
+      <command:verb>Open</command:verb>
+      <command:noun>AdmObject</command:noun>
+    </command:details>
+    <maml:description><maml:para>Open-AdmObject opens the properties window of an object, as a double-click in a list does. The identity is a distinguished name, an objectGUID, a SID, a sAMAccountName or a user principal name. The object is read first through the connection of this window (one domain controller), so a name that does not exist is an error and no window is opened for it. One command opens at most 10 windows.</maml:para></maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Open-AdmObject</maml:name>
+        <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByValue, ByPropertyName)" position="0">
+          <maml:name>Identity</maml:name>
+          <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByValue, ByPropertyName)" position="0" aliases="DistinguishedName">
+        <maml:name>Identity</maml:name>
+        <maml:description><maml:para>The object: a distinguished name, an objectGUID, a SID, a sAMAccountName or a user principal name. Accepts what the pipeline brings: names as text, or objects that have a DistinguishedName.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String[]</command:parameterValue>
+        <dev:type><maml:name>String[]</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes><command:inputType><dev:type><maml:name>System.String[]</maml:name><maml:uri /></dev:type><maml:description><maml:para>Identities as text, or objects that have a DistinguishedName.</maml:para></maml:description></command:inputType></command:inputTypes>
+    <command:returnValues><command:returnValue><dev:type><maml:name>None</maml:name><maml:uri /></dev:type><maml:description><maml:para>Nothing is returned.</maml:para></maml:description></command:returnValue></command:returnValues>
+    <command:examples>
+      <command:example>
+        <maml:title>Example 1</maml:title>
+        <dev:code>Open-AdmObject -Identity jkowalski</dev:code>
+        <dev:remarks><maml:para>Opens the properties of the account. The same with the pipeline: Get-AdmUser jkowalski | Open-AdmObject.</maml:para></dev:remarks>
+      </command:example>
+    </command:examples>
+    <maml:relatedLinks />
+  </command:command>
+  <command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+    <command:details>
+      <command:name>Export-AdmList</command:name>
+      <maml:description><maml:para>Writes the objects of the pipeline to a CSV file, the way the program exports a list.</maml:para></maml:description>
+      <command:verb>Export</command:verb>
+      <command:noun>AdmList</command:noun>
+    </command:details>
+    <maml:description><maml:para>Export-AdmList writes a CSV file with the properties of the objects as columns. It protects formulas (a value that begins with =, +, - or @ is written so that Excel does not run it), uses the list separator of the regional settings and UTF-8 with a signature, as the list export of the program does. It writes only to the file named in -Path, or to the one you choose in the Save As window when -Path is missing - never to a default place; if you close the window without a file nothing is written. An existing file is replaced only with -Force.</maml:para></maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Export-AdmList</maml:name>
+        <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByValue)" position="named">
+          <maml:name>InputObject</maml:name>
+          <command:parameterValue required="true" variableLength="false">PSObject</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="0">
+          <maml:name>Path</maml:name>
+          <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Delimiter</maml:name>
+          <command:parameterValue required="true" variableLength="false">Char</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named">
+          <maml:name>Force</maml:name>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" variableLength="true" globbing="false" pipelineInput="True (ByValue)" position="named" aliases="none">
+        <maml:name>InputObject</maml:name>
+        <maml:description><maml:para>The objects to export; normally they come from the pipeline. An array is written row by row.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">PSObject</command:parameterValue>
+        <dev:type><maml:name>PSObject</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="0" aliases="LiteralPath, PSPath">
+        <maml:name>Path</maml:name>
+        <maml:description><maml:para>The file to write; it is taken literally, so brackets are not wildcards. Without it the Save As window opens and nothing is written until you choose a file.</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">String</command:parameterValue>
+        <dev:type><maml:name>String</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Delimiter</maml:name>
+        <maml:description><maml:para>The field separator, one visible character. The default is the list separator of the regional settings (a semicolon in Poland).</maml:para></maml:description>
+        <command:parameterValue required="true" variableLength="false">Char</command:parameterValue>
+        <dev:type><maml:name>Char</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="true" globbing="false" pipelineInput="False" position="named" aliases="none">
+        <maml:name>Force</maml:name>
+        <maml:description><maml:para>Replaces the file when it exists. Without it an existing file is an error and nothing is written.</maml:para></maml:description>
+        <dev:type><maml:name>SwitchParameter</maml:name><maml:uri /></dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes><command:inputType><dev:type><maml:name>System.Management.Automation.PSObject</maml:name><maml:uri /></dev:type><maml:description><maml:para>Any objects.</maml:para></maml:description></command:inputType></command:inputTypes>
+    <command:returnValues><command:returnValue><dev:type><maml:name>AdMng.PowerShell.Commands.AdmExportResult</maml:name><maml:uri /></dev:type><maml:description><maml:para>The file written and the number of rows and columns.</maml:para></maml:description></command:returnValue></command:returnValues>
+    <command:examples>
+      <command:example>
+        <maml:title>Example 1</maml:title>
+        <dev:code>Export-AdmList -InputObject (Get-AdmUser -Department IT) -Path C:\Temp\it.csv</dev:code>
+        <dev:remarks><maml:para>Writes the users of the department to the file. The same with the pipeline: Get-AdmUser -Department IT | Export-AdmList C:\Temp\it.csv.</maml:para></dev:remarks>
+      </command:example>
+    </command:examples>
+    <maml:relatedLinks />
+  </command:command>
+</helpItems>

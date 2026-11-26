@@ -2,7 +2,9 @@
   "Zaktualizuj szablony ADMX" (CentralStoreUpdateViewModel, modal, K3): the package (a file, a folder, the templates of
   this computer or a download of Edge, Chrome or Firefox), its trust and the files it skips, the languages, the files of
   the central store that change, the backup of the store to a folder the operator picks, and "Zaktualizuj…" (the change
-  plan preview). The progress bar runs while a package loads, the store is compared or updated.
+  plan preview). The one status line (design note 6.1 and "V2b-3 as built") says what runs while a package loads, the store
+  is compared or updated - with Stop -, what the comparison found, how a load or an update ended, and why there is no
+  comparison to show (with Retry); what the package and the store are stays in notes.
 -->
 <Window x:Class="AdMng.App.GroupPolicy.CentralStoreUpdateWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -13,7 +15,7 @@
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="900"
-        Height="680"
+        Height="716"
         MinWidth="640"
         MinHeight="480"
         ShowInTaskbar="False"
@@ -35,38 +37,39 @@
   </Window.Resources>
   <DockPanel>
     <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
-      <DockPanel>
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-          <Button x:Name="UpdateButton"
-                  Command="{Binding UpdateCommand}"
-                  Content="{l:Tr CentralStore.Update}"
-                  IsDefault="True"
-                  Style="{StaticResource Ad.AccentDialogButton}" />
-          <Button x:Name="CloseButton"
-                  Command="{Binding CloseCommand}"
-                  Content="{l:Tr CentralStore.Close}"
-                  IsCancel="True"
-                  Style="{StaticResource Ad.DialogButton}" />
-        </StackPanel>
-        <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
-          <ProgressBar x:Name="WorkingProgress"
-                       Width="72"
-                       Margin="0,0,10,0"
-                       VerticalAlignment="Center"
-                       IsIndeterminate="True"
-                       Visibility="{Binding IsWorking, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-          <TextBlock x:Name="SummaryTextBlock"
-                     VerticalAlignment="Center"
-                     AutomationProperties.LiveSetting="Polite"
-                     Style="{StaticResource Ad.SecondaryText}"
-                     Text="{Binding SummaryText, Mode=OneWay}" />
-        </StackPanel>
-      </DockPanel>
+      <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+        <!--
+          "Zaktualizuj…" is an action button: while the backup and the plan it started run, the same button is their Cancel
+          (it keeps the keyboard focus), then "Stopping…". The change plan preview that follows is a window of its own.
+        -->
+        <c:ActionButton x:Name="UpdateButton"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding UpdateCommand}"
+                        Content="{l:Tr CentralStore.Update}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsDefault="True"
+                        IsRunning="{Binding IsUpdating, Mode=OneWay}"
+                        Style="{StaticResource Ad.AccentDialogActionButton}" />
+        <Button x:Name="CloseButton"
+                Command="{Binding CloseCommand}"
+                Content="{l:Tr CentralStore.Close}"
+                IsCancel="True"
+                Style="{StaticResource Ad.DialogButton}" />
+      </StackPanel>
     </Border>
 
-    <Grid Margin="20,14,20,10">
+    <!--
+      Status line: at the top, above the target and the sources; declared after the footer, so Tab goes from the buttons
+      to what the line offers and then to the sources. Its picture stands over the left edge of the content.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="12,8,12,0"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+
+    <Grid Margin="20,8,20,10">
       <Grid.RowDefinitions>
-        <RowDefinition Height="Auto" />
         <RowDefinition Height="Auto" />
         <RowDefinition Height="Auto" />
         <RowDefinition Height="Auto" />
@@ -94,23 +97,8 @@
                    Visibility="{Binding CanExtractInstallers, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
       </StackPanel>
 
-      <!-- Messages -->
-      <StackPanel Grid.Row="1" Margin="0,10,0,0">
-        <TextBlock x:Name="BusyTextBlock"
-                   AutomationProperties.LiveSetting="Polite"
-                   Style="{StaticResource Ad.SecondaryText}"
-                   Text="{Binding ProgressText, Mode=OneWay}"
-                   Visibility="{Binding ProgressText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
-        <Border x:Name="ErrorBar" Margin="0,4,0,0" Style="{StaticResource Ad.ErrorBar}" Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-          <TextBlock AutomationProperties.LiveSetting="Assertive" Text="{Binding Error, Mode=OneWay}" TextWrapping="Wrap" />
-        </Border>
-        <Border x:Name="ResultBar" Margin="0,4,0,0" Padding="12,6" Style="{StaticResource Ad.Card}" Visibility="{Binding ResultText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-          <TextBlock AutomationProperties.LiveSetting="Polite" Text="{Binding ResultText, Mode=OneWay}" TextWrapping="Wrap" />
-        </Border>
-      </StackPanel>
-
       <!-- The package -->
-      <Border Grid.Row="2" Margin="0,10,0,0" Padding="12,8" Style="{StaticResource Ad.Card}">
+      <Border Grid.Row="1" Margin="0,10,0,0" Padding="12,8" Style="{StaticResource Ad.Card}">
         <StackPanel>
           <TextBlock x:Name="PackageText" FontWeight="SemiBold" Text="{Binding PackageText, Mode=OneWay}" TextWrapping="Wrap" />
           <DockPanel Margin="0,4,0,0" Visibility="{Binding HasPackage, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
@@ -152,7 +140,7 @@
       </Border>
 
       <!-- Languages -->
-      <StackPanel Grid.Row="3" Margin="0,10,0,0" Visibility="{Binding HasPackage, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <StackPanel Grid.Row="2" Margin="0,10,0,0" Visibility="{Binding HasPackage, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
         <TextBlock Margin="0,0,0,4" Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr CentralStore.Languages}" />
         <ScrollViewer MaxHeight="96" VerticalScrollBarVisibility="Auto">
           <ItemsControl x:Name="CultureList"
@@ -177,14 +165,19 @@
       </StackPanel>
 
       <!-- Files -->
-      <DockPanel Grid.Row="4" Margin="0,10,0,0">
+      <DockPanel Grid.Row="3" Margin="0,10,0,0">
         <TextBlock Margin="0,0,0,4" DockPanel.Dock="Top" Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr CentralStore.Files}" />
-        <Border Margin="0,0,0,6"
-                DockPanel.Dock="Top"
-                Style="{StaticResource Ad.WarningBar}"
-                Visibility="{Binding StoreNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-          <TextBlock x:Name="StoreNoteText" Text="{Binding StoreNote, Mode=OneWay}" TextWrapping="Wrap" />
-        </Border>
+        <!-- The store does not exist yet: true of the files below for as long as they are shown. -->
+        <ContentControl x:Name="StoreNoteBar"
+                        Margin="0,0,0,6"
+                        DockPanel.Dock="Top"
+                        Style="{StaticResource Ad.Note.Attention}"
+                        Visibility="{Binding StoreNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+          <TextBlock x:Name="StoreNoteText"
+                     AutomationProperties.LiveSetting="Polite"
+                     Text="{Binding StoreNote, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </ContentControl>
         <ListView x:Name="FileList"
                   AutomationProperties.Name="{l:Tr CentralStore.Files}"
                   ItemContainerStyle="{StaticResource FileRowStyle}"
@@ -201,7 +194,7 @@
       </DockPanel>
 
       <!-- Options -->
-      <StackPanel Grid.Row="5" Margin="0,10,0,0">
+      <StackPanel Grid.Row="4" Margin="0,10,0,0">
         <CheckBox x:Name="ReplaceCollidingBox"
                   IsChecked="{Binding ReplaceCollidingFiles}"
                   IsEnabled="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.InverseBool}}">

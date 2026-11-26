@@ -97,7 +97,7 @@ internal sealed partial record LabRunOwner(string Host, int ProcessId, DateTimeO
 /// concurrent runs on the shared lab (worktrees, CI jobs) never share or delete each other's OU. At start-up a run
 /// removes the OUs of runs that are over (<see cref="FindStaleAsync"/>) client-side (<see cref="LabCleanup"/>);
 /// failures there are reported, not thrown – the run has its own OU. Errors of a busy or missing lab are explained
-/// (<see cref="Explain"/>). Also used by <c>AdMng.Watchdog.IntegrationTests</c> (linked file).
+/// (<see cref="Explain"/>). Also used by <c>AdMng.Watchdog.IntegrationTests</c> and <c>AdMng.PowerShell.Tests</c> (linked file).
 /// </summary>
 internal sealed class LabRuns(string domainDn, string prefix, string purpose, TimeSpan staleAfter, params string[] legacyNames)
 {

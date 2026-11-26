@@ -1,9 +1,12 @@
+using System.Windows;
+using System.Windows.Automation;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
 using AdMng.App.UiTests.Infrastructure;
 using AdMng.App.Views;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
+using AdMng.Presentation.Services;
 using AdMng.Presentation.Views;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -47,6 +50,66 @@ public sealed class DialogWindowTests
         Assert.False(confirm.Result);
         context.AssertHealthy();
     });
+
+    /// <summary>
+    /// The close question of a window that executes changes (the owner's decision D-A): labelled buttons - "Stop and close"
+    /// (destructive), "Close and continue in the background" when the execution may go on without the window, and "Don't
+    /// close", which is Enter and Esc - in both languages, with automation names, and the answer each button gives.
+    /// </summary>
+    [Theory]
+    [InlineData("en", "Stop and close", "Close and continue in the background", "Don't close")]
+    [InlineData("pl", "Zatrzymaj i zamknij", "Zamknij i kontynuuj w tle", "Nie zamykaj")]
+    public Task TheCloseQuestion_HasThreeButtons_OrTwo_EnterAndEscKeepTheWindow(string language, string stop, string continueText, string keep) =>
+        WpfTestHost.RunAsync(async () =>
+        {
+            await using var context = await UiTestContext.CreateAsync(language: language);
+            var localizer = context.Services.GetRequiredService<ILocalizer>();
+            var windows = context.Services.GetRequiredService<IWindowService>();
+            var three = (MessageDialogWindow)windows.CreateWindow(MessageDialogViewModel.CloseQuestion("Batch", "Executing…", canContinue: true, localizer));
+            var two = (MessageDialogWindow)windows.CreateWindow(MessageDialogViewModel.CloseQuestion("Batch", "Executing…", canContinue: false, localizer));
+            UiTestSupport.ShowOffScreen(three);
+            UiTestSupport.ShowOffScreen(two);
+            await UiTestSupport.WaitForIdleAsync();
+
+            foreach (var window in new[] { three, two })
+            {
+                Assert.Equal(stop, window.ConfirmButton.Content);
+                Assert.Equal(stop, AutomationProperties.GetName(window.ConfirmButton));
+                Assert.Equal(keep, window.CancelButton.Content);
+                Assert.Equal(keep, AutomationProperties.GetName(window.CancelButton));
+                Assert.Same(window.FindResource("Ad.DangerDialogButton"), window.ConfirmButton.Style);
+
+                // Enter and Esc both mean "Don't close".
+                Assert.True(window.CancelButton.IsDefault);
+                Assert.True(window.CancelButton.IsCancel);
+                Assert.False(window.ConfirmButton.IsDefault);
+                Assert.False(window.ContinueButton.IsDefault);
+                Assert.False(window.ContinueButton.IsCancel);
+            }
+
+            Assert.Equal(Visibility.Visible, three.ContinueButton.Visibility);
+            Assert.Equal(continueText, three.ContinueButton.Content);
+            Assert.Equal(continueText, AutomationProperties.GetName(three.ContinueButton));
+            Assert.Equal(Visibility.Collapsed, two.ContinueButton.Visibility);
+
+            // The answers.
+            ControlHost.Press(three.ContinueButton);
+            await UiTestSupport.WaitForIdleAsync();
+            Assert.True(three.Result);
+            Assert.Equal(CloseAnswer.CloseAndContinue, three.ViewModel.Answer);
+            ControlHost.Press(two.CancelButton);
+            await UiTestSupport.WaitForIdleAsync();
+            Assert.False(two.Result);
+            Assert.Equal(CloseAnswer.KeepOpen, two.ViewModel.Answer);
+            var again = (MessageDialogWindow)windows.CreateWindow(MessageDialogViewModel.CloseQuestion("Batch", "Executing…", canContinue: false, localizer));
+            UiTestSupport.ShowOffScreen(again);
+            await UiTestSupport.WaitForIdleAsync();
+            ControlHost.Press(again.ConfirmButton);
+            await UiTestSupport.WaitForIdleAsync();
+            Assert.True(again.Result);
+            Assert.Equal(CloseAnswer.StopAndClose, again.ViewModel.Answer);
+            context.AssertHealthy();
+        });
 
     [Fact]
     public Task SavedViewEditor_ValidatesTestsAndSaves() => WpfTestHost.RunAsync(async () =>

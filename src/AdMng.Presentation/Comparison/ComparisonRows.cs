@@ -315,7 +315,10 @@ public sealed partial class ComparisonSideViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsEnded { get; internal set; }
 
-    /// <summary>Why the side ended ("Połączenie … zostało zamknięte"), or null.</summary>
+    /// <summary>
+    /// Why the side ended ("Połączenie … zostało zamknięte") - the note of the side - or null. Side A ends without a
+    /// message of its own: that the session of the window ended is said by the status line of the window.
+    /// </summary>
     [ObservableProperty]
     public partial string? EndedMessage { get; internal set; }
 
@@ -325,7 +328,7 @@ public sealed partial class ComparisonSideViewModel : ObservableObject
         Color = color;
     }
 
-    internal void MarkEnded(string message)
+    internal void MarkEnded(string? message)
     {
         IsEnded = true;
         EndedMessage = message;

@@ -41,7 +41,7 @@ temporary folder removed on close) and the report exist only in memory.
 
 ## Addendum: the "already sent" journal of Correspondence (U5)
 
-The *Correspondence* window (sending through Outlook, [KORESPONDENCJA.md](../CORRESPONDENCE.md)) skips addresses that
+The *Correspondence* window (sending through Outlook, [CORRESPONDENCE.md](../CORRESPONDENCE.md)) skips addresses that
 have already been sent to, also after sending was interrupted and the program restarted. For this reason the settings
 folder (`correspondence\journal.txt`) may hold a sending journal – but **without addresses**: each line is a keyed hash
 (HMAC-SHA-256 with a random per-user key, first 16 bytes), the send time and the subject as typed by the operator

@@ -83,13 +83,19 @@ public sealed class CsvImportPlanner : ICsvImportPlanner
             progress?.Report(completed);
         }
 
+        var reportGate = new Lock();
         await Parallel.ForEachAsync(
             resolved,
             new ParallelOptions { MaxDegreeOfParallelism = context.MaxDegreeOfParallelism, CancellationToken = cancellationToken },
             async (item, _) =>
             {
                 await PlanRowAsync(context, table, mapping, columns, drafts[item.Row], item.Row).ConfigureAwait(false);
-                progress?.Report(Interlocked.Increment(ref completed));
+
+                // Counted and reported under one lock, so the reports of parallel workers arrive in order.
+                lock (reportGate)
+                {
+                    progress?.Report(++completed);
+                }
             }).ConfigureAwait(false);
 
         if (context.Options.CheckUniqueness)

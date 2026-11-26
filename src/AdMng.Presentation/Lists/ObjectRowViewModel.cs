@@ -3,6 +3,7 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Formatting;
 using AdMng.Core.Ldap;
 using AdMng.Core.Model;
+using AdMng.Core.Schema;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
@@ -145,6 +146,12 @@ public sealed class ObjectRowViewModel : INotifyPropertyChanged
             return string.Empty;
         }
 
+        // Key material is never shown, copied or exported (P1 decision 7) – also when a saved view lists it as a column.
+        if (SecretAttributes.IsNeverShown(attribute, schema: null))
+        {
+            return SecretAttributes.Mask;
+        }
+
         return _context.Formatter.Format(attribute, values, _context.Localizer.Culture);
     }
 
@@ -207,6 +214,5 @@ public sealed class ObjectRowViewModel : INotifyPropertyChanged
 internal static class DnKey
 {
     /// <summary>Normalized dictionary key for a DN (parsed form, upper case) so differently escaped DNs match.</summary>
-    public static string For(string dn) =>
-        (DistinguishedName.TryParse(dn, out var parsed) ? parsed.ToString() : dn).ToUpperInvariant();
+    public static string For(string dn) => DistinguishedName.KeyOf(dn);
 }

@@ -24,7 +24,10 @@ Rules that apply everywhere:
 
 **Scope:** the whole domain, an organizational unit (with its subtree), a saved view or the members of a group (as in
 *Account review*). *Check* (F5) reads computer accounts with a single paged query (`sAMAccountType=805306369`, without
-managed service accounts). Results appear as they arrive, and *Stop* halts the read.
+managed service accounts). Results appear as they arrive. The status line at the top of the window says how many computers
+were read and has *Stop*; while the check runs, *Check* itself is its *Cancel*. The same line says how the reads of the
+exact last logon and of the sites and a ping ended (what did not answer or could not be read, what was skipped), and what
+lasts: the session of the window ended, or the check failed (with *Retry*).
 
 **Reports** (tiles with the number of computers):
 
@@ -63,7 +66,9 @@ the selected computer, the report findings and the catalog row. Clicking a heade
 - *Exact last logon* – `lastLogon` from every domain controller (up to 500 computers, at most 4 controllers at a time). A
   computer that turns out to be active disappears from the inactivity reports. When the selection or the list has more
   than 500 computers, the window first asks whether to check only the first 500 in the current order, and the result says
-  how many computers were checked out of how many.
+  how many computers were checked out of how many. A domain controller that could not be read is named in the result with
+  the reason (e.g. *Could not read from: dc02.contoso.test (Access is denied).*), because a controller that refused is not
+  the same as one that does not answer.
 - *Determine site* – the computer's DNS name is resolved with the operator workstation's resolver (2 s limit, 16 queries
   at a time), and the address is matched to the forest's subnets (longest prefix, IPv6 too). The site of a domain
   controller is the site of its server object. With more than 500 computers the window first asks for consent. Messages:
@@ -131,8 +136,13 @@ The actions work as for other objects, with additional rules for computers:
 ## 4. Remote actions (WinRM, Kerberos)
 
 *Computer → Remote actions…* opens the computer's window (one per computer in a connection window). The window header
-shows the computer name, its DNS name and the connection method, e.g. *Connection: WinRM (HTTP 5985, Kerberos) as
-CONTOSO\admin*.
+shows the computer name and its DNS name, and the status line under it the connection method, e.g. *Connection: WinRM
+(HTTP 5985, Kerberos) as CONTOSO\admin*. The same line says which action runs (with *Stop*; the button of the action is its
+*Cancel*) and how it ended: a read leaves its result in the card or the list, an action says what was done, and an action
+that was stopped says that it is not known whether the computer received the request. When the window cannot run remote
+actions, the same line says why: the object is not a computer (any more), the computer has no DNS name, the computer could
+not be read from the directory (with the reason and the code, e.g. *Could not read the computer “KRK-PC101”: Access is
+denied. (LDAP 50)*), or remote actions are not available in this program.
 
 | Action | What it does |
 |---|---|

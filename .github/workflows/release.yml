@@ -1,11 +1,17 @@
 name: Release
 
-# Releases of AD Manager. Two ways to start one:
+# Releases of AD Manager (docs/dev/releasing.md; tools/release/release.sh writes the commits). Three ways to start one:
 #  - push release notes docs/releases/v<major>.<minor>.<patch>[-suffix].md to a release branch (below). The first line
 #    may name the commit to release: <!-- release-commit: <sha> --> (default: the pushed commit; it must be in the
 #    branch history). The workflow creates the tag on that commit and the GitHub release. Changing the notes of a tag
 #    that already exists only updates the release description;
-#  - push a tag v<major>.<minor>.<patch>[-suffix] (notes from docs/releases/<tag>.md at that commit).
+#  - push a tag v<major>.<minor>.<patch>[-suffix] (notes from docs/releases/<tag>.md at that commit);
+#  - start it by hand (Actions, Release, Run workflow, or gh workflow run release.yml --ref <branch> -f version=<version>)
+#    with the version to release: docs/releases/v<version>.md of the branch it runs on, the commit named by its marker
+#    or, without a marker, the head of that branch. This retries a release whose run failed and releases notes that
+#    are already pushed, without touching the notes. For a tag that already has a published release it only updates
+#    the description, like a push of changed notes.
+# The tag is created by the last job only: after the build, the tests and all packages succeeded.
 # The build job builds, tests and publishes AdMng.exe on Windows and – only for a major release X.0.0 (X >= 1) or when
 # the notes contain <!-- screenshots --> – renders screenshots of exactly that commit (they are large); the
 # openwec-package and linux-package jobs build the Debian packages of AdMng Watchdog from the same commit exactly like
@@ -22,6 +28,12 @@ on:
     tags: ["v*"]
     branches: ["claude/active-directory-manager-w9v9i8", "main"]
     paths: ["docs/releases/v*.md"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release from this branch: its notes docs/releases/v<version>.md must be there (e.g. 0.16.0)"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -53,6 +65,8 @@ jobs:
       - name: Plan
         id: plan
         env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
           PUSHED_SHA: ${{ github.sha }}
@@ -62,7 +76,29 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          if [ "$REF_TYPE" = tag ]; then
+          if [ "$EVENT_NAME" = workflow_dispatch ]; then
+            # Started by hand: the notes of the given version as they are on this branch (PUSHED_SHA is its head).
+            if ! [[ "$INPUT_VERSION" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+              echo "::error::The version must be <major>.<minor>.<patch>[-suffix], e.g. 0.16.0."
+              exit 1
+            fi
+            if [ "$REF_TYPE" != branch ]; then
+              echo "::error::Start the release from a branch, not from the tag $REF_NAME."
+              exit 1
+            fi
+            tag="v${INPUT_VERSION#v}"
+            notes="docs/releases/$tag.md"
+            if [ ! -f "$notes" ]; then
+              echo "::error::Release notes $notes are missing on $REF_NAME."
+              exit 1
+            fi
+            marker="$(sed -n '1s/^<!-- *release-commit: *\([0-9a-fA-F]\{7,40\}\) *-->.*$/\1/p' "$notes")"
+            target="$(git rev-parse --verify "${marker:-$PUSHED_SHA}^{commit}")"
+            if ! git merge-base --is-ancestor "$target" "$PUSHED_SHA"; then
+              echo "::error::Release commit $target is not in the history of $REF_NAME."
+              exit 1
+            fi
+          elif [ "$REF_TYPE" = tag ]; then
             tag="$REF_NAME"
             target="$PUSHED_SHA"
             notes="docs/releases/$tag.md"
@@ -132,6 +168,12 @@ jobs:
               exit 1
             fi
             mode=notes
+            if [ "$EVENT_NAME" = workflow_dispatch ] \
+              && [ "$(gh release view "$tag" --json isDraft --jq .isDraft 2>/dev/null || true)" != false ]; then
+              # Started by hand for a tag without a published release (a pushed tag whose run failed, a draft left
+              # behind): build and publish it. A published release only gets its description updated.
+              mode=full
+            fi
           fi
           # Screenshots are large: only a major release (X.0.0, X >= 1) or notes asking for them with <!-- screenshots -->.
           screenshots=false
@@ -153,7 +195,9 @@ jobs:
     needs: plan
     if: needs.plan.outputs.mode == 'full'
     runs-on: windows-latest
-    timeout-minutes: 45
+    # As the CI job: the three test steps have their own limits (15, 10 and 60 minutes; the UI tests took 14 to more than 36
+    # minutes on unchanged code), and 100 minutes leave room for all three at their limits and the rest of the job.
+    timeout-minutes: 100
     steps:
       - uses: actions/checkout@v4
         with:
@@ -174,16 +218,41 @@ jobs:
       - name: Restore
         run: dotnet restore AdMng.slnx
       - name: Build
+        id: build
         run: dotnet build AdMng.slnx -c Release --no-restore -p:Version=${{ needs.plan.outputs.version }}
-      - name: Tests (unit and UI)
-        run: dotnet test AdMng.slnx -c Release --no-build
+      # The tests in three steps as in CI: the solution but the PowerShell engine tests and the UI tests, then the PowerShell
+      # engine tests with the detailed console logger, then the UI tests, each with its own limit. Any red test step fails
+      # this job, and the release job needs this job to succeed.
+      - name: Unit tests
+        timeout-minutes: 15
+        run: dotnet test AdMng.slnx -c Release --no-build -p:AdMngSkipPowerShellTests=true -p:AdMngSkipUiTests=true
         env:
           ADMNG_UI_TESTS: "1"
+      - name: PowerShell engine tests
+        # Also after a red unit test step, as when both ran in one call. The limit and the logger are the ones of the CI step.
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 10
+        run: dotnet test tests/AdMng.PowerShell.Tests -c Release --no-build --logger "console;verbosity=detailed"
+        env:
+          ADMNG_UI_TESTS: "1"
+      - name: UI tests
+        # Also after a red test step before it, as when all ran in one call. The limit is the one of the CI step.
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 60
+        run: dotnet test tests/AdMng.App.UiTests -c Release --no-build
+        env:
+          ADMNG_UI_TESTS: "1"
+      # Publish and smoke test also after a red test step, when the build succeeded, so the log says whether the program
+      # starts. Everything after them (screenshots, the zip, its smoke test, the artifact) still needs every step before
+      # it to have succeeded, so a red test step leaves no release files, and the job fails.
       - name: Publish (self-contained single file)
+        id: publish
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: >-
           dotnet publish src/AdMng.App/AdMng.App.csproj -c Release -r win-x64 --self-contained
           -p:PublishSingleFile=true -p:Version=${{ needs.plan.outputs.version }} -o publish
       - name: Smoke test published app
+        if: ${{ !cancelled() && steps.publish.outcome == 'success' }}
         shell: pwsh
         env:
           VERSION: ${{ needs.plan.outputs.version }}
@@ -198,6 +267,19 @@ jobs:
           if (-not "$($info.ProductVersion)".StartsWith($env:VERSION)) {
             "::warning::AdMng.exe reports product version '$($info.ProductVersion)', expected $($env:VERSION)."
           }
+      - name: Published layout of the PowerShell engine
+        # As the CI step of the same name (track R, ADR-0010): the engine runs from the single-file AdMng.exe (the smoke test above proves
+        # it); its all-users configuration and the help of its commands are published beside the program, and the four sni.dll packages
+        # (not OSI licensed) are not in the output.
+        if: ${{ !cancelled() && steps.publish.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          foreach ($file in 'powershell.config.json', 'AdMng.PowerShell.dll-Help.xml') {
+            if (-not (Test-Path "publish/$file")) { throw "$file is missing from the publish output" }
+          }
+          if (Get-ChildItem publish -Recurse -Filter 'sni*.dll') { throw 'The output has an sni.dll (ADR-0010, Package licenses)' }
+          $folder = (Get-ChildItem publish -Recurse -File | Measure-Object Length -Sum).Sum
+          'AdMng.exe {0:N1} MB, the publish folder {1:N1} MB' -f ((Get-Item publish/AdMng.exe).Length / 1MB), ($folder / 1MB)
       - name: Screenshots
         if: needs.plan.outputs.screenshots == 'true'
         shell: pwsh
@@ -227,6 +309,24 @@ jobs:
             }
           }
           Get-ChildItem dist | ForEach-Object { "{0}  ({1:N0} bytes)" -f $_.Name, $_.Length }
+      - name: Smoke test the unpacked zip
+        # The zip holds the top-level files of the publish folder only (no runtimes\ sub folders): the program that ships is the one
+        # tested here, with the same layout checks (audit DLR-3).
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          $zip = "dist/AdMng-$($env:VERSION)-win-x64.zip"
+          Expand-Archive -Path $zip -DestinationPath unpacked
+          foreach ($file in 'AdMng.exe', 'powershell.config.json', 'AdMng.PowerShell.dll-Help.xml', 'LICENSE', 'NOTICE') {
+            if (-not (Test-Path "unpacked/$file")) { throw "$file is missing from $zip" }
+          }
+          if (Get-ChildItem unpacked -Recurse -Filter 'sni*.dll') { throw "$zip has an sni.dll (ADR-0010, Package licenses)" }
+          $p = Start-Process -FilePath unpacked/AdMng.exe -ArgumentList '--smoke-test' -PassThru -Wait `
+            -RedirectStandardOutput unpacked-smoke-out.txt -RedirectStandardError unpacked-smoke-err.txt
+          Get-Content unpacked-smoke-out.txt, unpacked-smoke-err.txt -ErrorAction SilentlyContinue
+          if ($p.ExitCode -ne 0) { throw "Smoke test of the unpacked zip failed with exit code $($p.ExitCode)" }
+          Remove-Item unpacked -Recurse -Force
       - uses: actions/upload-artifact@v4
         with:
           name: release-files
@@ -305,6 +405,15 @@ jobs:
           ls -l artifacts/deb/*.deb
           if [ ! -f "$expected" ]; then
             echo "::error::$expected was not built (release $VERSION)."
+            exit 1
+          fi
+      - name: The Watchdog package has no PowerShell engine
+        # As the CI step of the same name (track R, ADR-0010): the engine is used by AdMng.App only and never ships with the service,
+        # which ships as this .deb.
+        run: |
+          deb=$(ls artifacts/deb/admng-watchdog_*_amd64.deb)
+          if dpkg-deb -c "$deb" | grep -F 'System.Management.Automation'; then
+            echo "::error::$deb contains the PowerShell engine (ADR-0010)."
             exit 1
           fi
       - name: Install test on Debian 12 and 13

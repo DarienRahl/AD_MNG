@@ -1695,3 +1695,940 @@ fixes). Findings and snapshots live only in memory (rule 1).
   five pages, keeps rows being edited, rows just added and options with invalid typed values listed; K3 keeps invalid
   typed options per policy (they count as unsaved changes and block the save); *Edytuj to ustawienie* is offered only
   for what K3/K4 edit (the seven template sections K4 knows, Groups.xml groups – not local users).
+
+## 21. K7 – settings search, copying settings and the cleanup advisor (design)
+
+Scope chosen with the operator (2026-11, README track K, *K7 – szukanie i porządki w GPO*): (a) **Wyszukiwarka ustawień
+GPO** – which GPOs of the domain set a setting, a value or an account, in GPMC's words; (b) **copying settings** from one
+or more GPOs into another GPO through the change plan; (c) **Porządki w GPO** – a cleanup advisor (empty, unlinked,
+disabled, single-setting GPOs, duplicated settings, merge candidates) whose actions are plans with preview and undo.
+Everything is read from the session's DC and its SYSVOL (rule 4), kept in the window's memory only (rule 1) and written
+only through `IChangePlanner`-style planners and the preview (rule 5). Out of scope: new diagnostics codes (21.9),
+preference *editors* (K10), copying across domains, searching in two languages at once, GPO links of other domains.
+
+The three parts share one per-window, in-memory **settings index** (21.1–21.3): a throttled read of every GPO folder,
+the normalized settings grouped into **setting units** with a natural identity that is the same in every GPO, and a
+name/SID resolver for accounts. Search (21.4) and the cleanup advisor (21.6) read the index; copy, remove and merge
+(21.5) never use index values: they read source and target again at planning time.
+
+### 21.1 Core – the all-GPO folder reader (W1)
+
+**Extraction.** The private `GroupPolicyDiagnosticsReader.ReadFoldersAsync` / `ReadFolderAsync` (throttled
+`Parallel.ForEachAsync` over an internal `ThrottledSysvolConnection(sysvol, 4)`, per-folder status, only cancellation
+stops the run) become the public static `GpoFolderReader.ReadAsync` in
+`src/AdMng.Core/GroupPolicy/Management/GpoFolderReader.cs`. `ThrottledSysvolConnection` stays internal (same assembly).
+Diagnostics calls the new reader with `GpoFolderReadOptions.Default` (mode `Full`) and maps each result to its unchanged
+`GpoFolderState` (`GpoFolderReadResult.ToState()`), adapting the progress to `GpoDiagnosticsProgress(Folders, done,
+total)`: the snapshot, the 51 codes and every diagnostics test stay as they are. `GpoFolderReadStatus` is **not**
+extended (its switch users stay exhaustive); the index has its own status (21.3).
+
+**Modes.**
+
+* `Full` – exactly today's `GroupPolicyReader.ReadFolderAsync` per GPO (every file, `GpoTransaction` limits,
+  `GpoTooLargeException` → `TooLarge`, `SysvolWriteException` NotFound → `GpoFolderExistsAsync` to tell `NotFound` from
+  `Failed`, AccessDenied/LogonFailure → `AccessDenied`, anything else but cancellation → `Failed`), plus the folder ACL
+  for the requests that ask for it.
+* `ContentOnly` (the index; modelled on the Watchdog's `GpoReadPlanner`, which the app cannot reference) – one
+  recursive `ListGpoFolderAsync(gpoId, SysvolListOptions.Default)`; more than `GpoTransaction.MaxEntriesPerGpo` entries
+  → `TooLarge`; temp names (`GpoTransaction.IsTempName`) ignored; then `ReadGpoFileAsync` only for files whose
+  `GpoFileClassifier.Classify(path)` role is `SecurityTemplate`, `AuditCsv`, `RegistryPol`, `Preferences`, `ScriptsIni`,
+  `PsScriptsIni`, `Comment` or `GpoComment`, in `GpoFile.Priority` order. Not read: `GPT.INI` (versions come from
+  `GroupPolicyReader.WithSysvolVersionsAsync`), `ScriptFile` (script payloads; their command lines come from
+  `scripts.ini`) and `Inventory` files. Inventory files below `Machine/` or `User/` (folder redirection, software
+  installation …) are listed in `OtherFiles`: they may hold settings no parser reads (as `GpoFolderView.HasSettings`
+  counts them), so a GPO with such a file is never "empty". Budgets: a file above `MaxFileBytes` (16 MiB) is not read
+  and listed in `NotRead`; once a GPO's read bytes reach `MaxGpoBytes` (64 MiB) its remaining files go to `NotRead`;
+  once the run reaches `MaxTotalBytes` (1 GiB read in total) the GPOs not started yet are `Skipped` (nothing read).
+  Bytes are handed to the caller **one GPO at a time** through the streaming overload `ReadAsync(…, onRead, …)`: the
+  callback runs for each GPO as soon as its folder is read (at most `Parallelism` callbacks at a time, each awaited
+  before that worker takes the next GPO), and the caller parses and drops the bytes inside it. The dictionary overload
+  (all results at once) is for diagnostics (`Full`, as today) and tests only; the index never uses it, so the WPF process
+  holds at most `Parallelism` folders of raw bytes at a time, never the whole domain.
+
+**Overflow fix.** `GroupPolicyReader.Settings` creates one `GpoSettingSink(path)` per file (capacity
+`GpoSettingSink.DefaultCapacity` = 10 000) and never looks at `Overflowed`: a `Registry.pol` with more entries loses
+settings silently. New `GroupPolicyReader.ReadSettings(content) → GpoSettingsRead(Settings, OverflowedFiles)`;
+`Settings(content)` returns `ReadSettings(content).Settings` (unchanged output for K5/K6). The index marks a GPO with an
+overflowed file `Incomplete` (search: "nie wszystkie ustawienia odczytane"; cleanup: no content-based proposal; copy:
+units of that GPO refused, 21.5).
+
+**Preference items with their collections.** `GppXmlParser.Items(XDocument)` returns, in the order and with the ids
+`Parse` uses today, each item as `GppXmlItem(ItemId, Element, Collections)`, where `Collections` are the item's ancestor
+`Collection` elements (outermost first). GPMC lets an operator disable a collection or give it item-level targeting, and
+both apply to every child; 21.2 and 21.5 use this. `Parse` iterates `Items` and its output stays byte-for-byte the same
+(the Watchdog persists these keys): W1 adds a golden test (uid-less items, items nested in collections, collection
+pseudo-items with a `uid`) that pins the keys before and after the refactor, and runs `tests/AdMng.Watchdog.Core.Tests`
+and `tests/AdMng.Watchdog.Service.Tests`.
+
+**Directory-side settings for all GPOs at once.** `CountDirectorySettingsAsync(session, gpoId, ct)` costs two searches
+per GPO. New overload `GroupPolicyReader.CountDirectorySettingsAsync(session, ct) → IReadOnlyDictionary<Guid, int>`:
+one paged subtree search of `CN=Policies,CN=System,<domain>` (attribute `objectClass`, filter `LdapFilter.Present(
+Attr.ObjectClass)`), counting per GPO the objects whose parent is the GPO's `CN=Machine` or `CN=User` (DNs parsed with
+`DistinguishedName`; same semantics as the per-GPO method). A GPO absent from the map has 0.
+
+### 21.2 Core – setting units (W1)
+
+A **setting unit** is what GPMC shows as one row and what a person means by "the same setting in another GPO". The
+normalized keys are too fine (one ADMX policy = several `Registry.pol` values, one preference item = many keys, a
+service = two keys) and partly per-GPO (preference items keyed by their `uid` or positional `<Element>#n`, scripts by
+index). The presenter's buckets cannot be reused: its `K|` bucket is a counter (`GpoSettingPresenter.Rows.cs`), the `S|`
+bucket an ini index, and `GpoSettingText` exposes no id. `GpoSettingUnits.Of(...)`
+(`src/AdMng.Core/GroupPolicy/Search/GpoSettingUnits*.cs`, pure) builds the units of one GPO from its normalized settings
+and its two parsed `Registry.pol` documents.
+
+**Identity.** `BaseId` is the same in every GPO; ids compare with `StringComparer.OrdinalIgnoreCase` everywhere.
+`Id` is unique within one GPO: `BaseId` for the first occurrence, `BaseId + "#" + n` for the n-th (n ≥ 2, file order),
+e.g. two items mapping K: in one GPO.
+
+| Kind (`GpoSettingUnitKind`) | Settings (areas of `GpoSettingKey.Parse`) | `BaseId` |
+|---|---|---|
+| `AdministrativeTemplate` | the `Registry.pol` values a configured policy owns (`AdministrativeTemplatePolicies.Configured`, `ConfiguredPolicies.Covers(key)`); only with a definition set | `P\|Machine\|<ns:name>` / `P\|User\|<ns:name>` (`PolicyDefinition.Id`) |
+| `RegistryValue` / `RegistryKey` | `PolicyRegistry` keys not covered by a policy (values incl. `DELETE`/`SOFT:`; key-level `**delvals.`, `CREATE_KEY`, `DELETE_KEY`) | `K\|<setting key>` |
+| `SecurityValue` | `SystemAccess`, `KerberosPolicy`, `EventAudit`, `EventLog`, `SecuritySection` (`key = value` lines) | `K\|<setting key>` |
+| `UserRight` | `UserRight` | `K\|<setting key>` (`…/Privilege Rights/SeRemoteInteractiveLogonRight`) |
+| `RestrictedGroup` | `RestrictedGroup` (`…/Group Membership/<group>/Members` or `/MemberOf`) | `G\|<group SID, else upper-case name>\|Members` / `…\|MemberOf` (group normalized with `GpoPrincipalResolver.KnownSid`, else `GpoUnitContext.SidsByName`) |
+| `SecurityRegistryValue` | `SecurityRegistryValue` | `K\|<setting key>` |
+| `Service` | `Service` (`…/Services/<name>/StartupMode` + `/Security`) | `O\|Computer/Security/Services/<name>` |
+| `ObjectSecurity` | `RegistryKeySecurity`, `FileSecurity` (mode + SDDL of one path) | `O\|Computer/Security/<Registry Keys or File Security>/<path>` |
+| `AuditSubcategory` | `AdvancedAudit` | `A\|<catalog GUID>` (`AuditSubcategoryDefinition.Guid`; name-only rows through the catalog; unknown → `K\|<key>`) |
+| `AuditOption` | `AuditOption`, `GlobalSacl` | `K\|<setting key>` |
+| `Preference` | every key of one item (`GpoSettingKeyInfo.ItemKey`) | `I\|<Computer or User>\|<Type>\|<element>\|<natural identity>` |
+| `Script` | `Script` command line + `/Parameters` | `S\|<Computer or User>\|<cmd or ps>\|<phase>\|<command line>\|<parameters>` |
+| `ScriptConfiguration`, `ScriptFile`, `Comment`, `UnreadableFile`, `Other` | one key each | `K\|<setting key>` |
+
+Natural identity of a preference item (attributes of `Properties` as the parser emits them, trimmed; `<element>` is the
+item's `@element`, e.g. `Drive`, `Group`, `User`, `ImmediateTaskV2`):
+
+| Type | Identity |
+|---|---|
+| Drives | `letter` (with `useLetter` = 0: `path`) |
+| Groups | `Group`: `groupSid`, else `groupName`; `User`: `userName` |
+| Registry | `hive` + `key` + `name` |
+| Services | `serviceName` |
+| Files / Folders / Shortcuts | `targetPath` / `path` / `shortcutPath` |
+| Printers | `path` (else `localName`, else `ipAddress`) |
+| EnvironmentVariables | `name` + `user` |
+| ScheduledTasks | `name` |
+| IniFiles | `path` + `section` + `property` |
+| NetworkShares | `name` |
+| any other type, or an attribute missing | `@name` (else the item id – then the unit is `Ambiguous`) |
+
+`Collection` elements that carry a `uid` (pseudo-items with only `@element`/`@name`) are structure, not units – but their
+state is inherited (`GppXmlItem.Collections`, 21.1): an item below a collection with `Filters` is `Conditional`, and an
+item below a collection with `disabled="1"`, or with `disabled="1"` itself, has `Disabled = true` (it does not apply: never
+a duplicate, never "the value" of a search group, but it still keeps its GPO from being "empty" – deleting dormant content
+is not a cleanup the advisor proposes). The
+private `PreferenceItem(key)` copies in `GroupPolicyModeler` and `GroupPolicyDiagnostics.Conflicts` are replaced by the
+public `GpoSettingUnits.ItemKeyOf(key)`, which returns exactly what they return today (the per-GPO item prefix): K5 and
+K6 keep their per-key semantics – using natural identity in the modeller would change their results and is a later
+option, not K7.
+
+**Value.** `ValueFingerprint`: for policies `PolicySetting` equality is used instead (`GpoSettingUnits.SameValue`); for
+`UserRight` / `RestrictedGroup` the sorted set of normalized principals (SID where known, else the upper-case name as
+written); for everything else the sorted lines `<key suffix below the unit>=<canonical value>` of its settings (the item
+prefix with its `uid` stripped; `@changed` left out). `Hash` values (> 200 characters) compare by hash – equality only.
+`Comparability`: `Masked` (any setting of the unit is `GpoSettingKind.Masked`: `cpassword`, `DefaultPassword`, SNMP
+communities, hidden value names), `Conditional` (a preference item with `Filters` – item-level targeting), `Cumulative`
+(scripts), `Unreadable` (unreadable-file marker), `Ambiguous` (identity fell back to the item id), `Truncated`
+(`GpoSettingKey.IsTruncated`), else `Comparable`. `SameValue(a, b)` is false unless both are `Comparable` and neither is
+`Disabled` – masked values are never equal. `FiltersFingerprint` (the canonical `Filters` of the item and of its
+collections, empty without targeting) lets the planner tell conditional variants of one preference identity apart (21.5).
+
+**Copyability.** `Refusal` (null = copyable and removable): `Secret` (masked), `Script` (scripts, script config, script
+files), `ObjectSecurity`, `AuditOption` (options and global SACL rows), `Comment`, `Unreadable`, `Truncated`,
+`Unsupported` (`Other`, `Ambiguous` preference items), `ScopedCollection` (a preference item below a `Collection` with
+`Filters` or `disabled="1"`: copying it to the target's root would drop the collection's targeting or disabled state, so
+it is refused; items below plain collections are copied to the root). Per-GPO reasons (incomplete read, directory-side
+settings) and plan-time reasons (missing extension pair, 21.5) are issues, not unit properties.
+
+**Counting.** `CountsAsSetting` is false for `Comment`, `UnreadableFile` and `ScriptFile` (a script payload is not a
+setting; its command line is the `Script` unit, and GPMC leaves orphaned files behind when a script entry is removed).
+`BlocksMerge` = (`CountsAsSetting` and `Refusal` is not null) or `Kind == UnreadableFile`: comments and script files never
+block a merge, they are simply not carried (21.5).
+
+**Principals.** `Principals` (as written) and `PrincipalSids` (normalized, upper case) of user rights, restricted groups
+(group and members), GPP groups (`groupSid`, member `sid=` / `name=`) and item-level targeting `sid=`. Names without a SID
+are resolved **before** the units are built, so that a name and a SID of the same account compare equal everywhere:
+`GpoSettingUnits.PrincipalNames(settings)` lists the names `KnownSid` cannot map, the caller resolves them in one batch
+(`GpoPrincipalResolver.ResolveAsync`) and passes the map as `GpoUnitContext.SidsByName`; `Of` then uses it for the
+`RestrictedGroup` `BaseId` (`G|<SID>|Members` for both `CONTOSO\GG_Admins` and `*S-1-5-21-…`), for the user-right and
+restricted-group fingerprints and for `PrincipalSids`. The index builder does this in two passes (21.3), the planners for
+the source and target in one batch (21.5). Without a map (no LDAP, a test) names stay as written, upper case.
+
+### 21.3 Core – the index and the account resolver (W1); Presentation – the index service (W1)
+
+**`GpoSettingsIndexBuilder.BuildAsync`** (`src/AdMng.Core/GroupPolicy/Search/GpoSettingsIndexBuilder.cs`), all on the
+session's DC: (1) `GroupPolicyReader.ReadPoliciesAsync`, `ReadLinkingContainersAsync` (domain head, OUs, **sites**) +
+`LinksByGpo`, `ReadOtherDomainsAsync`, the domain SID (`session.GetAsync(domainDn, [Attr.ObjectSid])`), the new
+directory-settings count (21.1); (2) `WithSysvolVersionsAsync` (GPT.INI); (3) the streaming
+`GpoFolderReader.ReadAsync(ContentOnly, onRead)` for the GPOs that need a read; inside the callback, per GPO,
+`ReadSettings`, `RegistryPolicyDocument.Parse` of both halves and `GpoSettingUnits.PrincipalNames`; the bytes are dropped
+when the callback returns (no `GpoIndexEntry` keeps a `byte[]`); (4) the collected names through
+`GpoPrincipalResolver.ResolveAsync` (one batch for the domain); (5) per entry `AdministrativeTemplatePolicies.Configured`
+(with a definition set) and `GpoSettingUnits.Of` with `SidsByName` – pure, no I/O. Progress `GpoIndexProgress(Stage,
+Done, Total)`, stages `Directory, Versions, Folders, Principals, Units, Completed`. Without a SYSVOL connection the index
+holds directory data only and every entry is `NotRead`. The resolved map is kept (`GpoSettingsIndex.SidsByName`) so that
+`WithDefinitions` rebuilds units without LDAP.
+
+**Incremental refresh.** With `request.Previous` (same `Server`, same `Definitions` reference) an entry is reused when
+its GPO still exists and `(DirectoryVersion, SysvolVersion)` are equal and its status was `Read` or `Incomplete`; only
+the others are read again, deleted GPOs drop out, `GpoInfo`, links and directory-settings counts always come from the
+fresh LDAP read. `GpoSettingsIndex.WithDefinitions(set)` re-builds units and configured policies from the kept
+`Registry.pol` documents without any I/O (ADMX set loaded later or another culture).
+
+**Status per GPO** (`GpoIndexStatus`): `Read`; `Incomplete` (a budget left content files unread, or a sink overflowed);
+`NotFound`, `AccessDenied`, `TooLarge`, `Failed` (from the reader); `NotRead` (no SYSVOL, or the run budget was used up).
+GPOs the GPO search does not return (no read access) are not in the index at all; the UI says how many GPOs it saw.
+
+**`GpoPrincipalResolver`** (`src/AdMng.Core/GroupPolicy/Search/GpoPrincipalResolver.cs`): `KnownSid(principal,
+domainSid)` without LDAP – SID text with or without `*` (`SecurityTemplate.Principal`, `SecurityTemplate.IsSid`), the
+en/pl well-known names, `BUILTIN\…`, local groups and the domain RIDs 500/512/513/515 (wraps the internal
+`GpoPrincipals.SidOf`); `ResolveAsync(session, principals, domainSid, ct)` for the rest: `DOMAIN\name` (only when
+`new GroupPolicyDomainNames(session.Info.DomainDnsName, session.Info.DomainNetBiosName).IsThisDomain(domain)`, as
+`GroupPolicyGrantSource` does – a NetBIOS name that differs from the first DNS label is recognized), UPN (`name@suffix` →
+`Attr.UserPrincipalName`), bare names (`Attr.SamAccountName`), 50 names per OR search
+(`LdapFilter.And(LdapFilter.Present(Attr.ObjectSid), LdapFilter.Or(… LdapFilter.Equal(…)))`, rule 3), base the domain
+NC. Unresolved names come back as `Unresolved` (never guessed). The private resolver of `GroupPolicyGrantSource` (U4c)
+is left as it is.
+
+**Presentation – `GpoSettingsIndexService`** (`src/AdMng.Presentation/GroupPolicy/Search/`, **Scoped**, one per
+connection window, modelled on `PolicyDefinitionsService`): holds the current `GpoIndexView` (index + SID names +
+culture), keyed on the `IDirectorySession` instance (`ReferenceEquals`) **and** `session.Info.Server` – a reconnect to the
+same DC with other credentials is a new session, so a view read under another security context is never returned, whatever
+the order of the `SessionChanged` handlers; a generation counter so that a build started before `Invalidate` never becomes
+current. `GroupPolicyServices.Changed` only marks the view stale (`IsStale`, `StateChanged`) – no automatic rebuild;
+`ISessionManager.SessionChanged` (another DC, reconnect, disconnect) drops it (`Invalidate`); both handlers are removed in
+`Dispose`.
+
+*The service owns every build* (the documents' connections and tokens never reach it): a build opens its own SYSVOL
+connection with `GroupPolicyServices.OpenSysvolAsync(session, …)` and disposes it when the build ends (the unavailability
+reason goes into the view), and runs on a `CancellationTokenSource` owned by the service and linked to
+`GroupPolicyServices.Lifetime`. That source is cancelled by `Invalidate`, `Dispose`, `CancelBuild()`, or when the **last**
+waiting caller has cancelled. A caller's token only ends that caller's wait (`Task.WaitAsync(token)`), so *Anuluj* in the
+search tab never cancels the build the cleanup tab still waits for, and closing a tab never leaves the build on a disposed
+connection. Progress goes to every caller through the `Progress` property and `StateChanged` (not per call). A request
+during a running build: `IfMissing` awaits it; `Incremental` or `Full` queues **exactly one** follow-up build (the stronger
+of the queued requests) that starts when the running one ends.
+
+`GetAsync(refresh, ct)`: `IfMissing` returns the current view when it fits (same session, same culture; a different
+culture only re-resolves names and definitions – no GPO folder read), `Incremental` and `Full` rebuild. Order inside a
+build: definitions first (`Definitions.GetAsync(session, sysvol, Localizer.Culture, reload: false, ct)`, cached per window;
+a failure → no set and `DefinitionsFailed`), then the Core build on `Task.Run`, then `TrusteeNames.ResolveAsync` over the
+union of the entries' `GpoSettingPresenter.Sids(settings)` and `PrincipalSids`, then `GpoIndexTexts` for the view (also on
+`Task.Run`, once per view).
+
+*DI* (done by the K7 contract commit, not by a wave agent): the concrete class `TryAddScoped`, the interface forwarded to
+the same instance (`sp => sp.GetRequiredService<GpoSettingsIndexService>()`), the `GroupPolicyViewModelFactory` lambda
+passes `sp.GetRequiredService<IGpoSettingsIndexService>()`, both types are in `ConnectionLifetimes`. The factory's fallback
+(`new GpoSettingsIndexService(services)` when no instance is passed) is for test harnesses only; the factory disposes it
+only when it created it. W1 adds a `HostTests` check that `factory.Index` is the scoped instance.
+
+**`GpoIndexTexts`** (Presentation): one `GpoSettingPresenter` per entry (`ComputerPolicies` / `UserPolicies` from the
+entry, `ItemNames = GpoSettingPresenter.ItemNamesOf(entry.Settings)`, the view's SID names and definitions), cached per
+view (built once per view on `Task.Run`, never per keystroke); `Describe(entry, unit)` = the single row
+`DescribeRows(unit.Settings)` yields (units are built so that the presenter collapses them into one row – a test pins this
+per kind).
+
+**Budgets** (500 GPOs × ~200 units ≈ 100 000 records): the Core build of 500 synthetic GPOs on `FakeSysvol` makes at most
+4 concurrent SYSVOL calls and keeps no `byte[]` (W1 test); a matcher pass over 100 000 records stays well under 500 ms
+(W4 test with a generous `Stopwatch` bound); an empty or one-character query shows only the summary (counts per area, notes),
+never the 100 000 rows; at most 2 000 groups are shown, with *Zawęź wyszukiwanie – pokazano 2 000 z N grup*.
+
+### 21.4 Search – "Wyszukiwarka ustawień GPO" (W4)
+
+Document `GpoSettingsSearchDocumentViewModel` (`GroupPolicyDocumentKind.SettingsSearch`, one tab per window,
+`GroupPolicyDocumentBase`, `ISearchableDocument`), title *Wyszukiwarka ustawień GPO*. Load = `IGpoSettingsIndexService.
+GetAsync(IfMissing)` with progress and *Anuluj* (the previous results stay); a change elsewhere sets the stale bar
+(*Zmieniono zasady grupy – Odśwież*), F5 / *Odśwież* = `Incremental`, *Odczytaj wszystko ponownie* = `Full`; the
+base's reload on `Changed`, `SessionChanged` and culture is overridden as in diagnostics (a `_requested` flag; culture
+change re-renders texts from memory).
+
+**Matching** (`GpoSettingsMatcher`, on `Task.Run`, 250 ms debounce, cancellable): one record per (GPO, unit) with the
+presenter's `Name`, `GroupPath`, `ValueText`, `Elements`, `Technical`, the unit's keys and `BaseId`, the principals'
+resolved names and SIDs. Field selector *Wszystko / Nazwa / Wartość / Klucz techniczny / Konto*; text compared with
+`CompareOptions.IgnoreCase | IgnoreNonSpace` (as `GpoSettingRowViewModel.Matches`). Values of `Masked` units are never
+matched (only their names and keys); `Konto` resolves the typed text with `GpoPrincipalResolver` (exact SID) and also
+matches resolved names by substring. Facets: scope (computer/user), area (administrative templates, security,
+audit, preferences by type, scripts, other), *Tylko różne wartości*.
+
+**Results** grouped by `BaseId`: the group header is the unit's name and path plus *ustawione w N GPO – wartości
+zgodne / różne / nieporównywalne* (`SameValue` over the occurrences that are not `Disabled`); rows are GPO name, value,
+links text, status marks (conditional, disabled item, masked, incomplete GPO). Empty or one-character query: summary only;
+more than 2 000 groups: the first 2 000 and the *Zawęź wyszukiwanie* note (21.3 budgets). Grouped `ListView` with `VirtualizingPanel.IsVirtualizingWhenGrouping`.
+Notes bar: GPOs not read (count, names in the tooltip, per `GpoIndexStatus`), ADMX not loaded (registry names only,
+policies not searchable by name), masked values not searchable, SYSVOL unavailable, links from other domains not visible.
+
+**Row actions:** *Otwórz GPO* (`Actions.OpenGpo(id, name, GpoDocumentTab.Settings)`), *Edytuj to ustawienie*
+(`Actions.EditSetting(id, name, text.Focus)` when `GroupPolicyActions.CanEditSetting`), *Porównaj GPO* (two selected
+rows, or one row and a picked GPO: `Actions.CompareAsync`), *Kopiuj do innego GPO…* (W5's `CopySettingsAsync`, 21.5,
+for the selected rows; refused units shown disabled with the reason from `GpoUnitRefusalText`, which the K7 contract
+commit provides with the `GpoCopy.Refusal.*` texts), *Kopiuj* (text), *Eksportuj CSV / HTML* (the
+current results to an operator-chosen file: `ICsvCodec` with `protectFormulas: true`, `CsvFiles`; HTML escaped).
+
+**Entry points:** palette `gpo.searchSettings` (*Wyszukaj ustawienie we wszystkich GPO…*, category Tools), *Akcja →
+Zasady grupy*, the tree menu of the GPO root, a button on the GPO list toolbar and *Znajdź we wszystkich GPO* on the
+GPO document's *Ustawienia* tab, which opens the document with `GroupPolicyDocumentRequest.SearchText` = the tab's search
+text (else the selected row's name); an open search tab receives the text through the shell (`ISearchableDocument.
+SearchText`).
+
+### 21.5 Copy, remove and merge – Core planners (W2), Presentation actions (W5)
+
+**One plan for the target.** `GroupPolicyPlanner.PlanCopySettingsAsync` (new partial
+`GroupPolicyPlanner.CopySettings.cs`, so the private `Plan`, `RequirePolicyAsync`, `PolicyObject`, `ContainerObject`,
+`Modify`, `AddIfChanged`, `GpLinkChange`, `RegistryCommands`, `ExtensionNames` stay usable) produces **one** sequential
+`ChangePlan` with **one** `ObjectPlan` for the target GPO: one `Modify` of `gPCMachineExtensionNames` and/or
+`gPCUserExtensionNames` (only when they change), then one `WriteGpoFile` per touched file (`OldContent` = the bytes read
+now, `null` for a new file; `NewContent` = the edited document), then **one** `VersionChange(gpo.DirectoryVersion,
+GptVersionAsync(...), user: any User/ file written, computer: any Machine/ file written)` with the "part disabled"
+warnings of K3/K4. `BatchExecutor` runs the content steps as one `GpoTransaction` (compare-and-swap on every file and on
+both versions); `RollbackPlanner` gives undo. The existing `PlanAdministrativeTemplatesAsync` and
+`PlanSecuritySettingsAsync` are not chained (two `ObjectPlan`s for one GPO would bump twice and make the second version
+step stale).
+
+**Fresh reads, never index values.** Sources and target are read at planning time on the session's DC with
+`GroupPolicyReader.ReadFolderAsync(sysvol, id, ct)` (the `ISysvolWriteConnection` `GroupPolicyActions.RunAsync` opens;
+`GpoTooLargeException` / `SysvolWriteException` → an error the UI shows). The names of every source and the target are
+resolved in **one** `GpoPrincipalResolver.ResolveAsync` batch (`GpoSettingUnits.PrincipalNames`), then both sides are
+unitized with `GpoSettingUnits.Of(content, new GpoUnitContext(request.Definitions, domainSid) { SidsByName = … })`, so a
+restricted group written by name in one GPO and by SID in the other is one `BaseId` and the writer removes the target's
+lines for **any** spelling of that group. A requested unit is found by `Id` in the fresh source units; for a preference
+unit, or any unit with `Occurrence` > 1, `GpoUnitSelection.ItemId` must match as well (positions shift when another item
+is added) – otherwise `NotFound` (`GpoSettingNotFound`); when the fresh `ValueFingerprint` differs from the selection's
+(index-time) one the copy goes on with the fresh value and adds the warning `GpoSettingChanged` (the preview shows the
+value that will be written). A unit no longer there, a source with an overflowed file (`ReadSettings`) or a folder with
+leftovers is an issue, never a guess. Every new byte comes from the source document read now, through the per-kind writer
+below. At most `GpoSettingsCopyRequest.MaxSources` (10) source GPOs per plan (more → error `GpoCopyTooManySources`; the
+copy window says so), so planning stays a few folder reads.
+
+**Definitions.** Copy, remove and merge get the definition set the units were built with – `IGpoSettingsIndexService.
+Current.Index.Definitions` – never a fresh `Definitions.GetAsync` (another culture or the local store would turn a `P|`
+unit into `K|` units and give `NotFound`). An ADMX unit without a set is refused (`GpoSettingNoDefinitions`).
+
+**Per kind** (internal `GpoSettingsWriter`, `src/AdMng.Core/GroupPolicy/Management/GpoSettingsWriter.cs`):
+
+| Kind | Copy into the target document | Remove |
+|---|---|---|
+| `AdministrativeTemplate` | `PolicyEngine.Write(definition.Policy, setting, target, PolicyOwnershipIndex.Build(set).OwnedNames)`; state `Inconsistent` (`Write` throws): forget the target's owned entries of that policy (its `ConfiguredPolicy.Entries` when the target configures it), then insert the source's `ConfiguredPolicy.Entries` in file order, with the key-level ordering rule below | `PolicyEngine.Write(…, PolicySetting.NotConfigured, …)`; `Inconsistent`: remove its `ConfiguredPolicy.Entries` |
+| `RegistryValue` / `RegistryKey` | forget the target's entries of that value (or key-level entry), then add the source's raw `RegistryPolEntry` records unchanged (`**del.`, `**soft.`, `**delvals.`, `**DeleteValues`/`**DeleteKeys` forms kept); a key-level delete entry is **inserted before the first target entry of that key and before any value copied for that key in this plan** (Registry.pol is processed in file order – appended at the end it would clear values the target, or this plan, set earlier); a raw entry the target's `ConfiguredPolicies` covers (a configured policy owns that value or list key) is refused with `GpoSettingPolicyOwned` – copying it would silently change the target's policy or make it `Inconsistent` | forget them |
+| `SecurityValue`, `SecurityRegistryValue` | `SecurityTemplateDocument.Set(section, key, source.Get(section, key))` (`SetRegistryValue` for `[Registry Values]`) | `Remove(section, key)` / `SetRegistryValue(path, null)` |
+| `UserRight` | `SetPrivilegeRight(right, principals)`; Union: union of both lists (de-duplicated by resolved SID, else name) | `SetPrivilegeRight(right, null)` |
+| `RestrictedGroup` | remove the target's lines of that group under every spelling (resolved SID), then `SetRestrictedGroup(group, relation, principals)`; Union as above | `SetRestrictedGroup(group, relation, null)` for every spelling |
+| `Service` | `SetService(name, source service)` | `SetService(name, null)` |
+| `AuditSubcategory` | `AuditPolicyDocument.SetSubcategory(guid, name, value)` | `SetSubcategory(guid, name, null)` |
+| `Preference` (any type) | clone the item's `XElement` (located with `GppXmlParser.Items`), new upper-case `uid` in braces, `changed` = the planner's `TimeProvider` local time `yyyy-MM-dd HH:mm:ss`, appended at the end of the target's root (applied last); a missing target file gets the source file's root element name and `clsid`; an item below a plain `Collection` is copied to the root; an item below a collection with `Filters` or `disabled="1"` is refused (`ScopedCollection`, 21.2) | remove the item's element (an emptied collection stays, as in GPMC) |
+
+GptTmpl writes keep every other line (K4's minimal-edit rules); a new GptTmpl / audit.csv starts from
+`SecurityTemplateDocument.New()` / `AuditPolicyDocument.New()`. Preferences use a new generic
+`GppPreferenceDocument` (Parse, `Items` in parser order, `Append(XElement, DateTime)`, `Remove(itemId)`, `ToBytes()` in
+`GppGroupsDocument`'s format: UTF-8 with BOM, declaration, no indentation); `GppGroupsDocument.Add` is not used (it
+rebuilds the element and drops item-level targeting and common options).
+
+**Conflicts** (the target already has units with the same `BaseId`): `Replace` (default; the target's occurrences are
+removed, then the source unit is added), `Skip` (outcome `Skipped`, info issue `GpoSettingSkipped`), `Union` (user rights
+and restricted groups; `Replace` for every other kind). Per-unit overrides in `ConflictByUnit`. Units are applied in
+request order; the same `BaseId` requested from two sources is refused for both (`GpoSettingAmbiguous`) – no silent "last
+wins". Refinements:
+
+* **Unchanged.** `Replace` where the target has exactly one occurrence and `SameValue(source, target)` is a no-op:
+  outcome `Unchanged`, no file write, no new `uid`, no version bump when nothing else changes.
+* **Conditional preference variants.** The natural identity deliberately groups several items (GPMC configurations often
+  hold several *K:* items with different item-level targeting). `Replace` removes only the target occurrences whose
+  `FiltersFingerprint` equals the source's (both empty included) and keeps the others; when a conditional target
+  occurrence is kept the outcome is `Added` and the info issue `GpoSettingConditionalKept` names the unit.
+* **removePolicy.** Removing or replacing a preference item with `removePolicy="1"` (*Usuń element, gdy nie jest już
+  stosowany*) makes clients undo it – drop the mapped drive, delete and recreate the local user or group (new SID, lost
+  profile) – before the copy (new `uid`) applies again: the warning `GpoSettingRemovePolicy` names the unit, in copy,
+  remove and merge plans alike.
+
+**Refused** (outcome `Refused`, warning issue, the rest of the plan goes on): any `Refusal` of the fresh unit (secrets
+and `cpassword` items – MS14-025 –, scripts and script files, `[Registry Keys]` / `[File Security]`, audit options and
+the global SACL, comments, unreadable or truncated units, `Ambiguous` items, items of a scoped collection); an ADMX unit
+without a definition set; a raw registry entry a target policy owns; a source read incomplete; directory-side settings are
+never units (a source with `CountDirectorySettingsAsync` > 0 adds a warning that they are not copied, as K2's copy does
+with `IssueCodes.GpoDirectorySettings`).
+
+**Source half disabled.** A unit of a half the source GPO has disabled (`GpoStatus` `UserSettingsDisabled`,
+`ComputerSettingsDisabled`, `AllSettingsDisabled`) is dormant there and becomes active in the target: an explicit copy goes
+on with the warning `GpoSettingSourcePartDisabled`; a merge leaves such units out (outcome `Skipped`, same code as info).
+
+**Extension names.** Registry.pol: `GpoExtensionNames.Registry` + the administrative templates tool of the half plus
+the copied policies' ADMX `clientExtension`s (the logic of `AdministrativeTemplatesEditorViewModel.ClientExtensions`
+moves to Core as `PolicyClientExtensions.Of(document, set, scope, ownership)`; the K3 editor keeps its copy in K7);
+GptTmpl, audit.csv and machine Groups.xml: the pairs of `GroupPolicyPlanner.KnownExtensionFiles`. Every other preference
+file (and user-side Groups.xml): the CSE is `GpmcBackupFormat.TryPreferenceExtension(type)` – **null for a type the table
+does not know** (the old private mapping falls back to the Registry CSE, which clients would ignore for that file), and
+then the unit is refused (`GpoSettingExtensionUnknown`); the tools are those the **source** lists for that CSE in its
+extension names of the half (`GpoExtensionNames.Parse`), each added with `GpoExtensionNames.With` for the CSE and for
+`GpoExtensionNames.PreferencesCore` when the source lists the tool there. A source without that CSE: when the target
+already lists the CSE for the half the copy goes on, otherwise the unit is refused (`GpoSettingExtensionUnknown`) – the
+tool GUIDs are not guessed (the code has them for Local Users and Groups only). Names are never removed (GPMC keeps them
+too).
+
+**Account policy.** Copying an account-policy unit into a GPO not linked to the domain head adds a warning with two
+variants: `GpoAccountPolicyBelowDomain` for password, lockout and forced-logoff settings (`[System Access]` names in
+`GroupPolicyModeler.AccountPolicyNames` – they then apply to the computers' local accounts only) and
+`GpoKerberosPolicyBelowDomain` for `[Kerberos Policy]` (no effect at all outside the domain head).
+
+**Remove** (`PlanRemoveSettingsAsync`): the same reads and writers on one GPO, one `ObjectPlan`, one version bump; the
+same refusals and the `GpoSettingRemovePolicy` warning. Used by the cleanup advisor (*Usuń duplikat z tego GPO*).
+
+**Unlink everywhere** (`PlanUnlinkAllAsync`): every container of the domain and every site that links the GPO loses the
+link, one `gPLink` compare-and-swap per container (the first part of `PlanDeleteAsync`, without the delete); the
+`GpoLinkedElsewhere` warning when the forest has other domains.
+
+**Delete with an expected state** (new overload `PlanDeleteAsync(session, gpoId, GpoExpectedState expected, ct)`): the
+advisor's *Usuń GPO…* passes the `DirectoryVersion` and linked containers the index saw. When the fresh read differs (the
+GPO gained settings or links in another window or from another administrator since the analysis) the plan carries the
+error `GpoChangedSinceAnalysis` and cannot run; the UI then refreshes the index incrementally. A delete is the one
+cleanup action that cannot be undone (`RollbackPlanner`: `Delete` / `DeleteGpoFolder` are `NotReversible`), so this guard
+comes in addition to the backup offer of `GroupPolicyActions.DeleteAsync`.
+
+**Merge A into B** (`PlanMergeAsync`; **the last milestone of W2 and of W5** – if it is not ready the release ships
+without it and 21.9 lists it as K7.1): **one** sequential plan –
+
+1. B's `ObjectPlan` = the copy of every unit of A that `CountsAsSetting` (fresh read; units of A's disabled half
+   skipped, see above; comments and script files not carried, info issue `GpoMergeNotCarried`);
+2. per container linking A (`ReadLinksOfAsync` + `ReadContainerAsync`, as `PlanDeleteAsync`): one `gPLink`
+   compare-and-swap that puts B where A was with A's options (`GpLinkValue.Remove(A)` then `Insert(B, options, order)`) or,
+   when B is already linked there, only removes A (B's link and options kept – the warning below says when they are
+   weaker);
+3. A's `ObjectPlan`: `flags` → `GpoStatus.AllSettingsDisabled` (as `PlanStatusAsync`).
+
+*Errors* (on A; the plan cannot run): any unit with `BlocksMerge` (the issue `GpoMergeNotCopyable` gives the count, the
+UI lists them); A holds directory-side settings (`CountDirectorySettingsAsync` > 0: `IssueCodes.GpoDirectorySettings` at
+severity `Error`); A's fresh folder holds files below `Machine/` or `User/` that no unit covers (inventory files such as
+folder redirection or software installation, classified as `GpoFolderReader` lists `OtherFiles`: `GpoMergeUnparsedFiles`
+with the count); A or B read incomplete; A is a default GPO (`IssueCodes.DefaultGpo`); A = B; the link order is mixed and
+the request names no conflict mode (`GpoMergeOrderMixed`, below).
+
+*Precedence.* From the fresh `gPLink` of every container that links both, A's and B's order (`GpLinkValue`, order 1 =
+highest precedence) and options are compared. `GpoMergeRequest.Conflict` = null (default) derives the conflict mode:
+`Skip` when B precedes A in every shared container (B's winning values stay), `Replace` when A precedes B everywhere
+(A's winning values move into B), and when the order is mixed an explicit mode is required (`GpoMergeOrderMixed`). With no
+shared container the mode defaults to `Replace`.
+
+*Warnings*: security filtering differs (`GpoMergeSecurityFilterDiffers`: `GpoInfo.SecurityFilter` `Allowed`/`Denied`
+sets); WMI filter differs (`GpoMergeWmiFilterDiffers`: `WmiFilterId`); the link sets differ (`GpoMergeLinksDiffer`, with
+the containers only A links – they start getting B's other settings – and the containers only B links – they start
+getting A's settings; names only, no values); in a shared container A ranks above B, or A's link is enforced or enabled
+where B's is not (`GpoMergeLinkOptionsDiffer`, per container: A's settings move down to B's position or lose
+enforcement); other domains in the forest (`GpoLinkedElsewhere`: their links to A are not replaced); B's part disabled
+where A has settings (`GpoComputerPartDisabled` / `GpoUserPartDisabled`); `GpoSettingRemovePolicy` for items of A with
+`removePolicy="1"` (A is disabled, so clients undo them before B's clones apply). Moving B's link to A's position is not
+done (21.9).
+
+Delete of A is offered separately afterwards through the existing `GroupPolicyActions.DeleteAsync` (backup first): a
+`Delete` is not reversible and rollback would drop `gPLink` values naming A. If a later step fails after B's transaction
+committed, the preview's undo restores B (files, version bump again), the links and A's status – all reversible.
+
+**PowerShell** of these plans: `Get-GPO` with the comment that the plan writes SYSVOL files (the GroupPolicy module has
+no cmdlet, as K4), `Set-GPRegistryValue` / `Remove-GPRegistryValue` for Registry.pol changes (`RegistryCommands`),
+`New-GPLink` / `Remove-GPLink` for the link steps and `(Get-GPO …).GpoStatus = AllSettingsDisabled` for A.
+
+**Presentation (W5).** Extension methods in `src/AdMng.Presentation/GroupPolicy/Copy/GpoSettingsActions.cs` take
+display items (`GpoCopyItem`: selection + source name + name/path/value text + refusal) so that callers (search, cleanup)
+need no shared state: `CopySettingsAsync` (target from `GpoPickerViewModel`, single select, sources excluded; then the
+*Kopiuj ustawienia* window `GpoCopySettingsViewModel` – items with refusals shown disabled, conflict mode *Zastąp /
+Pomiń / Połącz listy*, at most 10 source GPOs), `RemoveSettingsAsync`, `MergeAsync` (same window in merge mode: A, B, the
+derived conflict mode or the operator's choice when the order is mixed, the units that block the merge, the
+filtering/WMI/links warnings), `UnlinkAllAsync`, `DeleteCheckedAsync` (advisor delete with `GpoExpectedState`; W5 adds
+the optional `GpoExpectedState? expected` parameter to `GroupPolicyActions.DeleteAsync`). All plan through
+`GroupPolicyActions.RunAsync(title, SysvolUse.Required, …)` with the index's definition set. **Nothing to do:** when the
+plan's outcomes hold no `Added`, `Replaced`, `Merged` or `Removed` (every unit refused, skipped or unchanged), the actions
+do not show RunAsync's "nothing to do" toast but an error dialog listing the units with their `GpoUnitRefusalText` /
+issue texts – the MS14-025 refusal is never swallowed. **Zmiany ustawień:** `RunAsync` gains an optional last parameter
+`describeChanges` (called after planning when `settingChanges` is null; a failure only drops the rows);
+`GpoSettingChangesBuilder` parses the old and new bytes of every `WriteGpoFile` step (`GroupPolicyReader.ReadSettings`
+of a one-file `GpoFolderContent`), groups the changed keys by unit (`GpoSettingUnits.Of` on both sides), describes
+before/after with a `GpoSettingPresenter` per side (policies from both Registry.pol versions when a set is loaded, SID
+names from one `TrusteeNames.ResolveAsync`), masked values stay masked; `Group` = the `ObjectPlan`'s GPO name ›
+area. File rows keep *Pokaż różnice* (`GpoFileDiff`). After a successful copy, remove or merge the search and cleanup
+documents run an incremental index refresh (only the touched GPOs are read again).
+
+### 21.6 Cleanup advisor – "Porządki w GPO" (W3 Core, W5 UI)
+
+**Core – `GpoCleanupAnalyzer.Analyze(index, options)`** (`src/AdMng.Core/GroupPolicy/Cleanup/`, pure, from a
+`GpoSettingsIndex`): proposals sorted by kind, then GPO name. *Content rules* run only for entries `Read` (never
+`Incomplete`, `NotRead` or a failed read – those GPOs are listed in `NotEvaluated`); "a counted unit" is a unit with
+`CountsAsSetting` (not `Comment`, `UnreadableFile`, `ScriptFile`). "Mergeable" means: no unit with `BlocksMerge`,
+`DirectorySettings` = 0, no `OtherFiles`, not a default GPO, and no disabled half (`GpoStatus`) that holds counted units.
+
+| Kind | Rule | Actions | Notes |
+|---|---|---|---|
+| `EmptyGpo` | no counted unit (disabled preference items count – dormant content is not "empty"), no unreadable marker, no `OtherFiles`, `DirectorySettings` = 0 – linked or not, versions ignored | Delete, Unlink (when linked) | `Linked`, `DefaultGpo` (no Delete) |
+| `UnlinkedGpo` | no link in the domain head, OUs or sites | Delete, Disable | `OtherDomainsNotSearched` when `OtherDomains` is not empty (links from other domains are not visible from this DC) |
+| `AllLinksDisabled` | ≥ 1 link, every link disabled | Unlink, Disable, Delete | |
+| `GpoDisabled` | `GpoStatus.AllSettingsDisabled` | Delete, Unlink (when linked) | |
+| `SingleSettingGpo` | exactly one counted unit, `DirectorySettings` = 0, no `OtherFiles` | CopyTo (*Kopiuj do innego GPO…*), then Disable as a separate action; Merge only into a GPO with the same link set (container, enabled, enforced), proposed when such a GPO exists (`RelatedGpoIds`) | `NonCopyableUnits` when that unit has a refusal (no CopyTo, no Merge) |
+| `DuplicateSetting` | see below | RemoveSetting (from the covered GPO) | `RemovePolicy`, `AccountPolicy` |
+| `DifferentValues` | one `BaseId`, comparable applying occurrences in ≥ 2 GPOs with ≥ 2 distinct values | – (open, compare) | informational |
+| `MergeCandidate` | ≥ 2 mergeable GPOs (`Read`, ≥ 1 counted unit) with the same set of links (container, enabled, enforced), the same security filter (`Allowed`, `Denied`) and the same WMI filter: each is proposed into the one with the most units | Merge | `LinkOrderDiffers`, `RemovePolicy`; a GPO that is not mergeable gets the proposal without Merge and the note `NonCopyableUnits` (`BlockingUnitIds` listed), `DirectorySettings` or `OtherFiles` |
+
+**`DuplicateSetting` in detail** (equal values in two GPOs do not make one of them redundant on their own: user rights and
+restricted-group members are last-writer-wins, preference items are ordered and cumulative, and scopes may not overlap):
+
+1. *Applying occurrences only.* An occurrence applies when its GPO is `Read`, has at least one enabled link, its
+   `GpoStatus` does not disable the unit's half, and the unit is `Comparable` and not `Disabled`. Unlinked GPOs, GPOs whose
+   links are all disabled and disabled halves never take part (they are reported by their own kinds).
+2. *Equal value.* At least two applying occurrences with `SameValue`, each GPO with a single occurrence of the `BaseId`.
+3. *No other value.* When any applying occurrence of the same `BaseId` in another GPO has a different or non-comparable
+   value (masked, conditional, cumulative), no `DuplicateSetting` is proposed for that `BaseId` (removing the
+   higher-precedence copy could let the third value win); `DifferentValues` covers it.
+4. *Coverage.* `RemoveSetting` from GPO X is offered only when, in every container where X applies (resolved with
+   `GroupPolicyInheritance` over the index's containers – block inheritance and enforced links included – for the domain
+   head, every OU and every site that links X), the other GPO Y with the equal value also applies. The proposal's `GpoId`
+   is X, `RelatedGpoIds` = [Y]. When no occurrence is covered (two GPOs on disjoint OUs, such as the department drive
+   GPOs of the sample) there is **no** proposal – the search shows such pairs, and `MergeCandidate` handles consolidation.
+5. *Account policy.* Account-policy units (password, lockout, Kerberos) only among GPOs linked to the domain head (note
+   `AccountPolicy`); below the domain head they have no domain effect and are left alone.
+6. *removePolicy.* A preference item with `removePolicy="1"` gets the note `RemovePolicy` (clients undo the item when it
+   disappears from X, then Y's item applies again).
+
+Masked values are never equal; conditional (item-level targeting, also inherited from a collection) and cumulative
+(scripts) units never count as duplicates; a policy unit and the raw registry values of another GPO are different units
+(with a definition set the same policy is found by policy id in both). Default GPOs never get Delete or Merge as the
+source. No new `GpoFindingCodes` (21.9).
+
+**UI – `GpoCleanupDocumentViewModel`** (`GroupPolicyDocumentKind.Cleanup`, one tab per window, palette `gpo.cleanup`
+*Porządki w GPO…*, *Akcja → Zasady grupy*, the GPO root's tree menu, a GPO list toolbar button): the same index service
+and stale/refresh/cancel behaviour as the search; chips per kind, filters (kind, GPO, text, Ctrl+F), virtualized list,
+details pane (explanation, recommendation, the GPOs and the setting in GPMC words through `GpoIndexTexts`, notes) and the
+actions: *Usuń GPO…* → `DeleteCheckedAsync` (the index entry's `GpoExpectedState`, then `GroupPolicyActions.DeleteAsync`
+with its backup offer + typed confirmation; a GPO changed since the analysis is refused and the index refreshed),
+*Odłącz wszędzie…* → `UnlinkAllAsync`, *Wyłącz GPO* → `GroupPolicyActions.SetStatusAsync(gpo, AllSettingsDisabled)`,
+*Kopiuj do innego GPO…* → `CopySettingsAsync`, *Usuń duplikat z…* → `RemoveSettingsAsync`, *Scal z…* → `MergeAsync`
+(only when the proposal offers Merge), plus *Otwórz GPO*, *Porównaj*, *Pokaż w wyszukiwarce* (opens 21.4 with the
+unit's name). Every action is a plan with preview and undo; after it succeeds the document refreshes incrementally and
+re-analyzes. Export CSV/HTML to an operator file.
+
+### 21.7 Data handling (rules 1–6)
+
+* **Rule 1.** The index (settings, units, documents, SID names), search records and cleanup proposals live in the
+  window's scoped `GpoSettingsIndexService` and the open documents only; dropped on `SessionChanged`, disconnect and
+  window close (scope disposal). Nothing in `GroupPolicySettings` (no search history), temp files or logs; diagnostic
+  logs carry counts and durations only. `ToString()` of every new type prints kinds, statuses, GUIDs and counts – never
+  a unit id (it holds directory values such as paths and group names), key or value. Exports go only to files the
+  operator picks.
+* **Rule 2.** No password is read or written. `cpassword` items and other masked units are refused for copy, never
+  matched by value, shown as "(ustawione – ukryte)"; the planner works on raw bytes but never puts secret-bearing items
+  into a new file.
+* **Rule 3.** Account lookups through `LdapFilter.Equal`/`Or`/`And`/`Present`; DNs with `DistinguishedName` /
+  `GpLinkValue.GpoDn`; typed text is never concatenated into a filter or DN.
+* **Rule 4.** One DC: index, planners and executor use the session's DC and its SYSVOL; the index records `Server` and is
+  dropped when it changes; the PDC note comes with every preview (`GroupPolicyServices.PreviewAsync`).
+* **Rule 5.** Copy, remove, unlink, disable, merge and delete are change plans with preview, validation, audit and undo;
+  conflicts with concurrent edits are caught by `GpoTransaction`'s compare-and-swap at execution.
+* **Rule 6.** Index builds are async, cancellable, with progress (at most 4 SYSVOL requests at a time, one LDAP search
+  per 50 names); matching runs on `Task.Run` with debounce; result lists virtualize (also when grouped).
+
+### 21.8 Localization
+
+Both `Strings.resx` and `Strings.pl.resx`, one block per owner between comment markers (anchors in 21.12), constants in
+new `L.*.cs` files; dynamic families get an `AllKeys()` helper tested like `GpoFindingText.AllKeys()`.
+
+* `GpoIndex.*` (W1, `L.GpoIndex.cs`): `GpoIndex.Stage.<GpoIndexStage>`, `GpoIndex.Status.<GpoIndexStatus>`, notes
+  (not read, incomplete, no SYSVOL, ADMX not loaded, links of other domains), progress text.
+* `Issue.<code>` (**K7 contract commit**, constants and en + pl texts, so that `LocalizationTests` stay green from the
+  start; W2 only uses them and may refine the wording) for the 25 new `IssueCodes`: copy/remove – `GpoSettingSecret`,
+  `GpoSettingUnsupported`, `GpoSettingNotFound`, `GpoSettingChanged`, `GpoSettingIncomplete`, `GpoSettingAmbiguous`,
+  `GpoSettingSkipped`, `GpoSettingExtensionUnknown`, `GpoSettingNoDefinitions`, `GpoSettingPolicyOwned`,
+  `GpoSettingConditionalKept`, `GpoSettingRemovePolicy`, `GpoSettingSourcePartDisabled`, `GpoAccountPolicyBelowDomain`,
+  `GpoKerberosPolicyBelowDomain`, `GpoCopyTooManySources`; delete – `GpoChangedSinceAnalysis`; merge –
+  `GpoMergeNotCopyable`, `GpoMergeNotCarried`, `GpoMergeUnparsedFiles`, `GpoMergeOrderMixed`, `GpoMergeLinksDiffer`,
+  `GpoMergeLinkOptionsDiffer`, `GpoMergeSecurityFilterDiffers`, `GpoMergeWmiFilterDiffers` (Arguments documented on each
+  constant: GPO names, counts and, where useful, the unit's technical key or container names – never a value).
+* `GpoSearch.*` (W4, `L.GpoSearch.cs`): title, palette command, toolbar and tab buttons, fields, facets, group summary
+  (`ustawione w {0} GPO – wartości zgodne/różne/nieporównywalne`), notes, row actions, export headers.
+* `GpoCopy.*` (W5, `L.GpoCopy.cs`): window, modes, conflict modes, titles of the copy/remove/merge/unlink plans,
+  `Zmiany ustawień` group texts, the "nothing copied" dialog. `GpoCopy.Refusal.<GpoUnitRefusal>` (dynamic, with
+  `GpoUnitRefusalText.AllKeys()`) comes with the **K7 contract commit** in `L.GpoCopy.cs` and a block
+  `K7 copy refusals (21.5)` in both resx files (W4 shows them in the search before W5 exists).
+* `GpoCleanup.*` (W5, `L.GpoCleanup.cs`): title, command, `GpoCleanup.Kind.<Kind>.Title|Message|Recommendation`,
+  `GpoCleanup.Action.<Action>`, `GpoCleanup.Note.<Note>` (dynamic), chips, filters, export headers.
+
+Polish UI wording as in GPMC's Polish edition and the K6 resources; test data with diacritics.
+
+### 21.9 Not in K7 (later options)
+
+New diagnostics codes (`EmptyGpo` content-based, `LinkDisabled` per link with *Unlink*, `SingleSettingGpo`, with fix
+kinds `DeleteGpo`) – the 51-code and 11-fix-kind tests stay as they are; merge (K7.1) if it misses the release (21.5);
+moving B's link to A's order and strengthening B's options during a merge (`GpLinkValue.MoveTo`); a K5 before/after model
+of the merge preview; natural preference identity in the K5 modeller
+and the K6 conflict rules (would report two GPOs mapping K: as a conflict); matching in both languages at once; writers
+for scripts, `[Registry Keys]` / `[File Security]`, audit options and comments; preference tool GUIDs for target files
+the source does not name; a before/after model of the merged GPO's containers (K5 modeller); links from other domains
+of the forest; a "new GPO" choice in the copy target picker.
+
+### 21.10 Test plan
+
+**Core (W1, `tests/AdMng.Core.Tests/GroupPolicy/Search/`):** folder reader – both modes, every status, budgets
+(`NotRead`, per GPO, `Skipped` after the run budget), `OtherFiles`, at most 4 concurrent calls (FakeSysvol `Calls` /
+`HoldNext`), cancellation; the streaming overload – at most `Parallelism` results with `Content` alive at a time;
+diagnostics unchanged (existing tests green, one test that the snapshot equals the pre-K7 read); `ReadSettings` overflow
+(a Registry.pol with 10 001 values) and `Settings` unchanged; directory-settings count in one search; `GppXmlParser`
+golden test (keys of uid-less items, items in collections and collection pseudo-items identical before and after the
+`Items` refactor) plus `Items` returning the collection chain; units – every kind of 21.2, preference identity per type
+(Drives K: in two GPOs with different uids → one `BaseId`), occurrences `#2`, collections (a child of a targeted
+collection is `Conditional`, a child of a disabled collection is `Disabled`, a scoped child has `ScopedCollection`),
+policies with and without definitions, comparability, `SameValue` (masked never equal, disabled never equal, privilege
+lists as sets with names and SIDs), `SidsByName` (a user right by name and by SID compare equal; a restricted group by
+name and by SID give one `BaseId`), `CountsAsSetting` / `BlocksMerge` (comment and script file neither), refusals;
+`ItemKeyOf` equals the old private copies; resolver – SID text, `*SID`, en/pl names, `CONTOSO\x` resolves with a fake
+session whose NetBIOS name differs from the first DNS label, `KONTOSO\x` (another domain) comes back `Unresolved`, UPN,
+chunks of 50, escaping of `*()\`; index builder – full build on `AddGroupPolicyManagementSample`, incremental reuse (one GPO
+bumped → one folder read), deleted GPO, `WithDefinitions` without I/O, no SYSVOL → `NotRead`, 500 synthetic GPOs with ≤ 4
+concurrent calls and no `byte[]` kept by any entry, two passes (names resolved before `Of`). W1 also runs
+`tests/AdMng.Watchdog.Core.Tests` and `tests/AdMng.Watchdog.Service.Tests` (the parser is shared).
+**Core (W2, `tests/AdMng.Core.Tests/GroupPolicy/Copy/`, `GroupPolicyTestBed`):** per kind copy and remove, executed
+(`ExecuteOkAsync`) and undone; Replace/Skip/Union; `Unchanged` (identical source: no write, no version bump); one Modify /
+one version step per plan (both halves); new target file with root and `clsid`; GPP clone keeps `Filters` and common
+options, new uid, `changed` from the fake time; conditional variants kept on Replace (`GpoSettingConditionalKept`);
+`removePolicy` warning; scoped-collection item refused, plain-collection item copied to the root; Inconsistent policy
+copied by raw entries; a `**delvals.` copied before the target's values of that key (and before values copied in the same
+plan); a raw value owned by a target policy refused; restricted group by name in the target and by SID in the source →
+one group line after Replace; extension pairs from the source, refused without them, accepted when the target lists the
+CSE, an unknown preference type refused (`TryPreferenceExtension` null); refusals (cpassword item, masked registry value,
+script, object security, audit option, comment, ambiguous selection, incomplete source, more than 10 sources); stale
+`ItemId` → `NotFound`, changed fingerprint → `GpoSettingChanged`; source half disabled → warning on copy;
+`GpoKerberosPolicyBelowDomain` vs `GpoAccountPolicyBelowDomain`; `PlanDeleteAsync` with an expected state that moved →
+`GpoChangedSinceAnalysis`; concurrent change between plan and execution → `Conflict`, nothing written; merge – one plan,
+link replaced in place / B already linked, A disabled, derived conflict mode (B first → Skip, A first → Replace, mixed →
+`GpoMergeOrderMixed`), refused with blocking units, with directory settings (`GpoDirectorySettings` as error), with
+unparsed inventory files (`GpoMergeUnparsedFiles`); a GPO with `GPO.cmt` and an orphaned script file merges
+(`GpoMergeNotCarried`); units of A's disabled half skipped; warnings `GpoMergeLinksDiffer`, `GpoMergeLinkOptionsDiffer`,
+filter/WMI; undo restores all.
+**Core (W3, `tests/AdMng.Core.Tests/GroupPolicy/Cleanup/`):** every kind and note on `GpoSettingsIndex` instances built **by
+hand** in the test (`GpoIndexEntry` + `GpoSettingUnit` records written directly – W3 does not wait for W1's
+`GpoSettingUnits.Of`), including the negatives (incomplete GPO, `OtherFiles`, directory settings, masked/conditional/
+disabled/script units, account policy at and below the domain head, default GPOs, a duplicate whose other occurrence is in
+an unlinked GPO, a duplicate on disjoint OUs → no proposal, a third GPO with another value → no `DuplicateSetting`, a
+blocked GPO and a part-disabled GPO → no Merge action). The sample tests (below) merge W1's builder once it exists.
+**Sample (W3):** `FakeDirectoryBuilder.AddGroupPolicyCleanupSample(company, sysvol) → GroupPolicyCleanupSample` (new
+partial file; `AddGroupPolicyManagementSample` and its counts unchanged; the record exposes the GPO ids by role), GPOs on
+the OUs of `AddSampleCompany`:
+*Porządki – Pusty GPO* (linked, version computer 2, folder with GPT.INI only); *Porządki – Bez powiązań* (unlinked,
+Machine/Registry.pol with a policy of `SampleAdministrativeTemplates`); *Porządki – Szablony* (linked at the domain head,
+the same policy and value) and *Porządki – Szablony (oddział)* (linked to one OU, the same policy and value → the
+`DuplicateSetting` with RemoveSetting from *oddział*; the unlinked *Bez powiązań* never takes part); *Porządki – Pulpit
+zdalny* (only `SeRemoteInteractiveLogonRight`) and *Porządki – Inspekcja* (audit.csv with two subcategories, the same
+links, filter and WMI as *Pulpit zdalny* → merge candidate); *Porządki – Dyski (Księgowość)* and *Porządki – Dyski
+(Kadry)* (User Drives.xml K: with the same path, different uids, linked to two disjoint OUs → **no** RemoveSetting, the
+negative test; *Kadry* also a Machine Groups.xml preference group); *Porządki – Wyłączony* (all settings disabled, one
+disabled link).
+Extension names set as GPMC writes them (Drives: `[{00000000-0000-0000-0000-000000000000}{2EA1A81B-48E5-45E9-8BB7-A6E3AC170006}][{5794DAFD-BE60-433F-88A2-1A31939AC01F}{2EA1A81B-48E5-45E9-8BB7-A6E3AC170006}]`
+in `gPCUserExtensionNames`; to be checked against GPMC output in the lab – the design does not depend on the value). The
+management sample's drive GPO lists no Drives pair: copying from it is refused (a test says so).
+**Presentation (pl-PL, `GroupPolicyHarness`):** W1 – index service (one build, `IfMissing` reuse, stale on `Changed`,
+dropped on `SessionChanged`, a reconnect to the same server never reuses the old view, culture switch without GPO folder
+reads (no `ListGpoFolder` / `ReadGpoFile` on GPO paths; ADML of the new culture may be read), generation guard, a caller's
+cancel does not cancel a build another caller waits for, the last waiter's cancel does, `Incremental` during a build
+queues one follow-up, the build's own SYSVOL connection disposed at its end), `GpoIndexTexts` one row per unit kind,
+`HostTests`: `factory.Index` is the scoped instance; W4 – search: "minimalna długość hasła" finds both GPOs with values,
+"K:" finds the drive GPOs grouped as one unit, account search by name and SID, masked value not matched, facets, notes,
+empty query → summary only, 2 000-group cap, matcher over 100 000 records under a generous `Stopwatch` bound,
+open/edit/compare actions, export, shell palette `gpo.searchSettings`, tab entry with `SearchText`; W5 – copy (picker,
+window, preview rows *Zmiany ustawień* with the GPO name in `Group`, executed, undo), "all refused" → error dialog with the
+reasons (no toast), remove, merge, unlink-all, advisor delete refused after a foreign change, cleanup document on the
+cleanup sample (proposals, actions through `ScriptedGroupPolicyDialogs`, refresh after an action), palette `gpo.cleanup`,
+an open K4 editor on the target reloads after a copy without a conflict note when it has no edits,
+`UnavailableGroupPolicyDialogs` covers the new dialog; localization families complete (`AllKeys`).
+**App (Windows CI):** views in `MainWindow` templates, the copy window registered with `AddWindow` (+
+`GroupPolicyWindowTests`), `SmokeTest.RenderGroupPolicyAsync` opens both documents and the window, UI tests (binding
+errors, header widths, virtualization when grouped, entry points), screenshots **34** `34-gpo-settings-search.png` and
+**35** `35-gpo-cleanup.png` in the separate classes `ScreenshotTestsGpoSearch` and `ScreenshotTestsGpoCleanup`, each with
+its own `ShootAsync` as `ScreenshotTestsCorrespondence` does (`ScreenshotTests` is not partial and its `ShootAsync` is
+private; the CI step picks classes by the `ScreenshotTests` prefix). Lab (optional): copy of a policy, a right and a drive
+map between two lab GPOs and `samba-tool gpo` reading the result.
+
+### 21.11 Contracts (in the code since the K7 contract commit)
+
+The public types that cross agent boundaries were committed by the lead **before wave 1** as compilable stubs with XML
+doc comments (bodies `throw new NotImplementedException("K7 Wn: …")`, except trivial pass-throughs); **the code is
+authoritative**, this list is the map. An implementer may add members, never rename or remove these without writing the
+change into the as-built section. `ToString()` rules of 21.7 (already implemented in the stubs and pinned by
+`GpoK7ContractTests`).
+
+| File | Types and members | Implements |
+|---|---|---|
+| `src/AdMng.Core/GroupPolicy/Management/GpoFolderReader.cs` | `GpoFolderReadMode`, `GpoFolderReadOptions` (`Default`, `Settings`), `GpoFolderRequest`, `GpoFolderReadProgress`, `GpoFolderReadResult` (+ `ToState()`), `GpoFolderReader.ReadAsync` (dictionary overload; **streaming overload with `onRead`**), `GpoSettingsRead` | W1 |
+| `src/AdMng.Core/GroupPolicy/Management/GroupPolicyReader.cs` | `static GpoSettingsRead ReadSettings(GpoFolderContent)`; `Task<IReadOnlyDictionary<Guid,int>> CountDirectorySettingsAsync(session, ct)` | W1 |
+| `src/AdMng.Core/GroupPolicy/Content/GppXmlParser.cs` | `static IEnumerable<GppXmlItem> Items(XDocument)`; `GppXmlItem(ItemId, Element, Collections)` | W1 |
+| `src/AdMng.Core/GroupPolicy/Search/GpoSettingUnit.cs` | `GpoSettingUnitKind`, `GpoUnitComparability`, `GpoUnitRefusal` (+ `ScopedCollection`), `GpoSettingUnit` (+ `FiltersFingerprint`, `Disabled`, `RemovePolicy`, `CountsAsSetting` without `ScriptFile`, `BlocksMerge`), `GpoUnitContext` (+ `SidsByName`) | W1 |
+| `src/AdMng.Core/GroupPolicy/Search/GpoSettingUnits.cs` | `Of(settings, machineRegistry, userRegistry, context)`, `Of(content, context)`, `PrincipalNames(settings, domainSid)`, `SameValue`, `BaseIdOf`, `ItemKeyOf` | W1 |
+| `src/AdMng.Core/GroupPolicy/Search/GpoPrincipalResolver.cs` | `GpoPrincipalKind`, `GpoPrincipal`, `GpoPrincipalResolver` (`NamesPerSearch`, `KnownSid`, `ResolveAsync`) | W1 |
+| `src/AdMng.Core/GroupPolicy/Search/GpoSettingsIndex.cs` | `GpoIndexStatus`, `GpoIndexStage` (+ `Units`), `GpoIndexProgress`, `GpoUnitRef`, `GpoIndexEntry`, `GpoSettingsIndex` (+ `SidsByName`; `Find`, `BaseIds`, `Occurrences`, `WithPrincipal`, `WithDefinitions`), `GpoSettingsIndexRequest`, `GpoSettingsIndexBuilder.BuildAsync` | W1 |
+| `src/AdMng.Core/GroupPolicy/Management/GpoSettingsCopy.cs` | `GpoUnitSelection(GpoId, UnitId, ItemId?, ValueFingerprint?)`, `GpoCopyConflictMode`, `GpoUnitOutcomeKind` (+ `Unchanged`), `GpoUnitOutcome`, `GpoSettingsPlan` (+ `ChangesAnything`), `GpoSettingsCopyRequest` (+ `MaxSources` = 10), `GpoMergeRequest` (`Conflict` nullable = derived), `GpoExpectedState` | W2 |
+| `src/AdMng.Core/GroupPolicy/Management/GroupPolicyPlanner.CopySettings.cs` | `PlanCopySettingsAsync`, `PlanRemoveSettingsAsync(session, sysvol, gpoId, IReadOnlyList<GpoUnitSelection>, definitions, ct)`, `PlanMergeAsync`, `PlanUnlinkAllAsync`, `PlanDeleteAsync(session, gpoId, GpoExpectedState, ct)` | W2 |
+| `src/AdMng.Core/GroupPolicy/AdministrativeTemplates/PolicyClientExtensions.cs` | `PolicyClientExtensions.Of` | W2 |
+| `src/AdMng.Core/GroupPolicy/Backup/GpmcBackupFormat.cs` | `static Guid? TryPreferenceExtension(string? type)` (implemented: null for unknown types) | done |
+| `src/AdMng.Core/Batch/ChangePlan.cs` + both resx (`K7 copy issues (21.5)` block) | the 25 `IssueCodes` of 21.8 with en + pl texts | done (W2 may refine wording) |
+| `src/AdMng.Core/GroupPolicy/Cleanup/GpoCleanupModel.cs` | `GpoCleanupKind`, `GpoCleanupAction` (+ `CopyTo`), `GpoCleanupNote` (21.6 set), `GpoCleanupProposal`, `GpoCleanupOptions`, `GpoCleanupResult`, `GpoCleanupAnalyzer.Analyze` | W3 (W3 may split the analyzer into its own files) |
+| `src/AdMng.Presentation/GroupPolicy/Search/IGpoSettingsIndexService.cs` | `GpoIndexRefresh`, `GpoIndexView`, `IGpoSettingsIndexService` (`Current`, `IsStale`, `IsBuilding`, `Progress`, `StateChanged`, `GetAsync(refresh, ct)` – **no SYSVOL parameter**, `CancelBuild`, `Invalidate`) | W1 |
+| `src/AdMng.Presentation/GroupPolicy/Search/GpoSettingsIndexService.cs`, `GpoIndexTexts.cs` | the scoped service (ctor `(GroupPolicyServices)`, `IDisposable`); `GpoIndexTexts(localizer, view)` (`Describe`, `PrincipalName`) | W1 |
+| DI, factory, lifetimes | `TryAddScoped(GpoSettingsIndexService)` + interface forward; the factory lambda passes the interface; `GroupPolicyViewModelFactory(…, IGpoSettingsIndexService? index = null)` + `Index`; both types in `ConnectionLifetimes` | done |
+| `src/AdMng.Presentation/GroupPolicy/GroupPolicyServices.cs` | `GroupPolicyDocumentKind.SettingsSearch`, `.Cleanup` (after `Diagnostics`); `GroupPolicyDocumentRequest.SearchText` | done (the factory refuses both kinds until W4/W5 add their `CreateDocument` cases) |
+| `src/AdMng.Presentation/GroupPolicy/Search/GpoSettingsSearchEntry.cs` | `Request`, `OpenSettingsSearch(this GroupPolicyActions, string? searchText = null)` (implemented) | done; the document: W4 |
+| `src/AdMng.Presentation/GroupPolicy/Cleanup/GpoCleanupEntry.cs` | `Request`, `OpenCleanup(this GroupPolicyActions)` (implemented) | done; the document: W5 |
+| `src/AdMng.Presentation/GroupPolicy/Copy/GpoCopyItem.cs`, `GpoSettingsActions.cs` | `GpoCopyItem` (+ `ToString`); `CopySettingsAsync`, `RemoveSettingsAsync`, `MergeAsync`, `UnlinkAllAsync`, `DeleteCheckedAsync(gpo, GpoExpectedState)` (return `false` until W5) | W5 |
+| `src/AdMng.Presentation/GroupPolicy/Copy/GpoUnitRefusalText.cs` + both resx (`K7 copy refusals (21.5)` block) | `Key`, `Text`, `AllKeys` (implemented) | done |
+
+Still to be added by their owners (not in the contract commit, because they need types only the owner writes):
+`GroupPolicyActions.RunAsync(…, describeChanges = null)` and `DeleteAsync(…, GpoExpectedState? expected = null)` (W5);
+`IGroupPolicyDialogs.ShowCopySettingsAsync(GpoCopySettingsViewModel)` (W5); `L.GpoIndex.cs` (W1), `L.GpoSearch.cs`
+(W4), `L.GpoCopy.cs` and `L.GpoCleanup.cs` (W5).
+
+### 21.12 Work split and file ownership
+
+**Waves.** Wave 1 (parallel worktrees from the branch with this section): **W1** reader, units, resolver, index and the
+Presentation index service; **W2** copy/remove/merge/unlink-all planners; **W3** cleanup analyzer and the cleanup sample.
+Wave 2 (parallel, from the merged wave 1): **W4** search document; **W5** copy UI, preview builder and cleanup document.
+Docs are written in the integration step after wave 2 (lead), from the as-built notes the agents return.
+
+**Dependencies.** The lead's **K7 contract commit** (21.11) is in the branch before wave 1 starts, so the three wave-1
+agents and the two wave-2 agents compile against the same stubs from the first minute and never wait for each other's
+first commit. W3's analyzer tests build `GpoSettingsIndex` / `GpoIndexEntry` / `GpoSettingUnit` records by hand and do
+not need W1's implementation; only W3's sample tests (end-to-end through `GpoSettingsIndexBuilder`) and W2's end-to-end
+tests through `GpoSettingUnits.Of` need W1 – they are written against the stubs and turn green after the wave-1 merge
+(each agent marks them `[Fact(Skip = "needs W1 – wave-1 merge")]` until then and the lead removes the skips while merging).
+Wave 2 needs nothing from the other wave-2 agent: the enum members, `SearchText`, both entry classes, `GpoCopyItem`, the
+`GpoSettingsActions` signatures (returning `false` until W5) and `GpoUnitRefusalText` are in the contract commit.
+**Merge** is the last milestone of W2 (planner) and of W5 (merge mode of the copy window, *Scal z…* in the advisor): if
+either is late, the lead ships K7 without it (the advisor then never offers `Merge`, 21.9 lists it as K7.1).
+
+**New files (exclusive).**
+
+| Owner | Files |
+|---|---|
+| W1 | `src/AdMng.Core/GroupPolicy/Management/GpoFolderReader.cs`; `src/AdMng.Core/GroupPolicy/Search/**`; `src/AdMng.Presentation/GroupPolicy/Search/{IGpoSettingsIndexService,GpoSettingsIndexService,GpoIndexTexts}.cs`; `src/AdMng.Presentation/Localization/L.GpoIndex.cs`; `tests/AdMng.Core.Tests/GroupPolicy/Search/**`; `tests/AdMng.Presentation.Tests/GroupPolicy/Search/GpoSettingsIndex*Tests.cs`, `GpoIndexTextsTests.cs` |
+| W2 | `src/AdMng.Core/GroupPolicy/Management/{GroupPolicyPlanner.CopySettings,GpoSettingsCopy,GpoSettingsWriter,GppPreferenceDocument}.cs`; `src/AdMng.Core/GroupPolicy/AdministrativeTemplates/PolicyClientExtensions.cs`; `tests/AdMng.Core.Tests/GroupPolicy/Copy/**` |
+| W3 | `src/AdMng.Core/GroupPolicy/Cleanup/**`; `tests/AdMng.Testing/FakeDirectoryBuilder.GroupPolicyCleanup.cs` (`AddGroupPolicyCleanupSample`, `GroupPolicyCleanupSample`); `tests/AdMng.Core.Tests/GroupPolicy/Cleanup/**` |
+| W4 | `src/AdMng.Presentation/GroupPolicy/Search/{GpoSettingsSearchDocumentViewModel*.cs,GpoSearchRowViewModel,GpoSearchGroupViewModel,GpoSettingsMatcher,GpoSettingsSearchEntry}.cs` (the entry exists – W4 may extend it); `src/AdMng.Presentation/GroupPolicy/{GroupPolicyObjectDocumentViewModel.Search,GroupPolicyObjectsDocumentViewModel.Search}.cs`; `src/AdMng.Presentation/Shell/ShellViewModel.GroupPolicySearch.cs`; `src/AdMng.Presentation/Localization/L.GpoSearch.cs`; `src/AdMng.App/GroupPolicy/GpoSettingsSearchView.xaml(.cs)`; `tests/AdMng.Presentation.Tests/GroupPolicy/Search/GpoSettingsSearch*Tests.cs`; `tests/AdMng.App.UiTests/GroupPolicy/GpoSettingsSearchUiTests.cs`; `tests/AdMng.App.UiTests/ScreenshotTestsGpoSearch.cs` (34) |
+| W5 | `src/AdMng.Presentation/GroupPolicy/Copy/**` (the contract files included); `src/AdMng.Presentation/GroupPolicy/Cleanup/**` (`GpoCleanupEntry.cs` included); `src/AdMng.Presentation/GroupPolicy/GroupPolicyObjectsDocumentViewModel.Cleanup.cs`; `src/AdMng.Presentation/Shell/ShellViewModel.GroupPolicyCleanup.cs`; `src/AdMng.Presentation/Localization/{L.GpoCopy,L.GpoCleanup}.cs`; `src/AdMng.App/GroupPolicy/{GpoCleanupView,GpoCopySettingsWindow}.xaml(.cs)`; `tests/AdMng.Presentation.Tests/GroupPolicy/{Copy,Cleanup}/**`; `tests/AdMng.App.UiTests/GroupPolicy/{GpoCleanupUiTests,GpoCopySettingsUiTests}.cs`; `tests/AdMng.App.UiTests/ScreenshotTestsGpoCleanup.cs` (35) |
+
+**Shared files – changes only at these anchors** (both sides kept when two owners insert at the same anchor; W4's
+lines before W5's):
+
+| File | Owner: change at anchor |
+|---|---|
+| `src/AdMng.Core/GroupPolicy/Diagnostics/GroupPolicyDiagnosticsReader.cs` | W1: `ReadFoldersAsync` / `ReadFolderAsync` / `FolderMissingAsync` replaced by a call to `GpoFolderReader` (behaviour unchanged) |
+| `src/AdMng.Core/GroupPolicy/Management/GroupPolicyReader.cs` | W1: `ReadSettings` before `Settings` (which delegates); the count overload after `CountDirectorySettingsAsync` |
+| `src/AdMng.Core/GroupPolicy/Content/GppXmlParser.cs` | W1: `Items(XDocument)` after `Parse`; `Parse` iterates it |
+| `src/AdMng.Core/GroupPolicy/Modeling/GroupPolicyModeler.cs`, `Diagnostics/GroupPolicyDiagnostics.Conflicts.cs` | W1: the private `PreferenceItem` bodies call `GpoSettingUnits.ItemKeyOf` |
+| `src/AdMng.Core/Batch/ChangePlan.cs` | done by the contract commit (25 codes after `CentralStoreCreated`); W2 may only reword their XML comments |
+| `src/AdMng.Core/GroupPolicy/Management/GroupPolicyPlanner.cs` | W2: none – the expected-state `PlanDeleteAsync` overload lives in the `CopySettings` partial and calls the existing method's private helpers |
+| `src/AdMng.Presentation/Resources/Strings.resx`, `Strings.pl.resx` | done: blocks `K7 copy issues (21.5)` and `K7 copy refusals (21.5)` after the `Issue.CentralStoreCreated` entry (W2 may reword inside the first, W5 inside the second); W1: block `K7 settings index (21.3)` after `<!-- K6 Group Policy diagnostics (20.2): end -->`; W4: block `K7 settings search (21.4)` after `<!-- Stage S readiness check (Gotowość środowiska): end -->`; W5: block `K7 copy and cleanup (21.5, 21.6)` after `<!-- K7 copy refusals (21.5): end -->` |
+| `src/AdMng.Presentation/GroupPolicy/GroupPolicyServiceCollectionExtensions.cs` | index registration and factory argument done; W5: `ShowCopySettingsAsync` in `UnavailableGroupPolicyDialogs` |
+| `src/AdMng.Presentation/GroupPolicy/GroupPolicyViewModelFactory.cs` | `index` parameter and `Index` done; W4/W5: one `CreateDocument` case and one `Matches` arm each after `Diagnostics` (W4's first) |
+| `src/AdMng.Presentation/GroupPolicy/GroupPolicyServices.cs` | done (`SettingsSearch`, `Cleanup`, `SearchText`); nobody changes it in K7 |
+| `src/AdMng.Presentation/GroupPolicy/GroupPolicyActions.cs` | W5: the `describeChanges` parameter of `RunAsync` and its use before `PreviewAsync`; the optional `GpoExpectedState? expected` of `DeleteAsync` |
+| `src/AdMng.Presentation/GroupPolicy/IGroupPolicyDialogs.cs` | W5: `ShowCopySettingsAsync` after `ShowCentralStoreUpdateAsync` |
+| `src/AdMng.Presentation/Shell/ShellViewModel.GroupPolicy.cs` | W4: an `else if (request.SearchText …)` branch after the `Focus` branch of `OpenGroupPolicyDocument` |
+| `src/AdMng.Presentation/Shell/ShellViewModel.Palette.cs` | W4/W5: `.. GroupPolicySearchCommandDescriptors(),` / `.. GroupPolicyCleanupCommandDescriptors(),` after `.. GroupPolicyDiagnosticsCommandDescriptors(),` |
+| `src/AdMng.Presentation/Shell/ShellViewModel.Commands.cs` | W4/W5: their open commands in `StateCommands` after `OpenGroupPolicyDiagnosticsCommand` |
+| `src/AdMng.Presentation/Shell/ShellViewModel.Documents.cs` | W4/W5: `ActiveGpo()` arms for the selected row after the `GroupPolicyObjectDocumentViewModel` arm |
+| `tests/AdMng.Presentation.Tests/Connections/ConnectionLifetimes.cs` | done (both index types after `PolicyDefinitionsService`) |
+| `tests/AdMng.App.UiTests/HostTests.cs` | W1: one check that `GroupPolicyViewModelFactory.Index` is the scoped `IGpoSettingsIndexService` |
+| `tests/AdMng.Presentation.Tests/GroupPolicy/ScriptedGroupPolicyDialogs.cs` | W5: `ShowCopySettingsAsync` handler |
+| `src/AdMng.App/Views/MainWindow.xaml` | W4/W5: xmlns after the last GPO xmlns; document templates after the `GroupPolicyDiagnosticsDocumentViewModel` template; menu items after `gpo.diagnose` |
+| `src/AdMng.App/Views/TreeMenu.cs` | W4/W5: one item each after the `L.GpoDiagnostics.Command` item of the GPO root |
+| `src/AdMng.App/GroupPolicy/GroupPolicyObjectsView.xaml` | W4/W5: a toolbar button each after `DiagnoseButton` |
+| `src/AdMng.App/GroupPolicy/GroupPolicyObjectView.xaml` | W4: *Znajdź we wszystkich GPO* after `SettingsReportButton` |
+| `src/AdMng.App/GroupPolicy/GroupPolicyAppRegistration.cs`, `src/AdMng.App/Services/DialogService.GroupPolicy.cs` | W5: `AddWindow<GpoCopySettingsViewModel, GpoCopySettingsWindow>()` and `ShowCopySettingsAsync` |
+| `src/AdMng.App/SmokeTest.cs` | W4/W5: their requests after `new(GroupPolicyDocumentKind.Diagnostics)`; W5: the copy window render in `RenderGroupPolicyAsync` |
+| `tests/AdMng.App.UiTests/GroupPolicy/GroupPolicyWindowTests.cs` | W5: the copy window in `AppHost_RegistersTheGroupPolicyWindows_AndTheyRender_Disconnected` |
+| `docs/ZASADY-GRUPY.md`, `README.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`, `docs/PILOTAZ.md`, this note, and the code that quotes chapter numbers | integration (lead): new chapter *12. Wyszukiwanie, kopiowanie ustawień i porządki w GPO (K7)* after chapter 11, chapters 12–14 renumbered to 13–15 and every link to them fixed; the readiness text that quotes *rozdział 12 „Kontroler domeny, emulator PDC i SYSVOL”* in `Strings.resx` / `Strings.pl.resx` (Readiness documentation entry) becomes *rozdział 13* together with its assertion in `tests/AdMng.Presentation.Tests/Readiness/ReadinessQuickCheckTests.cs`; README K7 ✅ with *Znane ograniczenia*, its `#14-…` links → `#15-…`; `docs/ROADMAP.md` row *K1–K6* → *K1–K7* and its README anchor (renaming the README heading changes the anchor); `docs/PILOTAZ.md` §3.3 *Zasady grupy (K2–K7)* with K7 checklist items and the fixed `#15-ograniczenia-i-pilotaż` link; ARCHITECTURE paragraph; 21.14 *K7 as built* |
+
+`L.cs`, `CLAUDE.md`, `Directory.Packages.props`, `AdMng.slnx`, the Watchdog projects and
+`AddGroupPolicyManagementSample` are not changed by anyone. Any other change to a file another owner holds needs the
+lead's agreement and a line in the as-built section; a merge conflict outside the anchors above means a rule of this
+section was broken.
+
+### 21.13 Review notes
+
+The design review of 21 (2026-11) was applied in 21.1–21.12. Points taken only in part, with the reason:
+
+* *Disabled preference items "not counted"*: they never count as duplicates or as a search group's value, but they keep
+  their GPO from being `EmptyGpo` – deleting dormant content is not a cleanup the advisor should propose.
+* *Defer merge to K7.1*: kept in K7 as the lead decided, but as the last, droppable milestone of W2 and W5 (21.12).
+* *Move B's link to A's order during a merge*: not done; the precedence-derived conflict mode and the
+  `GpoMergeLinkOptionsDiffer` warning make the effect visible, and moving links is listed in 21.9.
+* *Refuse merge when a disabled half of A holds units*: those units are skipped (not copied, info issue) instead, so
+  the merge keeps A's behaviour; the advisor still offers no Merge for such GPOs (note `PartDisabled`).
+* *Presence-only `ScriptFile` units in the content-only read*: not needed – `ScriptFile` units no longer count as settings
+  or block a merge, so the index (which does not read script files) and the planner agree.
+* *Progress or cancel while planning a copy*: replaced by the 10-source limit (`GpoSettingsCopyRequest.MaxSources`).
+* *Explicit-copy of a source's disabled half*: copied with a warning (`GpoSettingSourcePartDisabled`) rather than
+  skipped – the operator chose the unit; only the merge skips them.
+* *Separate code for directory settings in a merge*: the existing `IssueCodes.GpoDirectorySettings` is reused at severity
+  `Error` (one text, already translated).
+
+### 21.14 K7 as built
+
+**W1 as built.** Folder reader, units, resolver, index and index service as in 21.1–21.3, with these additions and
+choices (contract signatures unchanged; members added only): `GpoFolderReadResult` of a GPO skipped by the run budget has
+`Skipped = true` and `Status = Failed`; the GPO budget is predictive (a file that would cross `MaxGpoBytes` and every later
+file go to `NotRead`). The new `CountDirectorySettingsAsync(session, ct)` overload sits after the per-GPO method (the
+contract commit had split that method's summary). `GppXmlParser.Canonical` became `internal` and `GppXmlParser.IsCollection`
+public. The normalized keys do not show `Collection` elements, so the chains travel as `GpoPreferenceScope` records:
+`GpoSettingUnits.PreferenceScopes(content)`, `GpoUnitContext.PreferenceScopes` and `GpoIndexEntry.PreferenceScopes` (kept for
+`WithDefinitions`); `Of(settings, …)` without them takes every item as being at its file's root, `Of(content, …)` reads them.
+`GpoIndexEntry.HasContent` = `Read` or `Incomplete`. Occurrence numbers follow the order of the settings (key order of
+`ReadSettings`), not file order; collection pseudo-items make no unit; a cut (truncated) preference key is a unit of its own
+and marks its item `Truncated`; an identity that falls back to the item id is written `(id)`; a base id that would end like
+`#n` gets a closing `|`, so `BaseIdOf(Id) == BaseId` always. Policies also get a `ValueFingerprint` (state and element values,
+canonical) next to `PolicySetting` equality; `SameValue` also requires the same kind and base id. `PrincipalSids` holds SIDs
+only (an unresolved name stays in `Principals`). `GpoPrincipalResolver.ResolveAsync` returns `KONTOSO\Domain Admins` (another
+domain) as `Unresolved` although `KnownSid` maps the bare name to this domain's RID 512; `PrincipalNames` therefore also
+lists `DOMAIN\name` spellings that `KnownSid` maps to a RID of this domain, and with a `SidsByName` map the units take the
+resolver's answer for them (without a map the well-known mapping stands). An incremental index build keeps the
+`SidsByName` of names it resolved before (same domain SID). The service's `GetAsync` throws `InvalidOperationException` when
+disconnected and `ObjectDisposedException` after disposal; waiters of a build that `Invalidate` or `CancelBuild` stopped get
+`OperationCanceledException`. `GpoIndexTexts.For(localizer, view)` returns the one instance per view (the service warms it
+on its build thread); `PresenterOf(entry)` and `Warm()` are public, `Describe` is cached per GPO and unit id. Review fixes: a folder the parsers trip
+over marks only that GPO `Failed`; in the service an `IfMissing` request never joins a cancelled build (it queues an
+`Incremental` follow-up), a GPO change during a build leaves the new view stale, queued builds cancelled before they start
+release their lifetime link, and `StateChanged` posts are coalesced.
+
+**W2 as built.** `PlanCopySettingsAsync`, `PlanRemoveSettingsAsync`, `PlanMergeAsync`, `PlanUnlinkAllAsync` and the
+guarded `PlanDeleteAsync` live in `GroupPolicyPlanner.CopySettings.cs`; contract signatures unchanged. The setting-unit
+layer is reached through the internal `GpoUnitSource` (`ReadSettings`, `PrincipalNames`, `ResolveAsync`, `Of`,
+`SameValue`, `KnownSid`; `GroupPolicyPlanner.UnitSource`, default = W1's real functions), so W2's tests run on
+hand-built units (`tests/AdMng.Core.Tests/GroupPolicy/Copy/HandUnits.cs`) and four end-to-end tests on W1's units wait
+with `Skip = "K7 wave 1 merge"`. The internal `GpoSettingsWriter` addresses a unit through its settings' keys
+(`GpoSettingKey.Parse` of `Settings[0]`), `Scope`, `Source` (preference file), `ItemId`, `PreferenceType` and
+`PolicyId` – W1's units must fill these. A value named in a shared `**DeleteValues` / `**DeleteKeys` list is copied as
+an entry of its own (`**del.x` / a one-name `**DeleteKeys`) and removed by shrinking the list. `GppPreferenceDocument`
+numbers items itself exactly as `GppXmlParser.Parse` does (no dependency on `GppXmlParser.Items`) and resolves item ids
+against the file as read, so removals do not shift positional ids. Deviations: the target's own incomplete read or
+leftovers is an error (`GpoSettingIncomplete`); a merge refuses with `GpoMergeNotCopyable` also for units refused at plan
+time (policy-owned raw value, unknown extension pair), not only for `BlocksMerge`; merge errors sit on A's object, copy
+issues on the target's object; a `P|` selection without a definition set gives `GpoSettingNoDefinitions` (the units
+rebuilt without a set hold no `P|` id); duplicate selections are copied once; `A = B` is `IssueCodes.InvalidValue`.
+W2 review fixes: the writer refuses, independently of the unit layer, any unit with a masked setting and any preference
+item carrying a non-empty `cpassword` (`GpoSettingSecret`), and an audit value outside 0–3 (`GpoSettingUnsupported`
+instead of an exception); `Replace` does not remove a target occurrence that has a `Refusal` (the unit is refused, as
+a remove of it would be); `GpoSettingPolicyOwned` names the target GPO; remove de-duplicates selections; in a merge,
+units of a half A has disabled are skipped before any refusal check, so they neither block the merge
+(`GpoMergeNotCopyable`) nor raise `GpoSettingRemovePolicy` or part-disabled warnings (21.13).
+
+**W3 as built** (cleanup analyzer, cleanup sample). `GpoCleanupAnalyzer` lives in `src/AdMng.Core/GroupPolicy/Cleanup/`
+(`GpoCleanupAnalyzer{,.Context,.Settings,.Merge}.cs`; the stub left `GpoCleanupModel.cs`, no contract signature changed).
+It reads only the index's records (not `GpoSettingsIndex.Find`/`Occurrences`) and compares values with
+`GpoSettingUnits.SameValue`, so it is a pure function of the unit records. Additions to 21.6, all on the safe side:
+GPO-level kinds (`UnlinkedGpo`, `AllLinksDisabled`, `GpoDisabled`) are evaluated for every entry, content kinds only for
+`Read`; `Disable` is not offered for a GPO already all-disabled; the note `DefaultGpo` accompanies every withheld Delete.
+Default GPOs never get `SingleSettingGpo` and never take part in a merge group (neither source nor target); merge groups
+and merge targets also skip all-disabled GPOs, GPOs without an enabled link and GPOs without counted units; a
+single-setting GPO with an unreadable marker is not proposed; the `SingleSettingGpo` merge target needs the same security
+and WMI filter too (like `MergeCandidate`). `DuplicateSetting`: coverage also requires the keeper's security filter to
+reach everyone the covered GPO's does (same sets, or Authenticated Users/Everyone with no deny) and its WMI filter to be
+none or the same; positions are (domain head/OU × site) pairs resolved with `GroupPolicyInheritance`; GPOs are ranked
+(default GPO, more counted units, name) and a GPO is proposed only when a higher-ranked one covers it (`RelatedGpoIds` =
+every such keeper), so executing every proposal never removes the last copy; an applying occurrence in an `Incomplete`
+GPO, a non-comparable one or a second occurrence in one GPO blocks the base id; for account policy only domain-head GPOs
+are candidates but applying occurrences anywhere block; comments and script files never count. `LinkOrderDiffers` = in a
+shared container the source has the lower link order. A covered unit with a refusal (audit option, object security) is
+reported without `RemoveSetting`, with `NonCopyableUnits`. Sample: `AddGroupPolicyCleanupSample` adds `OU=Kadry` below
+`OU=Pracownicy` (the company has no HR OU) and appends links to existing `gPLink` values, so it combines with the
+management sample; the two drive items are identical apart from their uids; "Pulpit zdalny"/"Inspekcja" are linked to
+`OU=IT`, "Szablony (oddział)" to `OU=Komputery`, "Wyłączony" to `OU=Sprzedaż`. The end-to-end sample tests are skipped
+with `Skip = "K7 wave 1 merge"`.
+
+**W3 review** (fixes on the W3 branch, all on the safe side): `MergeCandidate` picks as target the best-ranked GPO with
+no disabled half (falls back to the largest), and a source whose counted units the target's disabled half would take
+gets no Merge (note `PartDisabled`); `SingleSettingGpo` merge targets must not disable the unit's half; an unknown
+security filter (descriptor not readable) is never equal in a merge group and never shows coverage. `DuplicateSetting` is
+not proposed for `RegistryKey` units (key-level `**delvals.`/delete entries act in processing order on values of other
+units), for a covered GPO in whose positions a GPO of unknown content applies (status other than `Read`/`NotFound`, an
+enabled link, not all disabled – it could hold a third value between the two copies), or when the covered GPO has a site
+link and the forest has other domains (the site link reaches their objects too). Coverage and filters are cached per
+analysis.
+
+**W4 as built** (search document). `GpoSettingsSearchDocumentViewModel` (`.cs` load/index state, `.Query.cs` query, facets,
+debounce and results, `.Actions.cs` row actions and exports; ctor `(services, actions, IGpoSettingsIndexService, searchText,
+csv)`, the factory passes `request.SearchText`), `GpoSearchGroupViewModel`, `GpoSearchRowViewModel` and `GpoSettingsMatcher.cs`
+(also `GpoSearchCorpus`, `GpoSearchRecord`, `GpoSearchUnitGroup`, `GpoSearchResult`, `GpoSearchQuery`, the enums
+`GpoSearchField`, `GpoSearchArea`, `GpoValueAgreement`); `GpoSearchNote` and `GpoSearchAreaFilter` live in the document's
+files; `GpoSettingsSearchEntry` is unchanged. Choices and deviations: text is matched on keys folded once per corpus (case,
+combining marks, and the stroke letters ł/đ/ø, so "dlugosc" finds "długość") with an ordinal search instead of
+`CompareInfo.IndexOf(IgnoreCase | IgnoreNonSpace)` – a pass over 100 000 records is far below 500 ms (test, best of three);
+a matched unit shows **every** occurrence of its base id (the GPOs with other values too), so "wystąpienia" in the result line
+counts shown rows; the agreement is `Single` when fewer than two occurrences apply (disabled items left out), `NotComparable`
+when any applying one is not `Comparable`, else `SameValue` against the first. Area facet: `RegistryValue`/`RegistryKey` count
+as administrative templates, `Service`/`ObjectSecurity` as security, GPO comments (scope `Gpo`) appear only with both
+configurations; one area entry per preference type of the index. "Konto": SIDs from `KnownSid`, the index's `SidsByName` and
+the view's SID names (exact), else one `GpoPrincipalResolver.ResolveAsync` for a `DOMAIN\name` or UPN, plus a substring match
+on the resolved names. The 250 ms debounce is in the view model (real-time `Task.Delay`; the box binds without `Delay`; Enter /
+`SearchCommand` searches at once); group and row view models are built on the matching thread. Results shown when Group Policy
+changes or the session moves (another DC, reconnect) only get the stale bar, as in diagnostics; "Odśwież" / F5 = `Incremental`,
+"Odczytaj wszystko ponownie" = `Full`; a language switch re-renders stale results from the shown view only (no
+service call, so a dropped view is never rebuilt and a culture build never clears the mark), fresh ones through
+`IfMissing`; "Anuluj" ends only this tab's wait. "Kopiuj do innego GPO…" calls
+`CopySettingsAsync(items)` (target picked by W5) and refreshes incrementally when it returns true; until W5 it returns false.
+The base document still opens (and disposes) a SYSVOL connection on every load for the banner, besides the service's own
+build connection – one extra SMB logon per load; a `GroupPolicyDocumentBase` opt-out would be a shared-file change for the
+lead. The `ActiveGpo()` arm uses the fully qualified type name (no `using` added to the shared file). Screenshot 34 searches
+"hasł" over both samples, with a GptTmpl (password length 10, complexity, maximum age) written into "Porządki – Szablony
+(oddział)" by the screenshot test only (samples unchanged). The UI test and the screenshot are compiled on Linux, not run.
+
+**W5 as built** (copy UI, preview builder, "Porządki w GPO"; merge included). `GpoSettingsActions` implement copy, remove,
+merge, unlink-all and the guarded delete through `GroupPolicyActions.RunAsync`. Its new last parameter is
+`describeChanges: Func<ChangePlan, IDirectorySession, CancellationToken, Task<IReadOnlyList<GroupPolicySettingChange>?>>`,
+called right after planning (before the "nothing to do" toast check); an expected failure drops only the rows, and **null
+stops before the preview** – that is how the "nothing would change" error dialog (one line per unit with its refusal,
+`GpoSettingSecret` shown as the MS14-025 refusal text, else `GpoCopy.Outcome.<Kind>`, then every issue of the plan
+translated) replaces the toast; a merge is stopped only when its plan does nothing at all (it relinks and disables A even
+when every unit is unchanged). Deviation from 21.11: `CopySettingsAsync`, `RemoveSettingsAsync` and `MergeAsync` gained a
+trailing optional `PolicyDefinitionSet? definitions = null` – the actions cannot reach the window's index service, so the
+caller passes `IGpoSettingsIndexService.Current.Index.Definitions` (without it ADMX units are refused with
+`GpoSettingNoDefinitions`); **W4's "Kopiuj do innego GPO…" must pass `view.Index.Definitions`** and can build its items
+with the new `GpoCopyItems.Of(texts, entry, unit)` (`OfGpo`, `OfBaseId` too). `DeleteCheckedAsync` compares the fresh
+`versionNumber` and linking containers with the `GpoExpectedState` *before* the backup offer (refusal dialog
+`GpoCopy.ChangedSinceAnalysis`), then calls `DeleteAsync(gpo, expected)` whose plan guards again up to execution; the
+internal `DeleteCheckedCoreAsync` tells the advisor to read the index again. The merge window's derived mode, mixed-order
+choice and filter/WMI/link warnings come from fresh LDAP link reads in `MergeAsync` (the planner stays authoritative and
+repeats them in the preview); `GpoCopySettingsViewModel` has no per-unit conflict overrides (`ConflictByUnit` unused by
+the UI). `GpoSettingChangesBuilder` compares units by id and `ValueFingerprint` on both sides of each GPO's written
+files (`WriteGpoFile` and `DeleteGpoFile`) with one context (no domain SID, no `SidsByName` – identical on both sides) and
+resolves SID names in one batch. `GpoCleanupDocumentViewModel` reads the index with `IfMissing` on open, `Incremental` for
+F5/"Odśwież"/after an action, `Full` for "Odczytaj wszystko ponownie", re-analyses on `Task.Run`, rebuilds its texts on a
+culture switch through `IfMissing` (no folder reads), never calls `CancelBuild` ("Anuluj" ends only its own wait) and is
+stale while the index is stale or its view was replaced. Strings: block `K7 copy and cleanup (21.5, 21.6)` after the
+refusals block (`L.GpoCopy` with the `Outcome` family, `L.GpoCleanup` with the Kind/Action/Note families, both with
+`AllKeys`). The smoke test renders the copy window with inline items (`GroupPolicySamples` unchanged). "Pokaż w
+wyszukiwarce" calls `OpenSettingsSearch(settingName)`, which the factory refuses until W4's case is merged. Screenshot 35
+and the WPF UI tests compile here and run on Windows CI only. For the lead: conflicts are expected only at the shared
+anchors W4 also uses (Palette, Commands `StateCommands`, Documents `ActiveGpo`, factory `CreateDocument`/`Matches`,
+MainWindow xmlns/templates/menu, TreeMenu, the GPO list toolbar, SmokeTest requests; W4's lines first) and in this
+section.
+
+**Integration.** Wave 1 and wave 2 merged at the anchors of 21.12 (W4's lines first); the notes above stay as each wave
+wrote them, this paragraph records what changed at integration. The cleanup analyzer now calls
+`GpoSettingUnits.SameValue` (W3's private copy of the comparison was removed) and the end-to-end tests skipped with
+`"K7 wave 1 merge"` run. The search's *Kopiuj do innego GPO…* calls
+`CopySettingsAsync(items, definitions: view.Index.Definitions)`, so ADMX units are copied with the definition set they
+were built with (no `GpoSettingNoDefinitions` from the search); *Pokaż w wyszukiwarce* reaches W4's `CreateDocument`
+case. A culture build of `GpoSettingsIndexService` (names and definitions re-resolved, no folder read) keeps the stale
+mark of the view it replaces – it re-renders the old data, so an earlier GPO change must still show the stale bar. Docs:
+user chapter `docs/ZASADY-GRUPY.md` 12 (old 12–14 renumbered to 13–15, the readiness entry quoting chapter 13 and its
+test updated), README K7, `docs/PILOTAZ.md` G10–G13, `docs/ARCHITECTURE.md`. Known and accepted: the merge window counts
+the refused settings of a half the source GPO has disabled as blocking (and keeps *Scal* disabled), although the planner
+skips that half (21.13) – stricter than the planner, and the advisor never offers such a merge (note `PartDisabled`), so
+the UI never shows it; every document load of the search and cleanup tabs still opens one extra SYSVOL connection (one
+SMB logon) for the shared base's banner besides the index service's own build connection (W4 note).
+
+**K7 review fixes** (behaviour changes). Copy and merge: preference occurrences are handled per base id *and* targeting
+(`FiltersFingerprint`), so each source variant replaces, or is `Unchanged` against, only the target variants of its own
+targeting; `Skip` keeps the target's value only when a target variant of the same targeting applies (not disabled, not in
+a disabled or scoped collection), otherwise the item is copied; a merge keeps both GPP local-group `Update` items that only
+add members (no rename, no delete-all/remove flags, no removed member) and appends A's. Inconsistent administrative
+templates compare by their raw entries too (fingerprint and `SameValue`). `GpoExpectedState` also carries the GPO status
+and each link's enabled/enforced state (`GpoExpectedState.Of`, `Matches`), so the guarded delete refuses a GPO that was
+re-enabled or got an enabled link since the analysis. Cleanup analyzer: no `DuplicateSetting` for a raw Registry.pol value
+when a key-level entry (`**delvals.`, `DELETE_KEY`, a `**`-named value) of any applying GPO sits on its key or a parent
+key; a GPO of another domain linked to a container counts as unknown content; the new note `LinkedBetween` (merge
+candidates and single-setting merges, which now also get `LinkOrderDiffers`) when a GPO linked between source and target
+applies a setting the source sets or has unknown content, and the planner warns `GpoMergeLinkedBetween` for any enabled
+link between A and B. "Porządki w GPO" disables its content actions (all but the delete) while the analysis is stale. The
+index service joins a running build with `IfMissing` only when it was started for the requested culture. The "Zmiany
+ustawień" builder parses and describes on the thread pool.

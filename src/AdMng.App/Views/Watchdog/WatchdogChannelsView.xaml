@@ -306,18 +306,15 @@
               <TextBlock Style="{StaticResource Wd.CardTitle}" Text="{l:Tr Watchdog.Ui.TestEmail}" />
               <TextBlock Style="{StaticResource Wd.Hint}" Text="{l:Tr Watchdog.Ui.TestUsesUnsaved}" />
               <DockPanel Margin="0,8,0,0">
-                <Button x:Name="SendTestEmailButton"
-                        Margin="8,0,0,0"
-                        Command="{Binding SendTestEmailCommand}"
-                        DockPanel.Dock="Right"
-                        Style="{StaticResource Wd.ToolButton}">
-                  <StackPanel Orientation="Horizontal">
-                    <TextBlock FontSize="12"
-                               Style="{StaticResource Ad.GlyphText}"
-                               Text="{x:Static c:Glyphs.Send}" />
-                    <TextBlock Margin="6,0,0,0" Text="{l:Tr Watchdog.Ui.SendTest}" />
-                  </StackPanel>
-                </Button>
+                <c:ActionButton x:Name="SendTestEmailButton"
+                                Margin="8,0,0,0"
+                                CancelCommand="{Binding EmailTest.CancelCommand, Mode=OneWay}"
+                                Command="{Binding SendTestEmailCommand}"
+                                Content="{l:Tr Watchdog.Ui.SendTest}"
+                                DockPanel.Dock="Right"
+                                Glyph="{x:Static c:Glyphs.Send}"
+                                IsRunning="{Binding EmailTest.IsRunning, Mode=OneWay}"
+                                Style="{StaticResource Ad.ActionButton}" />
                 <Grid>
                   <TextBox x:Name="TestRecipientsBox"
                            AutomationProperties.Name="{l:Tr Watchdog.Ui.TestRecipients}"

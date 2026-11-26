@@ -119,23 +119,41 @@ public sealed class LdapDirectoryConnector : IDirectoryConnector
         return await ConnectCoreAsync(settings, domain, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// The DC is the host the window's connections are pinned to (<see cref="LdapConnectionFactory.Host"/> of its pool – the
+    /// DC's own name after pinning, or the name or address the operator gave; <c>Info.Server</c>, the DC's
+    /// <c>dnsHostName</c>, need not resolve on the client); the options are the window's with
+    /// <see cref="ConnectionOptions.GlobalCatalog"/> on and no explicit port (<see cref="ConnectionSettings.ForGlobalCatalog"/>),
+    /// the credential a copy of the window's in-memory one. A DC that is not a global catalog refuses the port: the error is
+    /// that of <see cref="ConnectAsync"/> (<see cref="DirectoryErrorKind.ServerUnavailable"/>). The session reports
+    /// <see cref="SessionInfo.IsGlobalCatalog"/>, so its subtree searches carry no domain-scope control and a search with base
+    /// <c>""</c> covers the whole global catalog. Callers keep it as a read-only reader (docs/dev/phase3-bulk-create.md 2.2).
+    /// </remarks>
+    public async Task<IDirectorySession> ConnectGlobalCatalogAsync(IDirectorySession current, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(current);
+        if (current is not LdapDirectorySession source)
+        {
+            throw new NotSupportedException("The session was not opened by this connector.");
+        }
+
+        var settings = source.SettingsForServer(source.Pool.Factory.Host).ForGlobalCatalog();
+        var domain = settings.Options.Domain?.Trim().TrimEnd('.') ?? source.Info.DomainDnsName;
+        return await ConnectCoreAsync(settings, domain, cancellationToken).ConfigureAwait(false);
+    }
+
     private async Task<IDirectorySession> ConnectCoreAsync(ConnectionSettings settings, string? domain, CancellationToken cancellationToken)
     {
         var started = _timeProvider.GetTimestamp();
         var sessionLogger = _loggerFactory.CreateLogger<LdapDirectorySession>();
         var (factory, connection) = await OpenFirstConnectionAsync(settings, domain, sessionLogger, cancellationToken)
             .ConfigureAwait(false);
-        try
-        {
-            return await InitializeSessionAsync(settings, factory, connection, domain, started, sessionLogger, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch
-        {
-            // Disposing twice is harmless when the session's pool already released it.
-            connection.Dispose();
-            throw;
-        }
+
+        // From here on InitializeSessionAsync releases the connection on every path: itself, or through the session's pool
+        // once it was added - never under a request that still runs on it (DLR-4).
+        return await InitializeSessionAsync(settings, factory, connection, domain, started, sessionLogger, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private async Task<(LdapConnectionFactory Factory, LdapConnection Connection)> OpenFirstConnectionAsync(
@@ -229,13 +247,57 @@ public sealed class LdapDirectoryConnector : IDirectoryConnector
         ILogger sessionLogger,
         CancellationToken cancellationToken)
     {
-        var rootDse = await ReadRootDseAsync(connection, settings, cancellationToken).ConfigureAwait(false);
-        var domainDns = DistinguishedName.Parse(rootDse.DefaultNamingContext).DnsDomain;
-        var pinned = await PinAsync(factory, rootDse, domain ?? domainDns, domainDns, sessionLogger, cancellationToken)
-            .ConfigureAwait(false);
+        var rootDseFinished = Task.CompletedTask;
+        RootDse rootDse;
+        string domainDns;
+        LdapConnectionFactory pinned;
+        try
+        {
+            var rootDseRead = connection.Send<SearchResponse>(RootDseRequest(), settings.Options.RequestTimeout, cancellationToken);
+            rootDseFinished = rootDseRead.Finished;
+            rootDse = await ReadRootDseAsync(rootDseRead.Response).ConfigureAwait(false);
+            domainDns = DistinguishedName.Parse(rootDse.DefaultNamingContext).DnsDomain;
+            pinned = await PinAsync(factory, rootDse, domain ?? domainDns, domainDns, sessionLogger, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch
+        {
+            // A cancelled RootDSE read (or one past its deadline on a silent server) may still run: the connection is
+            // disposed once it ended.
+            connection.DisposeWhenFinished(rootDseFinished);
+            throw;
+        }
 
         var pool = new LdapConnectionPool(pinned, settings.Options.MaxConnections, sessionLogger, _timeProvider);
         pool.Add(connection);
+        try
+        {
+            return await StartSessionAsync(settings, factory, pool, connection, pinned, rootDse, domainDns, started, sessionLogger, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch
+        {
+            // The pool owns the connection now and closes it once no request runs on it; a second close (the session
+            // closed its pool already) does nothing.
+            await pool.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
+    }
+
+    /// <summary>The session over the first connection: its first reads (NetBIOS name, identity, recycle bin, schema).</summary>
+    private async Task<LdapDirectorySession> StartSessionAsync(
+        ConnectionSettings settings,
+        LdapConnectionFactory factory,
+        LdapConnectionPool pool,
+        LdapConnection connection,
+        LdapConnectionFactory pinned,
+        RootDse rootDse,
+        string domainDns,
+        long started,
+        ILogger sessionLogger,
+        CancellationToken cancellationToken)
+    {
+        var encrypted = pinned.IsEncrypted(connection);
         var info = new SessionInfo
         {
             Server = rootDse.DnsHostName ?? pinned.Host,
@@ -250,13 +312,15 @@ public sealed class LdapDirectoryConnector : IDirectoryConnector
             Security = settings.Options.Security,
             SecurityStrengthFactor = factory.SecurityStrengthFactor(connection),
             IsGlobalCatalog = settings.Options.GlobalCatalog,
+            IsChannelEncrypted = encrypted,
+            IsGlobalCatalogReady = rootDse.IsGlobalCatalogReady,
             DomainFunctionality = rootDse.DomainFunctionality,
             ForestFunctionality = rootDse.ForestFunctionality,
             SupportedControls = rootDse.SupportedControls,
             ConnectedAt = _timeProvider.GetUtcNow(),
         };
 
-        var session = new LdapDirectorySession(info, pool, pinned.IsEncrypted(connection), sessionLogger, _timeProvider);
+        var session = new LdapDirectorySession(info, pool, encrypted, sessionLogger, _timeProvider);
         try
         {
             // Independent reads run concurrently - the pool opens more connections in the background while the
@@ -320,21 +384,17 @@ public sealed class LdapDirectoryConnector : IDirectoryConnector
         }
     }
 
-    private static async Task<RootDse> ReadRootDseAsync(
-        LdapConnection connection,
-        ConnectionSettings settings,
-        CancellationToken cancellationToken)
+    private static SearchRequest RootDseRequest() => new(
+        string.Empty,
+        "(objectClass=*)",
+        System.DirectoryServices.Protocols.SearchScope.Base,
+        [.. RootDse.Attributes]);
+
+    private static async Task<RootDse> ReadRootDseAsync(Task<SearchResponse> read)
     {
-        var request = new SearchRequest(
-            string.Empty,
-            "(objectClass=*)",
-            System.DirectoryServices.Protocols.SearchScope.Base,
-            [.. RootDse.Attributes]);
         try
         {
-            var response = await connection
-                .SendAsync<SearchResponse>(request, settings.Options.RequestTimeout, cancellationToken)
-                .ConfigureAwait(false);
+            var response = await read.ConfigureAwait(false);
             if (response.Entries.Count == 0)
             {
                 throw new DirectoryException(DirectoryErrorKind.UnwillingToPerform, "The server returned no RootDSE.");

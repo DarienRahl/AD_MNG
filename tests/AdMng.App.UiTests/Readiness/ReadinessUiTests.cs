@@ -6,6 +6,7 @@ using AdMng.App.Readiness;
 using AdMng.App.UiTests.EventLogs;
 using AdMng.App.UiTests.Infrastructure;
 using AdMng.App.Views;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Readiness;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -51,15 +52,15 @@ public sealed class ReadinessUiTests
         Assert.Equal("Gotowość środowiska", view.TitleText.Text);
         Assert.Equal(TextTrimming.CharacterEllipsis, view.TitleText.TextTrimming);
         Assert.Equal(Enum.GetValues<ReadinessArea>().Length, view.GroupsList.Items.Count);
-        Assert.Equal(document.SummaryText, view.SummaryTextBlock.Text);
+
+        // What the last check found, when and where - the summary of the status line (the details are in ReadinessStatusUiTests).
+        Assert.Equal($"{document.SummaryText} · {document.LastRunText}", view.PageStatus.Message);
         Assert.True(view.QuickCheckButton.IsEnabled);
         Assert.True(view.FullCheckButton.IsEnabled);
-        Assert.False(view.CancelButton.IsEnabled);
         Assert.True(view.ExportHtmlButton.IsEnabled);
         Assert.True(view.ExportCsvButton.IsEnabled);
-        Assert.False(view.StaleBar.IsVisible);
-        Assert.False(view.CancelledText.IsVisible);
-        Assert.StartsWith("Ostatnie sprawdzenie: szybkie", view.LastRunText.Text, StringComparison.Ordinal);
+        Assert.Equal(PageStatusKind.Idle, view.PageStatus.Kind);
+        Assert.Contains("Ostatnie sprawdzenie: szybkie", view.PageStatus.Message, StringComparison.Ordinal);
 
         // The full check with a typed test computer: the remote checks and the event logs go through the host's fakes.
         view.TestComputerBox.Text = "WAW-PC001";
@@ -70,7 +71,7 @@ public sealed class ReadinessUiTests
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
 
         Assert.Equal(ReadinessDepth.Full, document.LastDepth);
-        Assert.StartsWith("Ostatnie sprawdzenie: pełne", view.LastRunText.Text, StringComparison.Ordinal);
+        Assert.Contains("Ostatnie sprawdzenie: pełne", view.PageStatus.Message, StringComparison.Ordinal);
         Assert.Contains(EventLogUiSupport.Dc01, connector.OpenedHosts, StringComparer.OrdinalIgnoreCase);
         var results = context.Services.GetRequiredService<IReadinessResults>();
         Assert.Equal(ReadinessDepth.Full, results.LastDepth);

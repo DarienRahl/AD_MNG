@@ -3,6 +3,12 @@
   the object of this connection (A) against the matching object of another open connection (B), read-only, side by side.
   Each side has its identity strip and badge in its own colour; differences have an accent background AND a glyph (never
   colour alone). Nothing here writes; CSV is written only on "Eksportuj CSV…".
+  Feedback (track V, stage V2b): one status line at the top (PageStatus) says the running comparison and the reads of
+  nested membership that follow it, how they ended, which object was found, and - for as long as it lasts - why the
+  tabs are empty (no match, several candidates, a read that failed, the session of this window that ended). "Porównaj"
+  is an action button: while a comparison runs it is its Cancel. What belongs to one part of the window is a note
+  there: no other connection (under the connection box), a side whose connection was closed or changed (in its
+  card), the same object on both sides (above the tabs).
 -->
 <Window x:Class="AdMng.App.Views.CompareObjectsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -13,7 +19,7 @@
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="1180"
-        Height="780"
+        Height="816"
         MinWidth="820"
         MinHeight="520"
         WindowStartupLocation="CenterOwner">
@@ -30,6 +36,12 @@
     </Style>
 
     <Style x:Key="BarButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Margin" Value="6,0,0,0" />
+      <Setter Property="Padding" Value="12,3" />
+    </Style>
+
+    <!-- The same metrics for the button that starts a comparison and is its Cancel while it runs (c:ActionButton). -->
+    <Style x:Key="BarActionButton" TargetType="{x:Type c:ActionButton}" BasedOn="{StaticResource Ad.ActionButton}">
       <Setter Property="Margin" Value="6,0,0,0" />
       <Setter Property="Padding" Value="12,3" />
     </Style>
@@ -131,13 +143,17 @@
                        TextTrimming="CharacterEllipsis"
                        ToolTip="{Binding Summary.DistinguishedName, Mode=OneWay}" />
           </StackPanel>
-          <Border Margin="12,8,12,0"
-                  Style="{StaticResource Ad.WarningBar}"
-                  Visibility="{Binding EndedMessage, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+          <!--
+            The connection of this side was closed or changed its session: a note about what the card and its column
+            show - true for as long as they show it. (That the session of this window ended is said by the status line.)
+          -->
+          <ContentControl Margin="12,8,12,0"
+                          Style="{StaticResource Ad.Note.Attention}"
+                          Visibility="{Binding EndedMessage, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
             <TextBlock AutomationProperties.LiveSetting="Assertive"
                        Text="{Binding EndedMessage, Mode=OneWay}"
                        TextWrapping="Wrap" />
-          </Border>
+          </ContentControl>
         </StackPanel>
       </Border>
     </DataTemplate>
@@ -159,47 +175,34 @@
   </Window.InputBindings>
 
   <DockPanel>
+    <!-- Footer: Export and Close. The progress and the result of matching are said by the status line. -->
     <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
-      <DockPanel>
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-          <Button x:Name="ExportButton"
-                  Command="{Binding ExportCsvCommand}"
-                  Content="{l:Tr Comparison.ExportCsv}"
-                  Style="{StaticResource Ad.DialogButton}" />
-          <Button x:Name="CloseButton"
-                  Command="{Binding CloseCommand}"
-                  Content="{l:Tr Common.Close}"
-                  IsCancel="True"
-                  Style="{StaticResource Ad.DialogButton}" />
-        </StackPanel>
-        <StackPanel Orientation="Horizontal">
-          <ProgressBar Width="72"
-                       Margin="0,0,10,0"
-                       VerticalAlignment="Center"
-                       IsIndeterminate="True"
-                       Visibility="{Binding IsRunning, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-          <TextBlock x:Name="StatusLine"
-                     VerticalAlignment="Center"
-                     AutomationProperties.LiveSetting="Polite"
-                     Style="{StaticResource Ad.SecondaryText}"
-                     Text="{Binding StatusText, Mode=OneWay}"
-                     TextTrimming="CharacterEllipsis"
-                     ToolTip="{Binding StatusText, Mode=OneWay}" />
-        </StackPanel>
-      </DockPanel>
+      <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+        <Button x:Name="ExportButton"
+                Command="{Binding ExportCsvCommand}"
+                Content="{l:Tr Comparison.ExportCsv}"
+                Style="{StaticResource Ad.DialogButton}" />
+        <Button x:Name="CloseButton"
+                Command="{Binding CloseCommand}"
+                Content="{l:Tr Common.Close}"
+                IsCancel="True"
+                Style="{StaticResource Ad.DialogButton}" />
+      </StackPanel>
     </Border>
 
-    <!-- The session of this window ended: the results stay, nothing is read any more. -->
-    <Border Margin="16,12,16,0"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.ErrorBar}"
-            Visibility="{Binding SessionEndedMessage, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <TextBlock AutomationProperties.LiveSetting="Assertive"
-                 Text="{Binding SessionEndedMessage, Mode=OneWay}"
-                 TextWrapping="Wrap" />
-    </Border>
+    <!--
+      Status line (design note 6.1): the running comparison, then the read of nested membership (and nested members)
+      that follows it, with Stop; how they ended; which object was found; and - for as long as it lasts - why the tabs
+      are empty: no match, several candidates, a read that failed, the session of this window that ended (the results
+      stay, nothing is read any more). Always present, so nothing under it moves.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="8,8,8,0"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
 
-    <!-- Connection and matching rule. -->
+    <!-- Connection and matching rule; "Porównaj" is the Cancel of the comparison while one runs. -->
     <Grid Margin="16,12,16,0" DockPanel.Dock="Top">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="Auto" />
@@ -239,16 +242,14 @@
                 ItemsSource="{Binding MatchRules}"
                 SelectedItem="{Binding SelectedRule}" />
       <StackPanel Grid.Column="4" Orientation="Horizontal">
-        <Button x:Name="CompareButton"
-                Command="{Binding CompareCommand}"
-                Content="{l:Tr Comparison.Compare}"
-                IsDefault="True"
-                Style="{StaticResource BarButton}" />
-        <Button x:Name="StopButton"
-                Command="{Binding CompareCancelCommand}"
-                Content="{l:Tr Comparison.Stop}"
-                Style="{StaticResource BarButton}"
-                Visibility="{Binding IsRunning, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        <c:ActionButton x:Name="CompareButton"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding CompareCommand}"
+                        Content="{l:Tr Comparison.Compare}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsDefault="True"
+                        IsRunning="{Binding IsRunning, Mode=OneWay}"
+                        Style="{StaticResource BarActionButton}" />
         <Button x:Name="RefreshButton"
                 Command="{Binding RefreshCommand}"
                 Content="{l:Tr Comparison.Refresh}"
@@ -268,23 +269,19 @@
       </Grid>
     </Grid>
 
-    <!-- No other connection: how to open one. -->
-    <Border x:Name="NoTargetsBar"
-            Margin="16,10,16,0"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding NoTargetsMessage, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <TextBlock Text="{Binding NoTargetsMessage, Mode=OneWay}" TextWrapping="Wrap" />
-    </Border>
-
-    <Border Margin="16,10,16,0"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.ErrorBar}"
-            Visibility="{Binding ErrorText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <TextBlock AutomationProperties.LiveSetting="Assertive"
-                 Text="{Binding ErrorText, Mode=OneWay}"
+    <!--
+      No other connection - why the connection box is empty and "Porównaj" cannot be pressed, and how to open one: a
+      note of the box, true until another connection is open. (A comparison that failed is said by the status line.)
+    -->
+    <ContentControl x:Name="NoTargetsBar"
+                    Margin="16,10,16,0"
+                    DockPanel.Dock="Top"
+                    Style="{StaticResource Ad.Note.Attention}"
+                    Visibility="{Binding NoTargetsMessage, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <TextBlock x:Name="NoTargetsText"
+                 Text="{Binding NoTargetsMessage, Mode=OneWay}"
                  TextWrapping="Wrap" />
-    </Border>
+    </ContentControl>
 
     <!-- Candidates of an ambiguous match: choosing one compares with it. -->
     <ListView x:Name="CandidatesList"
@@ -333,13 +330,16 @@
                       Focusable="False" />
     </Grid>
 
-    <Border x:Name="SameObjectBar"
-            Margin="16,10,16,0"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding IsSameObject, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-      <TextBlock Text="{l:Tr Comparison.SameObject}" TextWrapping="Wrap" />
-    </Border>
+    <!-- Both sides read the same object: how to read the differences below - a note about the tabs, not a status. -->
+    <ContentControl x:Name="SameObjectBar"
+                    Margin="16,10,16,0"
+                    DockPanel.Dock="Top"
+                    Style="{StaticResource Ad.Note.Attention}"
+                    Visibility="{Binding IsSameObject, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <TextBlock x:Name="SameObjectText"
+                 Text="{l:Tr Comparison.SameObject}"
+                 TextWrapping="Wrap" />
+    </ContentControl>
 
     <TabControl x:Name="Tabs" Margin="16,12,16,12">
       <!-- ==== Attributes ==== -->
@@ -495,15 +495,6 @@
                       Content="{l:Tr Comparison.ShowNested}"
                       IsChecked="{Binding ShowNested}"
                       Style="{StaticResource Toggle}" />
-            <StackPanel Orientation="Horizontal" Visibility="{Binding IsNestedLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-              <ProgressBar Width="60"
-                           Margin="0,0,8,0"
-                           VerticalAlignment="Center"
-                           IsIndeterminate="True" />
-              <TextBlock VerticalAlignment="Center"
-                         Style="{StaticResource Ad.SecondaryText}"
-                         Text="{l:Tr Comparison.NestedLoading}" />
-            </StackPanel>
           </WrapPanel>
           <TextBlock Margin="0,8,0,0"
                      DockPanel.Dock="Bottom"

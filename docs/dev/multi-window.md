@@ -119,6 +119,15 @@ created more than once per window, such as the reconnect `ConnectWindow` + `Conn
 non-disposable or be created with `ActivatorUtilities`/`new`. The command palette is not resolved at all: the shell
 creates it with `new`.
 
+**The PowerShell window (track R, stage R1).** One runspace per window, never shared between connection windows
+(`docs/dev/r1-powershell-window.md`, ADR-0010): `PowerShellServices` (Presentation) is **Scoped** and built from whatever the host
+registered; the App registers `IPowerShellWindowActions` (`PowerShellWindowActions`: the dialogs and files of the connection)
+**Scoped**, and `IPowerShellSessionFactory` and `IPowerShellPolicySource` as singletons without a connection (everything of a window is
+in its request). `PowerShellWindowViewModel` and `PowerShellGridViewModel` are created by `IDialogViewModelFactory` in the connection's
+scope; the window is opened through `ToolWindows.ShowPowerShell` (singleton key `tools:powershell`: one per connection window, an open
+one is activated) and the grids of `Out-AdmGrid` through `ToolWindows.ShowPowerShellGrid` (one per call). The runspace is disposed with
+the view model when the window closes; a window of an ended session stops its command and refuses to start another.
+
 **Per connection (Scoped), App side.** In `src/AdMng.App/AppHost.cs`:
 
 * `IWindowService`/`WindowService`;
@@ -365,8 +374,14 @@ The existing flow stays and only affects its own scope:
 ### 3.4 Closing one window
 
 1. **`MainWindow.OnClosing`.** It asks, for this connection only:
-   * running activities: `Shell.CloseWindowWhileRunning`, "Operacje w tle w oknie {domain} nadal trwają…" (replaces
-     today's `Ui.ExitWhileRunning`);
+   * one close question (`RunningWork.ConfirmCloseAsync` with the connection's work, the owner's decision D-A) about
+     everything that writes in the tabs, in the windows this one owns and in the background of the connection (the
+     activities no window follows: runs left in the background, changes of simple actions). Two answers only - *Stop and
+     close*, *Don't close* - and the sentence `CloseWork.NoBackground.Connection`: closing this window ends the scope, so
+     nothing can go on without it. *Stop and close* stops all of it (the background activities without a report of their
+     own) and waits, without a time limit and without blocking the UI thread, until the objects in progress were
+     finished; only then `Close()`. `Shell.CloseWindowWhileRunning` - a second question about the activities, which were
+     then cut off - is gone;
    * unsaved generated passwords (`ToolWindows` of this scope; `Batch.DiscardPasswords` names the domain too);
    * unsaved documents.
 
@@ -385,6 +400,10 @@ The existing flow stays and only affects its own scope:
      (`WaitAsync(RequestTimeout + 5 s)`) and abandoned activities are logged by type.
 3. **Close the session.** The manager closes the session off the UI thread with a bound
    (`Task.Run(() => sessions.DisposeAsync()).WaitAsync(5 s)`; a hanging unbind is abandoned and logged by type only).
+   The session's connection pool cancels its requests in flight and waits at most 2 s for them
+   (`LdapConnectionPool.DisposeAsync`); a connection whose request still runs then is disposed when that request ends,
+   never under it - S.DS.P frees memory twice when a connection is disposed while it builds a response (audit finding
+   DLR-4, `tools/testlab/README.md`).
    It then awaits `scope.DisposeAsync()` on the UI thread. `SessionManager.DisposeAsync` is idempotent, so the
    scope's second call is a no-op and never blocks the UI (rule 6). An abandoned unbind must not keep the
    credential: `LdapDirectorySession.DisposeAsync` clears it **before** it awaits the watchers and the pool (9).
@@ -443,6 +462,20 @@ Background work is per window by construction:
 * the scoped change bus, so a write in A never refreshes or removes rows in B. Two windows on the same domain see
   each other's changes only through LDAP live updates (`WatchAsync`) or *Odśwież*, like two ADUC consoles;
 * the session log and PowerShell history, which are per window.
+
+The execution of a child window's plan has always been an activity of the connection, which the window only follows.
+When the child window closes with *Close and continue in the background* (D-A), the run leaves the window and the
+connection's coordinator says how it ended - a notification, or a dialog with the failed objects - through the scope's
+`NotificationService` and `DialogService`, in a later turn of the UI thread. A child window that closes right after its
+run ended (*Stop and close*, a *Stop* that came first, a result that came back under the question) hands on the report the
+coordinator kept with the activity once the window has closed (`WindowViewModelBase.Dispose`): `DialogService` owns a dialog by
+the active window of the connection, so a failure dialog asked for while the closing window was still there would be owned by
+it - and close with it. That report says what the window's line said: it is made again from the window's own result, which for
+the bulk creation wizard (the first account, then the others) is more than the last activity did. A window whose toast of its own
+is meant for an open window only (the batch editor's results) holds it while a close looks at the run: it is said if the window
+stays and left out if it closes, so the outcome is said once. The connection window hands nothing on: its close ends the connection. A run never outlives its connection: the
+connection window asks about it and waits for it (3.4), *Disconnect* and *Change domain controller* stop it as any
+activity, and `CloseEntryAsync` keeps its bounded cancel only for what is left after the question.
 
 Each window costs about 4 pooled LDAP connections, one live-update subscription per open container, and the
 Watchdog polling described in section 6. There is no limit on the number of windows.
@@ -545,7 +578,7 @@ On top of the header, the sentence itself names the domain. These resources get 
 | restore from the Recycle Bin | `RecycleBinViewModel.cs:459` |
 | account review action | `AccountReviewViewModel.cs:367` |
 | message send | the confirmation in `UserMessageComposerViewModel` ("do N odbiorców z domeny …") |
-| disconnect and close window while running | `Shell.DisconnectWhileRunning`, `Shell.CloseWindowWhileRunning` |
+| disconnect and close window while running | `Shell.DisconnectWhileRunning`; closing: the close question (3.4) |
 
 The expected texts of typed confirmations stay as they are (count or name).
 

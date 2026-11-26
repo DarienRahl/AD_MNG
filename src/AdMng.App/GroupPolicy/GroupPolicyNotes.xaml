@@ -1,0 +1,52 @@
+<!--
+  The two notes above the content of every Group Policy document (GroupPolicyDocumentBase), under its status line: why
+  SYSVOL of the session's domain controller is not available (SYSVOL writes are disabled, LDAP reads still shown), and
+  where changes are made when that is not the PDC emulator, with "Zmień kontroler…" (the window never switches the DC
+  by itself, CLAUDE.md rule 4). Notes, not status (track V, stage V2b-3; docs/dev/v-interface-renewal.md "V2b-3 as
+  built"): both are true of the content for as long as it is shown, and they must be readable next to the summary of
+  the document. What the document did or is doing - reading, a read that failed or was stopped, an operation that
+  changed nothing - is said by the status line of the view that hosts this control.
+-->
+<UserControl x:Class="AdMng.App.GroupPolicy.GroupPolicyNotes"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             Focusable="False">
+  <StackPanel>
+    <!-- How complete the content is and why the commands that write SYSVOL are disabled. -->
+    <ContentControl x:Name="SysvolNote"
+                    Margin="0,0,0,6"
+                    Style="{StaticResource Ad.Note.Attention}"
+                    Visibility="{Binding HasSysvolWarning, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <TextBlock x:Name="SysvolText"
+                 AutomationProperties.LiveSetting="Polite"
+                 Text="{Binding SysvolWarning, Mode=OneWay}"
+                 TextWrapping="Wrap" />
+    </ContentControl>
+    <!--
+      Where the changes of this document are made. The panel is as wide as its content needs, so the link stands right
+      after the sentence; a sentence that does not fit wraps in front of the link. Both start at the top, the sentence
+      3 px lower: its first line then stands in the middle of the link, which is one pointer target high.
+    -->
+    <DockPanel x:Name="PdcPanel"
+               Margin="0,0,0,6"
+               HorizontalAlignment="Left"
+               Visibility="{Binding HasPdcNote, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <Button x:Name="ChangeDcButton"
+              Margin="6,0,0,0"
+              VerticalAlignment="Top"
+              Command="{Binding ChangeDomainControllerCommand}"
+              Content="{l:Tr GroupPolicy.ChangeDcCommand}"
+              DockPanel.Dock="Right"
+              Style="{StaticResource Ad.LinkButton}" />
+      <ContentControl x:Name="PdcNote"
+                      Margin="0,3,0,0"
+                      VerticalAlignment="Top"
+                      Style="{StaticResource Ad.Note.Info}">
+        <TextBlock x:Name="PdcText"
+                   Text="{Binding PdcNote, Mode=OneWay}"
+                   TextWrapping="Wrap" />
+      </ContentControl>
+    </DockPanel>
+  </StackPanel>
+</UserControl>

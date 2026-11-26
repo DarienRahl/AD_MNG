@@ -4,6 +4,7 @@ using AdMng.Core.Correspondence.Import;
 using AdMng.Core.Correspondence.Mailboxes;
 using AdMng.Core.Ldap;
 using AdMng.Presentation.Correspondence;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Tests.Dialogs;
 using AdMng.Testing;
 using static AdMng.Presentation.Tests.Correspondence.PageTests;
@@ -696,7 +697,11 @@ public sealed class MailboxOwnersReviewTests
 
         await page.AddToRecipientsCommand.ExecuteAsync(null);
 
-        Assert.Equal(["info:Nie ma właścicieli do dodania – wybierz właścicieli albo wpisz ich adresy."], scenario.Harness.Dialogs.Shown);
+        // The press came to nothing: the line of the page says so (and the old text of the window's status bar), no dialog.
+        Assert.Empty(scenario.Harness.Dialogs.Shown);
+        Assert.Equal(PageStatusKind.Attention, page.Status.Current.Kind);
+        Assert.Equal("Nikogo nie dodano do odbiorców: Nie ma właścicieli do dodania – wybierz właścicieli albo wpisz ich adresy.", page.Status.Current.Message);
+        Assert.Equal(page.Status.Current.Message, page.StatusText);
         Assert.Empty(window.Recipients.Items);
         Assert.Equal(CorrespondenceTab.Mailboxes, window.SelectedTab);
     }

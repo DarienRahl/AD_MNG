@@ -3,6 +3,11 @@
   account review, parameters and reports, "Sprawdź" (F5) streams one paged query, tiles per report (one tile per release of
   the releases report), the list of the selected tile with its own columns (built by the code-behind from
   ViewModel.Columns) and a details pane. Every change goes through the change plan; the results exist only in memory.
+  Feedback (track V, stage V2b-4): one status line at the top (PageStatus) says the summary of the last check (and the
+  selection), the one operation that runs - the check with the computers read so far, the exact last logon, the finding of
+  the sites, a ping - with Stop, how it ended, and what lasts: the session of the window ended, the window was opened without
+  one, the check failed. "Sprawdź", "Dokładne ostatnie logowanie", "Ustal lokację" and "Ping" are action buttons: while their
+  operation runs the button is its Cancel. The age of the release catalogue is a note next to the parameters.
 -->
 <Window x:Class="AdMng.App.Computers.ComputerReviewWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -13,7 +18,7 @@
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="1320"
-        Height="860"
+        Height="896"
         MinWidth="900"
         MinHeight="560"
         WindowStartupLocation="CenterOwner">
@@ -37,6 +42,12 @@
     </Style>
 
     <Style x:Key="ActionButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Margin" Value="0,0,6,6" />
+      <Setter Property="Padding" Value="10,3" />
+    </Style>
+
+    <!-- The same metrics for a button of the list that starts an operation which can be stopped (c:ActionButton). -->
+    <Style x:Key="ListActionButton" TargetType="{x:Type c:ActionButton}" BasedOn="{StaticResource Ad.ActionButton}">
       <Setter Property="Margin" Value="0,0,6,6" />
       <Setter Property="Padding" Value="10,3" />
     </Style>
@@ -115,35 +126,28 @@
   </Window.InputBindings>
 
   <DockPanel>
-    <!-- Footer: progress, "stan na godz.", selection, Close. -->
+    <!-- Footer: Close. "Stan na godz.", the progress and the selection are said by the status line. -->
     <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
-      <DockPanel>
-        <Button x:Name="CloseButton"
-                Command="{Binding CloseCommand}"
-                Content="{l:Tr Common.Close}"
-                DockPanel.Dock="Right"
-                IsCancel="True"
-                Style="{StaticResource Ad.DialogButton}" />
-        <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
-          <ProgressBar x:Name="RunProgress"
-                       Width="60"
-                       Margin="0,0,8,0"
-                       VerticalAlignment="Center"
-                       IsIndeterminate="True"
-                       Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-          <TextBlock x:Name="StatusText"
-                     AutomationProperties.LiveSetting="Polite"
-                     Style="{StaticResource Ad.SecondaryText}"
-                     Text="{Binding StatusText, Mode=OneWay}" />
-          <TextBlock x:Name="SelectionText"
-                     Margin="16,0,0,0"
-                     Style="{StaticResource Ad.SecondaryText}"
-                     Text="{Binding SelectionText, Mode=OneWay}" />
-        </StackPanel>
-      </DockPanel>
+      <Button x:Name="CloseButton"
+              HorizontalAlignment="Right"
+              Command="{Binding CloseCommand}"
+              Content="{l:Tr Common.Close}"
+              IsCancel="True"
+              Style="{StaticResource Ad.DialogButton}" />
     </Border>
 
-    <!-- Scope and Check / Stop. -->
+    <!--
+      Status line (design note 6.1): the summary of the last check and the selection, the one operation that runs with Stop,
+      how it ended, and what lasts - the session of this window ended, no session, the check failed. Always present, so
+      nothing under it moves.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="8,8,8,0"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+
+    <!-- Scope and Check: while a check runs the button is its Cancel. -->
     <Grid Margin="16,12,16,0" DockPanel.Dock="Top">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="Auto" />
@@ -181,45 +185,25 @@
                    ToolTip="{Binding ScopeDn, Mode=OneWay}"
                    Visibility="{Binding IsViewScope, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
       </DockPanel>
-      <StackPanel Grid.Column="3" Orientation="Horizontal">
-        <Button x:Name="StopButton"
-                Margin="0,0,8,0"
-                Command="{Binding StopCommand}"
-                Content="{l:Tr Common.Stop}"
-                Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
-        <Button x:Name="RunButton"
-                MinWidth="120"
-                Command="{Binding RunCommand}"
-                Content="{l:Tr ComputerReview.Run}"
-                Style="{StaticResource Ad.AccentDialogButton}" />
-      </StackPanel>
+      <c:ActionButton x:Name="RunButton"
+                      Grid.Column="3"
+                      MinWidth="120"
+                      CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                      Command="{Binding RunCommand}"
+                      Content="{l:Tr ComputerReview.Run}"
+                      IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                      IsRunning="{Binding IsRunning, Mode=OneWay}"
+                      Style="{StaticResource Ad.AccentDialogActionButton}" />
     </Grid>
 
-    <!-- Session ended (the window belongs to the previous session), the run failed, the catalogue is old. -->
-    <Border x:Name="SessionEndedBar"
-            Margin="16,10,16,0"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding SessionEndedMessage, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <TextBlock Text="{Binding SessionEndedMessage, Mode=OneWay}" TextWrapping="Wrap" />
-    </Border>
-    <Border x:Name="ErrorBar"
-            Margin="16,10,16,0"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.ErrorBar}"
-            Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <TextBlock x:Name="ErrorText"
-                 AutomationProperties.LiveSetting="Assertive"
-                 Text="{Binding Error, Mode=OneWay}"
-                 TextWrapping="Wrap" />
-    </Border>
-    <Border x:Name="CatalogStaleBar"
-            Margin="16,10,16,0"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding IsCatalogStale, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-      <TextBlock Text="{Binding CatalogStaleText, Mode=OneWay}" TextWrapping="Wrap" />
-    </Border>
+    <!-- The catalogue is old: what the end-of-support results rest on - a note, true while they are shown. -->
+    <ContentControl x:Name="CatalogStaleBar"
+                    Margin="16,10,16,0"
+                    DockPanel.Dock="Top"
+                    Style="{StaticResource Ad.Note.Attention}"
+                    Visibility="{Binding IsCatalogStale, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <TextBlock x:Name="CatalogStaleText" Text="{Binding CatalogStaleText, Mode=OneWay}" TextWrapping="Wrap" />
+    </ContentControl>
 
     <!-- Parameters and reports. -->
     <Expander x:Name="ParametersExpander"
@@ -311,16 +295,23 @@
               Command="{Binding ExportCsvCommand}"
               Content="{l:Tr ComputerReview.ExportCsv}"
               Style="{StaticResource ActionButton}" />
-      <Button x:Name="ExactLastLogonButton"
-              Command="{Binding ReadExactLastLogonCommand}"
-              Content="{l:Tr ComputerReview.ExactLastLogon}"
-              Style="{StaticResource ActionButton}" />
-      <Button x:Name="ResolveSitesButton"
-              Command="{Binding ResolveSitesCommand}"
-              Content="{l:Tr ComputerReview.ResolveSites}"
-              Style="{StaticResource ActionButton}"
-              ToolTip="{l:Tr ComputerReview.SitesTooltip}"
-              Visibility="{Binding CanResolveSites, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+      <!-- Read lastLogon on every domain controller / find the sites: while it runs the button is the Cancel of that operation. -->
+      <c:ActionButton x:Name="ExactLastLogonButton"
+                      CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                      Command="{Binding ReadExactLastLogonCommand}"
+                      Content="{l:Tr ComputerReview.ExactLastLogon}"
+                      IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                      IsRunning="{Binding IsReadingExact, Mode=OneWay}"
+                      Style="{StaticResource ListActionButton}" />
+      <c:ActionButton x:Name="ResolveSitesButton"
+                      CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                      Command="{Binding ResolveSitesCommand}"
+                      Content="{l:Tr ComputerReview.ResolveSites}"
+                      IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                      IsRunning="{Binding IsResolvingSites, Mode=OneWay}"
+                      Style="{StaticResource ListActionButton}"
+                      ToolTip="{l:Tr ComputerReview.SitesTooltip}"
+                      Visibility="{Binding CanResolveSites, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
       <Button x:Name="RemoteActionsButton"
               Command="{Binding RemoteActionsCommand}"
               Content="{l:Tr Computers.RemoteActionsCommand}"
@@ -331,11 +322,14 @@
               Content="{l:Tr Computers.RemoteDesktop}"
               Style="{StaticResource ActionButton}"
               Visibility="{Binding CanUseTools, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-      <Button x:Name="PingButton"
-              Command="{Binding PingCommand}"
-              Content="{l:Tr Computers.Ping}"
-              Style="{StaticResource ActionButton}"
-              Visibility="{Binding CanUseRemote, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+      <c:ActionButton x:Name="PingButton"
+                      CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                      Command="{Binding PingCommand}"
+                      Content="{l:Tr Computers.Ping}"
+                      IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                      IsRunning="{Binding IsPinging, Mode=OneWay}"
+                      Style="{StaticResource ListActionButton}"
+                      Visibility="{Binding CanUseRemote, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
       <Button x:Name="SetOwnerButton"
               Command="{Binding SetOwnerCommand}"
               Content="{l:Tr ComputerReview.SetOwner}"
@@ -408,10 +402,6 @@
           <GridView x:Name="ItemsGrid" AllowsColumnReorder="False" />
         </ListView.View>
       </ListView>
-      <ProgressBar Height="3"
-                   VerticalAlignment="Top"
-                   IsIndeterminate="True"
-                   Visibility="{Binding IsRunning, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
       <TextBlock x:Name="EmptyHint"
                  Margin="0,60,0,0"
                  HorizontalAlignment="Center"

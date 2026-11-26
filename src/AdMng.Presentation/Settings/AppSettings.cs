@@ -13,6 +13,55 @@ public enum ThemePreference
 }
 
 /// <summary>
+/// How the icons of things (object kinds, areas) are drawn. The effective style also depends on Windows High Contrast:
+/// see <see cref="Icons.IconStyleRules.Effective"/>.
+/// </summary>
+public enum IconStylePreference
+{
+    /// <summary>The colour icon set (the default; also for settings files written before the option existed).</summary>
+    Colour,
+
+    /// <summary>One-colour glyphs of the icon font, in the text colour.</summary>
+    Monochrome,
+}
+
+/// <summary>
+/// What is drawn behind the content of the windows (track V, stage V1). The Fluent theme reads the choice once per
+/// process, so a change takes effect at the next start of the application.
+/// </summary>
+public enum WindowBackgroundPreference
+{
+    /// <summary>
+    /// What the theme draws: the Mica material on Windows 11 22H2 and newer, a solid colour on older systems and in
+    /// High Contrast (the default; also for settings files written before the option existed).
+    /// </summary>
+    Theme,
+
+    /// <summary>Always the solid background colour of the theme - for remote desktop sessions and slower computers.</summary>
+    Solid,
+}
+
+/// <summary>
+/// Whether the interface moves (track V, stage V1): hover feedback, the entrance of a document and of a panel, toasts
+/// sliding in and out. Progress indicators are information and are never switched off. The effective answer is
+/// <see cref="Motion.MotionRules.Effective"/>.
+/// </summary>
+public enum MotionPreference
+{
+    /// <summary>
+    /// On while Windows has "Animation effects" on and the display is hardware accelerated (the default; also for
+    /// settings files written before the option existed).
+    /// </summary>
+    FollowWindows,
+
+    /// <summary>Always on, whatever Windows says.</summary>
+    On,
+
+    /// <summary>Always off: every change shows its final state at once.</summary>
+    Off,
+}
+
+/// <summary>
 /// User settings persisted as JSON. Contains UI preferences, connection profiles WITHOUT passwords and view
 /// definitions (names, DNs, LDAP filters) only - never directory content (CLAUDE.md rule 1) and never passwords
 /// (rule 2; a unit test walks this type graph and the serialized JSON to enforce it).
@@ -33,6 +82,28 @@ public sealed class AppSettings
     public string Language { get; set; } = string.Empty;
 
     public ThemePreference Theme { get; set; } = ThemePreference.System;
+
+    /// <summary>
+    /// Icons of things: colour pictures or monochrome glyphs (High Contrast always shows the glyphs). A value this
+    /// version does not know reads as colour and leaves the rest of the file alone.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonConverter(typeof(TolerantEnumJsonConverter<IconStylePreference>))]
+    public IconStylePreference IconStyle { get; set; } = IconStylePreference.Colour;
+
+    /// <summary>
+    /// Window background: the theme's (Mica on Windows 11) or always solid. Read once at start (the theme does not
+    /// follow a later change). A value this version does not know reads as the theme's and leaves the rest of the
+    /// file alone.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonConverter(typeof(TolerantEnumJsonConverter<WindowBackgroundPreference>))]
+    public WindowBackgroundPreference WindowBackground { get; set; } = WindowBackgroundPreference.Theme;
+
+    /// <summary>
+    /// Motion of the interface: follow Windows, always on or always off. Applied at once. A value this version does
+    /// not know reads as "follow Windows" and leaves the rest of the file alone.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonConverter(typeof(TolerantEnumJsonConverter<MotionPreference>))]
+    public MotionPreference Motion { get; set; } = MotionPreference.FollowWindows;
 
     public List<ConnectionProfile> ConnectionProfiles { get; set; } = [];
 
@@ -102,6 +173,12 @@ public sealed class AppSettings
     /// <summary>Dzienniki zdarzeń (track E): the saved queries – the builder as typed and the computers, never values read from a log.</summary>
     public EventLogSettings EventLogs { get; set; } = new();
 
+    /// <summary>Usługi kluczy publicznych (P1): tree visibility and the certificate expiry thresholds (never PKI data).</summary>
+    public PkiSettings Pki { get; set; } = new();
+
+    /// <summary>Zakładanie wielu kont (F3): the naming profiles – patterns, options, header names and portable DNs, never directory or sheet values.</summary>
+    public BulkCreateSettings BulkCreate { get; set; } = new();
+
     /// <summary>Puts <paramref name="distinguishedName"/> first in <see cref="RecentContainers"/> (deduplicated, max <see cref="MaxRecentContainers"/>).</summary>
     public void AddRecentContainer(string distinguishedName)
     {
@@ -150,6 +227,10 @@ public sealed class AppSettings
         Correspondence.Normalize();
         EventLogs ??= new();
         EventLogs.Normalize();
+        Pki ??= new();
+        Pki.Normalize();
+        BulkCreate ??= new();
+        BulkCreate.Normalize();
         ConnectionProfiles.RemoveAll(p => p is null || string.IsNullOrWhiteSpace(p.Name));
         SavedViews.RemoveAll(v => v is null || string.IsNullOrWhiteSpace(v.Id));
         PinnedContainers.RemoveAll(p => p is null || string.IsNullOrWhiteSpace(p.DistinguishedName));

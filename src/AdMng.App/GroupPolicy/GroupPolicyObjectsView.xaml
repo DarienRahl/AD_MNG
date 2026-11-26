@@ -75,6 +75,16 @@
               Command="{Binding DiagnoseCommand}"
               Content="{l:Tr GpoDiag.ToolbarCommand}"
               ToolTip="{l:Tr GpoDiag.Title}" />
+      <Button x:Name="SearchSettingsButton"
+              Margin="0,0,6,4"
+              Command="{Binding SearchSettingsCommand}"
+              Content="{l:Tr GpoSearch.ToolbarCommand}"
+              ToolTip="{l:Tr GpoSearch.Title}" />
+      <Button x:Name="CleanupButton"
+              Margin="0,0,6,4"
+              Command="{Binding CleanupCommand}"
+              Content="{l:Tr GpoCleanup.ToolbarCommand}"
+              ToolTip="{l:Tr GpoCleanup.Title}" />
       <Button x:Name="RefreshButton"
               Margin="12,0,0,4"
               AutomationProperties.Name="{l:Tr GroupPolicy.RefreshCommand}"
@@ -83,7 +93,18 @@
               Style="{StaticResource Ad.IconButton}"
               ToolTip="{l:Tr GroupPolicy.RefreshCommand}" />
     </WrapPanel>
-    <gp:GroupPolicyBanners DockPanel.Dock="Top" />
+    <!--
+      Status line (design note 6.1): the read of the list with Stop, the summary (how many GPOs, how many shown, the
+      selection), why the list could not be read, and what became of an operation that is prepared for the change plan
+      preview. Always present, so nothing under it moves while the tab works. Under it the notes about SYSVOL and the
+      PDC emulator (GroupPolicyNotes).
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="0,0,0,6"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+    <gp:GroupPolicyNotes x:Name="DocumentNotes" DockPanel.Dock="Top" />
 
     <Grid>
       <ListView x:Name="GpoList"
@@ -175,14 +196,17 @@
           </GridView>
         </ListView.View>
       </ListView>
-      <TextBlock x:Name="ListNoteText"
-                 Margin="12"
-                 HorizontalAlignment="Center"
-                 VerticalAlignment="Center"
-                 IsHitTestVisible="False"
-                 Style="{StaticResource Ad.SecondaryText}"
-                 Text="{Binding ListNote, Mode=OneWay}"
-                 Visibility="{Binding ListNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+      <!--
+        A list that was read and has no GPO says why, with the next step (stage V2b-5b): "no GPO matches the search" with
+        "Clear the search", or "this domain has no Group Policy objects" with Refresh. It replaces the text this list had for
+        the first case. Not while the list is read and not when it could not be read - the status line says that.
+      -->
+      <c:EmptyState x:Name="EmptyList"
+                    ActionCommand="{Binding EmptyState.ActionCommand, Mode=OneWay}"
+                    ActionParameter="{Binding EmptyState.ActionParameter, Mode=OneWay}"
+                    ActionText="{Binding EmptyState.ActionText, Mode=OneWay}"
+                    Icon="{Binding EmptyState.Icon, Mode=OneWay}"
+                    Message="{Binding EmptyState.Message, Mode=OneWay}" />
     </Grid>
   </DockPanel>
 </UserControl>

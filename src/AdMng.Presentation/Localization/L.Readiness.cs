@@ -57,7 +57,6 @@ public static partial class L
         public const string ReportSubtitle = "Readiness.ReportSubtitle";
         public const string Copied = "Readiness.Copied";
         public const string Copy = "Readiness.Copy";
-        public const string Stale = "Readiness.Stale";
         public const string CheckAgain = "Readiness.CheckAgain";
         public const string CountOk = "Readiness.CountOk";
         public const string CountWarning = "Readiness.CountWarning";

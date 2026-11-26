@@ -26,6 +26,14 @@ public interface IDialogService
     /// </summary>
     Task<bool> ConfirmTypedAsync(string title, string message, string expectedText);
 
+    /// <summary>
+    /// The close question of a window that works (<see cref="Feedback.RunningWork"/>; the owner's decision D-A): labelled
+    /// buttons - "Stop and close", "Close and continue in the background" when <paramref name="canContinue"/>, and "Don't close",
+    /// which is also Enter and Esc. A dialog that cannot be shown (its connection window closed) answers
+    /// <see cref="CloseAnswer.KeepOpen"/>.
+    /// </summary>
+    Task<CloseAnswer> AskCloseAsync(string title, string message, bool canContinue);
+
     /// <summary>ADUC-style container browser. Returns the chosen container DN or null when cancelled.</summary>
     Task<string?> PickContainerAsync(IDirectorySession session, string? startDn);
 
@@ -49,6 +57,23 @@ public interface IDialogService
     Task ShowFindAsync(string? startDn);
 
     Task ShowSessionLogAsync();
+
+    /// <summary>
+    /// "Tools → PowerShell…" (track R, stage R1): the PowerShell window of this connection window - its own runspace, disposed with
+    /// the window (modeless, one per connection window; an open one is activated).
+    /// </summary>
+    Task ShowPowerShellAsync();
+
+    /// <summary>
+    /// The grid of <c>Out-AdmGrid</c> (track R, stage R1): the objects of a pipeline as rows that can be sorted, filtered, copied,
+    /// exported and opened in the program (modeless, a new window for every call, like <c>Out-GridView</c>).
+    /// </summary>
+    /// <param name="table">The rows.</param>
+    /// <param name="closed">
+    /// Called once when the grid window has closed (by the operator, or with its connection window) - or at once when no window was
+    /// shown because the connection window is closing. The PowerShell window counts its open grids with it (at most ten at a time).
+    /// </param>
+    Task ShowPowerShellGridAsync(Core.PowerShell.PowerShellGridTable table, Action? closed = null);
 
     /// <summary>
     /// "Pomoc → Zgłoś problem…": the value-free problem report of this connection window (modeless, one per connection
@@ -99,6 +124,19 @@ public interface IDialogService
     Task<bool> ShowWatchdogCertificateTrustAsync(Watchdog.WatchdogCertificateTrustViewModel dialog);
 }
 
+/// <summary>The answer to the close question of a window that works (<see cref="IDialogService.AskCloseAsync"/>).</summary>
+public enum CloseAnswer
+{
+    /// <summary>"Don't close": the window stays and what runs goes on.</summary>
+    KeepOpen,
+
+    /// <summary>"Stop and close": what runs is stopped (the object in progress is finished) and the window closes once it ended.</summary>
+    StopAndClose,
+
+    /// <summary>"Close and continue in the background": the window closes at once and the execution goes on to its end.</summary>
+    CloseAndContinue,
+}
+
 /// <summary>What the batch editor should open with.</summary>
 /// <param name="TargetDns">Objects the operations apply to.</param>
 public sealed record BatchEditorRequest(IReadOnlyList<string> TargetDns)
@@ -111,4 +149,19 @@ public sealed record BatchEditorRequest(IReadOnlyList<string> TargetDns)
 
     /// <summary>Localized title of the change ("Disable 120 accounts").</summary>
     public string Title { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Opens the batch editor in create mode – the bulk creation wizard <em>Zakładanie wielu kont</em>
+    /// (docs/dev/phase3-bulk-create.md 2.6); <see cref="TargetDns"/> and <see cref="Operations"/> are ignored then.
+    /// </summary>
+    public BulkCreateRequest? Create { get; init; }
+}
+
+/// <summary>What the bulk creation wizard opens with (docs/dev/phase3-bulk-create.md 2.6).</summary>
+/// <param name="Kind">The kind of the created objects (user, contact, group or computer).</param>
+/// <param name="ParentDn">The pre-filled target container; null = chosen in the wizard.</param>
+public sealed record BulkCreateRequest(ObjectKind Kind, string? ParentDn)
+{
+    /// <summary>The kind only – never the container's DN.</summary>
+    public override string ToString() => $"Bulk create {Kind} (container={(ParentDn is not null)})";
 }

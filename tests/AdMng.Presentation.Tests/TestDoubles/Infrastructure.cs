@@ -21,6 +21,9 @@ internal sealed class SynchronousUiDispatcher : IUiDispatcher
 
     public int InvokeCount { get; private set; }
 
+    /// <summary>How many of <see cref="InvokeCount"/> asked for <see cref="UiDispatchPriority.Background"/>.</summary>
+    public int BackgroundInvokeCount { get; private set; }
+
     public bool CheckAccess() => _gate.IsHeldByCurrentThread;
 
     public Task InvokeAsync(Action action)
@@ -28,6 +31,22 @@ internal sealed class SynchronousUiDispatcher : IUiDispatcher
         lock (_gate)
         {
             InvokeCount++;
+            action();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task InvokeAsync(Action action, UiDispatchPriority priority)
+    {
+        lock (_gate)
+        {
+            InvokeCount++;
+            if (priority == UiDispatchPriority.Background)
+            {
+                BackgroundInvokeCount++;
+            }
+
             action();
         }
 
@@ -180,22 +199,79 @@ internal sealed class FakeDirectoryConnector(InMemoryDirectorySession session) :
         new("dc01.contoso.test", "Warszawa", true, false, true),
     ];
 
+    /// <summary>
+    /// When set, a connect waits for it before it answers (a slow domain controller); it gets the token of the connect
+    /// and may honour it or not (a native bind does not).
+    /// </summary>
+    public Func<CancellationToken, Task>? BeforeConnect { get; set; }
+
+    /// <summary>What the search for domain controllers throws instead of answering.</summary>
+    public Exception? FindError { get; set; }
+
+    /// <summary>When set, the search for domain controllers waits for it before it answers.</summary>
+    public Func<CancellationToken, Task>? BeforeFind { get; set; }
+
     public string? GetComputerDomain() => ComputerDomain;
 
-    public Task<IReadOnlyList<DomainControllerInfo>> FindDomainControllersAsync(string domain, CancellationToken cancellationToken) =>
-        Task.FromResult(DomainControllers);
+    public async Task<IReadOnlyList<DomainControllerInfo>> FindDomainControllersAsync(string domain, CancellationToken cancellationToken)
+    {
+        if (BeforeFind is { } wait)
+        {
+            await wait(cancellationToken).ConfigureAwait(false);
+        }
 
-    public Task<IDirectorySession> ConnectAsync(ConnectionOptions options, NetworkCredential? credential, CancellationToken cancellationToken)
+        if (FindError is { } error)
+        {
+            throw error;
+        }
+
+        return DomainControllers;
+    }
+
+    public async Task<IDirectorySession> ConnectAsync(ConnectionOptions options, NetworkCredential? credential, CancellationToken cancellationToken)
     {
         ConnectCount++;
         LastOptions = options;
         LastCredential = credential;
+        if (BeforeConnect is { } wait)
+        {
+            await wait(cancellationToken).ConfigureAwait(false);
+        }
+
         if (ConnectError is { } error)
         {
             throw error;
         }
 
-        return Task.FromResult(NextSession ?? session);
+        return NextSession ?? session;
+    }
+
+    /// <summary>F3: the session <see cref="ConnectGlobalCatalogAsync"/> returns; null = not supported (the default member's behaviour).</summary>
+    public IDirectorySession? GlobalCatalogSession { get; set; }
+
+    /// <summary>F3: what the global-catalog connect throws (a DC that is no GC: <c>ServerUnavailable</c>).</summary>
+    public Exception? GlobalCatalogError { get; set; }
+
+    /// <summary>F3: when set, the global-catalog connect waits for it (a late connect, possibly after the wizard closed).</summary>
+    public TaskCompletionSource? GlobalCatalogGate { get; set; }
+
+    public int GlobalCatalogConnectCount { get; private set; }
+
+    public async Task<IDirectorySession> ConnectGlobalCatalogAsync(IDirectorySession current, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(current);
+        GlobalCatalogConnectCount++;
+        if (GlobalCatalogGate is { } gate)
+        {
+            await gate.Task.ConfigureAwait(false);
+        }
+
+        if (GlobalCatalogError is { } error)
+        {
+            throw error;
+        }
+
+        return GlobalCatalogSession ?? throw new NotSupportedException("This connector cannot open a global catalog session with the credential of another session.");
     }
 }
 
@@ -227,7 +303,8 @@ internal sealed class TempAppPaths : IAppPaths, IDisposable
     public void Dispose()
     {
         // A setting saved as it changes (a toggle, a level) is written fire-and-forget: its file may still be appearing
-        // while the folder is deleted ("Directory not empty"). Retry briefly.
+        // while the folder is deleted ("Directory not empty"), and Windows refuses the deletion of a file that is being
+        // moved over another ("Access to the path 'settings.json.tmp' is denied"). Retry briefly.
         for (var attempt = 0; ; attempt++)
         {
             try
@@ -239,7 +316,7 @@ internal sealed class TempAppPaths : IAppPaths, IDisposable
 
                 return;
             }
-            catch (IOException) when (attempt < 40)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException && attempt < 40)
             {
                 Thread.Sleep(25);
             }
@@ -282,12 +359,17 @@ internal sealed class RecordingNotificationService : INotificationService
         }
     }
 
+    /// <summary>Called with every toast as it is shown - e.g. to see whether a window was closed by then.</summary>
+    public Action<NotificationSeverity, string>? OnShow { get; set; }
+
     public void Show(NotificationSeverity severity, string message)
     {
         lock (_items)
         {
             _items.Add((severity, message));
         }
+
+        OnShow?.Invoke(severity, message);
     }
 
     /// <summary>Forgets the toasts shown so far (e.g. those of the setup).</summary>

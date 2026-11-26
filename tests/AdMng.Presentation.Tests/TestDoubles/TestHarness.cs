@@ -29,7 +29,7 @@ internal sealed class TestHarness
         Lists = new ObjectListServices(Sessions, Localizer, Dispatcher, Settings, Errors, Changes, Time);
         Activities = new ActivityCenterViewModel(Dispatcher, Localizer, Errors, Time, Sessions);
         Views = new ViewLibrary(Settings);
-        Coordinator = new ChangeCoordinator(Sessions, Planner, Executor, Dialogs, Notifications, Settings, Activities, Changes, Errors, Localizer);
+        Coordinator = new ChangeCoordinator(Sessions, Planner, Executor, Dialogs, Notifications, Settings, Activities, Changes, Errors, Localizer, Dispatcher);
     }
 
     public ManualTimeProvider Time { get; }

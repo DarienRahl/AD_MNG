@@ -173,10 +173,10 @@
                                        DataContext="{Binding SigningSecret, Mode=OneWay}" />
         </DockPanel>
         <!-- Shown once: copy it into the receiver now. -->
-        <Border Margin="0,6,0,0"
-                Padding="10,6"
-                Style="{StaticResource Ad.WarningBar}"
-                Visibility="{Binding HasGeneratedSecret, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <ContentControl x:Name="GeneratedSecretNote"
+                        Margin="0,6,0,0"
+                        Style="{StaticResource Ad.Note.Attention}"
+                        Visibility="{Binding HasGeneratedSecret, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
           <StackPanel>
             <TextBlock Text="{l:Tr Watchdog.Ui.GeneratedSecretHint}" TextWrapping="Wrap" />
             <DockPanel Margin="0,6,0,0">
@@ -194,7 +194,7 @@
                        Text="{Binding GeneratedSecret, Mode=OneWay}" />
             </DockPanel>
           </StackPanel>
-        </Border>
+        </ContentControl>
         <TextBlock Style="{StaticResource Wd.TopLabel}" Text="{l:Tr Watchdog.Ui.PreviousSigningSecret}" />
         <wdv:WatchdogSecretFieldView x:Name="PreviousSecretField"
                                      AutomationProperties.Name="{l:Tr Watchdog.Ui.PreviousSigningSecret}"
@@ -265,17 +265,16 @@
 
     <!-- Test send with the unsaved settings -->
     <DockPanel Margin="0,14,0,0">
-      <Button x:Name="TestButton"
-              Command="{Binding TestCommand}"
-              DockPanel.Dock="Left"
-              Style="{StaticResource Wd.ToolButton}">
-        <StackPanel Orientation="Horizontal">
-          <TextBlock FontSize="12"
-                     Style="{StaticResource Ad.GlyphText}"
-                     Text="{x:Static c:Glyphs.Send}" />
-          <TextBlock Margin="6,0,0,0" Text="{l:Tr Watchdog.Ui.SendTest}" />
-        </StackPanel>
-      </Button>
+      <!-- The test is stopped by the same button (and by Stop in the line); how it ended is said by the line. -->
+      <c:ActionButton x:Name="TestButton"
+                      Margin="0,0,6,0"
+                      CancelCommand="{Binding Test.CancelCommand, Mode=OneWay}"
+                      Command="{Binding TestCommand}"
+                      Content="{l:Tr Watchdog.Ui.SendTest}"
+                      DockPanel.Dock="Left"
+                      Glyph="{x:Static c:Glyphs.Send}"
+                      IsRunning="{Binding Test.IsRunning, Mode=OneWay}"
+                      Style="{StaticResource Ad.ActionButton}" />
       <TextBlock VerticalAlignment="Center"
                  Style="{StaticResource Wd.Hint}"
                  Text="{l:Tr Watchdog.Ui.TestUsesUnsaved}" />

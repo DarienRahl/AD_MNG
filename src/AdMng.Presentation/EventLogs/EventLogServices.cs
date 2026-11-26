@@ -102,14 +102,17 @@ public sealed class EventLogServices(
     /// Why the event logs cannot be read in this window (localized), null when they can: not Windows (no connector or one
     /// that is not supported here) or a window bound with a simple bind (no Windows logon for Kerberos).
     /// </summary>
-    public string? NotSupportedReason(IDirectorySession? session)
+    public string? NotSupportedReason(IDirectorySession? session) => NotSupportedKey(session) is { } key ? Localizer[key] : null;
+
+    /// <summary>The resource key of <see cref="NotSupportedReason"/> (also its copy for the diagnostic log), null when reading is possible.</summary>
+    public string? NotSupportedKey(IDirectorySession? session)
     {
         if (Connector is not { IsSupported: true })
         {
-            return Localizer[L.EventLogs.NotSupported];
+            return L.EventLogs.NotSupported;
         }
 
-        return session?.Info.Authentication == AuthenticationMode.SimpleBind ? Localizer[L.EventLogs.NotSupportedSimpleBind] : null;
+        return session?.Info.Authentication == AuthenticationMode.SimpleBind ? L.EventLogs.NotSupportedSimpleBind : null;
     }
 
     /// <summary>A runner over the connector (never null once <see cref="NotSupportedReason"/> is null).</summary>

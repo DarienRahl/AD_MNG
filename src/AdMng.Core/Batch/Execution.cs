@@ -69,12 +69,20 @@ public enum ObjectResultStatus
 {
     Succeeded,
 
-    /// <summary>Some steps succeeded, a later step failed (e.g. attributes set, move denied).</summary>
+    /// <summary>
+    /// Some steps succeeded, a later step failed (e.g. attributes set, move denied). A Stop alone never makes it; a Stop
+    /// during an outage ends the retries of a request that got no answer, and the object ends here with that error.
+    /// </summary>
     PartiallySucceeded,
     Failed,
 
     /// <summary>Not executed: validation error, no-op, or stopped after an earlier error.</summary>
     Skipped,
+
+    /// <summary>
+    /// Not started: the Stop came before the first change of the object began (nothing of it was changed). An object whose
+    /// first change succeeded is carried through to its last change whatever the Stop, so a stop leaves no object half done.
+    /// </summary>
     Cancelled,
 }
 
@@ -104,6 +112,17 @@ public sealed record ObjectResult(
     DateTimeOffset FinishedAt);
 
 /// <summary>Result of executing a plan - basis for the report, CSV export and rollback.</summary>
+/// <param name="Plan">The executed plan.</param>
+/// <param name="Objects">One result per object of the plan, in plan order.</param>
+/// <param name="Server">The DC the plan was executed on.</param>
+/// <param name="Operator">The identity the session was bound with.</param>
+/// <param name="StartedAt">When the execution began.</param>
+/// <param name="FinishedAt">When it ended.</param>
+/// <param name="WasCancelled">
+/// A Stop was asked for while the run went on (or an object was cancelled). It does not say that anything was left
+/// undone: a Stop that comes while the last objects run changes nothing, because they are carried through - ask
+/// <see cref="WasCutShort"/> for what the operator is told.
+/// </param>
 public sealed record BatchResult(
     ChangePlan Plan,
     IReadOnlyList<ObjectResult> Objects,
@@ -113,6 +132,22 @@ public sealed record BatchResult(
     DateTimeOffset FinishedAt,
     bool WasCancelled)
 {
+    /// <summary>
+    /// The objects that a Stop found running and that were carried through to the end all the same (every change of them
+    /// made): Stop finishes the object in progress. Zero for an execution that was not stopped, or one whose Stop came
+    /// between two objects. The status line of a run that was cut short says it - "the one that ran was finished".
+    /// </summary>
+    public int FinishedAfterStopCount { get; init; }
+
+    /// <summary>
+    /// The Stop left something of the plan undone: an object that was not started, or a step that was cancelled. False
+    /// for a run that was not stopped and for one whose Stop came too late to keep anything from running (every object
+    /// was carried through): that plan was executed completely and its result is an ordinary one - it must not read
+    /// "stopped: 1 of 1 object done".
+    /// </summary>
+    public bool WasCutShort => Objects.Any(o => o.Status == ObjectResultStatus.Cancelled
+        || o.Changes.Any(c => c.ErrorKind == DirectoryErrorKind.Cancelled));
+
     public int SucceededCount => Objects.Count(o => o.Status == ObjectResultStatus.Succeeded);
 
     public int FailedCount => Objects.Count(o => o.Status is ObjectResultStatus.Failed or ObjectResultStatus.PartiallySucceeded);
@@ -128,9 +163,11 @@ public interface IBatchExecutor
 {
     /// <summary>
     /// Executes all objects without errors that are not no-ops. Never throws for per-object failures -
-    /// they are reported in the result. Cancellation stops scheduling new objects; running objects finish
-    /// their current step and are reported as Cancelled/PartiallySucceeded. Every executed step is written
-    /// to the audit log (without passwords).
+    /// they are reported in the result. Cancellation (Stop) starts no new object and <b>finishes the object in
+    /// progress</b>: an object whose first change has succeeded gets all its remaining changes (the objects that run in
+    /// parallel each finish), an object whose first change has not begun is reported as
+    /// <see cref="ObjectResultStatus.Cancelled"/>, and a failed change still ends its object. Every executed step is
+    /// written to the audit log (without passwords).
     /// </summary>
     Task<BatchResult> ExecuteAsync(
         IDirectorySession session,

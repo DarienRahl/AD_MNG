@@ -137,6 +137,50 @@ public class SysvolPipelineTests
     }
 
     [Fact]
+    public async Task Stop_AfterTheFirstChangeOfANewGpo_StillCommitsItsFilesAndVersion_AndCancelsTheObjectsAfterIt()
+    {
+        var id = Guid.NewGuid();
+        using var stop = new CancellationTokenSource();
+
+        // The container is created; the Stop comes while the folder is made. Without "finish the object in progress" the
+        // content transaction (file and version) was never started: a GPO with an empty folder and version 0.
+        _sysvol.BeforeCall = (called, _, _) =>
+        {
+            if (called == "CreateGpoFolder")
+            {
+                stop.Cancel();
+            }
+        };
+
+        var result = await Executor(_sysvol).ExecuteAsync(Session, NewGpoPlan(id, "Zatrzymane GPO"), Fast, null, stop.Token);
+
+        var gpo = result.Objects[0];
+        Assert.Equal(ObjectResultStatus.Succeeded, gpo.Status);
+        Assert.Equal(
+            [ChangeAction.Create, ChangeAction.CreateGpoFolder, ChangeAction.WriteGpoFile, ChangeAction.SetGpoVersion],
+            gpo.Changes.Select(c => c.Change.Action));
+        Assert.All(gpo.Changes, c => Assert.True(c.Succeeded));
+        Assert.Equal(Pol, _sysvol.Get(id, "Machine/Registry.pol"));
+        Assert.Equal("[General]\r\nVersion=1\r\n", _sysvol.GetText(id, "GPT.INI"));
+        Assert.Equal("1", Assert.Single(Session.GetValues(GpLinkValue.GpoDn(id, _builder.DomainDn), "versionNumber")));
+
+        // The objects after it (the child containers and the link) were not started; the undo covers what was made.
+        Assert.All(result.Objects.Skip(1), o => Assert.Equal(ObjectResultStatus.Cancelled, o.Status));
+        Assert.True(result.WasCancelled);
+        Assert.Equal(1, result.FinishedAfterStopCount);
+        Assert.All(_audit.Entries, e => Assert.True(e.Succeeded));
+        Assert.Equal(["Create", "CreateGpoFolder", "SetGpoVersion", "WriteGpoFile"], _audit.Entries.Select(e => e.Action).Distinct().Order());
+        Assert.Contains(_audit.Entries, e => e.Attribute == "sysvol:Machine/Registry.pol");
+        var rollback = new RollbackPlanner().CreateRollbackPlan(result);
+        Assert.Equal([ChangeAction.DeleteGpoFolder, ChangeAction.Delete], Assert.Single(rollback.Objects).Changes.Select(c => c.Action));
+
+        await ExecuteAsync(rollback);
+
+        Assert.False(_sysvol.FolderExists(id));
+        Assert.False(Session.Exists(GpLinkValue.GpoDn(id, _builder.DomainDn)));
+    }
+
+    [Fact]
     public async Task Audit_HasHashesAndSizes_NeverContent()
     {
         var id = Guid.NewGuid();

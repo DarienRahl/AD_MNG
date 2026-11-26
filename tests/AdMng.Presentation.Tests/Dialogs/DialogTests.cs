@@ -349,6 +349,64 @@ public class NewObjectTests
     }
 }
 
+/// <summary>
+/// The close of a window view model (<see cref="WindowViewModelBase.CanCloseAsync"/>, the owner's decision D-A): a second close
+/// while the first one asks or waits - the title bar, then the Close button or Esc - joins it; once it was answered, the next
+/// close asks again.
+/// </summary>
+public class WindowCloseTests
+{
+    [Fact]
+    public async Task CanCloseAsync_CalledTwice_AsksOnce_BothGetTheSameAnswer_AndTheNextCloseAsksAgain()
+    {
+        var harness = await B2Harness.CreateAsync();
+        await harness.Session.DeleteAsync(harness.Company.JanKowalski, subtree: false, TestContext.Current.CancellationToken);
+        using var bin = harness.Factory.CreateRecycleBin();
+        await bin.InitializeAsync();
+        bin.SelectedItem = bin.Items.Single(r => r.Name == "Jan Kowalski");
+        await bin.RestoreCommand.ExecuteAsync(null);
+        using var release = new ManualResetEventSlim();
+        using var held = new SemaphoreSlim(0);
+        harness.Session.BeforeOperation = operation =>
+        {
+            if (operation.Kind == FakeOperationKind.RestoreDeleted)
+            {
+                held.Release();
+                release.Wait(TimeSpan.FromSeconds(60));
+            }
+        };
+        var answer = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.Dialogs.BeforeCloseAnswer = () => answer.Task;
+        harness.Dialogs.CloseAnswers.Enqueue(CloseAnswer.KeepOpen);
+        Task restoring;
+        try
+        {
+            restoring = bin.ConfirmRestoreCommand.ExecuteAsync(null);
+            Assert.True(await held.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken));
+
+            var first = bin.CanCloseAsync();
+            var second = bin.CanCloseAsync();
+            Assert.Same(first, second);
+            answer.SetResult();
+            Assert.False(await first);
+            Assert.False(await second);
+            Assert.Single(harness.Dialogs.CloseQuestions);
+
+            // Answered: the next close is a new one, with its own question.
+            harness.Dialogs.BeforeCloseAnswer = null;
+            Assert.False(await bin.CanCloseAsync());
+            Assert.Equal(2, harness.Dialogs.CloseQuestions.Count);
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        await restoring.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+        harness.Session.BeforeOperation = null;
+    }
+}
+
 public class FindTests
 {
     [Fact]

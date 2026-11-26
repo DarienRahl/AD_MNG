@@ -37,6 +37,7 @@ public class PropertySheetTests
 
         Assert.Equal(
             [L.Pages.General, L.Pages.Address, L.Pages.Account, L.Pages.Profile, L.Pages.Telephones, L.Pages.Organization,
+             L.Certificates.PublishedCertificatesPage, L.Certificates.NameMappingsPage, L.Certificates.KeyCredentialsPage,
              L.Pages.MemberOf, L.Pages.Object, L.Pages.AttributeEditor],
             sheet.Pages.Select(p => p.Key));
         Assert.Equal("Łukasz Wiśniewski Properties", sheet.WindowTitle);
@@ -359,8 +360,9 @@ public class PropertySheetTests
         var (sheet, harness) = await OpenAsync(c => c.Computer1);
 
         Assert.Equal(
-            [L.Pages.General, L.Pages.OperatingSystem, L.Computers.StatusPage, L.Pages.MemberOf, L.Pages.Delegation, L.Pages.Location, L.Pages.ManagedBy,
-             L.Pages.Object, L.Pages.AttributeEditor],
+            [L.Pages.General, L.Pages.OperatingSystem, L.Computers.StatusPage,
+             L.Certificates.PublishedCertificatesPage, L.Certificates.NameMappingsPage, L.Certificates.KeyCredentialsPage,
+             L.Pages.MemberOf, L.Pages.Delegation, L.Pages.Location, L.Pages.ManagedBy, L.Pages.Object, L.Pages.AttributeEditor],
             sheet.Pages.Select(p => p.Key));
         var general = Page(sheet, L.Pages.General);
         Assert.Contains(general.Fields.OfType<FieldViewModel>(), f => f.Value == "Workstation or server" && f.IsInformational);
@@ -372,6 +374,21 @@ public class PropertySheetTests
         Assert.Contains(Page(dc, L.Pages.General).Fields.OfType<FieldViewModel>(), f => f.Value == "Domain controller");
         Assert.Contains(Page(dc, L.Pages.Delegation).Fields.OfType<FieldViewModel>(),
             f => f.Value == "Trust this computer for delegation to any service (Kerberos only)");
+    }
+
+    [Fact]
+    public async Task Contact_HasAducPagesInOrder_WithPublishedCertificatesOnly()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var contact = harness.Builder.AddContact("Anna", "Zając", harness.Company.SalesOu, new Dictionary<string, object?> { [Attr.Mail] = "anna.zajac@example.com" });
+        var sheet = harness.Factory.CreatePropertySheet(contact);
+        await sheet.InitializeAsync();
+
+        Assert.Equal(
+            [L.Pages.General, L.Pages.Address, L.Pages.Telephones, L.Pages.Organization, L.Certificates.PublishedCertificatesPage,
+             L.Pages.MemberOf, L.Pages.Object, L.Pages.AttributeEditor],
+            sheet.Pages.Select(p => p.Key));
+        Assert.Equal(ObjectKind.Contact, sheet.Kind);
     }
 
     [Fact]

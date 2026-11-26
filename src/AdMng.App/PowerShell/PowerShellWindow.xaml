@@ -1,0 +1,236 @@
+<!--
+  The PowerShell window of one connection (PowerShellWindowViewModel, track R, stage R1; modeless, one per connection window): the
+  scrollback with what the commands wrote, the line editor with completion, highlighting and history, Run / Stop, and the
+  switch of the trusted mode. The window is the first one written against the feedback controls of V2: a status line at the top
+  (a command is an operation of it, and Stop is the one of the action button), notes that last (what the policies of this
+  computer record; the trusted mode) and the one place for the plan R2 will keep here (collapsed, empty).
+  Everything is reachable with the keyboard: Enter runs, Shift+Enter adds a line, Tab completes, Esc closes the list, Up and Down
+  walk through the lines and then the history, Ctrl+R searches it, Ctrl+C copies a selection or stops the command, Ctrl+L clears
+  the window; in the output Enter opens the first distinguished name of the selected line. The colours are the theme's: an error
+  or a warning has its glyph, never the colour alone.
+-->
+<Window x:Class="AdMng.App.PowerShell.PowerShellWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="clr-namespace:AdMng.App.Controls"
+        xmlns:l="clr-namespace:AdMng.App.Localization"
+        xmlns:ps="clr-namespace:AdMng.App.PowerShell"
+        xmlns:vm="clr-namespace:AdMng.Presentation.PowerShell;assembly=AdMng.Presentation"
+        Title="{Binding WindowTitle, Mode=OneWay}"
+        Width="1020"
+        Height="680"
+        MinWidth="640"
+        MinHeight="440"
+        WindowStartupLocation="CenterOwner">
+  <Window.Resources>
+    <Style x:Key="OutputLineStyle" TargetType="ListBoxItem">
+      <Setter Property="Padding" Value="8,1" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding Text, Mode=OneWay}" />
+      <!-- An error, a warning or the note is said with its kind first (audit W-07): the glyph and the colour are not heard. -->
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static vm:PowerShellLineKind.Error}">
+          <Setter Property="AutomationProperties.Name">
+            <Setter.Value>
+              <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
+                <l:TrBinding Key="PowerShell.Kind.Error" />
+                <Binding Mode="OneWay" Path="Text" />
+              </MultiBinding>
+            </Setter.Value>
+          </Setter>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static vm:PowerShellLineKind.Warning}">
+          <Setter Property="AutomationProperties.Name">
+            <Setter.Value>
+              <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
+                <l:TrBinding Key="PowerShell.Kind.Warning" />
+                <Binding Mode="OneWay" Path="Text" />
+              </MultiBinding>
+            </Setter.Value>
+          </Setter>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static vm:PowerShellLineKind.PolicyNote}">
+          <Setter Property="AutomationProperties.Name">
+            <Setter.Value>
+              <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
+                <l:TrBinding Key="PowerShell.Kind.Note" />
+                <Binding Mode="OneWay" Path="Text" />
+              </MultiBinding>
+            </Setter.Value>
+          </Setter>
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <!-- A line of the scrollback: the glyph of its kind (errors, warnings and notes), then the pieces. -->
+    <DataTemplate x:Key="OutputLineTemplate" DataType="{x:Type vm:PowerShellOutputLine}">
+      <DockPanel LastChildFill="True">
+        <TextBlock x:Name="KindGlyph"
+                   Width="20"
+                   Margin="0,3,0,0"
+                   VerticalAlignment="Top"
+                   DockPanel.Dock="Left"
+                   FontSize="12"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Visibility="Collapsed" />
+        <TextBlock x:Name="LineText"
+                   FontFamily="{StaticResource Ad.Font.Mono}"
+                   FontSize="{StaticResource Ad.FontSize.Body}"
+                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                   ps:PowerShellRuns.Source="{Binding Runs, Mode=OneWay}"
+                   TextOptions.TextFormattingMode="Display"
+                   TextWrapping="Wrap" />
+      </DockPanel>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static vm:PowerShellLineKind.Error}">
+          <Setter TargetName="KindGlyph" Property="Text" Value="{x:Static c:Glyphs.Error}" />
+          <Setter TargetName="KindGlyph" Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+          <Setter TargetName="KindGlyph" Property="Visibility" Value="Visible" />
+          <Setter TargetName="LineText" Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static vm:PowerShellLineKind.Warning}">
+          <Setter TargetName="KindGlyph" Property="Text" Value="{x:Static c:Glyphs.Warning}" />
+          <Setter TargetName="KindGlyph" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+          <Setter TargetName="KindGlyph" Property="Visibility" Value="Visible" />
+          <Setter TargetName="LineText" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static vm:PowerShellLineKind.PolicyNote}">
+          <Setter TargetName="KindGlyph" Property="Text" Value="{x:Static c:Glyphs.Warning}" />
+          <Setter TargetName="KindGlyph" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+          <Setter TargetName="KindGlyph" Property="Visibility" Value="Visible" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static vm:PowerShellLineKind.Command}">
+          <Setter TargetName="LineText" Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static vm:PowerShellLineKind.Prompt}">
+          <Setter TargetName="LineText" Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static vm:PowerShellLineKind.Verbose}">
+          <Setter TargetName="LineText" Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static vm:PowerShellLineKind.Debug}">
+          <Setter TargetName="LineText" Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static vm:PowerShellLineKind.Information}">
+          <Setter TargetName="LineText" Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+  </Window.Resources>
+
+  <Window.InputBindings>
+    <KeyBinding Key="L" Command="{Binding ClearCommand}" Modifiers="Control" />
+  </Window.InputBindings>
+
+  <DockPanel>
+    <!-- The command line: the place for the pending plan of R2 (collapsed), the editor, and the buttons. -->
+    <Border Padding="16,8,16,12"
+            Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
+            BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+            BorderThickness="0,1,0,0"
+            DockPanel.Dock="Bottom">
+      <Grid>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- The plan that R2's commands will collect before it is previewed and executed: nothing in R1 shows it. -->
+        <Border x:Name="PendingPlanArea"
+                Margin="0,0,0,8"
+                Visibility="{Binding PendingPlan.IsVisible, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+
+        <ps:PowerShellEditor x:Name="Editor"
+                             Grid.Row="1"
+                             ClearCommand="{Binding ClearCommand}"
+                             Hint="{Binding EditorHint, Mode=OneWay}"
+                             Model="{Binding Input}"
+                             Prompt="{Binding InputPrompt, Mode=OneWay}"
+                             StopCommand="{Binding StopCommand}"
+                             SubmitCommand="{Binding SubmitCommand}"
+                             SubmitSecretCommand="{Binding AnswerSecretCommand}" />
+
+        <DockPanel Grid.Row="2" Margin="0,8,0,0" LastChildFill="False">
+          <c:ActionButton x:Name="RunButton"
+                          MinWidth="104"
+                          CancelCommand="{Binding StopCommand}"
+                          Command="{Binding RunCommand}"
+                          Content="{l:Tr PowerShell.Run}"
+                          DockPanel.Dock="Right"
+                          IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                          IsRunning="{Binding IsRunning, Mode=OneWay}"
+                          Style="{StaticResource Ad.AccentActionButton}" />
+          <Button x:Name="ClearButton"
+                  Margin="0,0,8,0"
+                  Command="{Binding ClearCommand}"
+                  Content="{l:Tr PowerShell.Clear}"
+                  DockPanel.Dock="Right"
+                  ToolTip="{l:Tr PowerShell.Clear.Tip}" />
+          <ps:StateCheckBox x:Name="TrustedSwitch"
+                            VerticalAlignment="Center"
+                            AutomationProperties.HelpText="{Binding TrustedModeDisabledReason, Mode=OneWay, TargetNullValue=''}"
+                            Command="{Binding ToggleTrustedModeCommand}"
+                            Content="{l:Tr PowerShell.Trusted.Switch}"
+                            DockPanel.Dock="Left"
+                            IsChecked="{Binding IsTrustedMode, Mode=OneWay}"
+                            ToolTip="{Binding TrustedModeDisabledReason, Mode=OneWay}"
+                            ToolTipService.ShowOnDisabled="True" />
+        </DockPanel>
+      </Grid>
+    </Border>
+
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="8,8,8,0"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+
+    <!-- What lasts: what the policies of this computer record and where, the trusted mode, the lines that were dropped. -->
+    <StackPanel Margin="16,8,16,0" DockPanel.Dock="Top">
+      <ContentControl x:Name="PolicyNote"
+                      Margin="0,0,0,4"
+                      Style="{StaticResource Ad.Note.Attention}"
+                      Visibility="{Binding PolicyNoteText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+        <TextBlock AutomationProperties.LiveSetting="Polite" Text="{Binding PolicyNoteText, Mode=OneWay}" TextWrapping="Wrap" />
+      </ContentControl>
+      <ContentControl x:Name="TrustedNote"
+                      Margin="0,0,0,4"
+                      Style="{StaticResource Ad.Note.Attention}"
+                      Visibility="{Binding IsTrustedMode, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <TextBlock AutomationProperties.LiveSetting="Polite" Text="{l:Tr PowerShell.Status.TrustedNote}" TextWrapping="Wrap" />
+      </ContentControl>
+      <ContentControl x:Name="DroppedNote"
+                      Margin="0,0,0,4"
+                      Style="{StaticResource Ad.Note.Info}"
+                      Visibility="{Binding DroppedNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+        <TextBlock Text="{Binding DroppedNote, Mode=OneWay}" TextWrapping="Wrap" />
+      </ContentControl>
+    </StackPanel>
+
+    <ListBox x:Name="OutputList"
+             Margin="16,4,16,8"
+             Background="Transparent"
+             BorderThickness="0"
+             AutomationProperties.Name="{l:Tr PowerShell.Output.Name}"
+             ItemContainerStyle="{StaticResource OutputLineStyle}"
+             ItemTemplate="{StaticResource OutputLineTemplate}"
+             ItemsSource="{Binding Output.Lines, Mode=OneWay}"
+             ps:PowerShellRuns.CopyLinkCommand="{Binding CopyDistinguishedNameCommand}"
+             ps:PowerShellRuns.LinkCommand="{Binding OpenObjectCommand}"
+             ScrollViewer.CanContentScroll="True"
+             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+             SelectionMode="Extended"
+             VirtualizingPanel.IsVirtualizing="True"
+             VirtualizingPanel.VirtualizationMode="Recycling">
+      <ListBox.ContextMenu>
+        <ContextMenu>
+          <MenuItem Click="OnCopyLinesClick" Header="{l:Tr PowerShell.Menu.CopyOutput}" InputGestureText="Ctrl+C" />
+          <MenuItem Click="OnSelectAllClick" Header="{l:Tr PowerShell.Menu.SelectAll}" InputGestureText="Ctrl+A" />
+        </ContextMenu>
+      </ListBox.ContextMenu>
+    </ListBox>
+  </DockPanel>
+</Window>

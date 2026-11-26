@@ -139,6 +139,8 @@ internal sealed class ComputerAwareDialogs(ScriptedDialogService inner) : IDialo
 
     public Task<bool> ConfirmTypedAsync(string title, string message, string expectedText) => Inner.ConfirmTypedAsync(title, message, expectedText);
 
+    public Task<CloseAnswer> AskCloseAsync(string title, string message, bool canContinue) => Inner.AskCloseAsync(title, message, canContinue);
+
     public Task<string?> PickContainerAsync(IDirectorySession session, string? startDn) => Inner.PickContainerAsync(session, startDn);
 
     public Task<IReadOnlyList<string>> PickObjectsAsync(IDirectorySession session, IReadOnlyList<ObjectKind> kinds, bool multiSelect) =>
@@ -155,6 +157,10 @@ internal sealed class ComputerAwareDialogs(ScriptedDialogService inner) : IDialo
     public Task ShowFindAsync(string? startDn) => Inner.ShowFindAsync(startDn);
 
     public Task ShowSessionLogAsync() => Inner.ShowSessionLogAsync();
+
+    public Task ShowPowerShellAsync() => Inner.ShowPowerShellAsync();
+
+    public Task ShowPowerShellGridAsync(AdMng.Core.PowerShell.PowerShellGridTable table, Action? closed = null) => Inner.ShowPowerShellGridAsync(table, closed);
 
     public Task ShowProblemReportAsync() => Inner.ShowProblemReportAsync();
 

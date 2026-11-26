@@ -121,7 +121,7 @@ public sealed class WatchdogCertificateTests
             Assert.True(tab.IsConnected);
 
             h.Client.ServerCertificate = SampleStatus.Certificate;
-            await tab.Status.LoadAsync();
+            await tab.ServiceStatus.LoadAsync();
 
             Assert.Equal(WatchdogConnectionState.CertificateInvalid, tab.ConnectionState);
             Assert.True(tab.CanReviewCertificate);

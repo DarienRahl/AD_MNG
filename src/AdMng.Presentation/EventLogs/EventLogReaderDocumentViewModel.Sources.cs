@@ -4,6 +4,7 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
 using AdMng.Core.EventLogs;
 using AdMng.Core.Model;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -249,15 +250,21 @@ public sealed partial class EventLogReaderDocumentViewModel
             return Task.CompletedTask;
         }
 
-        return RunExclusiveAsync(async (session, token) =>
-        {
-            ProgressText = Localizer.Format(L.EventLogs.LoadingChannels, source.Host);
-            await using var reader = await connector.OpenComputerAsync(source.Host, session, token).ConfigureAwait(true);
-            var channels = await reader.GetChannelsAsync(token).ConfigureAwait(true);
-            ChannelOptions = [.. EventLogText.CommonChannels, .. channels.Where(c => !EventLogText.CommonChannels.Contains(c, StringComparer.OrdinalIgnoreCase))
-                .Order(StringComparer.OrdinalIgnoreCase)];
-            LoadedText = Localizer.Format(L.EventLogs.ChannelsLoaded, source.Host, channels.Count);
-        });
+        return RunExclusiveWithResultAsync(
+            async (session, token) =>
+            {
+                await using var reader = await connector.OpenComputerAsync(source.Host, session, token).ConfigureAwait(true);
+                var channels = await reader.GetChannelsAsync(token).ConfigureAwait(true);
+                ChannelOptions = [.. EventLogText.CommonChannels, .. channels.Where(c => !EventLogText.CommonChannels.Contains(c, StringComparer.OrdinalIgnoreCase))
+                    .Order(StringComparer.OrdinalIgnoreCase)];
+
+                // What the operator asked for is the list of the channel box; the line says how many came - the summary of the
+                // last read stays the summary of the last read.
+                return PageStatus.Done(
+                    Localizer.Format(L.EventLogs.ChannelsLoaded, source.Host, channels.Count),
+                    new PageStatusLog(L.EventLogs.ChannelsLoaded, channels.Count));
+            },
+            new RunText(L.EventLogsStatus.Channels, L.EventLogsStatus.ChannelsFailed, source.Host));
     }
 
     private bool CanLoadChannels() => IsSupported && HasSession && !IsLoading && Sources.Any(s => s.IsSelected && !s.IsFiles);

@@ -9,7 +9,9 @@
 #   * recipient groups it-admins = admin@contoso.test, helpdesk = helpdesk@contoso.test;
 #   * channels "siem-lab" (webhook → the sink, Standard Webhooks signature with SINK_SECRET) and "teams-lab"
 #     (Teams Workflows envelope → the sink's /teams path), both on every immediate rule and the digest;
-#   * business hours all week 00:00–23:59 without holidays and rollout mode ended (unless --keep-rollout), so every
+#   * business hours the whole day all week (start = end means the whole day; an end of 23:59 left the last minute of
+#     the day outside them, and a run that crossed it lost its immediate e-mails) without holidays and rollout mode ended
+#     (unless --keep-rollout), so every
 #     immediate rule notifies at once;
 #   * aggregation windows of 1 minute (global and every rule that sets one) so the demo e-mails arrive quickly, and an
 #     hourly cap of 1000 messages per rule so repeated scenario runs are not throttled into the digest;
@@ -78,7 +80,7 @@ updated="$(jq \
     | .general.publicBaseUrl = $base
     | .general.rolloutEnded = $rolloutEnded
     | .businessHours = (.businessHours + {days: ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
-        start: "00:00:00", end: "23:59:00", holidayCalendar: "None"})
+        start: "00:00:00", end: "00:00:00", holidayCalendar: "None"})
     | .smtp = (.smtp + {enabled: true, host: "127.0.0.1", port: 1025, security: "StartTls", authentication: "Basic",
         userName: "watchdog@contoso.test", password: {newValue: $password}, from: "AD Watchdog <watchdog@contoso.test>",
         localDomain: "watchdog.contoso.test", certificateValidation: "PinnedSha256", pinnedSha256: $pin, checkRevocation: false})

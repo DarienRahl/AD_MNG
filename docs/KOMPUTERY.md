@@ -25,7 +25,10 @@ okno.
 
 **Zakres:** cała domena, jednostka organizacyjna (z poddrzewem), zapisany widok albo członkowie grupy (jak w *Przeglądzie
 kont*). *Sprawdź* (F5) czyta konta komputerów jednym stronicowanym zapytaniem (`sAMAccountType=805306369`, bez kont usług
-zarządzanych). Wyniki pojawiają się na bieżąco, a *Przerwij* zatrzymuje odczyt.
+zarządzanych). Wyniki pojawiają się na bieżąco. Wiersz stanu u góry okna mówi, ile komputerów odczytano, i ma *Zatrzymaj*;
+w trakcie sprawdzania sam przycisk *Sprawdź* jest jego przyciskiem *Anuluj*. Ten sam wiersz mówi, jak skończył się odczyt
+dokładnego ostatniego logowania, ustalanie lokacji i ping (co nie odpowiedziało albo czego nie udało się odczytać, co
+pominięto), oraz co trwa: sesja okna się skończyła albo sprawdzanie się nie udało (z *Ponów*).
 
 **Raporty** (kafelki z liczbą komputerów):
 
@@ -64,7 +67,9 @@ wszystkie fakty o zaznaczonym komputerze, ustalenia raportów i wiersz katalogu.
 - *Dokładne ostatnie logowanie* – `lastLogon` z każdego kontrolera domeny (do 500 komputerów, najwyżej 4 kontrolery
   naraz). Komputer, który okazuje się aktywny, znika z raportów nieaktywności. Gdy zaznaczenie lub lista ma więcej niż
   500 komputerów, okno najpierw pyta, czy sprawdzić tylko pierwsze 500 w bieżącej kolejności, a wynik podaje, ile
-  komputerów sprawdzono z ilu.
+  komputerów sprawdzono z ilu. Kontroler domeny, z którego nie udało się odczytać, wynik wymienia razem z powodem
+  (np. *Nie udało się odczytać z: dc02.contoso.test (Odmowa dostępu).*), bo kontroler, który odmówił, to nie to samo co
+  kontroler, który nie odpowiada.
 - *Ustal lokację* – nazwa DNS komputera jest rozwiązywana resolverem stacji operatora (limit 2 s, 16 zapytań naraz), a
   adres dopasowywany do podsieci lasu (najdłuższy prefiks, także IPv6). Lokacja kontrolera domeny to lokacja jego obiektu
   serwera. Przy ponad 500 komputerach okno najpierw pyta o zgodę. Komunikaty: *brak podsieci*, *nie rozwiązano*.
@@ -129,7 +134,13 @@ Akcje działają jak dla innych obiektów, z dodatkowymi regułami dla komputer�
 ## 4. Zdalne akcje (WinRM, Kerberos)
 
 *Komputer → Zdalne akcje…* otwiera okno komputera (jedno na komputer w oknie połączenia). W nagłówku okna widać nazwę
-komputera, jego nazwę DNS i sposób połączenia, np. *Połączenie: WinRM (HTTP 5985, Kerberos) jako CONTOSO\admin*.
+komputera i jego nazwę DNS, a w wierszu stanu pod nim sposób połączenia, np. *Połączenie: WinRM (HTTP 5985, Kerberos) jako
+CONTOSO\admin*. Ten sam wiersz mówi, która akcja trwa (z *Zatrzymaj*; przycisk akcji jest jej przyciskiem *Anuluj*) i jak
+się skończyła: odczyt zostawia wynik w karcie lub na liście, akcja mówi, co zrobiono, a zatrzymana akcja mówi, że nie
+wiadomo, czy komputer otrzymał żądanie. Gdy okno nie może wykonywać zdalnych akcji, ten sam wiersz mówi dlaczego: obiekt
+nie jest (już) komputerem, komputer nie ma nazwy DNS, komputera nie udało się odczytać z katalogu (z powodem i kodem,
+np. *Nie udało się odczytać komputera „KRK-PC101”: Odmowa dostępu. (LDAP 50)*) albo zdalne akcje nie są dostępne w tym
+programie.
 
 | Akcja | Co robi |
 |---|---|

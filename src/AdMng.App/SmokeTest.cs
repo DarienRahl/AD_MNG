@@ -45,7 +45,7 @@ namespace AdMng.App;
 /// tests), the connect window of a new connection, and the connection chrome and message dialog header in every palette
 /// colour, light and dark. A shell is disposed with its window, so a scope is never reused for the second pass.
 /// </remarks>
-internal static class SmokeTest
+internal static partial class SmokeTest
 {
     public const int Passed = 0;
     public const int Failed = 1;
@@ -100,7 +100,14 @@ internal static class SmokeTest
             exceptions = host.Services.GetRequiredService<GlobalExceptionHandler>();
             exceptions.Recorder = ex => failures.Add($"Unhandled exception: {ex}");
             exceptions.Attach(app);
+
+            // No motion in the smoke test, whatever the command line or the settings say: every window is rendered
+            // with its final values (the host also forces it off for --smoke-test; this is the explicit switch).
+            host.Services.GetRequiredService<MotionService>().ForceOff();
             await AppHost.InitializeAsync(host.Services, options).ConfigureAwait(true);
+
+            // Track R: the embedded engine runs in the published program (once; it is language independent).
+            await CheckPowerShellEngineAsync().ConfigureAwait(true);
 
             var localizer = host.Services.GetRequiredService<ILocalizer>();
             foreach (var language in (string[])["en", "pl"])
@@ -174,6 +181,10 @@ internal static class SmokeTest
         await RenderGroupPolicyAsync(main, services).ConfigureAwait(true);
         await RenderEventLogsAsync(main).ConfigureAwait(true);
         await RenderReadinessAsync(main).ConfigureAwait(true);
+        await RenderPkiAsync(main, services).ConfigureAwait(true);
+        await RenderPkiSecurityAsync(main, services).ConfigureAwait(true);
+        await RenderBulkCreateAsync(main, services).ConfigureAwait(true);
+        RenderPowerShellWindows(services, windows);
         main.Shell.CommandPalette.OpenCommand.Execute(null);
 
         // A second connection window (its own scope, disconnected: grey strip, "Nie połączono") and the connect window of
@@ -184,6 +195,7 @@ internal static class SmokeTest
         var dialog = windows.CreateWindow(MessageDialogViewModel.TypedConfirmation(
             localizer[L.Commands.Delete], localizer.Format(L.Delete.ConfirmMany, 3, "contoso.test"), "3", localizer));
         UiTestSupport.ShowOffScreen(dialog);
+        RenderCloseQuestions(windows, localizer);
 
         var editor = windows.CreateWindow(services.GetRequiredService<SavedViewEditorViewModel>());
         UiTestSupport.ShowOffScreen(editor);
@@ -212,6 +224,33 @@ internal static class SmokeTest
         await UiTestSupport.WaitForIdleAsync(rounds: 2).ConfigureAwait(true);
         UiTestSupport.CloseAllWindows();
         await UiTestSupport.WaitForIdleAsync(rounds: 2).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// The close question of a window that executes changes (the owner's decision D-A): with three answers, and with two and
+    /// the reason why the execution cannot go on without the window. Enter and Esc keep the window; Stop is destructive.
+    /// </summary>
+    private static void RenderCloseQuestions(IWindowService windows, ILocalizer localizer)
+    {
+        var running = localizer.Format(
+            L.ChangeStatus.Executing, localizer[L.Commands.ResetPassword].TrimEnd('.', '…'), "contoso.test", Presentation.Feedback.PageStatusText.Progress(localizer, 12, 300));
+        var questions = new (string Message, bool CanContinue)[]
+        {
+            (localizer.Format(L.CloseWork.Changes, running), true),
+            ($"{localizer.Format(L.CloseWork.StopChanges, running)}\n\n{localizer[L.CloseWork.NoBackgroundPasswords]}", false),
+        };
+        foreach (var (message, canContinue) in questions)
+        {
+            var question = (MessageDialogWindow)windows.CreateWindow(MessageDialogViewModel.CloseQuestion(localizer[L.Commands.ResetPassword], message, canContinue, localizer));
+            UiTestSupport.ShowOffScreen(question);
+            if ((question.ContinueButton.Visibility == System.Windows.Visibility.Visible) != canContinue
+                || !question.CancelButton.IsDefault || !question.CancelButton.IsCancel
+                || !Equals(question.CancelButton.Content, localizer[L.CloseWork.KeepOpen])
+                || !Equals(question.ConfirmButton.Content, localizer[L.CloseWork.StopAndClose]))
+            {
+                throw new InvalidOperationException($"The close question with {(canContinue ? 3 : 2)} answers has the wrong buttons.");
+            }
+        }
     }
 
     /// <summary>The main window of another connection scope and the connect window of a new connection.</summary>
@@ -394,6 +433,8 @@ internal static class SmokeTest
             new(GroupPolicyDocumentKind.SecuritySettings) { GpoId = GroupPolicySamples.PasswordsId, Name = "Stacje robocze – Zasady haseł" },
             new(GroupPolicyDocumentKind.Modeling) { ComputerDn = "CN=WAW-PC001,OU=Komputery,OU=Firma," + GroupPolicySamples.DomainDn, Name = "WAW-PC001" },
             new(GroupPolicyDocumentKind.Diagnostics),
+            new(GroupPolicyDocumentKind.SettingsSearch) { SearchText = "hasło" },
+            new(GroupPolicyDocumentKind.Cleanup),
         })
         {
             var document = shell.OpenGroupPolicyDocument(request) ?? throw new InvalidOperationException("A Group Policy document did not open.");
@@ -419,6 +460,19 @@ internal static class SmokeTest
         UiTestSupport.ShowOffScreen(windows.CreateWindow(new WmiFilterEditorViewModel(gp.Ui, GroupPolicySamples.Filter())));
         var templates = services.GetRequiredService<GroupPolicyViewModelFactory>();
         UiTestSupport.ShowOffScreen(windows.CreateWindow(new CentralStoreUpdateViewModel(gp, templates.Definitions, templates.Loader)));
+
+        // K7: "Kopiuj ustawienia" in copy mode (one refused setting) and in merge mode.
+        IReadOnlyList<Presentation.GroupPolicy.Copy.GpoCopyItem> copyItems =
+        [
+            new(new(passwords.Id, "S|Computer|System Access|MinimumPasswordLength"), passwords.DisplayName, "Minimalna długość hasła",
+                "Konfiguracja komputera › Zasady › Ustawienia systemu Windows › Ustawienia zabezpieczeń › Zasady konta › Zasady haseł", "12 znaków", null),
+            new(new(passwords.Id, "I|Computer|Groups|User|serwis_łódź", "{7A1B2C3D-4E5F-4061-8273-94A5B6C7D8E9}"), passwords.DisplayName, "serwis_łódź",
+                "Konfiguracja komputera › Preferencje › Ustawienia panelu sterowania › Użytkownicy i grupy lokalne", "(ustawione – ukryte)",
+                Core.GroupPolicy.Search.GpoUnitRefusal.Secret),
+        ];
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new Presentation.GroupPolicy.Copy.GpoCopySettingsViewModel(gp.Ui, copyItems, remoteDesktop.DisplayName)));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new Presentation.GroupPolicy.Copy.GpoCopySettingsViewModel(gp.Ui, copyItems,
+            new Presentation.GroupPolicy.Copy.GpoMergeInfo(passwords.DisplayName, remoteDesktop.DisplayName, null, true, true, ["Obiekty GPO mają różne filtry WMI."]))));
         UiTestSupport.ShowOffScreen(windows.CreateWindow(new ChangePlanPreviewViewModel(gp.Ui, gp.Engines,
             new ChangePlanPreviewRequest(GroupPolicySamples.Plan("dc01.contoso.test"), "Import ustawień")
             {
@@ -495,7 +549,7 @@ internal static class SmokeTest
         UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateSavedFilters()));
         var dialogServices = services.GetRequiredService<DialogServices>();
         var editor = new Presentation.Filters.FilterEditorViewModel(
-            dialogServices.Sessions, dialogServices.Dialogs, dialogServices.Localizer, dialogServices.Errors, dialogServices.Time);
+            dialogServices.Sessions, dialogServices.Dialogs, dialogServices.Localizer, dialogServices.Errors, dialogServices.Time, dialogServices.Dispatcher);
         editor.Groups[0].Conditions[0].Attribute = Core.ActiveDirectory.Attr.Department;
         editor.Groups[0].Conditions[0].Value = "Księgowość";
         editor.AddGroupCommand.Execute(null);

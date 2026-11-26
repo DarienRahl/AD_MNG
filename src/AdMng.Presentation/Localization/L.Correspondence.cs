@@ -19,9 +19,6 @@ public static partial class L
         /// <summary>"Korespondencja" (a window opened while disconnected).</summary>
         public const string WindowTitleNoDomain = "Correspondence.WindowTitleNoDomain";
 
-        /// <summary>Closing the window while messages are being sent.</summary>
-        public const string StopOnClose = "Correspondence.StopOnClose";
-
         /// <summary>"Pomoc" (the button) and the title of the help report.</summary>
         public const string Help = "Correspondence.Help";
 

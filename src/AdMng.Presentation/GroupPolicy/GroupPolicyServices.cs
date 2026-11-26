@@ -50,6 +50,12 @@ public enum GroupPolicyDocumentKind
 
     /// <summary>"Diagnostyka zasad grupy" (K6) of the window's domain: one tab per connection window.</summary>
     Diagnostics,
+
+    /// <summary>"Wyszukiwarka ustawień GPO" (K7, 21.4): one tab per connection window; <see cref="GroupPolicyDocumentRequest.SearchText"/> is its query.</summary>
+    SettingsSearch,
+
+    /// <summary>"Porządki w GPO" (K7, 21.6): the cleanup advisor, one tab per connection window.</summary>
+    Cleanup,
 }
 
 /// <summary>A request to open a Group Policy document in the connection window's shell.</summary>
@@ -82,6 +88,12 @@ public sealed record GroupPolicyDocumentRequest(GroupPolicyDocumentKind Kind)
     /// opens – or, already open, when its tab is activated again (<see cref="IGroupPolicySettingEditor.FocusSetting"/>).
     /// </summary>
     public GroupPolicySettingFocus? Focus { get; init; }
+
+    /// <summary>
+    /// <see cref="GroupPolicyDocumentKind.SettingsSearch"/> (K7): the query to search for ("Znajdź we wszystkich GPO"); an open
+    /// search tab receives it through <c>ISearchableDocument.SearchText</c>.
+    /// </summary>
+    public string? SearchText { get; init; }
 }
 
 /// <summary>

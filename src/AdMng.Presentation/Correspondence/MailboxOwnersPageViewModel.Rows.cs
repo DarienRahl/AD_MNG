@@ -4,6 +4,7 @@ using AdMng.Core.Correspondence.Mailboxes;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Core.Model;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
@@ -125,6 +126,7 @@ public sealed partial class MailboxOwnersPageViewModel
         }
 
         SummaryText = Localizer.Format(L.CorrespondenceMailboxes.Summary, matched, review, notFound, excluded);
+        Status.SetIdle(SummaryText);
     }
 
     /// <summary>Status, colour and the reason of one row.</summary>
@@ -286,15 +288,19 @@ public sealed partial class MailboxOwnersPageViewModel
     [RelayCommand(CanExecute = nameof(CanAddToRecipients))]
     private async Task AddToRecipientsAsync()
     {
-        var title = Localizer[L.CorrespondenceMailboxes.AddTitle];
         var ready = Rows.Where(r => r.IsReady).ToList();
         if (ready.Count == 0)
         {
-            await Services.Dialogs.ShowInfoAsync(title, Localizer[L.CorrespondenceMailboxes.AddNothing]).ConfigureAwait(true);
+            // The press came to nothing: no owner is chosen yet.
+            ReportStatus(PageStatusText.Failure(Localizer[L.MailboxesStatus.NothingAdded], Localizer[L.CorrespondenceMailboxes.AddNothing]));
+            Status.Show(PageStatus.Attention(StatusText, new PageStatusLog(L.CorrespondenceMailboxes.AddNothing)));
             return;
         }
 
-        var run = new CancellationTokenSource();
+        var readingOwners = ready.Count(r => r.Owner is not null);
+        using var adding = Status.Begin(
+            Localizer.Format(L.CorrespondenceMailboxes.ReadingOwners, readingOwners), new PageStatusLog(L.CorrespondenceMailboxes.ReadingOwners, readingOwners));
+        var run = CancellationTokenSource.CreateLinkedTokenSource(adding.Token);
         Interlocked.Exchange(ref _run, run)?.Cancel();
         var token = run.Token;
         var progress = ProgressText;
@@ -331,16 +337,29 @@ public sealed partial class MailboxOwnersPageViewModel
         {
             ProgressText = progress;
             ReportStatus(Localizer.Format(L.CorrespondenceMailboxes.Cancelled, Localizer[L.CorrespondenceMailboxes.AddCancelled]));
+
+            // Only the operator's Stop says so (the end of the session says its own): nothing was added, and Retry reads again.
+            if (adding.IsCancelling)
+            {
+                adding.CompleteAttention(StatusText, new PageStatusLog(L.CorrespondenceMailboxes.AddCancelled, readingOwners),
+                    new PageStatusAction(Localizer[L.Common.Retry], AddToRecipientsCommand));
+            }
         }
         catch (DirectoryException ex)
         {
             ProgressText = progress;
-            await Services.Dialogs.ShowErrorAsync(title, Services.Errors.Translate(ex)).ConfigureAwait(true);
+            var code = ResultCode.Of(ex);
+            adding.CompleteError(
+                PageStatusText.Failure(Localizer[L.MailboxesStatus.AddFailed], Services.Errors.Translate(ex), Localizer[L.Feedback.RetryNext], code),
+                new PageStatusLog(L.MailboxesStatus.AddFailed, readingOwners).WithCode(code),
+                new PageStatusAction(Localizer[L.Common.Retry], AddToRecipientsCommand));
         }
         catch (Exception ex) when (ex is SessionEndedException or InvalidOperationException or ObjectDisposedException)
         {
             ProgressText = progress;
-            await Services.Dialogs.ShowErrorAsync(title, Localizer[L.WindowSession.Ended]).ConfigureAwait(true);
+            adding.CompleteError(
+                PageStatusText.Failure(Localizer[L.MailboxesStatus.AddFailed], Localizer[L.WindowSession.Ended]),
+                new PageStatusLog(L.MailboxesStatus.AddFailed, readingOwners));
         }
         finally
         {
@@ -356,20 +375,21 @@ public sealed partial class MailboxOwnersPageViewModel
         }
 
         var added = Recipients.ReplaceMailboxRows(recipients);
+        var owners = recipients.Select(r => r.Email).Distinct(StringComparer.Ordinal).Count();
+        var status = Localizer.Format(L.CorrespondenceMailboxes.Added, added, owners);
+        ReportStatus(status);
+        adding.CompleteDone(status, new PageStatusLog(L.CorrespondenceMailboxes.Added, added, owners));
+        Recipients.ReportStatus(status, L.CorrespondenceMailboxes.Added, false, added, owners);
 
         // The built-in that fits the grouping, when the message is empty or still a built-in as loaded – before the grouping
         // is set (after the question when the page holds a subject): the template carries its own grouping, which must not
         // override "Jedna wiadomość na właściciela".
         await Message.UseMailboxTemplateAsync(GroupByOwner).ConfigureAwait(true);
         Message.GroupByAddress = GroupByOwner;
-        var owners = recipients.Select(r => r.Email).Distinct(StringComparer.Ordinal).Count();
-        var status = Localizer.Format(L.CorrespondenceMailboxes.Added, added, owners);
-        ReportStatus(status);
-        Recipients.ReportStatus(status);
         OnRecipientsAdded();
     }
 
-    /// <summary>Raises a status line (also when it repeats the previous one, so the status bar shows it again).</summary>
+    /// <summary>Sets the last sentence of the page (also when it repeats the previous one); the line says it through the holder.</summary>
     private void ReportStatus(string text)
     {
         StatusText = string.Empty;

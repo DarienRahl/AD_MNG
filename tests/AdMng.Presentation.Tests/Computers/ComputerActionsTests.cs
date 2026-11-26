@@ -2,6 +2,7 @@ using AdMng.Core.Batch;
 using AdMng.Core.Computers.Remote;
 using AdMng.Presentation.Computers;
 using AdMng.Presentation.Services;
+using AdMng.Testing;
 
 namespace AdMng.Presentation.Tests.Computers;
 
@@ -164,6 +165,56 @@ public class ComputerActionsTests
 
         Assert.Null(target);
         Assert.Equal("The object is not a computer (any more).", Assert.Single(harness.Dialogs.Errors).Message);
+    }
+
+    [Fact]
+    public async Task FindTarget_SaysWhyThereIsNone_WithoutADialog_AndTryPing_ReturnsTheOutcome_WithoutAToast()
+    {
+        var scenario = await ComputerScenario.CreateAsync();
+        var harness = scenario.Harness;
+        scenario.Ping.Answering["krk-pc101.contoso.test"] = TimeSpan.FromMilliseconds(2);
+
+        var (nobody, notAComputer) = await scenario.Actions.FindTargetAsync(harness.Session, scenario.Company.JanKowalski, Ct);
+        var (prestaged, noName) = await scenario.Actions.FindTargetAsync(harness.Session, scenario.Sample.Prestaged, Ct);
+        var (target, none) = await scenario.Actions.FindTargetAsync(harness.Session, scenario.Sample.Pro24H2, Ct);
+
+        Assert.Null(nobody);
+        Assert.Equal("The object is not a computer (any more).", notAComputer!.Text);
+        Assert.Equal(notAComputer.Text, notAComputer.Reason);
+        Assert.Equal("Computers.NotAComputer", notAComputer.LogKey);
+        Assert.Null(prestaged);
+        Assert.StartsWith("PREST-PC201 has no DNS host name in Active Directory", noName!.Text, StringComparison.Ordinal);
+        Assert.Equal("Computers.NoDnsName", noName.LogKey);
+        Assert.True(noName.Code.IsNone);
+        Assert.Equal("krk-pc101.contoso.test", target!.DnsHostName);
+        Assert.Null(none);
+
+        // A computer that could not be read: what was tried, why and the code - and the reason alone for a caller that
+        // says what it tried itself.
+        harness.Session.FailNext(FakeOperationKind.Get, scenario.Sample.Pro24H2, Core.Directory.DirectoryErrorKind.AccessDenied);
+        var (unread, readFailed) = await scenario.Actions.FindTargetAsync(harness.Session, scenario.Sample.Pro24H2, Ct);
+        Assert.Null(unread);
+        Assert.Equal("Could not read the computer “KRK-PC101”: Access is denied. (LDAP 50)", readFailed!.Text);
+        Assert.Equal("Access is denied.", readFailed.Reason);
+        Assert.Equal("Computers.TargetReadFailed", readFailed.LogKey);
+        Assert.Equal("LDAP 50", readFailed.Code.ToString());
+
+        var answered = await scenario.Actions.TryPingAsync(harness.Session, scenario.Sample.Pro24H2, Ct);
+        Assert.Equal(4, answered.Result!.Received);
+        Assert.Null(answered.Problem);
+        var refused = await scenario.Actions.TryPingAsync(harness.Session, scenario.Sample.Prestaged, Ct);
+        Assert.Null(refused.Result);
+        Assert.Equal(noName.Text, refused.Problem);
+        Assert.True(refused.Code.IsNone);
+        harness.Session.FailNext(FakeOperationKind.Get, scenario.Sample.Pro24H2, Core.Directory.DirectoryErrorKind.AccessDenied);
+        var unreadable = await scenario.Actions.TryPingAsync(harness.Session, scenario.Sample.Pro24H2, Ct);
+        Assert.Null(unreadable.Result);
+        Assert.Equal("Access is denied.", unreadable.Problem);
+        Assert.Equal("LDAP 50", unreadable.Code.ToString());
+
+        // Nothing was said anywhere: the caller says it where it has its place.
+        Assert.Empty(harness.Dialogs.Errors);
+        Assert.Empty(harness.Notifications.Items);
     }
 
     [Fact]

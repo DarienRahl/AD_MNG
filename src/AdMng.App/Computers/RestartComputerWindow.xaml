@@ -1,10 +1,11 @@
 <!-- "Uruchom ponownie…" (RestartComputerViewModel, modal, K1 design note 4.5): delay, the message shown to the logged-on
      users, "close applications without asking" and, for anything but a known workstation, the computer name typed as
-     confirmation. -->
+     confirmation. It starts no operation - it collects the request and hands it to the remote actions window, which says
+     what became of it in its status line - so it has no status line, and why "Uruchom ponownie" is not possible yet is a
+     note (V2b-4). -->
 <Window x:Class="AdMng.App.Computers.RestartComputerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:c="clr-namespace:AdMng.App.Controls"
         xmlns:l="clr-namespace:AdMng.App.Localization"
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         Title="{Binding WindowTitle, Mode=OneWay}"
@@ -82,19 +83,16 @@
                  Text="{Binding TypedName, UpdateSourceTrigger=PropertyChanged}" />
       </StackPanel>
 
-      <DockPanel Margin="0,12,0,0" Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-        <TextBlock Margin="0,1,8,0"
-                   VerticalAlignment="Top"
-                   DockPanel.Dock="Left"
-                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Warning}" />
+      <!-- Why "Restart" is not possible yet (the delay, the message, the typed name): a note about the fields, true while it is shown. -->
+      <ContentControl x:Name="ErrorNote"
+                      Margin="0,12,0,0"
+                      Style="{StaticResource Ad.Note.Attention}"
+                      Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
         <TextBlock x:Name="ErrorText"
                    AutomationProperties.LiveSetting="Polite"
-                   Style="{StaticResource Ad.SecondaryText}"
                    Text="{Binding Error, Mode=OneWay}"
                    TextWrapping="Wrap" />
-      </DockPanel>
+      </ContentControl>
     </StackPanel>
   </DockPanel>
 </Window>

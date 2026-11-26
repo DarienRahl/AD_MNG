@@ -190,7 +190,6 @@ public static partial class L
         public const string Action = "Batch.Action";
         public const string Status = "Batch.Status";
         public const string Message = "Batch.Message";
-        public const string Planning = "Batch.Planning";
     }
 
     public static class Csv

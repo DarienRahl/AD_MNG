@@ -55,6 +55,15 @@ internal sealed class TestDialogService(DialogService inner) : IDialogService
         return Task.FromResult(ConfirmAnswer);
     }
 
+    /// <summary>Answers of <see cref="AskCloseAsync"/>, in order ("Don't close" when empty).</summary>
+    public Queue<CloseAnswer> CloseAnswers { get; } = new();
+
+    public Task<CloseAnswer> AskCloseAsync(string title, string message, bool canContinue)
+    {
+        Confirmations.Add(message);
+        return Task.FromResult(CloseAnswers.Count > 0 ? CloseAnswers.Dequeue() : CloseAnswer.KeepOpen);
+    }
+
     public Task<string?> PickContainerAsync(IDirectorySession session, string? startDn) => Task.FromResult<string?>(null);
 
     public Task<IReadOnlyList<string>> PickObjectsAsync(IDirectorySession session, IReadOnlyList<ObjectKind> kinds, bool multiSelect) =>
@@ -75,6 +84,10 @@ internal sealed class TestDialogService(DialogService inner) : IDialogService
     public Task ShowFindAsync(string? startDn) => Inner.ShowFindAsync(startDn);
 
     public Task ShowSessionLogAsync() => Task.CompletedTask;
+
+    public Task ShowPowerShellAsync() => Inner.ShowPowerShellAsync();
+
+    public Task ShowPowerShellGridAsync(AdMng.Core.PowerShell.PowerShellGridTable table, Action? closed = null) => Inner.ShowPowerShellGridAsync(table, closed);
 
     public Task ShowProblemReportAsync() => Inner.ShowProblemReportAsync();
 

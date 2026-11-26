@@ -37,7 +37,7 @@ public sealed class FakeSysvol : ISysvolFileReader, ISysvolFileWriter
     public Action<string, Guid, string?>? BeforeCall { get; set; }
 
     /// <summary>
-    /// Holds the next call of <paramref name="operation"/> (<c>Read</c>, <c>ListDefinitions</c>) whose path matches until
+    /// Holds the next call of <paramref name="operation"/> (<c>Open</c>, <c>Read</c>, <c>ListDefinitions</c>) whose path matches until
     /// <see cref="FakeSysvolHold.Release"/>, without blocking the calling thread: the call's task stays incomplete, like a
     /// call on the network. A wait inside <see cref="BeforeCall"/> blocks the thread that called – in a test on its UI
     /// thread, the test itself.
@@ -242,6 +242,21 @@ public sealed class FakeSysvol : ISysvolFileReader, ISysvolFileWriter
     {
         ArgumentNullException.ThrowIfNull(session);
         cancellationToken.ThrowIfCancellationRequested();
+        return TakeHold("Open", null) is { } hold ? HeldOpenAsync<T>(hold, session, cancellationToken) : OpenNowAsync<T>(session);
+    }
+
+    /// <summary>A held open (a share that takes its time to answer): the token is checked when it is released.</summary>
+    private async Task<T> HeldOpenAsync<T>(FakeSysvolHold hold, IDirectorySession session, CancellationToken cancellationToken)
+        where T : class, ISysvolConnection
+    {
+        await hold.EnterAsync().ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return await OpenNowAsync<T>(session).ConfigureAwait(false);
+    }
+
+    private Task<T> OpenNowAsync<T>(IDirectorySession session)
+        where T : class, ISysvolConnection
+    {
         if (Unavailable is { } reason)
         {
             throw new SysvolUnavailableException(reason, "SYSVOL is not available (test).");

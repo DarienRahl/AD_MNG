@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <defs>
+    <linearGradient id="a" gradientUnits="userSpaceOnUse" x1="0" y1="7" x2="0" y2="45">
+      <stop offset="0" stop-color="#A982FF"/>
+      <stop offset="1" stop-color="#7446E0"/>
+    </linearGradient>
+    <linearGradient id="b" gradientUnits="userSpaceOnUse" x1="0" y1="25" x2="0" y2="45">
+      <stop offset="0" stop-color="#8D9AB0"/>
+      <stop offset="1" stop-color="#66748B"/>
+    </linearGradient>
+  </defs>
+  <path fill-rule="nonzero" d="M 7 9 H 41 L 28.5 25 V 39 L 19.5 43 V 25 Z" fill="url(#a)" stroke="url(#a)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path fill-rule="nonzero" d="M 44.742 37.258 L 43.485 40.292 L 40.792 39.278 L 39.278 40.792 L 40.292 43.485 L 37.258 44.742 L 36.07 42.12 L 33.93 42.12 L 32.742 44.742 L 29.708 43.485 L 30.722 40.792 L 29.208 39.278 L 26.515 40.292 L 25.258 37.258 L 27.88 36.07 L 27.88 33.93 L 25.258 32.742 L 26.515 29.708 L 29.208 30.722 L 30.722 29.208 L 29.708 26.515 L 32.742 25.258 L 33.93 27.88 L 36.07 27.88 L 37.258 25.258 L 40.292 26.515 L 39.278 29.208 L 40.792 30.722 L 43.485 29.708 L 44.742 32.742 L 42.12 33.93 L 42.12 36.07 Z" fill="url(#b)" stroke="url(#b)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="35" cy="35" r="3.4" fill="#FFFFFF"/>
+</svg>

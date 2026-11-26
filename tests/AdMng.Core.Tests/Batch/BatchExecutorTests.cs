@@ -618,7 +618,7 @@ public class BatchExecutorTests
     }
 
     [Fact]
-    public async Task Cancellation_LetsTheRunningStepFinishAndCancelsTheRest()
+    public async Task Cancellation_FinishesTheObjectInProgress_AndCancelsTheRest()
     {
         var plan = await PlanAsync([_company.JanKowalski, _company.LukaszWisniewski, _company.PawelLewandowski],
             new SetAttributeOperation(Attr.Title, "Nowy"),
@@ -635,11 +635,14 @@ public class BatchExecutorTests
         var result = await ExecuteAsync(plan, Fast with { MaxDegreeOfParallelism = 1 }, token: cts.Token);
 
         Assert.True(result.WasCancelled);
+        // The stop came during the first change of Jan; his second change (the move) is made all the same.
         var jan = result.Objects[0];
-        Assert.Equal(ObjectResultStatus.PartiallySucceeded, jan.Status);
-        Assert.True(Assert.Single(jan.Changes).Succeeded);
-        Assert.Equal("Nowy", Value(_company.JanKowalski, Attr.Title));
-        Assert.True(Session.Exists(_company.JanKowalski));
+        Assert.Equal(ObjectResultStatus.Succeeded, jan.Status);
+        Assert.Equal([ChangeAction.Modify, ChangeAction.Move], jan.Changes.Select(c => c.Change.Action));
+        Assert.All(jan.Changes, c => Assert.True(c.Succeeded));
+        Assert.Equal("Nowy", Value("CN=Jan Kowalski," + _company.AccountingOu, Attr.Title));
+        Assert.False(Session.Exists(_company.JanKowalski));
+        Assert.Equal(1, result.FinishedAfterStopCount);
         Assert.All(result.Objects.Skip(1), o => Assert.Equal(ObjectResultStatus.Cancelled, o.Status));
         Assert.Equal("Programista", Value(_company.LukaszWisniewski, Attr.Title));
     }
@@ -671,10 +674,15 @@ public class BatchExecutorTests
         Session.Latency = TimeSpan.FromMilliseconds(25);
         Session.ResetConcurrencyStatistics();
 
-        var result = await ExecuteAsync(plan, Fast with { MaxDegreeOfParallelism = 3 });
+        var progress = new SynchronousProgress<BatchProgress>();
+
+        var result = await ExecuteAsync(plan, Fast with { MaxDegreeOfParallelism = 3 }, progress);
 
         Assert.Equal(8, result.SucceededCount);
         Assert.InRange(Session.MaxObservedConcurrency, 2, 3);
+
+        // The counts arrive in order although the objects finish on several workers: the last report is the total.
+        Assert.Equal(Enumerable.Range(1, 8), progress.Values.Select(p => p.Completed));
     }
 
     [Fact]

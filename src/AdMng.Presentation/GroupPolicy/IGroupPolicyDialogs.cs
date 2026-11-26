@@ -33,4 +33,7 @@ public interface IGroupPolicyDialogs
 
     /// <summary>"Zaktualizuj szablony ADMX" (K3, modal). True when the central store was changed.</summary>
     Task<bool> ShowCentralStoreUpdateAsync(CentralStoreUpdateViewModel update);
+
+    /// <summary>"Kopiuj ustawienia" / "Scal obiekty GPO" (K7, modal). True when the operator confirmed (the choice is on the view model).</summary>
+    Task<bool> ShowCopySettingsAsync(Copy.GpoCopySettingsViewModel dialog);
 }

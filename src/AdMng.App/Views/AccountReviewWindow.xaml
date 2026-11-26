@@ -5,6 +5,10 @@
   ViewModel.Columns). "Uprawnienia" (PrivilegedAccessViewModel): accounts with any right beyond a plain domain user, level
   tiles and source filters, the findings of the selected account with their path. Every action goes through the change plan
   or the batch editor; the results exist only in memory.
+  Feedback (track V, stage V2b): one status line at the top (PageStatus) says the running check (of either tab, with the
+  accounts read so far), else what the tab shown says - its summary and how its last check ended, the read of the exact
+  last logon - and that the session of the window ended. "Sprawdź" is an action button: while a check runs it is its
+  Cancel. What a grant source could not read is a note above the list of the "Uprawnienia" tab.
 -->
 <Window x:Class="AdMng.App.Views.AccountReviewWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -16,7 +20,7 @@
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="1280"
-        Height="840"
+        Height="876"
         MinWidth="860"
         MinHeight="560"
         WindowStartupLocation="CenterOwner">
@@ -40,6 +44,12 @@
     </Style>
 
     <Style x:Key="ActionButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Margin" Value="0,0,6,6" />
+      <Setter Property="Padding" Value="10,3" />
+    </Style>
+
+    <!-- The same metrics for a button of the list that starts an operation which can be stopped (c:ActionButton). -->
+    <Style x:Key="ListActionButton" TargetType="{x:Type c:ActionButton}" BasedOn="{StaticResource Ad.ActionButton}">
       <Setter Property="Margin" Value="0,0,6,6" />
       <Setter Property="Padding" Value="10,3" />
     </Style>
@@ -266,41 +276,28 @@
   </Window.InputBindings>
 
   <DockPanel>
-    <!-- Footer: progress, "stan na godz.", selection, Close. -->
+    <!-- Footer: Close. "Stan na godz.", the progress and the selection are said by the status line. -->
     <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
-      <DockPanel>
-        <Button x:Name="CloseButton"
-                Command="{Binding CloseCommand}"
-                Content="{l:Tr Common.Close}"
-                DockPanel.Dock="Right"
-                IsCancel="True"
-                Style="{StaticResource Ad.DialogButton}" />
-        <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
-          <ProgressBar x:Name="RunProgress"
-                       Width="60"
-                       Margin="0,0,8,0"
-                       VerticalAlignment="Center"
-                       IsIndeterminate="True"
-                       Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-          <TextBlock x:Name="StatusText"
-                     AutomationProperties.LiveSetting="Polite"
-                     Style="{StaticResource Ad.SecondaryText}"
-                     Text="{Binding FooterText, Mode=OneWay}" />
-          <TextBlock x:Name="SelectionText"
-                     Margin="16,0,0,0"
-                     Style="{StaticResource Ad.SecondaryText}"
-                     Text="{Binding SelectionText, Mode=OneWay}"
-                     Visibility="{Binding IsPrivilegesTab, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
-          <TextBlock x:Name="PrivilegesSelectionText"
-                     Margin="16,0,0,0"
-                     Style="{StaticResource Ad.SecondaryText}"
-                     Text="{Binding Privileges.SelectionText, Mode=OneWay}"
-                     Visibility="{Binding IsPrivilegesTab, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-        </StackPanel>
-      </DockPanel>
+      <Button x:Name="CloseButton"
+              HorizontalAlignment="Right"
+              Command="{Binding CloseCommand}"
+              Content="{l:Tr Common.Close}"
+              IsCancel="True"
+              Style="{StaticResource Ad.DialogButton}" />
     </Border>
 
-    <!-- Scope and Check / Stop. -->
+    <!--
+      Status line (design note 6.1): the running check - of either tab - with the accounts read so far, else what the
+      tab shown says (its summary, a check that failed or was stopped, the read of the exact last logon), and that the
+      session of this window ended. Always present, so nothing under it moves.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="8,8,8,0"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+
+    <!-- Scope and Check: while a check runs the button is its Cancel. -->
     <Grid Margin="16,12,16,0" DockPanel.Dock="Top">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="Auto" />
@@ -349,38 +346,16 @@
                   ItemsSource="{Binding ScopeFilters, Mode=OneWay}"
                   SelectedItem="{Binding ScopeFilter}" />
       </StackPanel>
-      <StackPanel Grid.Column="4" Orientation="Horizontal">
-        <Button x:Name="StopButton"
-                Margin="0,0,8,0"
-                Command="{Binding StopCommand}"
-                Content="{l:Tr Common.Stop}"
-                Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
-        <Button x:Name="RunButton"
-                MinWidth="120"
-                Command="{Binding RunCommand}"
-                Content="{l:Tr AccountReview.Run}"
-                Style="{StaticResource Ad.AccentDialogButton}" />
-      </StackPanel>
+      <c:ActionButton x:Name="RunButton"
+                      Grid.Column="4"
+                      MinWidth="120"
+                      CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                      Command="{Binding RunCommand}"
+                      Content="{l:Tr AccountReview.Run}"
+                      IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                      IsRunning="{Binding Status.IsWorking, Mode=OneWay}"
+                      Style="{StaticResource Ad.AccentDialogActionButton}" />
     </Grid>
-
-    <!-- Session ended (the window belongs to the previous session) or the run failed. -->
-    <Border x:Name="SessionEndedBar"
-            Margin="16,10,16,0"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding SessionEndedMessage, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <TextBlock Text="{Binding SessionEndedMessage, Mode=OneWay}" TextWrapping="Wrap" />
-    </Border>
-    <Border x:Name="ErrorBar"
-            Margin="16,10,16,0"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.ErrorBar}"
-            Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <TextBlock x:Name="ErrorText"
-                 AutomationProperties.LiveSetting="Assertive"
-                 Text="{Binding Error, Mode=OneWay}"
-                 TextWrapping="Wrap" />
-    </Border>
 
     <!-- The tabs: "Stan kont" (the checks) and "Uprawnienia" (privileged access, README U4); "Sprawdź" runs the selected one. -->
     <TabControl x:Name="Tabs"
@@ -532,11 +507,15 @@
                       Content="{l:Tr Commands.Disable}"
                       Style="{StaticResource ActionButton}"
                       Visibility="{Binding ShowDisable, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-              <Button x:Name="ExactLastLogonButton"
-                      Command="{Binding ReadExactLastLogonCommand}"
-                      Content="{l:Tr AccountReview.ExactLastLogon}"
-                      Style="{StaticResource ActionButton}"
-                      Visibility="{Binding ShowExactLastLogon, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              <!-- Reads lastLogon on every domain controller; while it reads the button is the Cancel of that read. -->
+              <c:ActionButton x:Name="ExactLastLogonButton"
+                              CancelCommand="{Binding AccountsStatus.CancelCommand, Mode=OneWay}"
+                              Command="{Binding ReadExactLastLogonCommand}"
+                              Content="{l:Tr AccountReview.ExactLastLogon}"
+                              IsCancelling="{Binding AccountsStatus.IsCancelling, Mode=OneWay}"
+                              IsRunning="{Binding AccountsStatus.IsWorking, Mode=OneWay}"
+                              Style="{StaticResource ListActionButton}"
+                              Visibility="{Binding ShowExactLastLogon, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
               <Button x:Name="ClearFlagButton"
                       Command="{Binding ClearFlagCommand}"
                       Content="{l:Tr AccountReview.ClearFlag}"
@@ -601,11 +580,6 @@
                 <GridView x:Name="ItemsGrid" AllowsColumnReorder="False" />
               </ListView.View>
             </ListView>
-            <ProgressBar Grid.Row="2"
-                         Height="3"
-                         VerticalAlignment="Top"
-                         IsIndeterminate="True"
-                         Visibility="{Binding IsRunning, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
             <TextBlock x:Name="EmptyHint"
                        Grid.Row="2"
                        Margin="0,60,0,0"
@@ -869,27 +843,20 @@
             </Grid>
           </Expander>
 
-          <Border x:Name="PrivilegesErrorBar"
-                  Margin="0,10,0,0"
-                  DockPanel.Dock="Top"
-                  Style="{StaticResource Ad.ErrorBar}"
-                  Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-            <TextBlock AutomationProperties.LiveSetting="Assertive"
-                       Text="{Binding Error, Mode=OneWay}"
-                       TextWrapping="Wrap" />
-          </Border>
-
-          <!-- What a grant source could not read (U4c: SYSVOL of the session's DC, GPO files, unknown names). -->
-          <Border x:Name="PrivilegesNoticeBar"
-                  Margin="0,10,0,0"
-                  DockPanel.Dock="Top"
-                  Style="{StaticResource Ad.WarningBar}"
-                  Visibility="{Binding HasNotices, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+          <!--
+            What a grant source could not read (U4c: SYSVOL of the session's DC, GPO files, unknown names): a note about
+            the results below - true for as long as they are shown - not a status of the window.
+          -->
+          <ContentControl x:Name="PrivilegesNoticeBar"
+                          Margin="0,10,0,0"
+                          DockPanel.Dock="Top"
+                          Style="{StaticResource Ad.Note.Attention}"
+                          Visibility="{Binding HasNotices, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
             <TextBlock x:Name="PrivilegesNoticeText"
                        AutomationProperties.LiveSetting="Polite"
                        Text="{Binding NoticeText, Mode=OneWay}"
                        TextWrapping="Wrap" />
-          </Border>
+          </ContentControl>
 
           <!-- Level tiles (toggles), sources and "only unusual": they filter the list. -->
           <DockPanel x:Name="PrivilegesFilters"
@@ -1044,10 +1011,6 @@
                 </GridView>
               </ListView.View>
             </ListView>
-            <ProgressBar Height="3"
-                         VerticalAlignment="Top"
-                         IsIndeterminate="True"
-                         Visibility="{Binding IsRunning, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
             <TextBlock x:Name="PrivilegesEmptyHint"
                        Margin="0,60,0,0"
                        HorizontalAlignment="Center"

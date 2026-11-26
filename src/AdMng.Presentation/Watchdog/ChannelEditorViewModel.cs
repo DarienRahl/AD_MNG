@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Security.Cryptography;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -27,7 +28,7 @@ public sealed partial class ChannelEditorViewModel : ObservableObject
     private readonly ChannelSettings _original;
     private bool _loading;
 
-    public ChannelEditorViewModel(WatchdogServices services, WatchdogConfigSession session, int index)
+    public ChannelEditorViewModel(WatchdogServices services, WatchdogConfigSession session, int index, PageStatusHolder? testStatus = null)
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
         _session = session ?? throw new ArgumentNullException(nameof(session));
@@ -43,7 +44,7 @@ public sealed partial class ChannelEditorViewModel : ObservableObject
         ClientSecret = new WatchdogSecretFieldViewModel(teams.ClientSecret, localizer, Commit);
         SigningSecret = new WatchdogSecretFieldViewModel(webhook.SigningSecret, localizer, Commit);
         PreviousSigningSecret = new WatchdogSecretFieldViewModel(webhook.PreviousSigningSecret, localizer, Commit);
-        Test = new DeliveryTestViewModel(services);
+        Test = new DeliveryTestViewModel(services, testStatus);
         Test.SecretRebindRequired += OnSecretRebindRequired;
         _loading = true;
         Id = _original.Id;

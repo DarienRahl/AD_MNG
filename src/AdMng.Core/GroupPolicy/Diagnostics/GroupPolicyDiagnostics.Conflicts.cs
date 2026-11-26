@@ -119,18 +119,7 @@ public static partial class GroupPolicyDiagnostics
         !source.Conditional && source.Setting.Kind is GpoSettingKind.Text or GpoSettingKind.Hash;
 
     /// <summary>The part of a preference key up to its item (<c>Computer/Preferences/Drives/{uid}</c>); null for other keys.</summary>
-    private static string? PreferenceItem(string key)
-    {
-        var parts = key.Split('/', 5);
-        if (parts.Length < 4 || !parts[1].Equals("Preferences", StringComparison.OrdinalIgnoreCase))
-        {
-            return null;
-        }
-
-        var item = parts[3];
-        var at = item.IndexOf('@', StringComparison.Ordinal);
-        return string.Join('/', parts[0], parts[1], parts[2], at < 0 ? item : item[..at]);
-    }
+    private static string? PreferenceItem(string key) => Search.GpoSettingUnits.ItemKeyOf(key);
 
     private static ModelingGpo ToModelingGpo(GpoInfo gpo, IReadOnlyList<WmiFilterInfo> filters)
     {

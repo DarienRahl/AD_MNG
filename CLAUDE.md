@@ -5,8 +5,11 @@ System.DirectoryServices.Protocols. The main page `README.md` is in English and 
 keep both in sync (same sections and order; Polish docs link to `README.pl.md`). The product docs are in Polish in
 `docs/` and in English in `docs/en/` (same headings, numbering and order – update both; English file names:
 `COMPUTERS.md` = `KOMPUTERY.md`, `EVENT-LOGS.md` = `DZIENNIKI-ZDARZEN.md`, `GROUP-POLICY.md` = `ZASADY-GRUPY.md`,
-`CORRESPONDENCE.md` = `KORESPONDENCJA.md`, `PILOT.md` = `PILOTAZ.md`, ADRs under `docs/en/adr/`); the test lab READMEs
-are `README.md` (English) and `README.pl.md`. The English UI points to `docs/en/` (`Readiness.Doc.*` in `Strings.resx`).
+`CORRESPONDENCE.md` = `KORESPONDENCJA.md`, `PILOT.md` = `PILOTAZ.md`, `CERTIFICATES.md` = `CERTYFIKATY.md`,
+`CREATING-ACCOUNTS.md` = `ZAKLADANIE-KONT.md`, `GOALS.md` = `CELE.md`, `POWERSHELL.md` = `POWERSHELL.md` (the same name in
+both folders, no entry in `check_docs.py`), ADRs under `docs/en/adr/`); the test lab
+READMEs are `README.md` (English) and `README.pl.md`. `tools/docs/check_docs.py` (CI job `checks`) verifies the pairs
+and every relative link. The English UI points to `docs/en/` (`Readiness.Doc.*` in `Strings.resx`).
 Code, comments, commit messages and these notes are in English.
 
 ## Non-negotiable rules
@@ -46,7 +49,10 @@ Code, comments, commit messages and these notes are in English.
    in a zeroed in-memory buffer of that tool, and the TGT cache of the service is the tmpfs `/run/admng-watchdog`.
 3. **Escape everything.** Build filters with `AdMng.Core.Ldap.LdapFilter`, DNs with `DistinguishedName`
    (`EscapeValue`, `Child`, `WithParent`). Never concatenate user input into filters/DNs.
-4. **One DC per session.** All reads and writes of an `IDirectorySession` go to the same DC.
+4. **One DC per session.** All reads and writes of an `IDirectorySession` go to the same DC. The only network paths
+   outside the session are the two of P1 (`docs/dev/p-certificate-services.md`, decision 1): the TLS handshake probe of
+   the window's domain controllers (handshake only – no bind, no data, no downloads) and the HTTP check of AIA/CDP
+   addresses, which runs only when the operator presses its button and sends no credentials to the target.
 5. **Every write goes through the change-plan pipeline** (`IChangePlanner`/`ChangePlan` → `IBatchExecutor`),
    also single-object edits from property pages, so preview, validation, audit and rollback work everywhere.
 6. **UI never blocks.** All directory calls are async with `CancellationToken`; long lists stream/virtualize.
@@ -55,12 +61,14 @@ Code, comments, commit messages and these notes are in English.
 
 | Project | Target | Purpose |
 |---|---|---|
-| `src/AdMng.Core` | net10.0 | DN/filter primitives, AD flags & converters, object/schema model, contracts (`Directory/`, `Batch/`, `Templates/`, `Csv/`, `Formatting/`, `Audit/`) and their pure implementations |
-| `src/AdMng.Directory` | net10.0 | S.DS.P implementation of `IDirectoryConnector`/`IDirectorySession` |
+| `src/AdMng.Core` | net10.0 | DN/filter primitives, AD flags & converters, object/schema model, contracts (`Directory/`, `Batch/`, `Templates/`, `Csv/`, `Formatting/`, `Audit/`) and their pure implementations; `Pki/` – the read-only AD CS model of P1 (`docs/dev/p-certificate-services.md`): PKI snapshot reader, certificate/CRL parsers, template flags and periods, enrollment rights evaluator, health rules, ESC analyzer, mapping and key credential parsers, the DC TLS probe contract (`Pki/Tls/`); `PowerShell/` – the contracts between the PowerShell window's view model and its engine (`IPowerShellSession`, output items, completion, syntax spans, language mode; no PowerShell types) |
+| `src/AdMng.Directory` | net10.0 | S.DS.P implementation of `IDirectoryConnector`/`IDirectorySession`; the DC LDAPS handshake probe (`Pki/SslStreamTlsProbe.cs`: TLS handshake only on 636/3269 – no LDAP bind, no client certificate, no application data, no chain downloads) |
 | `src/AdMng.Presentation` | net10.0 | View models (CommunityToolkit.Mvvm), UI service interfaces, localization (resx en + pl), settings. **No WPF types.** |
 | `src/AdMng.App` | net10.0-windows | WPF views (XAML), Generic Host/DI, Windows-only services |
 | `src/AdMng.Remote` | net10.0 | Remote actions on computers (K1): CIM over WinRM (`Microsoft.Management.Infrastructure`, Kerberos with the window's credentials, never stored), ping, local tools (mstsc, Computer Management, Event Viewer); used by the App only, never shipped in the Watchdog package |
 | `tests/AdMng.Remote.Tests` | net10.0 | Remote action tests (CIM mapping, error classification, host name checks, command lines) |
+| `src/AdMng.PowerShell` | net10.0 | The PowerShell window's engine (track R, `docs/dev/r1-powershell-window.md`, ADR-0010): the embedded PowerShell 7 (`Microsoft.PowerShell.SDK`), one runspace per window with a custom host, ConstrainedLanguage by default, the program's `…-Adm…` commands (read commands only in R1), command guards, completion, syntax and the history policy; sets the engine's environment before its first use so that it writes no file of its own (observed on Linux; on Windows the engine's AppLocker check writes the two `__PSScriptPolicyTest_*` files to `%TEMP%` and deletes them at once, once per process – no directory data); used by the App only (every consumer imports `PowerShellEngineConsumer.props`), never shipped in the Watchdog package; view models reach it through `AdMng.Core/PowerShell` |
+| `tests/AdMng.PowerShell.Tests` | net10.0 | Engine tests against the real PowerShell engine, on Linux and Windows: session and streaming, host routing, language mode, guards, environment, the "no files" test (a child process: `tests/AdMng.PowerShell.Probe`, which names the folders of its engine; the test asserts it watches each: on Linux all lie in the child's redirected folders, on Windows it also compares the PowerShell folders of the user's profile before and after – that part passes in the Windows CI), the command list, completion, history policy; `Lab/` – the read commands against the lab DC over the real session of `AdMng.Directory` (skipped without `ADMNG_TEST_LDAP_*`) |
 | `src/AdMng.EventLogs` | net10.0 | Event log reader (track E, `docs/dev/e-event-logs.md`): computers over MS-EVEN6 (`EventLogSession`, Kerberos with the window's credentials, never stored; FQDN only), `.evtx` files the operator chose; structured query, streamed batches, coverage, messages on demand, error classification; Windows only at run time, used by the App only |
 | `tests/AdMng.EventLogs.Tests` | net10.0 | Event log reader tests (error classification, host checks, file queries, merge order, streaming pipeline, platform guards) |
 | `src/AdMng.Outlook` | net10.0 | Classic Outlook through COM late binding (U5, `docs/dev/u5-outlook-correspondence.md`): one STA thread per session with a COM message filter, send / save as draft with inline images, attachments, send-as, on behalf, deferred delivery, voting, the preview Outlook builds, diagnostics, campaigns and votes from Sent Items, signature files, the U1 Outlook transport; Windows only at run time, used by the App only |
@@ -70,6 +78,7 @@ Code, comments, commit messages and these notes are in English.
 | `tests/AdMng.Testing` | net10.0 | Shared test library: `FakeDirectorySession` (in-memory directory with real LDAP modify semantics), `FakeDirectoryBuilder.AddSampleCompany()` |
 | `tests/AdMng.Core.Tests`, `tests/AdMng.Presentation.Tests` | net10.0 | Unit tests (view models run against the real Core engines + fake directory) |
 | `tests/AdMng.Directory.IntegrationTests` | net10.0 | Unit tests + integration tests against the lab DC (skipped without `ADMNG_TEST_LDAP_*`) |
+| `tests/AdMng.Directory.DisposeProbe` | net10.0 | Child process of `CloseWhileRequestRunsTests` (audit finding DLR-4): closes sessions and plain S.DS.P connections against the lab DC while a large search builds its entries; exit code 134/139 means the double free of S.DS.P (`tools/testlab/README.md`) |
 | `tests/AdMng.App.UiTests` | net10.0-windows | WPF UI tests (STA, off-screen windows, binding-error listener); run on Windows only |
 | `src/AdMng.Watchdog.Contracts` | net10.0 | AdMng Watchdog event model, API DTOs, runtime configuration, routes, JSON (`WatchdogJson.Options`); no references |
 | `src/AdMng.Watchdog.Core` | net10.0 | Watchdog engine (detection, attribution, rules, notification planning, formatters) against `Abstractions/` + `Model/` (frozen); `AddWatchdogCore()` |
@@ -110,6 +119,12 @@ tools/packaging/build-deb.sh --output artifacts/deb
 tools/packaging/build-openwec-deb.sh --release 13 --output artifacts/deb --source-tarball
 # install test as in CI: docker run --rm --cap-add=NET_ADMIN -v "$PWD:/src:ro" debian:13 bash \
 #   /src/tools/packaging/test-deb-install.sh /src/<admng-watchdog .deb> /src/packaging/admng-watchdog /src/<admng-openwec .deb>
+# checks of versions, release notes, Polish/English document pairs, links and resx keys (python3 only; CI job "checks")
+tools/release/release.sh check
+# release (docs/dev/releasing.md): one commit "Release X.Y.Z" from docs/releases/NEXT.md, then git push starts release.yml
+tools/release/release.sh status && tools/release/release.sh 0.16.0 --dry-run && tools/release/release.sh 0.16.0
+tools/release/release.sh prepare 0.16.0   # two-step path: "Prepare X.Y.Z", git push, wait for a green CI run, then
+tools/release/release.sh publish          # "Release notes X.Y.Z" with the marker of the Prepare commit, git push
 ```
 
 The WPF app cannot run on Linux; it is compiled here and tested on Windows CI
@@ -138,5 +153,13 @@ that subscribes to an application-wide event must unsubscribe in `Dispose`. Add 
 - README pictures (`docs/assets/screenshots`) are English UI screenshots rendered by `tests/AdMng.App.UiTests`
   (`ScreenshotTests*`, language from `ADMNG_SCREENSHOTS_LANGUAGE`) and committed by the CI job `readme-screenshots`
   (*Run workflow* with "Also commit the README pictures"); its file list must match the pictures both READMEs show.
-- User-visible strings only via localization resources (`AdMng.Presentation/Resources/Strings*.resx`; watchdog
-  notifications: `AdMng.Watchdog.Core/Resources/NotificationStrings*.resx`), both `en` and `pl` entries required.
+- Icons: the colourful icon set is drawn for this project (`docs/assets/icons`: SVG sources in a restricted subset,
+  palette and gallery in its README – never copy third-party icons). `tools/icon/build-icon-set.py` generates
+  `src/AdMng.App/Themes/Icons.xaml` (`Icon.<Name>`) and `Controls/AppIcons.cs`; do not edit the generated files
+  (`--check` runs in the CI job `checks`). The interface renewal is planned in `docs/dev/v-interface-renewal.md`.
+- User-visible strings only via localization resources (`AdMng.Presentation/Resources/Strings*.resx`; the messages of
+  the PowerShell window's `…-Adm…` commands – their errors, warnings and cell texts, in the window's language:
+  `AdMng.PowerShell/Resources/CommandStrings*.resx` through `Reading/AdmText`; watchdog notifications:
+  `AdMng.Watchdog.Core/Resources/NotificationStrings*.resx`), both `en` and `pl` entries required.
+- Every user-visible change adds its paragraph to `docs/releases/NEXT.md`, the draft of the next release notes
+  (`docs/dev/releasing.md`); releases are made with `tools/release/release.sh`, never by editing the version by hand.

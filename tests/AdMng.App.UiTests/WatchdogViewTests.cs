@@ -8,11 +8,13 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using AdMng.App.Behaviors;
+using AdMng.App.Controls;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
 using AdMng.App.UiTests.Infrastructure;
 using AdMng.App.Views;
 using AdMng.App.Views.Watchdog;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Watchdog;
@@ -114,9 +116,26 @@ public sealed class WatchdogViewTests
 
         // Status: cards, checks, delivery log and audit.
         await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Status);
-        await UiWait.UntilAsync(() => tab.Status.HasStatus && tab.Status.Audit.Count > 0 && tab.Status.DeliveryLog.Items.Count > 0, "the status");
+        await UiWait.UntilAsync(() => tab.ServiceStatus.HasStatus && tab.ServiceStatus.Audit.Count > 0 && tab.ServiceStatus.DeliveryLog.Items.Count > 0, "the status");
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
         Assert.Equal(6, view.StatusView.ChecksList.Items.Count);
+
+        // The state of a check is a pill - the picture and the word of the state - in one column, and not a glyph with the word
+        // run into the title (stage V2b-5b).
+        var checks = tab.ServiceStatus.Checks;
+        var pills = UiWait.Descendants<StatusPill>(view.StatusView.ChecksList).ToList();
+        Assert.Equal(checks.Select(check => check.StateText), pills.Select(pill => pill.Text));
+        Assert.Equal(checks.Select(check => check.PillKind), pills.Select(pill => pill.Kind));
+        Assert.All(pills, pill => Assert.Equal(pill.Text, AutomationProperties.GetName(pill)));
+        Assert.DoesNotContain(
+            UiWait.Descendants<TextBlock>(view.StatusView.ChecksList),
+            text => checks.Any(check => text.Text.EndsWith(" " + check.StateText, StringComparison.Ordinal) && text.Text.StartsWith(check.Title, StringComparison.Ordinal)));
+        var starts = UiWait.Descendants<Grid>(view.StatusView.ChecksList)
+            .Where(grid => grid.ColumnDefinitions.Count == 3 && grid.ColumnDefinitions[0].SharedSizeGroup == "HealthPill")
+            .Select(grid => Math.Round(grid.TranslatePoint(new Point(grid.ColumnDefinitions[1].Offset, 0), view.StatusView.ChecksList).X))
+            .ToList();
+        Assert.Equal(checks.Count, starts.Count);
+        Assert.Single(starts.Distinct());
         Assert.Equal(Visibility.Visible, view.StatusView.DeliveryLogCard.Visibility);
         Assert.Equal(Visibility.Visible, view.StatusView.AuditCard.Visibility);
         Assert.False(tab.Config.IsDirty);
@@ -156,7 +175,10 @@ public sealed class WatchdogViewTests
         await UiTestSupport.WaitForIdleAsync();
 
         Assert.Equal(WatchdogConnectionState.CertificateInvalid, tab.ConnectionState);
-        Assert.Equal(Visibility.Visible, view.ReviewCertificateButton.Visibility);
+        // The certificate to confirm is the state of the tab that lasts: an error whose one action is "Sprawdź certyfikat…".
+        Assert.Equal(PageStatusKind.Error, view.PageStatus.Kind);
+        Assert.Same(tab.ReviewCertificateCommand, view.PageStatus.ActionCommand);
+        Assert.False(view.PageStatus.CanClose);
         Assert.Null(settings.Current.Watchdog.PinnedCertificateSha256);
 
         var trust = UiWait.DriveModalAsync<WatchdogCertificateTrustWindow>(w =>
@@ -171,7 +193,8 @@ public sealed class WatchdogViewTests
 
         Assert.True(tab.IsConnected);
         Assert.Equal(SampleStatus.Certificate.Sha256, settings.Current.Watchdog.PinnedCertificateSha256);
-        Assert.Equal(Visibility.Collapsed, view.ReviewCertificateButton.Visibility);
+        Assert.NotEqual(PageStatusKind.Error, view.PageStatus.Kind);
+        Assert.False(view.PageStatus.HasAction && ReferenceEquals(view.PageStatus.ActionCommand, tab.ReviewCertificateCommand));
         context.AssertHealthy();
     });
 
@@ -211,7 +234,7 @@ public sealed class WatchdogViewTests
         var (tab, view) = await WatchdogUiSupport.OpenConnectedAsync(window);
 
         await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Status);
-        await UiWait.UntilAsync(() => tab.Status.HasStatus && tab.Status.ServiceAccountSection.IsReported, "the status of the Linux service");
+        await UiWait.UntilAsync(() => tab.ServiceStatus.HasStatus && tab.ServiceStatus.ServiceAccountSection.IsReported, "the status of the Linux service");
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
         var status = view.StatusView;
         foreach (var card in new FrameworkElement[] { status.ServiceAccountCard, status.CollectorCard, status.GpoContentCard, status.HostCard })
@@ -260,7 +283,7 @@ public sealed class WatchdogViewTests
         Assert.False(view.ChannelsView.SendTestEmailButton.IsEnabled);
 
         await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Status);
-        await UiWait.UntilAsync(() => tab.Status.HasStatus, "the status");
+        await UiWait.UntilAsync(() => tab.ServiceStatus.HasStatus, "the status");
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
         Assert.Equal(Visibility.Collapsed, view.StatusView.DeliveryLogCard.Visibility);
         Assert.Equal(Visibility.Collapsed, view.StatusView.AuditCard.Visibility);
@@ -285,7 +308,7 @@ public sealed class WatchdogViewTests
 
         // A status without rollout (read by the poller or the Status sub-tab) hides the banner.
         client.Status = SampleStatus.Create();
-        await tab.Status.LoadAsync();
+        await tab.ServiceStatus.LoadAsync();
         await UiWait.UntilAsync(() => view.RolloutBanner.Visibility == Visibility.Collapsed, "the banner to disappear");
         context.AssertHealthy();
     });
@@ -347,10 +370,14 @@ public sealed class WatchdogViewTests
         Assert.Equal(Visibility.Collapsed, window.DetailsPane.Visibility);
         Assert.Equal(0, window.DetailsColumn.ActualWidth);
 
-        // "Połączono admng-wd.contoso.com:8443" once – no second "Połączono z admng-wd.contoso.com:8443".
+        // The host the tab talks to, once, in the connection card.
         var bannerTexts = UiWait.Descendants<TextBlock>(view.ConnectionBanner).Where(t => t.IsVisible).Select(t => t.Text).ToList();
         Assert.Single(bannerTexts, t => t.Contains("admng-wd.contoso.com:8443", StringComparison.Ordinal));
-        Assert.Equal(Visibility.Collapsed, view.ConnectionMessage.Visibility);
+
+        // The card says which service and as whom, not how the connection is (V2b-4): the line does not repeat it either.
+        Assert.DoesNotContain(bannerTexts, t => t.StartsWith("Połączono", StringComparison.Ordinal));
+        Assert.NotEqual(PageStatusKind.Error, view.PageStatus.Kind);
+        Assert.DoesNotContain("admng-wd.contoso.com", view.PageStatus.Message, StringComparison.Ordinal);
 
         // No saved filters: no empty, unlabeled list next to the reset button.
         var events = view.EventsView;
@@ -529,7 +556,7 @@ public sealed class WatchdogViewTests
         AssertColumnsFit(view.RulesView.RulesList);
 
         await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Status);
-        await UiWait.UntilAsync(() => tab.Status.HasStatus && tab.Status.DeliveryLog.Items.Count > 0, "the status");
+        await UiWait.UntilAsync(() => tab.ServiceStatus.HasStatus && tab.ServiceStatus.DeliveryLog.Items.Count > 0, "the status");
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
         AssertColumnsFit(view.StatusView.DeliveryLogList);
         Assert.Equal(8, ((GridView)view.StatusView.DeliveryLogList.View).Columns.Count);
@@ -552,7 +579,7 @@ public sealed class WatchdogViewTests
         await window.Shell.InitializeAsync();
         var (tab, view) = await WatchdogUiSupport.OpenConnectedAsync(window);
         await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Status);
-        await UiWait.UntilAsync(() => tab.Status.HasStatus && tab.Status.Audit.Count > 0 && tab.Status.DeliveryLog.Items.Count > 0, "the status");
+        await UiWait.UntilAsync(() => tab.ServiceStatus.HasStatus && tab.ServiceStatus.Audit.Count > 0 && tab.ServiceStatus.DeliveryLog.Items.Count > 0, "the status");
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
 
         var log = view.StatusView.DeliveryLogList;

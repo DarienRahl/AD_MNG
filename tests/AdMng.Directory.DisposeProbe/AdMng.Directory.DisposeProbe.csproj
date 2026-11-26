@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Audit finding DLR-4 (exit 134 of the lab tests): a small program that AdMng.Directory.IntegrationTests starts as a
+       CHILD process against the lab. It closes LDAP connections while System.DirectoryServices.Protocols builds a search
+       response; before the fix that aborted the process (a double free in S.DS.P's LdapConnection.ConstructEntry), which a
+       test inside the test process would turn into a crash of the whole run. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>AdMng.Directory.DisposeProbe</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\AdMng.Directory\AdMng.Directory.csproj" />
+  </ItemGroup>
+</Project>

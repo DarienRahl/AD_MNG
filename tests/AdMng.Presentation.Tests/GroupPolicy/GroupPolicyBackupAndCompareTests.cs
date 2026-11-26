@@ -2,7 +2,9 @@ using System.Globalization;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.Backup;
 using AdMng.Core.GroupPolicy.Comparison;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.GroupPolicy;
+using AdMng.Presentation.Services;
 using AdMng.Presentation.Tests.Dialogs;
 using AdMng.Testing;
 
@@ -28,7 +30,7 @@ public sealed class GroupPolicyBackupAndCompareTests
             Assert.Contains("Backup-GPO", window.PowerShell, StringComparison.Ordinal);
             Assert.Contains(folder.Path, window.PowerShell, StringComparison.Ordinal);
             await window.RunCommand.ExecuteAsync(null);
-            Assert.Null(window.Error);
+            Assert.Equal(PageStatusKind.Idle, window.Status.Current.Kind);
             return true;
         };
         using var objects = await h.ObjectsAsync();
@@ -53,20 +55,20 @@ public sealed class GroupPolicyBackupAndCompareTests
         using var folder = new TempFolder();
         h.Session.Seed("CN=Class Store,CN=Machine," + GpLinkValue.GpoDn(h.Sample.WorkstationPasswords, h.Session.Info.DefaultNamingContext),
             new Dictionary<string, object?> { ["objectClass"] = new[] { "top", "container" } });
-        string? status = null;
         h.Windows.BackupHandler = async window =>
         {
             window.Folder = folder.Path;
             await window.RunCommand.ExecuteAsync(null);
-            Assert.Null(window.Error);
-            status = window.StatusText;
+            Assert.Equal(PageStatusKind.Idle, window.Status.Current.Kind);
             return true;
         };
         var gpo = (await h.Planner.Reader.ReadPolicyAsync(h.Session, h.Sample.WorkstationPasswords, CancellationToken.None))!;
 
         Assert.True(await h.Actions.BackupAsync([gpo]));
 
-        Assert.Contains("obiekty katalogu", status, StringComparison.Ordinal);
+        // The window closes after the backup: the toast says it, and that the backup lacks what lives in the directory.
+        var toast = Assert.Single(h.B2.Notifications.Items, n => n.Message.Contains("obiekty katalogu", StringComparison.Ordinal));
+        Assert.Equal(NotificationSeverity.Warning, toast.Severity);
         Assert.Equal(1, Assert.Single(GpmcBackupFormat.List(folder.Path)) is { } entry
             ? (await GpmcBackupFormat.ReadAsync(folder.Path, entry.BackupId, CancellationToken.None)).DirectoryObjectCount
             : 0);
@@ -138,7 +140,7 @@ public sealed class GroupPolicyBackupAndCompareTests
             await released.Task;
 
             // The window stays open until the read got the bytes (not XML) and reported it.
-            await B2Harness.WaitUntilAsync(() => window.Error is not null);
+            await B2Harness.WaitUntilAsync(() => window.DetailsStatus.Lasting is not null);
             return false;
         };
         using var objects = await h.ObjectsAsync();
@@ -195,7 +197,7 @@ public sealed class GroupPolicyBackupAndCompareTests
         await window.LoadBackupsCommand.ExecuteAsync(null);
 
         Assert.Empty(window.Backups);
-        Assert.Equal("Brak kopii zapasowych w tym folderze.", window.StatusText);
+        Assert.Equal((PageStatusKind.Idle, "Brak kopii zapasowych w folderze"), (window.Status.Current.Kind, window.Status.Current.Message));
         Assert.False(window.RunCommand.CanExecute(null));
     }
 
@@ -209,7 +211,7 @@ public sealed class GroupPolicyBackupAndCompareTests
         await objects.CompareCommand.ExecuteAsync(null);
 
         using var comparison = Assert.Single(h.Windows.Comparisons);
-        Assert.Null(comparison.Error);
+        Assert.Equal(PageStatusKind.Idle, comparison.Status.Current.Kind);
         Assert.True(comparison.OnlyDifferences);
         Assert.All(comparison.Rows, r => Assert.True(r.IsDifferent));
         Assert.Contains(comparison.Rows, r => r.Row.Section == GpoComparisonSection.Core && r.Name == "Filtr WMI" && (r.ValueA == "Tylko stacje robocze" || r.ValueB == "Tylko stacje robocze"));
@@ -299,7 +301,7 @@ public sealed class GroupPolicyBackupAndCompareTests
         {
             window.Folder = folder;
             await window.RunCommand.ExecuteAsync(null);
-            Assert.Null(window.Error);
+            Assert.Equal(PageStatusKind.Idle, window.Status.Current.Kind);
             return true;
         };
         var gpo = (await h.Planner.Reader.ReadPolicyAsync(h.Session, gpoId, CancellationToken.None))!;

@@ -1,6 +1,7 @@
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
 using AdMng.Core.Model;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
@@ -176,6 +177,12 @@ public sealed partial class ContainerNodeViewModel : TreeNodeViewModel
     [ObservableProperty]
     public partial string? LoadError { get; private set; }
 
+    /// <summary>
+    /// The result code of <see cref="LoadError"/> (none without an error), for a status line that says the failure: a
+    /// number or a name the program produced, never the server's text. Set before <see cref="LoadError"/> changes.
+    /// </summary>
+    public ResultCode LoadErrorCode { get; private set; }
+
     public override Task EnsureChildrenLoadedAsync() => _loadTask ??= LoadChildrenAsync();
 
     /// <summary>Re-reads the child containers (merge, keeps expanded sub-trees).</summary>
@@ -210,6 +217,7 @@ public sealed partial class ContainerNodeViewModel : TreeNodeViewModel
         }
 
         IsLoading = true;
+        LoadErrorCode = ResultCode.None;
         LoadError = null;
         try
         {
@@ -245,6 +253,7 @@ public sealed partial class ContainerNodeViewModel : TreeNodeViewModel
             _loadTask = null;
             await _tree.Dispatcher.RunAsync(() =>
             {
+                LoadErrorCode = ResultCode.Of(ex);
                 LoadError = _tree.Errors.Translate(ex);
                 foreach (var child in Children.OfType<ContainerNodeViewModel>())
                 {

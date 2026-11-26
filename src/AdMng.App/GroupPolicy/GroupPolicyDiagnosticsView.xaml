@@ -1,6 +1,9 @@
 <!--
   "Diagnostyka zasad grupy" (GroupPolicyDiagnosticsDocumentViewModel, K6, design note docs/dev/k-computers-and-gpo.md 20.2):
-  quick and full check with progress and cancel, the summary chips per severity, the filters (severity, area, GPO, text -
+  quick and full check (action buttons: while one runs, its button is its Cancel), the status line (the check with its
+  stages, the number of findings with when and how deep the GPOs were checked, "Group Policy has changed since the last
+  check" with "Sprawdź ponownie"), the notes about what the check could not evaluate, the summary chips per severity, the
+  filters (severity, area, GPO, text -
   Ctrl+F, Esc), the virtualized list of findings and, beside it behind a splitter, the details of the selected finding with
   "Napraw…" (the change plan preview), "Otwórz GPO", "Edytuj to ustawienie", "Pokaż w modelu" and "Kopiuj"; exports to CSV
   and HTML. Headers never truncate: the title is trimmed in its own column, the list columns are wider than their headers.
@@ -52,99 +55,58 @@
                  TextTrimming="CharacterEllipsis"
                  ToolTip="{Binding Title, Mode=OneWay}" />
       <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
-        <Button x:Name="QuickCheckButton"
-                Margin="0,0,6,0"
-                Command="{Binding QuickCheckCommand}"
-                Content="{l:Tr GpoDiag.QuickCheck}"
-                Style="{StaticResource AccentButtonStyle}"
-                ToolTip="{l:Tr GpoDiag.QuickCheckHint}" />
-        <Button x:Name="FullCheckButton"
-                Margin="0,0,6,0"
-                Command="{Binding FullCheckCommand}"
-                Content="{l:Tr GpoDiag.FullCheck}"
-                ToolTip="{l:Tr GpoDiag.FullCheckHint}" />
-        <Button x:Name="CancelButton" Margin="0,0,12,0" Command="{Binding CancelCommand}" Content="{l:Tr Common.Cancel}" />
+        <!-- The checks: while one of them runs, its button is its Cancel (the line says how far it is, "Stopping…" after the press). -->
+        <c:ActionButton x:Name="QuickCheckButton"
+                        Margin="0,0,6,0"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding QuickCheckCommand}"
+                        Content="{l:Tr GpoDiag.QuickCheck}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsRunning="{Binding IsQuickChecking, Mode=OneWay}"
+                        Style="{StaticResource Ad.AccentActionButton}"
+                        ToolTip="{l:Tr GpoDiag.QuickCheckHint}" />
+        <c:ActionButton x:Name="FullCheckButton"
+                        Margin="0,0,12,0"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding FullCheckCommand}"
+                        Content="{l:Tr GpoDiag.FullCheck}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsRunning="{Binding IsFullChecking, Mode=OneWay}"
+                        Style="{StaticResource Ad.ActionButton}"
+                        ToolTip="{l:Tr GpoDiag.FullCheckHint}" />
         <Button x:Name="ExportCsvButton" Margin="0,0,6,0" Command="{Binding ExportCsvCommand}" Content="{l:Tr GpoDiag.ExportCsv}" />
         <Button x:Name="ExportHtmlButton" Command="{Binding ExportHtmlCommand}" Content="{l:Tr GpoDiag.ExportHtml}" />
       </StackPanel>
     </Grid>
 
-    <!-- The last check, or the progress of the running one -->
-    <Grid Margin="0,0,0,6" DockPanel.Dock="Top">
-      <TextBlock x:Name="LastRunText"
-                 VerticalAlignment="Center"
-                 Style="{StaticResource Ad.SecondaryText}"
-                 Text="{Binding LastRunText, Mode=OneWay}"
-                 TextTrimming="CharacterEllipsis"
-                 ToolTip="{Binding LastRunText, Mode=OneWay}"
-                 Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
-      <DockPanel x:Name="ProgressPanel" Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-        <ProgressBar x:Name="CheckProgress"
-                     Width="220"
-                     Height="4"
-                     Margin="0,0,10,0"
-                     VerticalAlignment="Center"
-                     AutomationProperties.Name="{Binding ProgressText, Mode=OneWay}"
-                     DockPanel.Dock="Left"
-                     IsIndeterminate="{Binding IsProgressIndeterminate, Mode=OneWay}"
-                     Maximum="100"
-                     Value="{Binding ProgressValue, Mode=OneWay}" />
-        <TextBlock x:Name="ProgressText"
-                   VerticalAlignment="Center"
-                   AutomationProperties.LiveSetting="Polite"
-                   Text="{Binding ProgressText, Mode=OneWay}"
-                   TextTrimming="CharacterEllipsis" />
-      </DockPanel>
-    </Grid>
+    <!--
+      Status line (design note 6.1): the check with its stages and Stop, the summary (the number of findings, when and
+      how deep the GPOs were checked, the selected finding), why it could not be read, "Group Policy has changed since
+      the last check" with "Sprawdź ponownie", and what became of a repair that is prepared for the change plan preview.
+      Always present, so nothing under it moves while the tab works. Under it the notes about SYSVOL and the PDC emulator
+      (GroupPolicyNotes), then the notes of this view.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="0,0,0,6"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+    <gp:GroupPolicyNotes x:Name="DocumentNotes" DockPanel.Dock="Top" />
 
-    <gp:GroupPolicyBanners DockPanel.Dock="Top" />
-
-    <!-- Group Policy changed after the check -->
-    <Border x:Name="StaleBar"
-            Margin="0,0,0,6"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding IsStale, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-      <DockPanel>
-        <Button x:Name="CheckAgainButton"
-                Margin="12,0,0,0"
-                VerticalAlignment="Center"
-                Command="{Binding CheckAgainCommand}"
-                Content="{l:Tr GpoDiag.CheckAgain}"
-                DockPanel.Dock="Right" />
-        <TextBlock Margin="0,1,10,0"
-                   VerticalAlignment="Center"
-                   DockPanel.Dock="Left"
-                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Warning}" />
-        <TextBlock VerticalAlignment="Center" Text="{l:Tr GpoDiag.Stale}" TextWrapping="Wrap" />
-      </DockPanel>
-    </Border>
-
-    <!-- What the check could not evaluate -->
-    <Border x:Name="NotesBar"
-            Margin="0,0,0,6"
-            Padding="12,6"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.Card}"
-            Visibility="{Binding HasNotes, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-      <DockPanel>
-        <TextBlock Margin="0,1,10,0"
-                   VerticalAlignment="Top"
-                   DockPanel.Dock="Left"
-                   Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Info}" />
-        <ItemsControl x:Name="NotesList" AutomationProperties.LiveSetting="Polite" ItemsSource="{Binding Notes, Mode=OneWay}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate DataType="{x:Type sys:String}">
-              <TextBlock Margin="0,1" Text="{Binding Mode=OneWay}" TextWrapping="Wrap" />
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </DockPanel>
-    </Border>
+    <!-- What the check could not evaluate: how complete the findings are - notes about them, true for as long as they are shown. -->
+    <ContentControl x:Name="NotesBar"
+                    Margin="0,0,0,6"
+                    DockPanel.Dock="Top"
+                    Style="{StaticResource Ad.Note.Attention}"
+                    Visibility="{Binding HasNotes, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <ItemsControl x:Name="NotesList" AutomationProperties.LiveSetting="Polite" Focusable="False" ItemsSource="{Binding Notes, Mode=OneWay}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type sys:String}">
+            <TextBlock Margin="0,0,0,2" Text="{Binding Mode=OneWay}" TextWrapping="Wrap" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ContentControl>
 
     <!-- Summary chips (click: only that severity) -->
     <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">

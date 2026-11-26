@@ -6,6 +6,7 @@ using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
+using AdMng.Presentation.GroupPolicy.Search;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Watchdog;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,6 +41,8 @@ public static class GroupPolicyServiceCollectionExtensions
         services.TryAddScoped<GroupPolicyActions>();
         services.TryAddSingleton<ILocalPolicyDefinitions, WindowsLocalPolicyDefinitions>();
         services.TryAddScoped(sp => new PolicyDefinitionsService(sp.GetService<ILocalPolicyDefinitions>()));
+        services.TryAddScoped(sp => new GpoSettingsIndexService(sp.GetRequiredService<GroupPolicyServices>()));
+        services.TryAddScoped<IGpoSettingsIndexService>(sp => sp.GetRequiredService<GpoSettingsIndexService>());
         services.TryAddSingleton(sp => new PolicyTemplatePackageLoader(sp.GetService<IPolicyPackageExtractor>(), sp.GetService<ILocalPolicyDefinitions>()));
         services.TryAddScoped(sp => new GroupPolicyViewModelFactory(
             sp.GetRequiredService<GroupPolicyServices>(),
@@ -47,7 +50,8 @@ public static class GroupPolicyServiceCollectionExtensions
             sp.GetRequiredService<PolicyDefinitionsService>(),
             sp.GetRequiredService<PolicyTemplatePackageLoader>(),
             sp.GetService<IHostAddressResolver>(),
-            sp.GetService<ICsvCodec>()));
+            sp.GetService<ICsvCodec>(),
+            sp.GetRequiredService<IGpoSettingsIndexService>()));
         return services;
     }
 
@@ -79,5 +83,7 @@ public static class GroupPolicyServiceCollectionExtensions
             update.Dispose();
             return Task.FromResult(false);
         }
+
+        public Task<bool> ShowCopySettingsAsync(Copy.GpoCopySettingsViewModel dialog) => Task.FromResult(false);
     }
 }

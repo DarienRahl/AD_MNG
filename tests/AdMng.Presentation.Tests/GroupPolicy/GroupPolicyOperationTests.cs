@@ -3,6 +3,7 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Batch;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.Management;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.Tests.Dialogs;
 
@@ -88,7 +89,7 @@ public sealed class GroupPolicyOperationTests
             Assert.True(window.BackupFirst);
             window.Folder = folder.Path;
             await window.RunCommand.ExecuteAsync(null);
-            return window.Error is null;
+            return window.Status.Current.Kind == PageStatusKind.Idle;
         };
         h.B2.Dialogs.TypedConfirmAnswers.Enqueue(true);
         using var objects = await h.ObjectsAsync();

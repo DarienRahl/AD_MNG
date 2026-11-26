@@ -39,6 +39,12 @@ public static partial class L
         // GPO list
         public const string GpoSearchPlaceholder = "GpEditing.GpoSearchPlaceholder";
         public const string GpoNoMatches = "GpEditing.GpoNoMatches";
+
+        /// <summary>The empty list of the Group Policy objects when the domain has none (V2b-5b); the action reads again.</summary>
+        public const string GpoNone = "GpEditing.GpoNone";
+
+        /// <summary>The action of the empty list when a search hides every GPO (V2b-5b).</summary>
+        public const string ClearSearch = "GpEditing.ClearSearch";
         public const string GposShown = "GpEditing.GposShown";
 
         /// <summary>The tooltip of a search box: "Ctrl+F – szukaj, Esc – wyczyść".</summary>

@@ -35,7 +35,7 @@ public sealed partial class BatchExecutor
         private ISysvolWriteConnection? _sysvol;
         private Exception? _sysvolFailure;
 
-        private async Task<StepOutcome> SysvolStepAsync(ObjectPlan objectPlan, PlannedChange change, string dn)
+        private async Task<StepOutcome> SysvolStepAsync(ObjectPlan objectPlan, PlannedChange change, string dn, CancellationToken stopToken)
         {
             lock (_transactionGate)
             {
@@ -52,10 +52,10 @@ public sealed partial class BatchExecutor
                 return Invalid(change, "The SYSVOL step names no GPO.");
             }
 
-            var sysvol = await OpenSysvolAsync().ConfigureAwait(false);
+            var sysvol = await OpenSysvolAsync(stopToken).ConfigureAwait(false);
             if (sysvol is null)
             {
-                return _cancellationToken.IsCancellationRequested && _sysvolFailure is null
+                return stopToken.IsCancellationRequested && _sysvolFailure is null
                     ? Failure(change, DirectoryErrorKind.Cancelled, "Cancelled before SYSVOL was opened.", cancelled: true)
                     : Failure(change, _sysvolFailure is SysvolUnavailableException unavailable
                         ? new SysvolWriteException(SysvolWriteException.FromUnavailable(unavailable.Reason), SysvolUnavailableMessage).Kind
@@ -67,9 +67,9 @@ public sealed partial class BatchExecutor
                 switch (change.Action)
                 {
                     case ChangeAction.WritePolicyDefinitionsFile or ChangeAction.DeletePolicyDefinitionsFile:
-                        return await CentralStoreTransactionAsync(objectPlan, change, sysvol).ConfigureAwait(false);
+                        return await CentralStoreTransactionAsync(objectPlan, change, sysvol, stopToken).ConfigureAwait(false);
                     case ChangeAction.WriteGpoFile or ChangeAction.DeleteGpoFile or ChangeAction.SetGpoVersion:
-                        return await TransactionAsync(objectPlan, change, dn, sysvol, gpoId).ConfigureAwait(false);
+                        return await TransactionAsync(objectPlan, change, dn, sysvol, gpoId, stopToken).ConfigureAwait(false);
                     case ChangeAction.CreateGpoFolder:
                         await CreateGpoFolderAsync(sysvol, gpoId).ConfigureAwait(false);
                         return Success(change);
@@ -138,7 +138,7 @@ public sealed partial class BatchExecutor
         }
 
         /// <summary>Runs the content steps from <paramref name="change"/> on (the contiguous run of them) as one transaction.</summary>
-        private async Task<StepOutcome> TransactionAsync(ObjectPlan objectPlan, PlannedChange change, string dn, ISysvolWriteConnection sysvol, Guid gpoId)
+        private async Task<StepOutcome> TransactionAsync(ObjectPlan objectPlan, PlannedChange change, string dn, ISysvolWriteConnection sysvol, Guid gpoId, CancellationToken stopToken)
         {
             var changes = objectPlan.Changes;
             var start = -1;
@@ -162,7 +162,7 @@ public sealed partial class BatchExecutor
                 group = [change];
             }
 
-            var result = await GpoTransaction.RunAsync(sysvol, gpoId, group, new VersionStore(this, dn), _cancellationToken).ConfigureAwait(false);
+            var result = await GpoTransaction.RunAsync(sysvol, gpoId, group, new VersionStore(this, dn), stopToken).ConfigureAwait(false);
             if (!result.Succeeded && _owner._logger is { } logger)
             {
                 LogSysvolFailed(logger, change.Action, result.Outcome.ToString());
@@ -184,7 +184,7 @@ public sealed partial class BatchExecutor
         }
 
         /// <summary>Runs the central store steps from <paramref name="change"/> on (the contiguous run of them) as one transaction (K3).</summary>
-        private async Task<StepOutcome> CentralStoreTransactionAsync(ObjectPlan objectPlan, PlannedChange change, ISysvolWriteConnection sysvol)
+        private async Task<StepOutcome> CentralStoreTransactionAsync(ObjectPlan objectPlan, PlannedChange change, ISysvolWriteConnection sysvol, CancellationToken stopToken)
         {
             var changes = objectPlan.Changes;
             var start = -1;
@@ -208,7 +208,7 @@ public sealed partial class BatchExecutor
                 group = [change];
             }
 
-            var result = await PolicyDefinitionsTransaction.RunAsync(sysvol, group, _cancellationToken).ConfigureAwait(false);
+            var result = await PolicyDefinitionsTransaction.RunAsync(sysvol, group, stopToken).ConfigureAwait(false);
             if (!result.Succeeded && _owner._logger is { } logger)
             {
                 LogSysvolFailed(logger, change.Action, result.Outcome.ToString());
@@ -325,7 +325,7 @@ public sealed partial class BatchExecutor
             return null;
         }
 
-        private async Task<ISysvolWriteConnection?> OpenSysvolAsync()
+        private async Task<ISysvolWriteConnection?> OpenSysvolAsync(CancellationToken stopToken)
         {
             await _sysvolGate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
             try
@@ -343,7 +343,7 @@ public sealed partial class BatchExecutor
 
                 try
                 {
-                    _sysvol = await writer.OpenForWriteAsync(_session, _cancellationToken).ConfigureAwait(false);
+                    _sysvol = await writer.OpenForWriteAsync(_session, stopToken).ConfigureAwait(false);
                 }
                 catch (SysvolUnavailableException ex)
                 {

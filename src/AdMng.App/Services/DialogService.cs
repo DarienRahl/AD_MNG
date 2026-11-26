@@ -103,6 +103,13 @@ public sealed partial class DialogService : IDialogService, IUserMessageLauncher
     public Task<bool> ConfirmTypedAsync(string title, string message, string expectedText) =>
         ShowMessageAsync(MessageDialogViewModel.TypedConfirmation(title, message, expectedText, _localizer));
 
+    /// <remarks>After <see cref="MarkClosed"/> nothing is shown and the answer is "Don't close".</remarks>
+    public async Task<CloseAnswer> AskCloseAsync(string title, string message, bool canContinue)
+    {
+        var dialog = MessageDialogViewModel.CloseQuestion(title, message, canContinue, _localizer);
+        return await ShowMessageAsync(dialog).ConfigureAwait(true) ? dialog.Answer : CloseAnswer.KeepOpen;
+    }
+
     // ---- Dialogs of this wave ---------------------------------------------------------------------------------
 
     public Task<bool> ShowSavedViewEditorAsync(SavedViewEditorViewModel editor)
@@ -261,6 +268,34 @@ public sealed partial class DialogService : IDialogService, IUserMessageLauncher
     });
 
     public Task ShowSettingsAsync() => OnUiThreadAsync(_tools.ShowSettings);
+
+    // ---- PowerShell, track R, stage R1 (modeless; the window is one per connection window, a grid is one per Out-AdmGrid) ----
+    public Task ShowPowerShellAsync() => OnUiThreadAsync(() =>
+    {
+        _tools.ShowPowerShell();
+        return true;
+    });
+
+    public async Task ShowPowerShellGridAsync(Core.PowerShell.PowerShellGridTable table, Action? closed = null)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+        var shown = await OnUiThreadAsync(() =>
+        {
+            var window = _tools.ShowPowerShellGrid(table);
+            if (closed is not null)
+            {
+                // The PowerShell window counts its open grids (at most ten at a time): a closed grid frees its place.
+                window.Closed += (_, _) => closed();
+            }
+
+            return true;
+        }).ConfigureAwait(true);
+        if (!shown)
+        {
+            // The connection window is closing and no grid was shown: nothing holds a place.
+            closed?.Invoke();
+        }
+    }
 
     // ---- Problem report, Pomoc → Zgłoś problem… (modeless, one window) ----
     public Task ShowProblemReportAsync() => OnUiThreadAsync(() =>

@@ -18,4 +18,12 @@ public sealed class WpfUiDispatcher(Dispatcher dispatcher) : IUiDispatcher
         ArgumentNullException.ThrowIfNull(action);
         return _dispatcher.InvokeAsync(action).Task;
     }
+
+    /// <inheritdoc />
+    /// <remarks><see cref="UiDispatchPriority.Background"/> is <see cref="DispatcherPriority.Background"/>: below input and rendering.</remarks>
+    public Task InvokeAsync(Action action, UiDispatchPriority priority)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        return _dispatcher.InvokeAsync(action, priority == UiDispatchPriority.Background ? DispatcherPriority.Background : DispatcherPriority.Normal).Task;
+    }
 }

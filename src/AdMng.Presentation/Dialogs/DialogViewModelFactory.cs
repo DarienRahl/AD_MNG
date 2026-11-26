@@ -22,7 +22,10 @@ public interface IDialogViewModelFactory
     /// <summary>For <see cref="IDialogService.ShowPropertiesAsync"/> (modeless).</summary>
     PropertySheetViewModel CreatePropertySheet(string distinguishedName);
 
-    /// <summary>For <see cref="IDialogService.ShowBatchEditorAsync"/> (modeless). Empty targets = CSV import.</summary>
+    /// <summary>
+    /// For <see cref="IDialogService.ShowBatchEditorAsync"/> (modeless). Empty targets = CSV import;
+    /// <see cref="BatchEditorRequest.Create"/> = the bulk creation wizard (docs/dev/phase3-bulk-create.md 2.6).
+    /// </summary>
     BatchEditorViewModel CreateBatchEditor(BatchEditorRequest request);
 
     /// <summary>For <see cref="IDialogService.ShowResetPasswordAsync"/> (modal).</summary>
@@ -55,6 +58,16 @@ public interface IDialogViewModelFactory
     /// <see cref="Diagnostics.ProblemReportServices"/>.
     /// </summary>
     Diagnostics.ProblemReportViewModel CreateProblemReport();
+
+    /// <summary>
+    /// The PowerShell window of this connection window (track R, stage R1; modeless, one per launch): its own runspace, disposed with
+    /// the window. Throws <see cref="InvalidOperationException"/> when the host registered no
+    /// <see cref="PowerShell.PowerShellServices"/>.
+    /// </summary>
+    PowerShell.PowerShellWindowViewModel CreatePowerShell();
+
+    /// <summary>The grid of <c>Out-AdmGrid</c> (track R, stage R1; modeless, one per call) over the objects the command made into a table.</summary>
+    PowerShell.PowerShellGridViewModel CreatePowerShellGrid(Core.PowerShell.PowerShellGridTable table);
 
     /// <summary>For <see cref="IDialogService.ShowRecycleBinAsync"/> (modeless): deleted objects of the current session's domain.</summary>
     RecycleBinViewModel CreateRecycleBin();
@@ -113,7 +126,8 @@ public sealed class DialogViewModelFactory(
     Connections.ConnectionRegistry? connections = null,
     Comparison.IObjectComparisonLauncher? comparison = null,
     EventLogs.EventLogLauncher? eventLogs = null,
-    Diagnostics.ProblemReportServices? problemReport = null) : IDialogViewModelFactory
+    Diagnostics.ProblemReportServices? problemReport = null,
+    PowerShell.PowerShellServices? powerShell = null) : IDialogViewModelFactory
 {
     private readonly AccountReview.DomainControllerReader _domainControllers = new(connector, services.Errors);
     private readonly Filters.FilterLibrary _filters = filters ?? new Filters.FilterLibrary(services.Settings);
@@ -129,7 +143,7 @@ public sealed class DialogViewModelFactory(
             EventLogLauncher = eventLogs,
         };
 
-    public BatchEditorViewModel CreateBatchEditor(BatchEditorRequest request) => new(services, engines, request);
+    public BatchEditorViewModel CreateBatchEditor(BatchEditorRequest request) => new(services, engines, request, connector);
 
     public ResetPasswordViewModel CreateResetPassword(IReadOnlyList<string> distinguishedNames) =>
         new(services, engines.Planner, engines.Reports, distinguishedNames);
@@ -152,6 +166,11 @@ public sealed class DialogViewModelFactory(
 
     public Diagnostics.ProblemReportViewModel CreateProblemReport() =>
         new(services, problemReport ?? throw new InvalidOperationException("The problem report services are not registered."));
+
+    public PowerShell.PowerShellWindowViewModel CreatePowerShell() =>
+        new(services, powerShell ?? throw new InvalidOperationException("The PowerShell window's services are not registered."));
+
+    public PowerShell.PowerShellGridViewModel CreatePowerShellGrid(Core.PowerShell.PowerShellGridTable table) => new(services, engines.Csv, table);
 
     public RecycleBinViewModel CreateRecycleBin() => new(services);
 

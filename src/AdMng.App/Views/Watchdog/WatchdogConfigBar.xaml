@@ -1,7 +1,9 @@
 <!--
-  Save bar of the configuration editors (WatchdogConfigSession, shared by Rules, Channels and Digest): version, unsaved
-  changes, result of the last save or validation, conflict ("changed by another administrator – reload"), the
-  validation issues of the service, and Validate / Reload / Revert / Save. Viewers see why everything is read-only.
+  Save bar of the configuration editors (WatchdogConfigSession, shared by Rules, Channels, Digest and Sources): the marker
+  of unsaved changes, the validation findings of the service, and Validate / Reload / Revert / Save. Viewers see why
+  everything is read-only. What a read, a validation or a save is doing, how it ended and the conflict ("changed by another
+  administrator – reload") are said by the status line of the tab (the version of the configuration is its summary); a
+  finding and the reason why the editors are read-only are notes of this bar.
 -->
 <UserControl x:Class="AdMng.App.Views.Watchdog.WatchdogConfigBar"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -10,64 +12,55 @@
              xmlns:l="clr-namespace:AdMng.App.Localization"
              xmlns:wd="clr-namespace:AdMng.Presentation.Watchdog;assembly=AdMng.Presentation">
   <StackPanel>
-    <!-- Read-only (Viewer, redacted copy) -->
-    <Border x:Name="ReadOnlyBar"
-            Margin="0,6,0,0"
-            Padding="10,6"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding IsReadOnly, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-      <DockPanel>
-        <TextBlock Margin="0,0,8,0"
-                   DockPanel.Dock="Left"
-                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Lock}" />
-        <StackPanel>
-          <TextBlock x:Name="ReadOnlyText"
-                     Text="{l:Tr Watchdog.Requires.Admin}"
-                     TextWrapping="Wrap" />
-          <TextBlock Style="{StaticResource Wd.Hint}"
-                     Text="{l:Tr Watchdog.Ui.RedactedHint}"
-                     Visibility="{Binding IsRedacted, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-        </StackPanel>
-      </DockPanel>
-    </Border>
+    <!-- Read-only (Viewer, redacted copy): true for as long as the editors are shown -->
+    <ContentControl x:Name="ReadOnlyBar"
+                    Margin="0,6,0,0"
+                    Style="{StaticResource Ad.Note.Attention}"
+                    Visibility="{Binding IsReadOnly, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <TextBlock x:Name="ReadOnlyText"
+                 Text="{l:Tr Watchdog.Requires.Admin}"
+                 TextWrapping="Wrap" />
+    </ContentControl>
+    <ContentControl x:Name="RedactedNote"
+                    Margin="0,4,0,0"
+                    Style="{StaticResource Ad.Note.Info}"
+                    Visibility="{Binding IsRedacted, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <TextBlock Text="{l:Tr Watchdog.Ui.RedactedHint}" TextWrapping="Wrap" />
+    </ContentControl>
 
-    <!-- Validation issues of the service -->
-    <Border Margin="0,6,0,0"
-            Style="{StaticResource Ad.ErrorBar}"
-            Visibility="{Binding Issues.Count, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <ScrollViewer MaxHeight="140"
-                    HorizontalScrollBarVisibility="Disabled"
-                    VerticalScrollBarVisibility="Auto">
-        <ItemsControl x:Name="IssuesList"
-                      AutomationProperties.Name="{l:Tr Watchdog.Ui.Issues}"
-                      Focusable="False"
-                      ItemsSource="{Binding Issues, Mode=OneWay}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate DataType="{x:Type wd:WatchdogIssueViewModel}">
-              <DockPanel Margin="0,1">
-                <TextBlock x:Name="IssueGlyph"
-                           Margin="0,0,8,0"
-                           VerticalAlignment="Top"
-                           DockPanel.Dock="Left"
-                           FontSize="12"
-                           Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                           Style="{StaticResource Ad.GlyphText}"
-                           Text="{x:Static c:Glyphs.Warning}" />
-                <TextBlock Text="{Binding DisplayText, Mode=OneWay}" TextWrapping="Wrap" />
-              </DockPanel>
-              <DataTemplate.Triggers>
-                <DataTrigger Binding="{Binding IsError, Mode=OneWay}" Value="True">
-                  <Setter TargetName="IssueGlyph" Property="Text" Value="{x:Static c:Glyphs.Error}" />
-                  <Setter TargetName="IssueGlyph" Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
-                </DataTrigger>
-              </DataTemplate.Triggers>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </ScrollViewer>
-    </Border>
+    <!-- Validation findings of the service: a glyph and a sentence each, true for as long as the working copy has them -->
+    <ScrollViewer MaxHeight="140"
+                  Margin="0,6,0,0"
+                  HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto"
+                  Visibility="{Binding Issues.Count, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <ItemsControl x:Name="IssuesList"
+                    AutomationProperties.Name="{l:Tr Watchdog.Ui.Issues}"
+                    Focusable="False"
+                    ItemsSource="{Binding Issues, Mode=OneWay}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type wd:WatchdogIssueViewModel}">
+            <DockPanel Margin="0,1">
+              <TextBlock x:Name="IssueGlyph"
+                         Margin="0,0,8,0"
+                         VerticalAlignment="Top"
+                         DockPanel.Dock="Left"
+                         FontSize="12"
+                         Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                         Style="{StaticResource Ad.GlyphText}"
+                         Text="{x:Static c:Glyphs.Warning}" />
+              <TextBlock Text="{Binding DisplayText, Mode=OneWay}" TextWrapping="Wrap" />
+            </DockPanel>
+            <DataTemplate.Triggers>
+              <DataTrigger Binding="{Binding IsError, Mode=OneWay}" Value="True">
+                <Setter TargetName="IssueGlyph" Property="Text" Value="{x:Static c:Glyphs.Error}" />
+                <Setter TargetName="IssueGlyph" Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+              </DataTrigger>
+            </DataTemplate.Triggers>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
 
     <Border Margin="0,6,0,0"
             Padding="0,8,0,0"
@@ -94,34 +87,14 @@
                   ToolTip="{Binding ReadOnlyReason, Mode=OneWay}"
                   ToolTipService.ShowOnDisabled="True" />
         </StackPanel>
-        <StackPanel VerticalAlignment="Center">
-          <StackPanel Orientation="Horizontal">
-            <ProgressBar Width="60"
-                         Margin="0,0,8,0"
-                         VerticalAlignment="Center"
-                         IsIndeterminate="True"
-                         Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-            <TextBlock x:Name="DirtyText"
-                       Margin="0,0,12,0"
-                       FontWeight="SemiBold"
-                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                       Text="{l:Tr Watchdog.Ui.Unsaved}"
-                       Visibility="{Binding IsDirty, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-            <TextBlock x:Name="VersionText"
-                       Style="{StaticResource Ad.SecondaryText}"
-                       Text="{Binding VersionText, Mode=OneWay}" />
-          </StackPanel>
-          <TextBlock x:Name="MessageText"
-                     AutomationProperties.LiveSetting="Polite"
-                     Foreground="{DynamicResource SystemFillColorSuccessBrush}"
-                     Text="{Binding Message, Mode=OneWay}"
-                     TextWrapping="Wrap"
-                     Visibility="{Binding Message, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
-          <TextBlock x:Name="ErrorText"
-                     AutomationProperties.LiveSetting="Assertive"
-                     Style="{StaticResource Wd.FieldError}"
-                     Text="{Binding Error, Mode=OneWay}" />
-        </StackPanel>
+        <!-- The marker of unsaved edits stays next to Save (the version of the configuration is the summary of the line). -->
+        <TextBlock x:Name="DirtyText"
+                   Margin="0,0,12,0"
+                   VerticalAlignment="Center"
+                   FontWeight="SemiBold"
+                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                   Text="{l:Tr Watchdog.Ui.Unsaved}"
+                   Visibility="{Binding IsDirty, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
       </DockPanel>
     </Border>
   </StackPanel>

@@ -81,6 +81,12 @@ internal sealed class RecordingBatchExecutor : IBatchExecutor
 
     public TaskCompletionSource? Gate { get; set; }
 
+    /// <summary>How an object ends (null: succeeded): a failed object fails its every change, one changed in part its later ones.</summary>
+    public Func<ObjectPlan, ObjectResultStatus>? StatusOf { get; set; }
+
+    /// <summary>Thrown instead of a result: the execution failed as a whole.</summary>
+    public Exception? Failure { get; set; }
+
     public async Task<BatchResult> ExecuteAsync(IDirectorySession session, ChangePlan plan, BatchOptions? options, IProgress<BatchProgress>? progress, CancellationToken cancellationToken)
     {
         _plans.Enqueue(plan);
@@ -90,6 +96,11 @@ internal sealed class RecordingBatchExecutor : IBatchExecutor
         }
 
         OnExecute?.Invoke(plan);
+        if (Failure is { } failure)
+        {
+            throw failure;
+        }
+
         var now = DateTimeOffset.UtcNow;
         var results = new List<ObjectResult>();
         var completed = 0;
@@ -110,10 +121,17 @@ internal sealed class RecordingBatchExecutor : IBatchExecutor
                 }
             }
 
-            var result = new ObjectResult(obj, ObjectResultStatus.Succeeded, [.. obj.Changes.Select(c => new ChangeResult(c, true))], finalDn, now, now);
+            var status = StatusOf?.Invoke(obj) ?? ObjectResultStatus.Succeeded;
+            var changes = obj.Changes.Select((c, i) => status switch
+            {
+                ObjectResultStatus.Failed => new ChangeResult(c, false, DirectoryErrorKind.AccessDenied, "denied"),
+                ObjectResultStatus.PartiallySucceeded when i > 0 => new ChangeResult(c, false, DirectoryErrorKind.AccessDenied, "denied"),
+                _ => new ChangeResult(c, true),
+            });
+            var result = new ObjectResult(obj, status, [.. changes], finalDn, now, now);
             results.Add(result);
             completed++;
-            progress?.Report(new BatchProgress(completed, plan.ExecutableCount, 0, result));
+            progress?.Report(new BatchProgress(completed, plan.ExecutableCount, status == ObjectResultStatus.Succeeded ? 0 : 1, result));
         }
 
         return new BatchResult(plan, results, session.Info.Server, session.Info.BoundIdentity, now, now, cancellationToken.IsCancellationRequested);
@@ -158,9 +176,13 @@ internal sealed class ScriptedDialogService : IDialogService
         return Task.CompletedTask;
     }
 
+    /// <summary>Called with every error dialog as it is shown - e.g. to see whether a window was closed by then.</summary>
+    public Action<string, string>? OnError { get; set; }
+
     public Task ShowErrorAsync(string title, string message)
     {
         Errors.Add((title, message));
+        OnError?.Invoke(title, message);
         return Task.CompletedTask;
     }
 
@@ -184,11 +206,45 @@ internal sealed class ScriptedDialogService : IDialogService
         return Task.FromResult(TypedConfirmAnswers.Count > 0 && TypedConfirmAnswers.Dequeue());
     }
 
+    /// <summary>The answers of the close question, in order; without one the window is kept ("Don't close").</summary>
+    public Queue<CloseAnswer> CloseAnswers { get; } = new();
+
+    /// <summary>The close questions asked so far: the message and whether "Close and continue in the background" was offered.</summary>
+    public List<(string Title, string Message, bool CanContinue)> CloseQuestions { get; } = [];
+
+    /// <summary>Awaited before a close question is answered (null: answered at once) – an operator who takes a while.</summary>
+    public Func<Task>? BeforeCloseAnswer { get; set; }
+
+    public async Task<CloseAnswer> AskCloseAsync(string title, string message, bool canContinue)
+    {
+        Shown.Add($"close:{message}");
+        CloseQuestions.Add((title, message, canContinue));
+        if (BeforeCloseAnswer is { } wait)
+        {
+            await wait();
+        }
+
+        return CloseAnswers.Count > 0 ? CloseAnswers.Dequeue() : CloseAnswer.KeepOpen;
+    }
+
     public Task<string?> PickContainerAsync(IDirectorySession session, string? startDn) =>
         Task.FromResult(PickedContainers.Count > 0 ? PickedContainers.Dequeue() : null);
 
-    public Task<IReadOnlyList<string>> PickObjectsAsync(IDirectorySession session, IReadOnlyList<Core.Model.ObjectKind> kinds, bool multiSelect) =>
-        Task.FromResult(PickedObjects.Count > 0 ? PickedObjects.Dequeue() : (IReadOnlyList<string>)[]);
+    /// <summary>
+    /// Awaited before the object picker answers (null: at once) - an operator who takes a while, while the session ends; or it
+    /// throws, as a picker that cannot read the directory would.
+    /// </summary>
+    public Func<Task>? BeforePick { get; set; }
+
+    public async Task<IReadOnlyList<string>> PickObjectsAsync(IDirectorySession session, IReadOnlyList<Core.Model.ObjectKind> kinds, bool multiSelect)
+    {
+        if (BeforePick is { } wait)
+        {
+            await wait();
+        }
+
+        return PickedObjects.Count > 0 ? PickedObjects.Dequeue() : [];
+    }
 
     public Task ShowPropertiesAsync(string distinguishedName)
     {
@@ -223,6 +279,34 @@ internal sealed class ScriptedDialogService : IDialogService
     public Task ShowSessionLogAsync()
     {
         Shown.Add("sessionLog");
+        return Task.CompletedTask;
+    }
+
+    public Task ShowPowerShellAsync()
+    {
+        Shown.Add("powerShell");
+        return Task.CompletedTask;
+    }
+
+    /// <summary>The tables the grids were asked to show.</summary>
+    public List<AdMng.Core.PowerShell.PowerShellGridTable> PowerShellGrids { get; } = [];
+
+    /// <summary>What closes each grid that was shown, in the order of <see cref="PowerShellGrids"/>: a test calls it as the operator closes the window.</summary>
+    public List<Action> PowerShellGridClosers { get; } = [];
+
+    /// <summary>The next grid fails to show with this (then cleared).</summary>
+    public Exception? FailNextPowerShellGrid { get; set; }
+
+    public Task ShowPowerShellGridAsync(AdMng.Core.PowerShell.PowerShellGridTable table, Action? closed = null)
+    {
+        if (FailNextPowerShellGrid is { } failure)
+        {
+            FailNextPowerShellGrid = null;
+            return Task.FromException(failure);
+        }
+
+        PowerShellGrids.Add(table);
+        PowerShellGridClosers.Add(closed ?? (() => { }));
         return Task.CompletedTask;
     }
 

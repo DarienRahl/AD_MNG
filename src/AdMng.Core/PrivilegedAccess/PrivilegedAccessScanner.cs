@@ -173,7 +173,7 @@ public sealed class PrivilegedAccessScanner
         };
         await foreach (var obj in _session.SearchAsync(search, cancellationToken).ConfigureAwait(false))
         {
-            var account = await CompleteMemberOfAsync(obj, cancellationToken).ConfigureAwait(false);
+            var account = await CompleteMemberOfAsync(_session, obj, cancellationToken).ConfigureAwait(false);
             if (evaluator.Evaluate(account) is { } result)
             {
                 yield return result;
@@ -198,9 +198,14 @@ public sealed class PrivilegedAccessScanner
     /// <summary>The key of an account in <see cref="ComparePeers"/>.</summary>
     public static string KeyOf(string distinguishedName) => GroupGraph.Key(distinguishedName);
 
-    /// <summary>memberOf with more than 1500 values comes back ranged: the rest is read (rare; one read per such account).</summary>
-    private async Task<DirectoryObject> CompleteMemberOfAsync(DirectoryObject obj, CancellationToken cancellationToken)
+    /// <summary>
+    /// memberOf with more than 1500 values comes back ranged: the rest is read (rare; one read per such account). Shared
+    /// with the P1 account pass (docs/dev/p-certificate-services.md 2.3).
+    /// </summary>
+    internal static async Task<DirectoryObject> CompleteMemberOfAsync(IDirectoryReader reader, DirectoryObject obj, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(reader);
+        ArgumentNullException.ThrowIfNull(obj);
         if (!obj.TryGet(Attr.MemberOf, out var values)
             || !values.Name.Contains(";range=", StringComparison.OrdinalIgnoreCase)
             || values.Name.EndsWith("-*", StringComparison.Ordinal))
@@ -209,7 +214,7 @@ public sealed class PrivilegedAccessScanner
         }
 
         var all = new List<object>();
-        await foreach (var value in _session.GetAllValuesAsync(obj.DistinguishedName, Attr.MemberOf, cancellationToken).ConfigureAwait(false))
+        await foreach (var value in reader.GetAllValuesAsync(obj.DistinguishedName, Attr.MemberOf, cancellationToken).ConfigureAwait(false))
         {
             all.Add(value);
         }

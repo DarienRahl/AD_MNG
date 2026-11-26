@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Windows.Input;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
 using AdMng.Core.Formatting;
@@ -33,6 +34,12 @@ internal sealed class FieldContext(DialogServices services, IDirectorySession se
 
     /// <summary>The event log documents of the window (track E): lockout source, a computer's event log; null without them.</summary>
     public EventLogs.EventLogLauncher? EventLogs { get; init; }
+
+    /// <summary>
+    /// Reads the whole object again (the sheet's Refresh): what "Retry" runs for a page that is read with the sheet and
+    /// could not be read. Null outside a sheet.
+    /// </summary>
+    public ICommand? Reload { get; init; }
 
     public ILocalizer Localizer => Services.Localizer;
 

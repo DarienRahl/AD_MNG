@@ -26,11 +26,8 @@ public static partial class L
         public const string Execute = "PlanPreview.Execute";
         public const string Undo = "PlanPreview.Undo";
         public const string Close = "PlanPreview.Close";
-        public const string Cancel = "PlanPreview.Cancel";
         public const string CopyPowerShell = "PlanPreview.CopyPowerShell";
         public const string Executing = "PlanPreview.Executing";
-        public const string ResultSucceeded = "PlanPreview.ResultSucceeded";
-        public const string ResultFailed = "PlanPreview.ResultFailed";
         public const string RollbackShown = "PlanPreview.RollbackShown";
         public const string NothingToUndo = "PlanPreview.NothingToUndo";
         public const string Reverted = "PlanPreview.Reverted";
@@ -40,7 +37,6 @@ public static partial class L
         public const string Warnings = "PlanPreview.Warnings";
         public const string Object = "PlanPreview.Object";
         public const string Item = "PlanPreview.Item";
-        public const string SessionEnded = "PlanPreview.SessionEnded";
     }
 
     /// <summary>Group Policy (K2): documents, tree nodes, windows and operations (docs/dev/k-computers-and-gpo.md 5).</summary>
@@ -281,11 +277,7 @@ public static partial class L
         public const string RestoreRun = "GroupPolicy.RestoreRun";
         public const string ImportRun = "GroupPolicy.ImportRun";
         public const string PickFolderTitle = "GroupPolicy.PickFolderTitle";
-        public const string NoBackups = "GroupPolicy.NoBackups";
-        public const string BackupsFound = "GroupPolicy.BackupsFound";
-        public const string BackupRunning = "GroupPolicy.BackupRunning";
         public const string BackupActivity = "GroupPolicy.BackupActivity";
-        public const string BackupFailed = "GroupPolicy.BackupFailed";
         public const string BackupDone = "GroupPolicy.BackupDone";
         public const string BackupWithoutDirectorySettings = "GroupPolicy.BackupWithoutDirectorySettings";
         public const string BackupDetails = "GroupPolicy.BackupDetails";

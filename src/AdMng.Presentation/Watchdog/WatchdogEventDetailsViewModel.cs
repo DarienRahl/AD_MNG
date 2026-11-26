@@ -5,6 +5,7 @@ using AdMng.Core.Batch;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Presentation.Changes;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
@@ -23,6 +24,13 @@ namespace AdMng.Presentation.Watchdog;
 /// (current DN by objectGUID – the stored DN may be stale; a deleted object opens the Recycle Bin), unlock a still locked
 /// account through the change pipeline (preview, CLAUDE.md rule 5) and copy the details.
 /// </summary>
+/// <remarks>
+/// What the pane says (track V, stage V2b-4, unit 4): the read of the details of the selected event is a place that is
+/// "busy" (a ring in the pane, with <see cref="Error"/> as a note there when it failed - it is true for as long as that event
+/// is shown, and a read at every selection would otherwise announce itself to a screen reader at every key); what the
+/// operator presses in the pane - acknowledge, open in AD Manager, unlock - says its answer in <see cref="Status"/>, the
+/// holder that is in front of the feed's own.
+/// </remarks>
 public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, IDisposable
 {
     private static readonly string[] LockAttributes =
@@ -36,7 +44,11 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
     public WatchdogEventDetailsViewModel(WatchdogServices services)
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
+        Status = services.CreateStatus();
     }
+
+    /// <summary>What the pane's actions say in the status line (the feed's holder has it in front).</summary>
+    public PageStatusHolder Status { get; }
 
     /// <summary>The event was acknowledged here (the feed updates its row).</summary>
     public event EventHandler<WatchEvent>? Acknowledged;
@@ -235,6 +247,7 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
     {
         _disposed = true;
         _loads.Cancel();
+        Status.Operation?.Dispose();
     }
 
     [RelayCommand(CanExecute = nameof(CanAcknowledge))]
@@ -245,7 +258,11 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
             return;
         }
 
+        var localizer = _services.Localizer;
         var comment = string.IsNullOrWhiteSpace(AcknowledgeComment) ? null : AcknowledgeComment.Trim();
+
+        // A write to the service: no Stop.
+        using var scope = Status.Begin(localizer[L.WatchdogDetailsStatus.Acknowledging], new PageStatusLog(L.WatchdogDetailsStatus.Acknowledging), canCancel: false, writes: OperationWrites.Other);
         IsBusy = true;
         try
         {
@@ -264,10 +281,15 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
             }
 
             Acknowledged?.Invoke(this, acknowledged);
+
+            // The result is what the pane and the row show now (who acknowledged it, and when).
+            scope.Complete(null);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            Error = _services.Connection.Describe(ex);
+            scope.CompleteError(
+                PageStatusText.Failure(localizer[L.WatchdogDetailsStatus.AckFailed], _services.Connection.Describe(ex), null, ResultCode.Of(ex)),
+                new PageStatusLog(L.WatchdogDetailsStatus.AckFailed).WithCode(ResultCode.Of(ex)));
         }
         finally
         {
@@ -301,12 +323,16 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
             else
             {
                 ActionMessage = _services.Localizer[L.Watchdog.DetailsObjectDeleted];
+                Status.Show(PageStatus.Attention(ActionMessage, new PageStatusLog(L.Watchdog.DetailsObjectDeleted)));
                 await _services.Dialogs.ShowRecycleBinAsync(guid).ConfigureAwait(true);
             }
         }
         catch (DirectoryException ex)
         {
             ActionMessage = _services.Ui.Errors.Translate(ex);
+            Status.Show(PageStatus.Error(
+                PageStatusText.Failure(_services.Localizer[L.WatchdogDetailsStatus.OpenFailed], ActionMessage, null, ResultCode.Of(ex)),
+                new PageStatusLog(L.WatchdogDetailsStatus.OpenFailed).WithCode(ResultCode.Of(ex))));
         }
         finally
         {
@@ -335,6 +361,11 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
             if (outcome is ChangeOutcome.Executed or ChangeOutcome.OpenedInEditor)
             {
                 ActionMessage = outcome == ChangeOutcome.Executed ? _services.Localizer[L.Watchdog.DetailsUnlocked] : null;
+                if (outcome == ChangeOutcome.Executed)
+                {
+                    Status.Show(PageStatus.Done(ActionMessage!, new PageStatusLog(L.Watchdog.DetailsUnlocked)));
+                }
+
                 await CheckLockAsync(Event, CancellationToken.None).ConfigureAwait(true);
             }
         }
@@ -387,6 +418,13 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
         ActionMessage = null;
         CanUnlock = false;
         _lockedDn = null;
+
+        // What the line said about the last event is closed with the selection (a write that still runs keeps the line).
+        if (!Status.IsWorking)
+        {
+            Status.Clear();
+        }
+
         if (summary is null)
         {
             Event = null;

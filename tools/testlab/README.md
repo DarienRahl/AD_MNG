@@ -40,6 +40,7 @@ export ADMNG_TEST_LDAP_SERVER=127.0.0.1
 export ADMNG_TEST_LDAP_USER='Administrator@contoso.test'
 export ADMNG_TEST_LDAP_PASSWORD='P@ssw0rd!2026'
 dotnet test tests/AdMng.Directory.IntegrationTests
+dotnet test tests/AdMng.PowerShell.Tests   # the engine tests, with the lab tests of the PowerShell read commands
 ```
 
 The lab allows simple bind without TLS solely so that `ldapsearch -x` and the tests on Linux work. In production the
@@ -81,12 +82,16 @@ and GSSAPI are described in [`watchdog/README.md`](watchdog/README.md) ("Service
 ### Cleaning up after tests
 
 Every test run works in its own OU directly under the domain: `OU=AdMngIntegration-<UTC time>-<random>`
-(`tests/AdMng.Directory.IntegrationTests`) or `OU=WatchdogIT-<UTC time>-<random>`
+(`tests/AdMng.Directory.IntegrationTests`), `OU=AdMngPowerShell-<UTC time>-<random>` (the lab tests of the PowerShell
+window's read commands in `tests/AdMng.PowerShell.Tests`) or `OU=WatchdogIT-<UTC time>-<random>`
 (`tests/AdMng.Watchdog.IntegrationTests`), so parallel runs (several working copies, CI jobs) do not
 interfere with each other. The OU description identifies the test process (`[run <host> pid <id> started <time>]`). At
 start, a run deletes the OUs of runs that have finished – the process on the same host is no longer running (an
 aborted run) or the OU is older than 2 hours (the owner is on another host, old `OU=AdMngIntegration` from earlier
-versions) – and leaves the OUs of runs in progress alone. At the end it deletes its own OU.
+versions) – and leaves the OUs of runs in progress alone. At the end it deletes its own OU. The detection lab tests of
+`tests/AdMng.Watchdog.Core.Tests` (`LabDetectionTests`) have no run OU: each test creates
+`OU=WD-Detect-<purpose>-<random>` directly under the domain and deletes it when it ends; an aborted run leaves it
+behind, and no later run removes it – delete it by hand.
 
 Samba executes only one write transaction at a time (in the lab about 0.1 s per deleted object) and aborts every
 LDAP request after 300 s. Deleting a tree on the server side (the tree delete control) for an OU with thousands of
@@ -103,9 +108,57 @@ Manually (only the tests' own OUs, never `OU=Firma`):
 
 ```bash
 ldapsearch -x -H ldap://127.0.0.1 -D 'Administrator@contoso.test' -w 'P@ssw0rd!2026' \
-  -b 'DC=contoso,DC=test' -s one '(|(ou=AdMngIntegration*)(ou=WatchdogIT-*))' dn description whenCreated
+  -b 'DC=contoso,DC=test' -s one '(|(ou=AdMngIntegration*)(ou=AdMngPowerShell-*)(ou=WatchdogIT-*)(ou=WD-Detect-*))' dn description whenCreated
 ldapdelete -x -H ldap://127.0.0.1 -D 'Administrator@contoso.test' -w 'P@ssw0rd!2026' -r 'OU=WatchdogIT-…,DC=contoso,DC=test'
 ```
+
+### A run that ends with exit code 134 (DLR-4)
+
+The Watchdog integration tests of CI run 45409758368 (commit `7e13cff6`) ended about 9 s in with
+`Catastrophic failure: Test process crashed with exit code 134` (SIGABRT) and no failing test. The crash report named the
+cause: `__libc_free` ← `LdapConnection.ConstructEntry` ← `ldap_next_attribute` ← `ConstructEntry` ← `SendRequest` ←
+`AdMng.Directory.LdapAsync` (the worker thread that runs a search). System.DirectoryServices.Protocols frees each
+attribute name of a response entry (`ldap_memfree`) and then calls `ldap_next_attribute` with the connection's handle;
+when the connection was disposed meanwhile, that call throws and the method's `finally` frees the same name again
+([dotnet/runtime#35189](https://github.com/dotnet/runtime/issues/35189), open since 2020). glibc aborts (`free(): double
+free detected in tcache 2`, `corrupted double-linked list`), or the heap is corrupted and the process dies later with
+SIGSEGV (exit code 139) or hangs in `malloc`. AD Manager disposed pooled connections while a search on them was still
+building its response: on Linux a search runs the blocking `SendRequest` on a worker thread, which goes on after its
+caller was cancelled, and closing a session disposed every connection at once – a Watchdog host that stops (every test
+host, `systemctl stop` or `restart`, a package upgrade), a session the service drops after a transient error while
+another job reads, a connect that is cancelled or fails during its first reads. The same code runs on Windows (the
+connection window's session); there the defect was not reproduced.
+
+Since then a connection is never disposed while a request runs on it (`src/AdMng.Directory/LdapConnectionPool.cs`). A
+request counts as in flight until S.DS.P is done with it, also when its caller stopped waiting long before; a connection
+that leaves the pool (broken, idle, or the session closes) takes no new request and is disposed when its last request
+has ended. Closing a session cancels its requests (their callers get an `ObjectDisposedException` at once), shuts the
+socket of a busy connection down (a request that waits for the server returns) and waits at most 2 s; a connection whose
+request still runs after that is disposed when the request ends. The connect does the same with its first connection.
+
+`tests/AdMng.Directory.IntegrationTests` checks it: `Unit/PoolCloseTests` with a fake sender (no lab), and
+`Integration/CloseWhileRequestRunsTests` against the lab in a child process – the probe `tests/AdMng.Directory.DisposeProbe`
+closes the session at many moments of a search for every user and computer with all attributes, finding the moment
+when S.DS.P builds the entries by the memory it allocates (`ldap_result` allocates none while it waits). Its positive
+control disposes plain S.DS.P connections the same way, and that child must die. In the lab, 20 runs of 20 closes per
+case: before the fix all 60 child processes died (dispose during the search 6 × 134, 10 × 139 and 4 × a request on a
+disposed connection; cancel, then dispose 6 × 134 and 14 × 139; cancelled connect 16 × 134 and 4 × 139), after it
+all 60 ended with exit code 0 (1,200 closes). With System.DirectoryServices.Protocols 10.0.13, which the Watchdog
+ships and which this test project has used since 0.16.1 (until then it got 10.0.15, AD Manager's version, through the
+PowerShell SDK), the result is the same: 15 of 15 runs of the three cases survived, 5 of 5 runs of the positive control
+died. The Watchdog integration tests themselves did not crash in
+20 local runs before the fix – the abort needs a close to land in the entry loop of a large response, which only the
+probe forces – and passed in 20 of 20 runs after it. By hand:
+
+```bash
+dotnet build tests/AdMng.Directory.IntegrationTests -c Release
+cd tests/AdMng.Directory.IntegrationTests/bin/Release/net10.0
+dotnet AdMng.Directory.DisposeProbe.dll dispose-during-search 20   # also cancel-then-dispose, cancel-connect: exit code 0
+dotnet AdMng.Directory.DisposeProbe.dll raw 60                     # positive control: dies (134 or 139) or hangs
+```
+
+Should a run end with exit code 134 again, the CI job "Integration tests" prints the crash report of the dead process
+(step "Crash reports", `crash-report-summary.py`: the crashed thread with its native and managed frames).
 
 ## AdMng Watchdog
 

@@ -16,6 +16,8 @@
     <ProjectReference Include="..\AdMng.EventLogs\AdMng.EventLogs.csproj" />
     <ProjectReference Include="..\AdMng.Mail\AdMng.Mail.csproj" />
     <ProjectReference Include="..\AdMng.Outlook\AdMng.Outlook.csproj" />
+    <!-- Track R, stage R1: the embedded PowerShell 7 engine of the PowerShell window (ADR-0010). App only - no Watchdog project references it. -->
+    <ProjectReference Include="..\AdMng.PowerShell\AdMng.PowerShell.csproj" />
     <ProjectReference Include="..\AdMng.Presentation\AdMng.Presentation.csproj" />
     <ProjectReference Include="..\AdMng.Remote\AdMng.Remote.csproj" />
     <ProjectReference Include="..\AdMng.Watchdog.Client\AdMng.Watchdog.Client.csproj" />
@@ -29,7 +31,20 @@
   <ItemGroup>
     <Resource Include="Assets\AdMng.ico" />
   </ItemGroup>
+  <!-- The all-users configuration of the PowerShell engine (ADR-0010 "The publish layout"): the engine reads powershell.config.json from
+       its own folder - in the single-file program the folder of AdMng.exe - and a setting there wins over the same setting in a user's
+       file (a policy of the computer wins over both). It turns off the transcription and the module logging that a user's own file
+       switched on - a transcript holds the commands and their results, directory data, on disk (rule 1) - and the Windows PowerShell
+       compatibility layer. Script block logging it leaves alone (decision D-B, audit PS-04): Group Policy, then a user's own file, decide
+       it, and with none of them the engine writes the script blocks its built-in check finds suspicious to the event log on its own
+       (docs/dev/r1-powershell-window.md 4.2). A policy that records is said in the window (decision D7). It is published beside the
+       program, never bundled in it. -->
+  <ItemGroup>
+    <None Include="powershell.config.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+  </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="AdMng.App.UiTests" />
   </ItemGroup>
+  <!-- The four sni.dll packages of the engine's closure are not OSI licensed and nothing here uses SQL Server (ADR-0010 "Package licenses"). -->
+  <Import Project="..\AdMng.PowerShell\PowerShellEngineConsumer.props" />
 </Project>

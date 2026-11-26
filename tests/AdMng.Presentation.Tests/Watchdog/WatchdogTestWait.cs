@@ -5,10 +5,15 @@ namespace AdMng.Presentation.Tests.Watchdog;
 /// <summary>
 /// Waits for state that background loops (live polling) hand to the UI thread. No sleeps: the UI thread's queue is
 /// drained until the condition holds; a generous real-time limit turns a broken expectation into a failure, not a hang.
+/// Every wait here is on an EVENT (a recorded call, a raised event, a held call that was released), never on real time,
+/// so the limit costs nothing unless something really hangs. On the Windows runner (4 processors, every test project
+/// running side by side) a whole process has stood still for 8-20 s at a time, which turned a 10 s limit into a failure
+/// of a test that was right.
 /// </summary>
 internal static class WatchdogTestWait
 {
-    private static readonly TimeSpan Limit = TimeSpan.FromSeconds(10);
+    /// <summary>The bound of every wait of the watchdog tests of this project.</summary>
+    public static readonly TimeSpan Limit = TimeSpan.FromSeconds(60);
 
     /// <summary>Completes when the fake client recorded <paramref name="count"/> calls of <paramref name="method"/>.</summary>
     public static Task CallsAsync(this FakeCallRecorder calls, string method, int count)

@@ -6,6 +6,7 @@ using System.Text;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.AdministrativeTemplates;
 using AdMng.Core.GroupPolicy.Management;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
 using AdMng.Presentation.Tests.Lists;
 using AdMng.Presentation.Tests.Watchdog;
@@ -111,14 +112,14 @@ public class CentralStoreUpdateTests
             {
                 seen = update;
                 await update.OpenFileCommand.ExecuteAsync(null);
-                Assert.Null(update.Error);
+                Assert.NotEqual(PageStatusKind.Error, update.Status.Current.Kind);
                 Assert.Equal(PackageTrust.NotChecked, update.Package!.Trust);
                 Assert.True(update.IsUntrusted);
                 Assert.Equal(["en-US", "pl"], update.Cultures.Select(c => c.Culture));
                 Assert.All(update.Cultures, c => Assert.True(c.IsSelected)); // en-US always, pl for a Polish UI
                 Assert.Equal([("contoso.admx", CentralStoreFileStatus.Changed), ("en-US/contoso.adml", CentralStoreFileStatus.Unchanged),
                     ("pl-PL/contoso.adml", CentralStoreFileStatus.New)], update.Rows.Select(r => (r.Path, r.Status)));
-                Assert.Equal("Do zapisania: 2, bez zmian: 1, pominięte: 0", update.SummaryText);
+                Assert.Equal("Do zapisania: 2, bez zmian: 1, pominięte: 0", update.Status.Idle.Message);
 
                 update.BackupFolder = folder.FullName;
                 Assert.True(update.UpdateCommand.CanExecute(null));
@@ -136,8 +137,8 @@ public class CentralStoreUpdateTests
             Assert.Contains(Assert.Single(harness.Windows.Previews).Rows, r => r.Contains("PolicyDefinitions/contoso.admx", StringComparison.Ordinal));
             Assert.NotEmpty(seen!.Rows);
             Assert.All(seen.Rows, r => Assert.Equal(CentralStoreFileStatus.Unchanged, r.Status)); // compared again after the update
-            Assert.Null(seen.Error);
-            Assert.False(seen.IsWorking);
+            Assert.Equal(PageStatusKind.Done, seen.Status.Current.Kind); // what the update wrote
+            Assert.False(seen.Status.IsWorking);
         }
         finally
         {
@@ -166,13 +167,13 @@ public class CentralStoreUpdateTests
 
             await update.OpenFileCommand.ExecuteAsync(null);
 
-            Assert.Null(update.Error);
+            Assert.NotEqual(PageStatusKind.Error, update.Status.Current.Kind);
             Assert.All(update.Cultures, c => Assert.True(c.IsSelected, c.Culture));
             var outdated = Assert.Single(update.Rows, r => r.Status == CentralStoreFileStatus.OutdatedLanguage);
             Assert.Equal("de-DE/contoso.adml", outdated.Path);
             Assert.Equal("Kept at the old revision", outdated.StatusText);
             Assert.False(outdated.IsChange);
-            Assert.Equal("To write: 1, unchanged: 2, skipped: 1", update.SummaryText);
+            Assert.Equal("To write: 1, unchanged: 2, skipped: 1", update.Status.Idle.Message);
         }
         finally
         {
@@ -248,11 +249,11 @@ public class CentralStoreUpdateTests
 
             harness.B2.Files.NextOpenPath = text;
             await update.OpenFileCommand.ExecuteAsync(null);
-            Assert.Equal("This file is not a package of templates (ZIP, CAB, MSI, EXE or ADMX).", update.Error);
+            Assert.Contains("This file is not a package of templates (ZIP, CAB, MSI, EXE or ADMX).", update.Status.Current.Message, StringComparison.Ordinal);
 
             harness.B2.Files.NextOpenPath = msi;
             await update.OpenFileCommand.ExecuteAsync(null);
-            Assert.Equal("MSI, CAB and EXE packages are unpacked on Windows only.", update.Error);
+            Assert.Contains("MSI, CAB and EXE packages are unpacked on Windows only.", update.Status.Current.Message, StringComparison.Ordinal);
             Assert.False(update.CanExtractInstallers);
             Assert.Null(update.Package);
         }
@@ -388,7 +389,7 @@ public class CentralStoreUpdateTests
 
             await update.OpenFolderCommand.ExecuteAsync(null);
 
-            Assert.Null(update.Error);
+            Assert.NotEqual(PageStatusKind.Error, update.Status.Current.Kind);
             Assert.True(update.HasPackageIssues);
             Assert.Equal("Files of the package that are not used (1)", update.PackageIssuesTitle);
             Assert.Equal(["contoso.admx – a template of this name was found earlier in the package – that file is used"], update.PackageIssues);
@@ -423,10 +424,10 @@ public class CentralStoreUpdateTests
             polish.IsSelected = false; // comparison A, held
             await hold.Reached.WaitAsync(TimeSpan.FromSeconds(30), Ct);
             Assert.True(update.IsComparing);
-            Assert.True(update.IsWorking);
+            Assert.True(update.Status.IsWorking);
             Assert.Empty(update.Rows); // what the previous options showed is gone at once
             Assert.False(update.UpdateCommand.CanExecute(null)); // "Zaktualizuj…" waits for the comparison
-            Assert.Equal("Porównywanie z magazynem centralnym…", update.ProgressText);
+            Assert.Equal("Porównywanie z magazynem centralnym…", update.Status.Current.Message);
 
             polish.IsSelected = true; // comparison B supersedes A
             await ObjectListViewModelTests.WaitUntilAsync(() => !update.IsComparing && update.Rows.Count > 0);
@@ -465,17 +466,17 @@ public class CentralStoreUpdateTests
             harness.Sysvol.Unavailable = SysvolUnavailableReason.Unreachable; // the next package cannot be compared
             await update.OpenFileCommand.ExecuteAsync(null);
 
-            Assert.Equal(harness.Services.SysvolText(SysvolUnavailableReason.Unreachable, harness.Session.Info.Server), update.Error);
+            Assert.Contains(harness.Services.SysvolText(SysvolUnavailableReason.Unreachable, harness.Session.Info.Server), update.Status.Current.Message, StringComparison.Ordinal);
             Assert.Empty(update.Rows);
-            Assert.Equal(string.Empty, update.SummaryText);
+            Assert.Equal(string.Empty, update.Status.Idle.Message);
             Assert.False(update.UpdateCommand.CanExecute(null)); // nothing of the previous package can be written
 
             harness.Sysvol.Unavailable = null;
             update.ReplaceCollidingFiles = true; // any option compares again
             await ObjectListViewModelTests.WaitUntilAsync(() => !update.IsComparing && update.Rows.Count > 0);
 
-            Assert.Null(update.Error);
-            Assert.Equal("Do zapisania: 1, bez zmian: 2, pominięte: 0", update.SummaryText);
+            Assert.NotEqual(PageStatusKind.Error, update.Status.Current.Kind);
+            Assert.Equal("Do zapisania: 1, bez zmian: 2, pominięte: 0", update.Status.Idle.Message);
             Assert.True(update.UpdateCommand.CanExecute(null));
         }
         finally
@@ -511,7 +512,7 @@ public class CentralStoreUpdateTests
 
             var running = ui.RunAsync(() => update.UpdateCommand.ExecuteAsync(null));
             Assert.False(await onUiThread.Task.WaitAsync(TimeSpan.FromSeconds(30), Ct)); // never on the UI thread (rule 6)
-            var state = await ui.RunAsync(async () => (update.IsBusy, update.ProgressText, await update.CanCloseAsync(), update.CloseCommand.CanExecute(null),
+            var state = await ui.RunAsync(async () => (update.IsBusy, update.Status.Current.Message, await update.CanCloseAsync(), update.CloseCommand.CanExecute(null),
                 update.UpdateCommand.CanExecute(null), update.OpenFileCommand.CanExecute(null)));
             Assert.Equal((true, "Tworzenie kopii zapasowej magazynu centralnego…", false, false, false, false), state);
 
@@ -585,7 +586,7 @@ public class CentralStoreUpdateTests
 
             await update.OpenFileCommand.ExecuteAsync(null); // the entries are read only for the comparison
 
-            bool Reported() => update.Error == "Nie udało się rozpakować ani odczytać paczki."
+            bool Reported() => update.Status.Current.Message.Contains("Nie udało się rozpakować ani odczytać paczki.", StringComparison.Ordinal)
                 || update.Rows.Any(r => r is { Path: "contoso.admx", Status: CentralStoreFileStatus.Unreadable });
             Assert.NotNull(update.Package);
             Assert.True(Reported());
@@ -620,7 +621,7 @@ public class CentralStoreUpdateTests
         using var update = new CentralStoreUpdateViewModel(harness.Services, harness.Definitions, loader);
         await update.DownloadFirefoxCommand.ExecuteAsync(null);
 
-        Assert.StartsWith("The download failed", update.Error, StringComparison.Ordinal);
+        Assert.Contains("The download failed", update.Status.Current.Message, StringComparison.Ordinal);
         Assert.False(update.IsBusy);
         Assert.Null(update.Package);
     }

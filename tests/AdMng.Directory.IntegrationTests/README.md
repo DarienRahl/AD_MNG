@@ -28,7 +28,7 @@ Optional overrides (defaults match `tools/testlab`): `ADMNG_TEST_LDAP_HELPDESK_U
   reported as a diagnostic message and does not stop the run. Seeded data is only read; the access denied test writes
   the current value back so that even a wrongly permitted write changes nothing.
 - Test trees are deleted **client-side** (`Infrastructure/LabCleanup.cs`, also used by
-  `AdMng.Watchdog.IntegrationTests`): groups lose their members in one modify each, then every object is deleted on its
+  `AdMng.Watchdog.IntegrationTests` and `AdMng.PowerShell.Tests`): groups lose their members in one modify each, then every object is deleted on its
   own, deepest first, with a 10-minute request timeout. Samba runs one write transaction at a time (~0.1 s per deleted
   object on the lab) and ends a request after 300 s, so a server-side tree delete of a run OU (two 1600-member groups
   and their 3200 contacts, ~5 minutes) failed with timeLimitExceeded, left the objects behind and blocked every other
@@ -55,6 +55,14 @@ Optional overrides (defaults match `tools/testlab`): `ADMNG_TEST_LDAP_HELPDESK_U
   arrives. `LdapAsync` enforces the request timeout itself (plus 1 s), the pool drops a connection that let a
   request time out, and requests queued on it move to another connection. The abandoned worker thread stays
   blocked until the socket delivers data or fails (`PoolTests` stall the lab through `TcpProxy.StallExisting`).
+- **A connection is never disposed while a request runs on it** (audit finding DLR-4, the exit code 134 of a lab run):
+  S.DS.P's `LdapConnection.ConstructEntry` frees an attribute name twice when its connection is disposed while it builds
+  an entry of a response (dotnet/runtime#35189), and glibc aborts the process. The pool counts a request as in flight
+  until S.DS.P is done with it (`PendingResponse.Finished`: on the APM path also after an abort, which releases the caller
+  earlier) and disposes a connection that left the pool only then; closing the pool cancels the requests, shuts the
+  sockets of the busy connections down and waits at most 2 s. `Unit/PoolCloseTests` checks it with a fake sender, and
+  `Integration/CloseWhileRequestRunsTests` against the lab in a child process (`tests/AdMng.Directory.DisposeProbe`),
+  with a positive control that disposes S.DS.P connections the same way and must die (`tools/testlab/README.md`).
 - **Change notifications** run on S.DS.P's single, process-wide partial-results thread. It polls one subscription
   at a time while holding the lock that `Abort` needs, sleeps 250 ms between polls (at most ~4 deliveries per
   second), and because of the same `timeval` bug a poll of a quiet subscription can block until that container

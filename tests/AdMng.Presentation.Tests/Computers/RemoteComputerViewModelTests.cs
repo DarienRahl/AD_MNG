@@ -299,7 +299,7 @@ public class RemoteComputerViewModelTests
         var call = window.LoadServicesCommand.ExecuteAsync(null);
         await scenario.Remote.Held.Task.WaitAsync(TimeSpan.FromSeconds(10), Ct);
         Assert.True(window.IsBusy);
-        Assert.True(window.StopCommand.CanExecute(null));
+        Assert.True(window.Status.CancelCommand.CanExecute(null));
         window.Dispose();
         await call.WaitAsync(TimeSpan.FromSeconds(10), Ct);
 
@@ -319,7 +319,7 @@ public class RemoteComputerViewModelTests
         Assert.True(window.IsBusy);
         Assert.False(window.RestartCommand.CanExecute(null));
         Assert.False(window.LoadUsersCommand.CanExecute(null));
-        Assert.True(window.StopCommand.CanExecute(null));
+        Assert.True(window.Status.CancelCommand.CanExecute(null));
 
         // A call that slips through (a stale CanExecute) is refused instead of cancelling the running one.
         await window.LoadUsersCommand.ExecuteAsync(null);
@@ -343,7 +343,7 @@ public class RemoteComputerViewModelTests
 
         var status = window.RefreshStatusCommand.ExecuteAsync(null);
         await scenario.Ping.Held.Task.WaitAsync(TimeSpan.FromSeconds(10), Ct);
-        window.StopCommand.Execute(null);
+        window.Status.CancelCommand.Execute(null);
         await status.WaitAsync(TimeSpan.FromSeconds(10), Ct);
 
         Assert.False(window.IsBusy);
@@ -360,7 +360,7 @@ public class RemoteComputerViewModelTests
 
         var call = window.LoadUsersCommand.ExecuteAsync(null);
         await scenario.Remote.Held.Task.WaitAsync(TimeSpan.FromSeconds(10), Ct);
-        window.StopCommand.Execute(null);
+        window.Status.CancelCommand.Execute(null);
         await call;
 
         Assert.False(window.IsBusy);

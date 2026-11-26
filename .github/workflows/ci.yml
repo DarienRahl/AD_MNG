@@ -33,10 +33,36 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: "true"
 
 jobs:
+  checks:
+    # Seconds, no .NET and no secrets: what tools/release/release.sh checks before it commits a release
+    # (docs/dev/releasing.md). Versions agree in all their places, release notes are well-formed, Polish and English
+    # documents have the same headings, relative links and anchors resolve, the resx pairs have the same keys.
+    name: Checks (versions, release notes, documentation)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Release and documentation checks
+        run: bash tools/release/release.sh check
+      - name: Icon set (sources valid, generated files up to date)
+        run: python3 tools/icon/build-icon-set.py --check
+
   windows:
     name: Build, unit & UI smoke tests (Windows)
     runs-on: windows-latest
-    timeout-minutes: 40
+    # The three test steps have their own limits (15, 10 and 60 minutes). A test step that runs out of time fails, and the
+    # steps marked to run after a failure still run (PowerShell engine tests, UI tests, Slowest tests, publish, smoke test,
+    # layout check, test results); the other steps after it are skipped. When the job's own limit runs out, the job is
+    # cancelled: the step that runs is stopped, and of the steps after it only those marked always() run (Slowest tests and
+    # test results, or test results alone once Slowest tests is behind; run 45698130022, cut off by the old 40-minute limit
+    # in the UI tests, ran exactly those two); the steps marked !cancelled() are skipped with all the others. 100 minutes:
+    # restore and build about 4, the three test steps at their limits 85, publish, smoke tests, Watchdog steps and
+    # artifacts about 6, and a few minutes to spare.
+    timeout-minutes: 100
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -47,18 +73,83 @@ jobs:
         # Uses the repository nuget.config (nuget.org only, source mapping) and NuGetAudit (mode all).
         run: dotnet restore AdMng.slnx
       - name: Build
+        id: build
         run: dotnet build AdMng.slnx -c Release --no-restore
       - name: Unit tests
-        # The whole solution, including the watchdog test projects (Windows-only tests such as the local Security-log
-        # reader and DPAPI-NG run here; the Samba-based watchdog integration tests skip without ADMNG_TEST_LDAP_*).
-        run: dotnet test AdMng.slnx -c Release --no-build --logger "trx" --results-directory TestResults
+        # The whole solution but the PowerShell engine tests and the UI tests (the next two steps), including the watchdog
+        # test projects (Windows-only tests such as the local Security-log reader and DPAPI-NG run here; the Samba-based
+        # watchdog integration tests skip without ADMNG_TEST_LDAP_*). AdMngSkipPowerShellTests=true and AdMngSkipUiTests=true
+        # make AdMng.PowerShell.Tests and AdMng.App.UiTests no test projects for this call. About 3 minutes.
+        timeout-minutes: 15
+        run: >-
+          dotnet test AdMng.slnx -c Release --no-build --logger "trx" --results-directory TestResults
+          -p:AdMngSkipPowerShellTests=true -p:AdMngSkipUiTests=true
         env:
           ADMNG_UI_TESTS: "1"
           ADMNG_WINDOWS_EVENTLOG_TESTS: "1"
+      - name: PowerShell engine tests
+        # A step of its own for the detailed console logger, which only these tests get (the other projects would fill the
+        # log): it lists every test as it ends, with its output, and an xUnit catastrophic failure in its place among them -
+        # an exception the tests left unhandled with its stack, a crashed test process with what it wrote to stderr (a native
+        # abort may leave no managed stack there) - where the default verbosity prints the failure's message and the count
+        # only; so the log shows which tests had ended when it came. The trx logger as in the other test steps. Also after a
+        # red unit test step. About 2 to 3 minutes (the test run took 2 m 18 s in the unit test step of ea9c4c5d).
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 10
+        run: >-
+          dotnet test tests/AdMng.PowerShell.Tests -c Release --no-build --logger "trx" --results-directory TestResults
+          --logger "console;verbosity=detailed"
+        env:
+          # The 40 s proof that the PowerShell engine never writes its module analysis cache: on Windows its path is NUL\ModuleAnalysisCache,
+          # which only a Windows run can show to be unwritable (docs/dev/r1-powershell-window.md 4.2).
+          ADMNG_POWERSHELL_SLOW_TESTS: "1"
+      - name: UI tests
+        # A step of its own, with its own limit: the job's longest part, 14 to more than 36 minutes on unchanged code (run
+        # 45698130022 on 7ff2e6c3, a docs-only commit after 260c4d4d, hit the old 40-minute job limit with the UI tests
+        # still running, about 2.6 times slower than the 14 minutes of 260c4d4d).
+        # Also after a red test step before it, as when all ran in one call. The environment is the one of the unit tests step.
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 60
+        run: dotnet test tests/AdMng.App.UiTests -c Release --no-build --logger "trx" --results-directory TestResults
+        env:
+          ADMNG_UI_TESTS: "1"
+          ADMNG_WINDOWS_EVENTLOG_TESTS: "1"
+      # The UI tests grew from 11 to 27 minutes within a day of new tests: the thirty slowest of the three test steps, from the trx
+      # files, say where the time goes (a test that waits for its own timeout shows up here), and one line per test assembly
+      # says how long its run took from start to end. A test step that ran out of time may have written no trx file, and its
+      # tests are then missing from the count.
+      - name: Slowest tests
+        if: always()
+        # A diagnostic: whatever goes wrong in it must never turn a green test run red.
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $runs = foreach ($file in Get-ChildItem TestResults -Filter *.trx -Recurse -ErrorAction SilentlyContinue) {
+            # -LiteralPath: a second run of one assembly is named "...net10.0[1].trx", and in -Path the brackets are a wildcard.
+            [xml]$trx = Get-Content -LiteralPath $file.FullName
+            $tests = @(foreach ($result in $trx.GetElementsByTagName('UnitTestResult')) {
+              [pscustomobject]@{ Seconds = [TimeSpan]::Parse($result.duration).TotalSeconds; Outcome = $result.outcome; Test = $result.testName }
+            })
+            $method = @($trx.GetElementsByTagName('TestMethod'))[0]
+            $times = @($trx.GetElementsByTagName('Times'))[0]
+            [pscustomobject]@{
+              Assembly = if ($method) { [IO.Path]::GetFileNameWithoutExtension($method.codeBase) } else { $file.Name }
+              Seconds = if ($times) { ([DateTimeOffset]::Parse($times.finish) - [DateTimeOffset]::Parse($times.start)).TotalSeconds } else { $null }
+              Tests = $tests
+            }
+          }
+          $rows = @($runs | ForEach-Object { $_.Tests })
+          "{0} tests, {1:N0} s in all" -f $rows.Count, (($rows | Measure-Object Seconds -Sum).Sum)
+          $runs | Sort-Object Seconds -Descending | ForEach-Object { '{0,8:N0} s  {1,6} tests  {2}' -f $_.Seconds, $_.Tests.Count, $_.Assembly }
+          $rows | Sort-Object Seconds -Descending | Select-Object -First 30 | ForEach-Object { '{0,8:N1} s  {1,-9} {2}' -f $_.Seconds, $_.Outcome, $_.Test }
+      # Publish and smoke test also after a red test step, when the build succeeded: a failed test must not hide whether
+      # the published program starts. The failed test step still fails the job.
       - name: Publish (self-contained single file)
+        id: publish
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: dotnet publish src/AdMng.App/AdMng.App.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o publish
       - name: Smoke test published app
-        if: hashFiles('src/AdMng.App/SmokeTest.cs') != ''
+        if: ${{ !cancelled() && steps.publish.outcome == 'success' && hashFiles('src/AdMng.App/SmokeTest.cs') != '' }}
         shell: pwsh
         run: |
           # AdMng.exe is a GUI application: capture its report through redirected handles and print it.
@@ -66,6 +157,18 @@ jobs:
             -RedirectStandardOutput smoke-out.txt -RedirectStandardError smoke-err.txt
           Get-Content smoke-out.txt, smoke-err.txt -ErrorAction SilentlyContinue
           if ($p.ExitCode -ne 0) { throw "Smoke test failed with exit code $($p.ExitCode)" }
+      - name: Published layout of the PowerShell engine
+        # Track R (ADR-0010): the engine runs from the single-file AdMng.exe (the smoke test above proves it); its all-users configuration and
+        # the help of its commands are published beside the program, and the four sni.dll packages (not OSI licensed) are not in the output.
+        if: ${{ !cancelled() && steps.publish.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          foreach ($file in 'powershell.config.json', 'AdMng.PowerShell.dll-Help.xml') {
+            if (-not (Test-Path "publish/$file")) { throw "$file is missing from the publish output" }
+          }
+          if (Get-ChildItem publish -Recurse -Filter 'sni*.dll') { throw 'The output has an sni.dll (ADR-0010, Package licenses)' }
+          $folder = (Get-ChildItem publish -Recurse -File | Measure-Object Length -Sum).Sum
+          'AdMng.exe {0:N1} MB, the publish folder {1:N1} MB' -f ((Get-Item publish/AdMng.exe).Length / 1MB), ($folder / 1MB)
       - uses: actions/upload-artifact@v4
         with:
           name: AdMng-win-x64
@@ -84,6 +187,11 @@ jobs:
           foreach ($script in 'Install-AdMngWatchdog.ps1', 'AdMngWatchdog.Install.psm1', 'Uninstall-AdMngWatchdog.ps1') {
             if (-not (Test-Path "publish-watchdog/Deploy/$script")) { throw "Deploy/$script is missing from the publish output" }
           }
+      - name: The Watchdog package has no PowerShell engine
+        # Track R (ADR-0010): the engine is used by AdMng.App only and never ships with the service.
+        shell: pwsh
+        run: |
+          if (Get-ChildItem publish-watchdog -Recurse -Filter 'System.Management.Automation*.dll') { throw 'The Watchdog publish output has the PowerShell engine' }
       - uses: actions/upload-artifact@v4
         with:
           name: AdMng-Watchdog-win-x64
@@ -129,6 +237,14 @@ jobs:
     env:
       # Public test values of the throwaway lab (tools/testlab/README.md) – no secrets are needed.
       ADMNG_TEST_LDAP_SERVER: 127.0.0.1
+      # Connection-level LDAP errors of the lab tests with libldap's own words (LdapErrorLog), printed by "Samba DC log".
+      ADMNG_TEST_LDAP_ERROR_LOG: /tmp/admng-ldap-errors.log
+      # A test process that dies without a managed stack (exit code 134, SIGABRT) leaves a mini dump and a crash report
+      # (stack of the native and managed frames as JSON) here - printed by "Crash reports".
+      DOTNET_DbgEnableMiniDump: "1"
+      DOTNET_DbgMiniDumpType: "1"
+      DOTNET_DbgMiniDumpName: /tmp/admng-crash-%p.dmp
+      DOTNET_EnableCrashReport: "1"
       ADMNG_TEST_LDAP_USER: Administrator@contoso.test
       ADMNG_TEST_LDAP_PASSWORD: P@ssw0rd!2026
       ADMNG_TEST_LDAP_READONLY_USER: odczyt.test@contoso.test
@@ -139,7 +255,8 @@ jobs:
         with:
           dotnet-version: "10.0.x"
       - name: Set up Samba AD DC lab
-        run: sudo LAB_USERS=400 LAB_COMPUTERS=250 tools/testlab/setup-samba-dc.sh
+        # Log level 3: Samba writes why it ended a connection - read by the "Samba DC log" step after a failure.
+        run: sudo LAB_USERS=400 LAB_COMPUTERS=250 LAB_SAMBA_LOG_LEVEL=3 tools/testlab/setup-samba-dc.sh
       - name: Integration tests
         run: dotnet test tests/AdMng.Directory.IntegrationTests -c Release
       # One project per "dotnet test" call (VSTest mode accepts a single project or solution, MSB1008 otherwise):
@@ -148,6 +265,15 @@ jobs:
         run: dotnet test tests/AdMng.Watchdog.Core.Tests -c Release
       - name: Watchdog Service tests (Linux)
         run: dotnet test tests/AdMng.Watchdog.Service.Tests -c Release
+      # The PowerShell window's engine runs on Linux too: the allow-list, the escape probes of the R1 audit, the host and the
+      # "no files" test with its positive control, as in the Windows job (only here must the control's engine send
+      # telemetry and the test see its telemetry.uuid: the Windows runner's diagnostic data setting keeps telemetry off) -
+      # and, with the job's lab variables, the lab tests of the read commands (Lab/PowerShellReadLabTests; skipped in the
+      # Windows job, which has no lab). The detailed console logger lists every test as it ends, with its output, and an
+      # xUnit catastrophic failure in its place among them (an unhandled exception with its stack, a crashed test process
+      # with what it wrote to stderr; the default verbosity: its message only).
+      - name: PowerShell engine tests (Linux)
+        run: dotnet test tests/AdMng.PowerShell.Tests -c Release --logger "console;verbosity=detailed"
       - name: Start Mailpit
         run: tools/testlab/watchdog/start-mailpit.sh
       - name: Watchdog integration tests (Samba lab + Mailpit)
@@ -172,13 +298,70 @@ jobs:
       - name: Watchdog lab logs
         if: failure()
         run: tail -n 200 ~/.cache/admng/watchdog-lab/watchdog.log ~/.cache/admng/watchdog-lab/webhook-sink.log || true
+      # The report names the signal, the thread and the frames of the crashed process: tools/testlab/crash-report-summary.py
+      # prints the crashed thread in full (the first 20,000 bytes of the JSON, which this step printed before, held only
+      # waiting threads) and the report itself is uploaded; the dump is not.
+      - name: Crash reports
+        if: failure()
+        run: |
+          ls -la /tmp/admng-crash-* 2>/dev/null || echo "no crash dump or report was written"
+          for report in /tmp/admng-crash-*.crashreport.json; do
+            [ -e "$report" ] || continue
+            echo "=== $report ==="
+            python3 tools/testlab/crash-report-summary.py "$report" || head -c 20000 "$report"
+          done
+      - name: Crash report files
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lab-crash-reports
+          path: /tmp/admng-crash-*.crashreport.json
+          if-no-files-found: ignore
+          retention-days: 14
       # A dropped LDAP connection (ServerUnavailable) shows here as a crashed or restarted Samba worker.
       - name: Samba DC log
         if: failure()
         run: |
           sudo grep -n -i -E "panic|internal error|exited with|signal|backtrace|prefork" /var/log/samba/log.samba | tail -n 60 || true
-          sudo tail -n 150 /var/log/samba/log.samba || true
-          ps -eo pid,etimes,args | grep -E "[s]amba" | head -n 30 || true
+          # Why Samba ended connections (the lab runs with log level 3): every reason with its count, then the ones
+          # that are not a client closing its connection, each with the time and place Samba logged it.
+          sudo grep -h -o "Terminating connection - .*" /var/log/samba/log.samba | sort | uniq -c | sort -rn | head -n 30 || true
+          # Not shown one by one: a client that unbound (LOCAL_DISCONNECT), one that closed its connection
+          # (CONNECTION_DISCONNECTED, END_OF_FILE, CONNECTION_RESET) and one that gave up a TLS handshake - the tests do
+          # all of that all the time (a local run of the lab tests: about 1200, 1000 and 180 of them).
+          sudo awk '/^\[/ {head=$0; next} /Terminating connection/ && !/NT_STATUS_LOCAL_DISCONNECT/ && !/NT_STATUS_CONNECTION_DISCONNECTED/ && !/NT_STATUS_END_OF_FILE/ && !/NT_STATUS_CONNECTION_RESET/ && !/tstream_tls_accept_recv/ {print head; print $0}' /var/log/samba/log.samba | tail -n 80 || true
+          sudo grep -h -i -E "ldapsrv.*(fail|error)|backend init|samdb_connect|too many|limit" /var/log/samba/log.samba | sort | uniq -c | sort -rn | head -n 30 || true
+          sudo tail -n 40 /var/log/samba/log.samba || true
+          # What the client library said when a connection failed ("ServerUnavailable" names no cause), and what Samba
+          # logged from the second before to the second after each of those moments.
+          if [ -s "$ADMNG_TEST_LDAP_ERROR_LOG" ]; then
+            echo "--- connection-level LDAP errors the tests saw, in libldap's own words ---"
+            cat "$ADMNG_TEST_LDAP_ERROR_LOG"
+            # The records of that second, without the descriptor_prepare_commit lines (hundreds per second: they
+            # filled the whole of every block before). A record is its header line starting with "[" and the
+            # lines that follow it.
+            cut -c1-19 "$ADMNG_TEST_LDAP_ERROR_LOG" | sort -u | head -n 12 | while read -r stamp; do
+              for offset in -1 0 1; do
+                second=$(date -u -d "$stamp UTC $offset seconds" '+%Y/%m/%d %H:%M:%S')
+                echo "--- Samba log, $second ---"
+                sudo awk -v want="$second" '/^\[/ { keep = (index($0, "[" want) == 1 && $0 !~ /descriptor_prepare_commit/) } keep { print }' /var/log/samba/log.samba | head -n 70 || true
+              done
+            done
+          else
+            echo "No connection-level LDAP error was recorded by the tests."
+          fi
+          # Every Samba process with its age in seconds: a worker that was restarted during the run is younger than
+          # the others (the LDAP workers come last, so the list is not cut).
+          ps -eo pid,etimes,rss,args | grep -E "[s]amba" || true
+          # Why would the DC refuse or drop an LDAP connection: the accept queue of the LDAP listeners and the kernel's
+          # counters of overflowed queues, open descriptors of the LDAP processes against their limit, kernel messages
+          # (SYN flooding, out of memory).
+          sudo ss -ltn '( sport = :389 or sport = :636 )' || true
+          nstat -az TcpExtListenOverflows TcpExtListenDrops TcpExtTCPAbortOnOverflow TcpExtTCPReqQFullDrop 2>/dev/null || true
+          for pid in $(pgrep -f 'task\[ldap\]' || true); do
+            echo "ldap process $pid: $(sudo ls "/proc/$pid/fd" 2>/dev/null | wc -l) descriptors, limit $(sudo awk '/Max open files/ {print $4}' "/proc/$pid/limits" 2>/dev/null)"
+          done
+          sudo dmesg | tail -n 40 || true
       - name: Stop the watchdog lab and Mailpit
         if: always()
         run: |
@@ -300,6 +483,15 @@ jobs:
           merge-multiple: true
       - name: Build admng-watchdog .deb
         run: tools/packaging/build-deb.sh --output artifacts/deb
+      - name: The Watchdog package has no PowerShell engine (.deb)
+        # Track R (ADR-0010), as the step on the Windows publish of the service above: the service ships as this .deb, and the release
+        # workflow runs the same check before it publishes one.
+        run: |
+          deb=$(ls artifacts/deb/admng-watchdog_*_amd64.deb)
+          if dpkg-deb -c "$deb" | grep -F 'System.Management.Automation'; then
+            echo "::error::$deb contains the PowerShell engine (ADR-0010)."
+            exit 1
+          fi
       - name: Install test on Debian 12 and 13
         # Users, modes, credential, certificate, idempotent postinst, systemd-analyze verify + security (exposure <= 2.0),
         # nft -c of the example ruleset, --check-config (placeholders fail, real SIDs pass), --smoke-test as

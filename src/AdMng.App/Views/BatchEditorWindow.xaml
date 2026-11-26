@@ -1,7 +1,15 @@
 <!--
   Batch editor and CSV import (BatchEditorViewModel): Edit (operations or file + column mapping) → Preview (diff with
   include check boxes) → Executing (progress of the background activity) → Results (export, retry, undo).
-  Operation editors are implicit DataTemplates keyed by the editor view model type.
+  Operation editors are implicit DataTemplates keyed by the editor view model type. In create mode the Edit step is the
+  bulk creation wizard (BulkCreateView, docs/dev/phase3-bulk-create.md 2.6).
+
+  Feedback (track V, stage V2b): one status line under the steps (PageStatus) says what the window is doing and how it
+  ended - reading the selected objects or the CSV file, checking (planning) the changes with the part done, executing
+  them, the result with the domain, that the session of the window ended - and, at rest, the summary of the step shown.
+  "Preview" and "Execute" are action buttons: while their operation runs they are the Cancel of it. What belongs to
+  one section and is true while it is shown - the rule of the operation list, the delete warning, "this is an undo
+  plan" - is a note (Ad.Note.*) in its place.
 -->
 <Window x:Class="AdMng.App.Views.BatchEditorWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -11,12 +19,13 @@
         xmlns:conv="clr-namespace:AdMng.App.Converters"
         xmlns:l="clr-namespace:AdMng.App.Localization"
         xmlns:batch="clr-namespace:AdMng.Presentation.BatchEditing;assembly=AdMng.Presentation"
+        xmlns:bulk="clr-namespace:AdMng.App.BulkCreate"
         xmlns:corebatch="clr-namespace:AdMng.Core.Batch;assembly=AdMng.Core"
         xmlns:dialogs="clr-namespace:AdMng.Presentation.Dialogs;assembly=AdMng.Presentation"
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="1180"
-        Height="760"
+        Height="796"
         MinWidth="860"
         MinHeight="540"
         WindowStartupLocation="CenterOwner">
@@ -501,16 +510,10 @@
     <DataTemplate DataType="{x:Type batch:DeleteEditorViewModel}">
       <StackPanel Margin="0,6,0,0">
         <CheckBox Content="{l:Tr BatchUi.IncludeSubtree}" IsChecked="{Binding IncludeSubtree}" />
-        <Border Margin="0,8,0,0" Style="{StaticResource Ad.WarningBar}">
-          <DockPanel>
-            <TextBlock Margin="0,0,8,0"
-                       DockPanel.Dock="Left"
-                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                       Style="{StaticResource Ad.GlyphText}"
-                       Text="{x:Static c:Glyphs.Warning}" />
-            <TextBlock Text="{l:Tr BatchUi.DeleteWarning}" TextWrapping="Wrap" />
-          </DockPanel>
-        </Border>
+        <!-- A note: what this operation means, for as long as it is in the list. -->
+        <ContentControl Margin="0,8,0,0" Style="{StaticResource Ad.Note.Attention}">
+          <TextBlock Text="{l:Tr BatchUi.DeleteWarning}" TextWrapping="Wrap" />
+        </ContentControl>
       </StackPanel>
     </DataTemplate>
 
@@ -589,8 +592,10 @@
           <Border Style="{StaticResource StepStyle}" Tag="{Binding IsEditStep, Mode=OneWay}">
             <StackPanel Orientation="Horizontal">
               <TextBlock Style="{StaticResource StepNumber}" Text="1" />
-              <TextBlock Text="{l:Tr Batch.StepOperations}" Visibility="{Binding IsCsvMode, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+              <TextBlock Text="{l:Tr Batch.StepOperations}" Visibility="{Binding IsObjectsMode, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
               <TextBlock Text="{l:Tr BatchUi.StepCsv}" Visibility="{Binding IsCsvMode, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              <!-- F3 step labels (B4) -->
+              <TextBlock Text="{l:Tr BulkCheck.StepPrepare}" Visibility="{Binding IsCreateMode, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
             </StackPanel>
           </Border>
           <TextBlock Style="{StaticResource StepChevron}" />
@@ -618,71 +623,52 @@
       </DockPanel>
     </Border>
 
-    <!-- ===== Footer: planning progress, step buttons ===== -->
+    <!--
+      ===== Footer: the buttons of the step =====
+      "Preview" and "Execute" are action buttons: while the check or the execution they started runs, the same button
+      is its Cancel (it keeps the keyboard focus), then "Stopping…" until the operation ended. The progress is said in
+      the status line. Both cancel the operation of the window (Status): in the first step that is the check - reading
+      the selected objects or the file is the operation of the source and is stopped in the line.
+    -->
     <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
-      <DockPanel>
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-          <Button x:Name="BackButton"
-                  Command="{Binding BackToEditCommand}"
-                  Content="{l:Tr Common.Back}"
-                  Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
-          <Button x:Name="PreviewButton"
-                  Command="{Binding PreviewCommand}"
-                  Content="{l:Tr Batch.StepPreview}"
-                  Style="{StaticResource Ad.AccentDialogButton}"
-                  Visibility="{Binding IsEditStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-          <Button Command="{Binding PreviewCancelCommand}"
-                  Content="{l:Tr Common.Stop}"
-                  Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
-          <Button x:Name="ExecuteButton"
-                  Command="{Binding ExecuteCommand}"
-                  Content="{l:Tr Batch.Execute}"
-                  Style="{StaticResource Ad.AccentDialogButton}"
-                  Visibility="{Binding IsPreviewStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-          <Button x:Name="CancelExecutionButton"
-                  Command="{Binding CancelExecutionCommand}"
-                  Content="{l:Tr Common.Stop}"
-                  Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
-          <Button x:Name="CloseButton"
-                  Command="{Binding CloseCommand}"
-                  Content="{l:Tr Common.Close}"
-                  Style="{StaticResource Ad.DialogButton}" />
-        </StackPanel>
-        <StackPanel VerticalAlignment="Center"
-                    Orientation="Horizontal"
-                    Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-          <ProgressBar Width="160"
-                       VerticalAlignment="Center"
-                       AutomationProperties.Name="{l:Tr Batch.Planning}"
-                       Maximum="{Binding PlanningTotal, Mode=OneWay}"
-                       Minimum="0"
-                       Value="{Binding PlanningCompleted, Mode=OneWay}" />
-          <TextBlock Margin="10,0,0,0"
-                     AutomationProperties.LiveSetting="Polite"
-                     Style="{StaticResource Ad.SecondaryText}">
-            <Run Text="{l:Tr Batch.Planning}" /><Run Text="  " /><Run Text="{Binding PlanningCompleted, Mode=OneWay}" /><Run Text=" / " /><Run Text="{Binding PlanningTotal, Mode=OneWay}" />
-          </TextBlock>
-        </StackPanel>
-      </DockPanel>
+      <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+        <Button x:Name="BackButton"
+                Command="{Binding BackToEditCommand}"
+                Content="{l:Tr Common.Back}"
+                Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
+        <c:ActionButton x:Name="PreviewButton"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding PreviewCommand}"
+                        Content="{l:Tr Batch.StepPreview}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsRunning="{Binding Status.IsWorking, Mode=OneWay}"
+                        Style="{StaticResource Ad.AccentDialogActionButton}"
+                        Visibility="{Binding IsEditStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        <c:ActionButton x:Name="ExecuteButton"
+                        CancelCommand="{Binding Status.CancelCommand, Mode=OneWay}"
+                        Command="{Binding ExecuteCommand}"
+                        Content="{l:Tr Batch.Execute}"
+                        IsCancelling="{Binding Status.IsCancelling, Mode=OneWay}"
+                        IsRunning="{Binding IsExecutingStep, Mode=OneWay}"
+                        Style="{StaticResource Ad.AccentDialogActionButton}"
+                        Visibility="{Binding IsExecuteStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        <Button x:Name="CloseButton"
+                Command="{Binding CloseCommand}"
+                Content="{l:Tr Common.Close}"
+                Style="{StaticResource Ad.DialogButton}" />
+      </StackPanel>
     </Border>
 
-    <!-- ===== Planning / execution error ===== -->
-    <Border Margin="16,10,16,0"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.ErrorBar}"
-            Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-      <DockPanel>
-        <TextBlock Margin="0,0,10,0"
-                   DockPanel.Dock="Left"
-                   Foreground="{DynamicResource SystemFillColorCriticalBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Error}" />
-        <TextBlock x:Name="ErrorMessage"
-                   AutomationProperties.LiveSetting="Assertive"
-                   Text="{Binding Error, Mode=OneWay}"
-                   TextWrapping="Wrap" />
-      </DockPanel>
-    </Border>
+    <!--
+      ===== Status line (design note 6.1) =====
+      What the window is doing and how it ended; in the first step what its source says (the selected objects, the CSV
+      file); at rest the summary of the step shown. Always present, so nothing under it moves.
+    -->
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="8,8,8,0"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
 
     <Grid Margin="16,10,16,12">
       <!-- ===== 1. Edit: objects and operations ===== -->
@@ -694,7 +680,7 @@
               <MultiDataTrigger>
                 <MultiDataTrigger.Conditions>
                   <Condition Binding="{Binding IsEditStep, Mode=OneWay}" Value="True" />
-                  <Condition Binding="{Binding IsCsvMode, Mode=OneWay}" Value="False" />
+                  <Condition Binding="{Binding IsObjectsMode, Mode=OneWay}" Value="True" />
                 </MultiDataTrigger.Conditions>
                 <Setter Property="Visibility" Value="Visible" />
               </MultiDataTrigger>
@@ -712,15 +698,7 @@
           <TextBlock DockPanel.Dock="Top" Style="{StaticResource Ad.SectionHeader}">
             <Run Text="{l:Tr Batch.Targets}" /><Run Text=" (" /><Run Text="{Binding TargetCount, Mode=OneWay}" /><Run Text=")" />
           </TextBlock>
-          <TextBlock Margin="0,0,0,6"
-                     DockPanel.Dock="Top"
-                     Style="{StaticResource WrappedSecondaryText}"
-                     Text="{Binding TargetSummary, Mode=OneWay}"
-                     Visibility="{Binding TargetSummary, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
-          <ProgressBar Margin="0,0,0,6"
-                       DockPanel.Dock="Top"
-                       IsIndeterminate="{Binding IsLoadingTargets, Mode=OneWay}"
-                       Visibility="{Binding IsLoadingTargets, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <!-- How many of which type, and that they are being read, is said in the status line. -->
           <ListBox x:Name="TargetsList"
                    AutomationProperties.Name="{l:Tr Batch.Targets}"
                    ItemTemplate="{StaticResource DirectoryItemTemplate}"
@@ -768,21 +746,17 @@
               </StackPanel>
             </Button>
           </DockPanel>
-          <Border Margin="0,0,0,8"
-                  DockPanel.Dock="Top"
-                  Style="{StaticResource Ad.WarningBar}"
-                  Visibility="{Binding OperationsError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-            <DockPanel>
-              <TextBlock Margin="0,0,8,0"
-                         DockPanel.Dock="Left"
-                         Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                         Style="{StaticResource Ad.GlyphText}"
-                         Text="{x:Static c:Glyphs.Warning}" />
-              <TextBlock AutomationProperties.LiveSetting="Polite"
-                         Text="{Binding OperationsError, Mode=OneWay}"
-                         TextWrapping="Wrap" />
-            </DockPanel>
-          </Border>
+          <!-- A note: the rule the list of operations breaks (why Preview is not possible yet). -->
+          <ContentControl x:Name="OperationsNote"
+                          Margin="0,0,0,8"
+                          DockPanel.Dock="Top"
+                          Style="{StaticResource Ad.Note.Attention}"
+                          Visibility="{Binding OperationsError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+            <TextBlock x:Name="OperationsNoteText"
+                       AutomationProperties.LiveSetting="Polite"
+                       Text="{Binding OperationsError, Mode=OneWay}"
+                       TextWrapping="Wrap" />
+          </ContentControl>
           <Grid>
             <ScrollViewer x:Name="OperationsScroller"
                           Focusable="False"
@@ -844,12 +818,7 @@
                     Content="{l:Tr Common.Browse}"
                     DockPanel.Dock="Left"
                     Style="{StaticResource Ad.AccentDialogButton}" />
-            <ProgressBar Width="80"
-                         Margin="12,0,0,0"
-                         VerticalAlignment="Center"
-                         DockPanel.Dock="Left"
-                         IsIndeterminate="{Binding IsLoading, Mode=OneWay}"
-                         Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+            <!-- That the file is being read, how many rows it has and that it could not be read is said in the status line. -->
             <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
               <TextBlock Style="{StaticResource Ad.SecondaryText}"
                          Text="{l:Tr Csv.NoFile}"
@@ -860,34 +829,8 @@
                          TextTrimming="CharacterEllipsis"
                          ToolTip="{Binding FilePath, Mode=OneWay}"
                          Visibility="{Binding FileName, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
-              <TextBlock Style="{StaticResource Ad.SecondaryText}" Visibility="{Binding IsLoaded, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-                <TextBlock.Text>
-                  <MultiBinding Converter="{StaticResource Ad.Format}">
-                    <l:TrBinding Key="Csv.RowsLoaded" />
-                    <Binding Mode="OneWay" Path="RowCount" />
-                    <Binding Mode="OneWay" Path="DelimiterText" />
-                  </MultiBinding>
-                </TextBlock.Text>
-              </TextBlock>
             </StackPanel>
           </DockPanel>
-
-          <!-- Load error -->
-          <Border Grid.Row="1"
-                  Margin="0,10,0,0"
-                  Style="{StaticResource Ad.ErrorBar}"
-                  Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-            <DockPanel>
-              <TextBlock Margin="0,0,10,0"
-                         DockPanel.Dock="Left"
-                         Foreground="{DynamicResource SystemFillColorCriticalBrush}"
-                         Style="{StaticResource Ad.GlyphText}"
-                         Text="{x:Static c:Glyphs.Error}" />
-              <TextBlock AutomationProperties.LiveSetting="Assertive"
-                         Text="{Binding Error, Mode=OneWay}"
-                         TextWrapping="Wrap" />
-            </DockPanel>
-          </Border>
 
           <!-- Key, lookup and value options -->
           <Grid Grid.Row="2" Margin="0,4,0,0">
@@ -1094,22 +1037,66 @@
         </Grid>
       </Border>
 
+      <!-- ===== 1. Edit: bulk creation wizard (create mode, docs/dev/phase3-bulk-create.md 2.6) ===== -->
+      <ContentControl x:Name="BulkCreateEditPanel"
+                      Content="{Binding BulkCreate, Mode=OneWay}"
+                      Focusable="False">
+        <ContentControl.ContentTemplate>
+          <DataTemplate>
+            <bulk:BulkCreateView />
+          </DataTemplate>
+        </ContentControl.ContentTemplate>
+        <ContentControl.Style>
+          <Style TargetType="ContentControl">
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+              <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                  <Condition Binding="{Binding IsEditStep, Mode=OneWay}" Value="True" />
+                  <Condition Binding="{Binding IsCreateMode, Mode=OneWay}" Value="True" />
+                </MultiDataTrigger.Conditions>
+                <Setter Property="Visibility" Value="Visible" />
+              </MultiDataTrigger>
+            </Style.Triggers>
+          </Style>
+        </ContentControl.Style>
+      </ContentControl>
+
       <!-- ===== 2. Preview ===== -->
       <DockPanel x:Name="PreviewPanel" Visibility="{Binding IsPreviewStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-        <Border x:Name="RollbackBanner"
-                Margin="0,0,0,8"
-                DockPanel.Dock="Top"
-                Style="{StaticResource Ad.WarningBar}"
-                Visibility="{Binding IsRollbackPreview, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-          <DockPanel>
-            <TextBlock Margin="0,0,8,0"
-                       DockPanel.Dock="Left"
-                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                       Style="{StaticResource Ad.GlyphText}"
-                       Text="{x:Static c:Glyphs.Info}" />
-            <TextBlock Text="{l:Tr Batch.RollbackPreview}" TextWrapping="Wrap" />
-          </DockPanel>
-        </Border>
+        <!-- Notes: what the plan shown is, for as long as it is shown. -->
+        <!-- F3 undo note (B4) -->
+        <ContentControl x:Name="BulkUndoNote"
+                        Margin="0,0,0,8"
+                        DockPanel.Dock="Top">
+          <ContentControl.Style>
+            <Style TargetType="ContentControl" BasedOn="{StaticResource Ad.Note.Attention}">
+              <Setter Property="Visibility" Value="Collapsed" />
+              <Style.Triggers>
+                <MultiDataTrigger>
+                  <MultiDataTrigger.Conditions>
+                    <Condition Binding="{Binding IsCreateMode, Mode=OneWay}" Value="True" />
+                    <Condition Binding="{Binding IsRollbackPreview, Mode=OneWay}" Value="True" />
+                  </MultiDataTrigger.Conditions>
+                  <Setter Property="Visibility" Value="Visible" />
+                </MultiDataTrigger>
+              </Style.Triggers>
+            </Style>
+          </ContentControl.Style>
+          <TextBlock x:Name="BulkUndoNoteText"
+                     AutomationProperties.LiveSetting="Polite"
+                     Text="{Binding UndoNote, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </ContentControl>
+        <ContentControl x:Name="RollbackBanner"
+                        Margin="0,0,0,8"
+                        DockPanel.Dock="Top"
+                        Style="{StaticResource Ad.Note.Attention}"
+                        Visibility="{Binding IsRollbackPreview, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+          <TextBlock x:Name="RollbackBannerText"
+                     Text="{l:Tr Batch.RollbackPreview}"
+                     TextWrapping="Wrap" />
+        </ContentControl>
 
         <DockPanel Margin="0,0,0,8" DockPanel.Dock="Top">
           <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
@@ -1148,13 +1135,7 @@
           </StackPanel>
         </DockPanel>
 
-        <TextBlock x:Name="PreviewSummaryText"
-                   Margin="0,0,0,8"
-                   AutomationProperties.LiveSetting="Polite"
-                   DockPanel.Dock="Top"
-                   Text="{Binding PreviewSummary, Mode=OneWay}"
-                   TextWrapping="Wrap" />
-
+        <!-- How many objects change, have errors or are excluded is the summary of the status line. -->
         <Grid>
           <ListView x:Name="PreviewList"
                     AutomationProperties.Name="{l:Tr Batch.StepPreview}"
@@ -1288,23 +1269,15 @@
             <TextBlock Style="{StaticResource Ad.SectionHeader}"
                        Text="{Binding ChangeTitle, Mode=OneWay}"
                        TextWrapping="Wrap" />
-            <!-- Until the activity is known (it starts right away). -->
-            <ProgressBar Margin="0,10,0,6"
-                         AutomationProperties.Name="{l:Tr Batch.StepExecute}"
-                         IsIndeterminate="{Binding IsExecutingStep, Mode=OneWay}"
-                         Visibility="{Binding CurrentActivity, Mode=OneWay, Converter={StaticResource Ad.EmptyToVisible}}" />
+            <!--
+              How far the execution is - and Stop - is in the status line and on the Execute button. Here: the object
+              the activity processed last.
+            -->
             <StackPanel x:Name="ActivityPanel"
                         DataContext="{Binding CurrentActivity, Mode=OneWay}"
                         Visibility="{Binding Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}, FallbackValue=Collapsed}">
-              <ProgressBar Margin="0,10,0,6"
-                           AutomationProperties.Name="{l:Tr Batch.StepExecute}"
-                           Maximum="1"
-                           Minimum="0"
-                           Value="{Binding Fraction, Mode=OneWay}" />
-              <TextBlock AutomationProperties.LiveSetting="Polite"
-                         Text="{Binding StatusText, Mode=OneWay}"
-                         TextWrapping="Wrap" />
-              <TextBlock Margin="0,2,0,0"
+              <TextBlock x:Name="CurrentObjectText"
+                         Margin="0,6,0,0"
                          Style="{StaticResource Ad.SecondaryText}"
                          Text="{Binding CurrentObject, Mode=OneWay}" />
             </StackPanel>
@@ -1317,6 +1290,18 @@
 
       <!-- ===== 4. Results ===== -->
       <DockPanel x:Name="ResultsPanel" Visibility="{Binding IsResultsStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <!-- F3 bulk create results (B4) -->
+        <ContentControl x:Name="BulkResultsPanel"
+                        Content="{Binding Mode=OneWay}"
+                        DockPanel.Dock="Top"
+                        Focusable="False"
+                        Visibility="{Binding IsCreateMode, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+          <ContentControl.ContentTemplate>
+            <DataTemplate>
+              <bulk:BulkResultsView />
+            </DataTemplate>
+          </ContentControl.ContentTemplate>
+        </ContentControl>
         <DockPanel Margin="0,0,0,8" DockPanel.Dock="Top">
           <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
             <Button Margin="8,0,0,0"
@@ -1342,12 +1327,7 @@
                       ItemsSource="{Binding ResultFilters, Mode=OneWay}"
                       SelectedValue="{Binding ResultFilter}"
                       SelectedValuePath="Value" />
-            <TextBlock x:Name="ResultSummaryText"
-                       Margin="16,0,0,0"
-                       VerticalAlignment="Center"
-                       AutomationProperties.LiveSetting="Polite"
-                       FontWeight="SemiBold"
-                       Text="{Binding ResultSummary, Mode=OneWay}" />
+            <!-- How the execution went is said in the status line, and its counts are the summary there. -->
           </StackPanel>
         </DockPanel>
 

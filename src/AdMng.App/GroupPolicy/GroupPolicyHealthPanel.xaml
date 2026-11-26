@@ -3,6 +3,9 @@
   this GPO - one line per area (no findings, the findings and the most serious one, or why it was not checked), then the
   findings with the same row as "Diagnostyka zasad grupy" and the details of the selected one; "Napraw…" and "Edytuj to
   ustawienie" of the finding, the existing "Wyrównaj wersje" and "Napraw uprawnienia folderu", "Sprawdź ponownie".
+  The panel has no status line of its own (track V, stage V2b-3): the check, its stages, when the GPO was checked and
+  a check that failed are said by the status line of the GPO document that hosts it (the status of the tab is in front
+  there while the tab is shown). What a check could not evaluate is a note above the findings.
 -->
 <UserControl x:Class="AdMng.App.GroupPolicy.GroupPolicyHealthPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -35,25 +38,12 @@
         <ColumnDefinition Width="*" />
         <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
-      <StackPanel Margin="0,0,12,0">
-        <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr GpoDiag.HealthHint}" TextWrapping="Wrap" />
-        <DockPanel Margin="0,4,0,0">
-          <ProgressBar x:Name="HealthProgress"
-                       Width="160"
-                       Height="4"
-                       Margin="0,0,10,0"
-                       VerticalAlignment="Center"
-                       AutomationProperties.Name="{Binding HealthStatusText, Mode=OneWay}"
-                       DockPanel.Dock="Left"
-                       IsIndeterminate="True"
-                       Visibility="{Binding IsCheckingHealth, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-          <TextBlock x:Name="HealthStatusText"
-                     AutomationProperties.LiveSetting="Polite"
-                     Text="{Binding HealthStatusText, Mode=OneWay}"
-                     TextTrimming="CharacterEllipsis"
-                     ToolTip="{Binding HealthStatusText, Mode=OneWay}" />
-        </DockPanel>
-      </StackPanel>
+      <TextBlock x:Name="HealthHintText"
+                 Margin="0,0,12,0"
+                 VerticalAlignment="Top"
+                 Style="{StaticResource Ad.SecondaryText}"
+                 Text="{l:Tr GpoDiag.HealthHint}"
+                 TextWrapping="Wrap" />
       <Button x:Name="CheckHealthButton"
               Grid.Column="1"
               VerticalAlignment="Top"
@@ -61,27 +51,20 @@
               Content="{l:Tr GpoDiag.CheckAgain}" />
     </Grid>
 
-    <Border x:Name="HealthNotesBar"
-            Margin="0,0,0,6"
-            DockPanel.Dock="Top"
-            Style="{StaticResource Ad.WarningBar}"
-            Visibility="{Binding HasHealthNotes, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-      <DockPanel>
-        <TextBlock Margin="0,1,10,0"
-                   VerticalAlignment="Top"
-                   DockPanel.Dock="Left"
-                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Warning}" />
-        <ItemsControl AutomationProperties.LiveSetting="Polite" Focusable="False" ItemsSource="{Binding HealthNotes, Mode=OneWay}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate DataType="{x:Type sys:String}">
-              <TextBlock Text="{Binding Mode=OneWay}" TextWrapping="Wrap" />
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </DockPanel>
-    </Border>
+    <!--
+      What the check could not evaluate (SYSVOL is not available, the folder was not read): how complete the findings
+      below are - a note about them, true for as long as they are shown.
+    -->
+    <ContentControl x:Name="HealthNote"
+                    Margin="0,0,0,6"
+                    DockPanel.Dock="Top"
+                    Style="{StaticResource Ad.Note.Attention}"
+                    Visibility="{Binding HasHealthNotes, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <TextBlock x:Name="HealthNoteText"
+                 AutomationProperties.LiveSetting="Polite"
+                 Text="{Binding HealthNote, Mode=OneWay}"
+                 TextWrapping="Wrap" />
+    </ContentControl>
 
     <WrapPanel Margin="0,6,0,0" DockPanel.Dock="Bottom">
       <Button x:Name="FixHealthButton"

@@ -385,12 +385,11 @@ public sealed class ScreenshotTests
                     culture.IsSelected = true;
                 }
 
-                await UiWait.UntilAsync(() => !update.IsWorking && update.Rows.Count == 6, "the comparison");
+                await UiWait.UntilAsync(() => !update.IsBusy && !update.IsComparing && update.Rows.Count == 6, "the comparison");
                 await UiTestSupport.WaitForIdleAsync(rounds: 3);
 
-                Assert.Null(update.Error);
                 Assert.Equal(InLanguage("Szablony Contoso 1.3.zip – szablony: 2, języki: 2", "Szablony Contoso 1.3.zip – templates: 2, languages: 2"), update.PackageText);
-                Assert.Equal(InLanguage("Do zapisania: 3, bez zmian: 3, pominięte: 0", "To write: 3, unchanged: 3, skipped: 0"), update.SummaryText);
+                Assert.Equal(InLanguage("Do zapisania: 3, bez zmian: 3, pominięte: 0", "To write: 3, unchanged: 3, skipped: 0"), update.Status.Idle.Message);
                 Assert.True(window.UpdateButton.IsEnabled);
                 await ScreenshotWriter.SaveAsync(window, CentralStoreUpdate, dark: false);
             }
@@ -762,7 +761,7 @@ public sealed class ScreenshotTests
     public Task Screenshot13_Watchdog_Status() => ShootWatchdogAsync(WatchdogStatus, async (tab, _) =>
     {
         await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Status);
-        await UiWait.UntilAsync(() => tab.Status.HasStatus && tab.Status.DeliveryLog.Items.Count > 0 && tab.Status.Audit.Count > 0, "the status");
+        await UiWait.UntilAsync(() => tab.ServiceStatus.HasStatus && tab.ServiceStatus.DeliveryLog.Items.Count > 0 && tab.ServiceStatus.Audit.Count > 0, "the status");
     }, client => client.Status = SampleStatus.CreateLinux());
 
     [Fact]

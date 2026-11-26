@@ -99,6 +99,9 @@ public static class Glyphs
     /// <summary>A site of the forest (a globe).</summary>
     public const string Site = "\uE909";
 
+    /// <summary>A certificate, a CA or a template (P1: the PKI node and documents).</summary>
+    public const string Certificate = "\uEB95";
+
     /// <summary>Badge of the well-known containers in the navigation tree (a house: the default container).</summary>
     public const string WellKnown = "\uE80F";
 
@@ -127,6 +130,7 @@ public static class Glyphs
         ObjectIcon.GroupPolicy => GroupPolicy,
         ObjectIcon.WmiFilter => Filter,
         ObjectIcon.Site => Site,
+        ObjectIcon.Certificate => Certificate,
         _ => Unknown,
     };
 
@@ -146,6 +150,7 @@ public static class Glyphs
         ObjectIcon.Query or ObjectIcon.QuickFilter or ObjectIcon.Pinned => IconTone.Muted,
         ObjectIcon.Watchdog => IconTone.Container,
         ObjectIcon.GroupPolicy or ObjectIcon.Site => IconTone.Container,
+        ObjectIcon.Certificate => IconTone.Container,
         ObjectIcon.WmiFilter => IconTone.Muted,
         _ => IconTone.Neutral,
     };

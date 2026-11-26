@@ -37,6 +37,13 @@ public interface IClipboardService
     ClipboardContent? ReadFormatted() => null;
 
     /// <summary>
+    /// The clipboard for a pasted table (docs/dev/phase3-bulk-create.md 2.6): the Unicode text first, the raw HTML format
+    /// only when <c>TableTextReader.NeedsHtml</c> says the text is not enough, never a bitmap. The default reads
+    /// <see cref="ReadFormatted"/>, so every test double that offers formatted content offers a table too.
+    /// </summary>
+    ClipboardContent? ReadTable() => ReadFormatted();
+
+    /// <summary>
     /// Puts text on the clipboard. Returns false when the clipboard could not be written (another process held it; the
     /// operator was warned) - callers then do not confirm the copy.
     /// </summary>

@@ -9,6 +9,7 @@ using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using AdMng.App.Behaviors;
 using AdMng.App.Infrastructure;
 
 namespace AdMng.App.UiTests.Infrastructure;
@@ -132,6 +133,7 @@ internal static class ScreenshotWriter
         ArgumentNullException.ThrowIfNull(window);
         ArgumentNullException.ThrowIfNull(shot);
         var directory = RequireOutputDirectory();
+        AssertMotionIsOff(shot);
         window.UpdateLayout();
         await UiTestSupport.WaitForIdleAsync();
 
@@ -161,6 +163,7 @@ internal static class ScreenshotWriter
         ArgumentNullException.ThrowIfNull(shot);
         const int Gap = 16;
         var directory = RequireOutputDirectory();
+        AssertMotionIsOff(shot);
         left.UpdateLayout();
         right.UpdateLayout();
         await UiTestSupport.WaitForIdleAsync();
@@ -193,6 +196,13 @@ internal static class ScreenshotWriter
         UpdateManifest(directory, shot);
         TestContext.Current.TestOutputHelper?.WriteLine($"{shot.File}: {bitmap.PixelWidth} x {bitmap.PixelHeight} px - {shot.TitleEn}");
     }
+
+    /// <summary>
+    /// A picture shows final values only: nothing may be on its way (design note v-interface-renewal.md 5.5). The UI test
+    /// host forces motion off, so the one switch of the behaviours is off for the whole run.
+    /// </summary>
+    private static void AssertMotionIsOff(ScreenshotInfo shot) =>
+        Assert.False(Motion.IsEnabled, $"Motion is on while the screenshot {shot.File} is taken: the picture could show an element on its way.");
 
     /// <summary>The window's root visual (its template), which covers exactly the client area.</summary>
     private static FrameworkElement Root(Window window) =>

@@ -10,7 +10,8 @@ namespace AdMng.Directory.IntegrationTests.Infrastructure;
 /// 1600 members and their 3200 contacts take ~5 minutes) fails with timeLimitExceeded, leaves the objects behind and
 /// blocks every other suite's writes while it runs. Here the tree is listed with a paged search and deleted object by
 /// object, deepest first, after the groups lost their members in one modify each – every request is short (~0.1 s on
-/// the lab), so other suites' writes interleave. Also used by <c>AdMng.Watchdog.IntegrationTests</c> (linked file).
+/// the lab), so other suites' writes interleave. Also used by <c>AdMng.Watchdog.IntegrationTests</c> and <c>AdMng.PowerShell.Tests</c>
+/// (linked file).
 /// </summary>
 internal static class LabCleanup
 {

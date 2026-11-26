@@ -1,6 +1,7 @@
 using AdMng.Core.Correspondence.Composition;
 using AdMng.Core.Correspondence.Outlook;
 using AdMng.Presentation.Correspondence;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Settings;
 using AdMng.Testing;
 
@@ -340,7 +341,7 @@ public sealed class PreviewPageTests
     }
 
     [Fact]
-    public async Task PreviewViaOutlook_AFailureIsShown_AndALostOutlookReported()
+    public async Task PreviewViaOutlook_AFailureIsSaidInTheLine_AndALostOutlookReported()
     {
         using var scenario = await CorrespondencePagesScenario.CreateAsync();
         using var window = await scenario.OpenWithMessageAsync();
@@ -348,8 +349,14 @@ public sealed class PreviewPageTests
 
         await window.Preview.PreviewViaOutlookCommand.ExecuteAsync(null);
 
-        var warning = Assert.Single(window.Preview.Warnings);
-        Assert.StartsWith("Nie udało się pobrać podglądu z Outlooka: Połączenie z Outlookiem", warning, StringComparison.Ordinal);
+        // Why the preview could not be read is status, not a finding about the card: the line says it - with Retry - and the
+        // card and its findings stay as they were.
+        Assert.Empty(window.Preview.Warnings);
+        var status = window.Preview.Status.Current;
+        Assert.Equal(PageStatusKind.Error, status.Kind);
+        Assert.StartsWith("Nie udało się pobrać podglądu z Outlooka: Połączenie z Outlookiem", status.Message, StringComparison.Ordinal);
+        Assert.EndsWith("(Disconnected)", status.Message, StringComparison.Ordinal);
+        Assert.Equal("Ponów", status.Action?.Label);
         Assert.False(window.Preview.IsFromOutlook);
         Assert.Equal(OutlookState.Failed, window.Outlook.State);
     }
@@ -372,7 +379,7 @@ public sealed class PreviewPageTests
 
         await window.Preview.PreviewViaOutlookCommand.ExecuteAsync(null);
 
-        Assert.StartsWith("Nie udało się pobrać podglądu z Outlooka: Połączenie z Outlookiem", Assert.Single(window.Preview.Warnings),
+        Assert.StartsWith("Nie udało się pobrać podglądu z Outlooka: Połączenie z Outlookiem", window.Preview.Status.Current.Message,
             StringComparison.Ordinal);
         var second = await reconnected!;
         Assert.NotSame(first, second);

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <defs>
+    <linearGradient id="a" gradientUnits="userSpaceOnUse" x1="0" y1="5" x2="0" y2="43">
+      <stop offset="0" stop-color="#7FA8FF"/>
+      <stop offset="1" stop-color="#3B7BFF"/>
+    </linearGradient>
+    <linearGradient id="b" gradientUnits="userSpaceOnUse" x1="0" y1="14" x2="0" y2="44">
+      <stop offset="0" stop-color="#FFC53D"/>
+      <stop offset="1" stop-color="#F2960F"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="5.5" width="31" height="8.5" rx="3.5" fill="url(#a)"/>
+  <rect x="4" y="19.5" width="21" height="8.5" rx="3.5" fill="url(#a)"/>
+  <rect x="4" y="33.5" width="12" height="8.5" rx="3.5" fill="url(#a)"/>
+  <path fill-rule="nonzero" d="M 19.277 33.722 L 26.278 40.723 L 16.555 43.445 Z" fill="#B96A00" stroke="#B96A00" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path fill-rule="nonzero" d="M 32.889 20.111 L 39.889 27.111 L 26.278 40.723 L 19.277 33.722 Z" fill="url(#b)" stroke="url(#b)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path fill-rule="nonzero" d="M 37.556 15.444 L 44.556 22.444 L 39.889 27.111 L 32.889 20.111 Z" fill="#8D9AB0" stroke="#8D9AB0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

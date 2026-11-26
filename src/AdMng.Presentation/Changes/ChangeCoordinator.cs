@@ -4,6 +4,8 @@ using AdMng.Core.Directory;
 using AdMng.Core.Schema;
 using AdMng.Presentation.Connections;
 using AdMng.Presentation.Errors;
+using AdMng.Presentation.Feedback;
+using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Session;
@@ -91,6 +93,18 @@ public interface IChangeCoordinator
 }
 
 /// <summary>Default <see cref="IChangeCoordinator"/>.</summary>
+/// <remarks>
+/// <para><b>A run whose window closed</b> (the owner's decision D-A): the execution of a window's plan is an activity of the
+/// connection, which the window only follows. When the window closed with "Close and continue in the background" - the
+/// activity left its window - the coordinator says how it ended, with the sentence the window's line would have said and the
+/// domain: a notification when nothing failed, an error dialog with the failed objects and their reasons otherwise. For a run
+/// whose result goes back to its window the same report is kept on the activity (<see cref="ActivityViewModel.KeepReport"/>):
+/// the window hands it on if it closes before its line said it (Stop and close, a result that came back under the close
+/// question) - once the window has closed, so that the dialog is never owned by the window that closes - and drops it
+/// otherwise. Either way it is posted to a later turn of the UI thread, so the execution is never held by a modal dialog - the
+/// real dialog service shows a dialog inline when it is asked on the UI thread. A run the connection window stopped because it
+/// closes is not reported at all (<see cref="ActivityViewModel.IsReportSuppressed"/>).</para>
+/// </remarks>
 public sealed class ChangeCoordinator : IChangeCoordinator
 {
     private const int MaxListedIssues = 10;
@@ -105,6 +119,7 @@ public sealed class ChangeCoordinator : IChangeCoordinator
     private readonly IDirectoryChangeNotifier _changes;
     private readonly ErrorTranslator _errors;
     private readonly ILocalizer _localizer;
+    private readonly IUiDispatcher _dispatcher;
     private readonly PowerShellHistory? _history;
     private readonly ConnectionContext? _connection;
 
@@ -123,6 +138,7 @@ public sealed class ChangeCoordinator : IChangeCoordinator
         IDirectoryChangeNotifier changes,
         ErrorTranslator errors,
         ILocalizer localizer,
+        IUiDispatcher dispatcher,
         PowerShellHistory? history = null,
         ConnectionContext? connection = null)
     {
@@ -136,6 +152,7 @@ public sealed class ChangeCoordinator : IChangeCoordinator
         _changes = changes ?? throw new ArgumentNullException(nameof(changes));
         _errors = errors ?? throw new ArgumentNullException(nameof(errors));
         _localizer = localizer ?? throw new ArgumentNullException(nameof(localizer));
+        _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _history = history;
         _connection = connection;
     }
@@ -221,12 +238,13 @@ public sealed class ChangeCoordinator : IChangeCoordinator
         }
 
         BatchResult result;
+        ActivityViewModel? activity = null;
         try
         {
             // Pinned to the session the plan was made in: planning is not an activity, so "Rozłącz" does not wait for
             // it and a reconnect (another identity, or another domain) may have replaced the session meanwhile. Then
             // nothing is written (SessionEndedException, shown as "the session ended").
-            result = await ExecutePlanAsync(plan, request.Title, session, started: null, cancellationToken).ConfigureAwait(true);
+            result = await ExecutePlanAsync(plan, request.Title, session, started: a => activity = a, cancellationToken).ConfigureAwait(true);
         }
         catch (OperationCanceledException)
         {
@@ -235,11 +253,16 @@ public sealed class ChangeCoordinator : IChangeCoordinator
         }
         catch (Exception ex)
         {
-            await _dialogs.ShowErrorAsync(request.Title, _errors.Translate(ex)).ConfigureAwait(true);
+            if (activity is not { IsReportSuppressed: true })
+            {
+                await _dialogs.ShowErrorAsync(request.Title, _errors.Translate(ex)).ConfigureAwait(true);
+            }
+
             return ChangeOutcome.Failed;
         }
 
-        return await ReportAsync(request.Title, result).ConfigureAwait(true);
+        // Stopped because its connection window closes: nothing is shown over a window that goes.
+        return activity is { IsReportSuppressed: true } ? OutcomeOf(result) : await ReportAsync(request.Title, result).ConfigureAwait(true);
     }
 
     public Task<BatchResult> ExecutePlanAsync(ChangePlan plan, string title, CancellationToken cancellationToken = default) =>
@@ -280,22 +303,138 @@ public sealed class ChangeCoordinator : IChangeCoordinator
             title, plan.ExecutableCount, (progress, token) => _executor.ExecuteAsync(session, plan, options, progress, token));
         started?.Invoke(activity);
         using var registration = cancellationToken.Register(activity.RequestCancellation);
-        var result = await execution.ConfigureAwait(true);
+        BatchResult result;
+        try
+        {
+            result = await execution.ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            ReportWithoutWindow(activity, title, ConfirmationText.Domain(session), null, ex);
+            throw;
+        }
+
         _changes.Publish(DirectoryChanges.FromResult(result));
         _history?.Record(result, title, session.Schema, session.Info.DomainDnsName);
+        ReportWithoutWindow(activity, title, ConfirmationText.Domain(session), result, null);
         return result;
     }
+
+    /// <summary>
+    /// The connection's side of how the run of <paramref name="activity"/> ended. A run that left its window is said now. A run
+    /// whose result goes back to the window that follows it keeps the report on its activity: the window hands it on if it
+    /// closes before its line said it (<see cref="ExecutionStatus.WindowClosed"/>). A run no window followed is its caller's
+    /// (<see cref="ApplyAsync"/>, the property sheet...), and one stopped because its connection window closes is not said at
+    /// all. The window state is decided once, atomically against <see cref="ExecutionStatus.LeaveWindow"/>, so exactly one side
+    /// reports. The kept report can be made again from what the window's line says (<see cref="ExecutionStatus.Complete"/>,
+    /// <see cref="ExecutionStatus.Fail"/>): for a plan the window executes in parts that is more than this activity did.
+    /// </summary>
+    private void ReportWithoutWindow(ActivityViewModel activity, string title, string domain, BatchResult? result, Exception? failure)
+    {
+        if (activity.IsReportSuppressed)
+        {
+            return;
+        }
+
+        if (!activity.TryReturnToWindow())
+        {
+            ReportLater(Describe(title, domain, result, failure));
+        }
+        else if (activity.HasReturnedToWindow)
+        {
+            var report = Describe(title, domain, result, failure);
+            activity.KeepReport(
+                () => ReportLater(report),
+                whole =>
+                {
+                    var again = Describe(title, domain, whole, null);
+                    return () => ReportLater(again);
+                },
+                reason =>
+                {
+                    var again = DescribeFailure(title, domain, reason);
+                    return () => ReportLater(again);
+                });
+        }
+    }
+
+    /// <summary>
+    /// Says a report in a later turn of the UI thread: the execution and its caller - or the window that closes - go on at once,
+    /// whatever the operator does with a dialog. Toasts and dialogs of a connection window that closed meanwhile are dropped by
+    /// their services.
+    /// </summary>
+    private void ReportLater(Action report) => _dispatcher.InvokeAsync(report).Forget();
+
+    /// <summary>
+    /// What the window's line would have said (<see cref="ExecutionOutcome"/>), made into the report of the connection: a
+    /// notification when nothing failed - done, or stopped - and otherwise an error dialog with the failed objects, their
+    /// reasons and where every change is (the dialog is not awaited). The texts are made now; the report holds only them, never
+    /// the result with its plan (ADR-0003, CLAUDE.md rule 2).
+    /// </summary>
+    private Action Describe(string title, string domain, BatchResult? result, Exception? failure)
+    {
+        if (failure is not null)
+        {
+            if (failure is OperationCanceledException)
+            {
+                var stopped = PageStatusText.Failure(_localizer.Format(L.ChangeStatus.Stopped, title, domain), null);
+                return () => _notifications.Show(NotificationSeverity.Warning, stopped);
+            }
+
+            return DescribeFailure(title, domain, _errors.Translate(failure));
+        }
+
+        var outcome = ExecutionOutcome.Of(_localizer, title, domain, result!);
+        if (result!.FailedCount == 0)
+        {
+            var severity = outcome.Kind == PageStatusKind.Done ? NotificationSeverity.Success : NotificationSeverity.Warning;
+            var message = outcome.Message;
+            return () => _notifications.Show(severity, message);
+        }
+
+        var text = new StringBuilder(outcome.Message).AppendLine();
+        var failed = result.Objects.Where(o => o.Status is ObjectResultStatus.Failed or ObjectResultStatus.PartiallySucceeded).ToList();
+        foreach (var obj in failed.Take(MaxListedIssues))
+        {
+            var error = obj.Changes.FirstOrDefault(c => !c.Succeeded);
+            var reason = error is null ? string.Empty : _errors.TranslateFailure(error.ErrorKind, error.ErrorMessage);
+            text.AppendLine().Append("• ").Append(obj.Plan.DisplayName).Append(": ").Append(reason);
+        }
+
+        if (failed.Count > MaxListedIssues)
+        {
+            text.AppendLine().Append(_localizer.Format(L.Changes.MoreIssues, failed.Count - MaxListedIssues));
+        }
+
+        text.AppendLine().AppendLine().Append(_localizer[L.ChangeStatus.SessionLogNext]);
+        var failures = text.ToString();
+        return () => _dialogs.ShowErrorAsync(title, failures).Forget();
+    }
+
+    /// <summary>A failure as a whole, as the window's line says it: a dialog with the reason (not awaited).</summary>
+    private Action DescribeFailure(string title, string domain, string reason)
+    {
+        var failedAsAWhole = PageStatusText.Failure(ExecutionOutcome.FailedLead(_localizer, title, domain), reason);
+        return () => _dialogs.ShowErrorAsync(title, failedAsAWhole).Forget();
+    }
+
+    private static ChangeOutcome OutcomeOf(BatchResult result) => result.FailedCount == 0
+        ? result.WasCutShort ? ChangeOutcome.Cancelled : ChangeOutcome.Executed
+        : result.SucceededCount > 0 ? ChangeOutcome.PartiallyFailed : ChangeOutcome.Failed;
 
     private async Task<ChangeOutcome> ReportAsync(string title, BatchResult result)
     {
         if (result.FailedCount == 0)
         {
-            var severity = result.WasCancelled ? NotificationSeverity.Warning : NotificationSeverity.Success;
-            var text = result.WasCancelled
+            // "Cancelled" only when the Stop left something undone: a plan whose every object was changed was executed,
+            // whenever the Stop came, and the caller's follow-up (a re-read, "renamed") must happen.
+            var cutShort = result.WasCutShort;
+            var severity = cutShort ? NotificationSeverity.Warning : NotificationSeverity.Success;
+            var text = cutShort
                 ? _localizer.Format(L.Changes.Cancelled, title, result.SucceededCount)
                 : _localizer.Format(L.Changes.Succeeded, title, result.SucceededCount);
             _notifications.Show(severity, text);
-            return result.WasCancelled ? ChangeOutcome.Cancelled : ChangeOutcome.Executed;
+            return cutShort ? ChangeOutcome.Cancelled : ChangeOutcome.Executed;
         }
 
         var sb = new StringBuilder();

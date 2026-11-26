@@ -5,6 +5,7 @@ using AdMng.App.UiTests.Infrastructure;
 using AdMng.App.Views;
 using AdMng.Core.Messaging;
 using AdMng.Presentation.AccountReview;
+using AdMng.Presentation.Feedback;
 using AdMng.Presentation.Settings;
 using AdMng.Presentation.UserMessages;
 using AdMng.Testing;
@@ -77,7 +78,13 @@ public sealed class UserMessagesWindowTests
         Assert.Equal(Visibility.Visible, window.ReportPanel.Visibility);
         Assert.Equal(2, window.ReportList.Items.Count);
         Assert.Equal(2, transport.Accepted.Count);
-        Assert.Equal(composer.ReportSummary, window.ReportSummaryText.Text);
+
+        // How the send ended is said by the status line; behind that result, the counts of the report.
+        Assert.Equal(PageStatusKind.Done, window.PageStatus.Kind);
+        composer.Status.CloseCommand.Execute(null);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal(PageStatusKind.Idle, window.PageStatus.Kind);
+        Assert.Equal(composer.ReportSummary, window.PageStatus.Message);
         Assert.Equal(Visibility.Visible, window.ExportReportButton.Visibility);
         context.AssertHealthy();
     });

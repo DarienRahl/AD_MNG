@@ -1,0 +1,127 @@
+<!--
+  The grid of Out-AdmGrid (PowerShellGridViewModel, track R, stage R1, decision D6; modeless, one window for every call): the
+  objects of a pipeline as rows - sorted by a click on a column, narrowed by a filter, copied, exported as CSV with protected
+  formulas and opened in the program by their distinguished name. It uses the pieces of the object list of the main window:
+  b:DynamicColumns builds the columns from the column view models (header, sort glyph, width), b:Density sets the height of the
+  header, and the rows have the height of the list's. The cells are the plain text the command made of the objects.
+  Feedback (track V, stage V2b): one status line at the top says how many rows and columns there are (and how many the filter
+  shows), how an export ended, and that the session of the window ended - then an object can no longer be opened.
+-->
+<Window x:Class="AdMng.App.PowerShell.PowerShellGridWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:b="clr-namespace:AdMng.App.Behaviors"
+        xmlns:c="clr-namespace:AdMng.App.Controls"
+        xmlns:l="clr-namespace:AdMng.App.Localization"
+        xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+        Title="{Binding WindowTitle, Mode=OneWay}"
+        Width="1000"
+        Height="640"
+        MinWidth="560"
+        MinHeight="360"
+        WindowStartupLocation="CenterOwner">
+  <Window.Resources>
+    <!-- Commands for the context menu, independent of their DataContext. -->
+    <c:BindingProxy x:Key="GridProxy" Data="{Binding}" />
+
+    <sys:Double x:Key="TextControlThemeMinHeight">30</sys:Double>
+    <Thickness x:Key="TextControlThemePadding">10,4,6,5</Thickness>
+
+    <Style x:Key="GridRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+      <Setter Property="Height" Value="26" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="2,0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding Summary, Mode=OneWay}" />
+      <EventSetter Event="MouseDoubleClick" Handler="OnRowDoubleClick" />
+    </Style>
+  </Window.Resources>
+
+  <DockPanel>
+    <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
+      <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+        <Button x:Name="ExportButton"
+                Command="{Binding ExportCommand}"
+                Content="{l:Tr Commands.ExportList}"
+                Style="{StaticResource Ad.DialogButton}" />
+        <Button x:Name="CloseButton"
+                Click="OnCloseClick"
+                Content="{l:Tr Common.Close}"
+                IsCancel="True"
+                Style="{StaticResource Ad.DialogButton}" />
+      </StackPanel>
+    </Border>
+
+    <c:StatusLine x:Name="PageStatus"
+                  Margin="8,8,8,0"
+                  CloseCommand="{Binding Status.CloseCommand, Mode=OneWay}"
+                  DockPanel.Dock="Top"
+                  Status="{Binding Status.Current, Mode=OneWay}" />
+
+    <Grid Margin="16,8,16,8" DockPanel.Dock="Top">
+      <TextBox x:Name="FilterBox"
+               AutomationProperties.Name="{l:Tr PowerShellGrid.FilterHint}"
+               Padding="8,4,28,4"
+               Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=150}" />
+      <TextBlock Margin="9,0,28,0"
+                 Style="{StaticResource Ad.HintText}"
+                 Text="{l:Tr PowerShellGrid.FilterHint}"
+                 Visibility="{Binding Text, ElementName=FilterBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+      <Button Margin="0,0,3,0"
+              HorizontalAlignment="Right"
+              AutomationProperties.Name="{l:Tr Common.Clear}"
+              Command="{Binding ClearFilterCommand}"
+              Content="{x:Static c:Glyphs.Cancel}"
+              Style="{StaticResource Ad.SmallIconButton}"
+              ToolTip="{l:Tr Common.Clear}"
+              Visibility="{Binding Text, ElementName=FilterBox, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+    </Grid>
+
+    <ListView x:Name="ResultsList"
+              Margin="16,0,16,12"
+              b:Density.ColumnHeaderHeight="{StaticResource Ad.Size.ColumnHeader}"
+              b:DynamicColumns.SortCommand="{Binding SortCommand}"
+              b:DynamicColumns.Source="{Binding Columns}"
+              AutomationProperties.Name="{Binding WindowTitle, Mode=OneWay}"
+              ItemContainerStyle="{StaticResource GridRowStyle}"
+              ItemsSource="{Binding Rows, Mode=OneWay}"
+              ScrollViewer.CanContentScroll="True"
+              SelectionChanged="OnSelectionChanged"
+              SelectionMode="Extended"
+              VirtualizingPanel.IsVirtualizing="True"
+              VirtualizingPanel.VirtualizationMode="Recycling">
+      <ListView.InputBindings>
+        <KeyBinding Key="Enter" Command="{Binding Data.OpenCommand, Source={StaticResource GridProxy}}" />
+        <KeyBinding Key="C"
+                    Command="{Binding Data.CopyRowsCommand, Source={StaticResource GridProxy}}"
+                    Modifiers="Control" />
+        <KeyBinding Key="C"
+                    Command="{Binding Data.CopyDnCommand, Source={StaticResource GridProxy}}"
+                    Modifiers="Control+Shift" />
+      </ListView.InputBindings>
+      <ListView.ContextMenu>
+        <ContextMenu>
+          <MenuItem x:Name="OpenMenuItem"
+                    Command="{Binding Data.OpenCommand, Source={StaticResource GridProxy}}"
+                    FontWeight="SemiBold"
+                    Header="{l:Tr PowerShell.Menu.OpenInProgram}"
+                    InputGestureText="Enter" />
+          <Separator />
+          <MenuItem Command="{Binding Data.CopyRowsCommand, Source={StaticResource GridProxy}}"
+                    Header="{l:Tr PowerShellGrid.Menu.CopyRows}"
+                    InputGestureText="Ctrl+C" />
+          <MenuItem Command="{Binding Data.CopyRowsWithHeadersCommand, Source={StaticResource GridProxy}}" Header="{l:Tr PowerShellGrid.Menu.CopyRowsWithHeaders}" />
+          <MenuItem Command="{Binding Data.CopyDnCommand, Source={StaticResource GridProxy}}"
+                    Header="{l:Tr Commands.CopyDn}"
+                    InputGestureText="Ctrl+Shift+C" />
+          <Separator />
+          <MenuItem Command="{Binding Data.ExportCommand, Source={StaticResource GridProxy}}" Header="{l:Tr Commands.ExportList}" />
+        </ContextMenu>
+      </ListView.ContextMenu>
+      <ListView.View>
+        <GridView AllowsColumnReorder="False" />
+      </ListView.View>
+    </ListView>
+  </DockPanel>
+</Window>

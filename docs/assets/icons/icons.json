@@ -1,0 +1,298 @@
+{
+  "groups": [
+    {
+      "id": "objects",
+      "title": "Directory objects",
+      "icons": [
+        {
+          "name": "unknown",
+          "meaning": "An object of a class the application has no picture for"
+        },
+        {
+          "name": "user",
+          "meaning": "A user account (user, inetOrgPerson)"
+        },
+        {
+          "name": "user-disabled",
+          "meaning": "A disabled user account",
+          "base": "user",
+          "overlay": "overlay-disabled"
+        },
+        {
+          "name": "user-locked",
+          "meaning": "A locked-out user account",
+          "base": "user",
+          "overlay": "overlay-locked"
+        },
+        {
+          "name": "computer",
+          "meaning": "A computer account (workstation)"
+        },
+        {
+          "name": "computer-disabled",
+          "meaning": "A disabled computer account",
+          "base": "computer",
+          "overlay": "overlay-disabled"
+        },
+        {
+          "name": "server",
+          "meaning": "A member server"
+        },
+        {
+          "name": "domain-controller",
+          "meaning": "A domain controller (also read-only)"
+        },
+        {
+          "name": "group",
+          "meaning": "A security group"
+        },
+        {
+          "name": "group-distribution",
+          "meaning": "A distribution group",
+          "base": "group",
+          "overlay": "overlay-mail"
+        },
+        {
+          "name": "contact",
+          "meaning": "A contact"
+        },
+        {
+          "name": "organizational-unit",
+          "meaning": "An organizational unit"
+        },
+        {
+          "name": "container",
+          "meaning": "A container (also LostAndFound)"
+        },
+        {
+          "name": "domain",
+          "meaning": "The domain (root of the tree)"
+        },
+        {
+          "name": "builtin",
+          "meaning": "The Builtin container"
+        },
+        {
+          "name": "foreign-principal",
+          "meaning": "A foreign security principal (an account of another domain)"
+        },
+        {
+          "name": "service-account",
+          "meaning": "A managed service account (MSA, gMSA)",
+          "base": "user",
+          "overlay": "overlay-service"
+        },
+        {
+          "name": "printer",
+          "meaning": "A published printer (print queue)"
+        },
+        {
+          "name": "shared-folder",
+          "meaning": "A published shared folder"
+        },
+        {
+          "name": "query",
+          "meaning": "A saved query and query results"
+        },
+        {
+          "name": "quick-filter",
+          "meaning": "A quick filter"
+        },
+        {
+          "name": "pinned",
+          "meaning": "A pinned object or location"
+        },
+        {
+          "name": "folder",
+          "meaning": "A folder of the application (grouping node, default list icon)"
+        },
+        {
+          "name": "watchdog",
+          "meaning": "The Watchdog tab and the watchdog's own events"
+        },
+        {
+          "name": "group-policy",
+          "meaning": "A group policy object and the Group Policy Objects node"
+        },
+        {
+          "name": "wmi-filter",
+          "meaning": "A WMI filter and the WMI Filters node"
+        },
+        {
+          "name": "site",
+          "meaning": "A site and the Sites node"
+        },
+        {
+          "name": "certificate",
+          "meaning": "A certificate and the Public Key Services node"
+        }
+      ]
+    },
+    {
+      "id": "areas",
+      "title": "Application areas",
+      "icons": [
+        {
+          "name": "home",
+          "meaning": "The start page"
+        },
+        {
+          "name": "directory",
+          "meaning": "The directory tree and object lists"
+        },
+        {
+          "name": "search",
+          "meaning": "Search and Find"
+        },
+        {
+          "name": "recycle-bin",
+          "meaning": "The AD Recycle Bin"
+        },
+        {
+          "name": "bulk-edit",
+          "meaning": "Bulk edit (batch editor)"
+        },
+        {
+          "name": "bulk-create",
+          "meaning": "Bulk account creation",
+          "base": "group",
+          "overlay": "overlay-add"
+        },
+        {
+          "name": "account-review",
+          "meaning": "Account review",
+          "base": "user",
+          "overlay": "overlay-review"
+        },
+        {
+          "name": "privileges",
+          "meaning": "Privileged access"
+        },
+        {
+          "name": "messages",
+          "meaning": "Messages to users"
+        },
+        {
+          "name": "correspondence",
+          "meaning": "Correspondence (Outlook)"
+        },
+        {
+          "name": "computers",
+          "meaning": "Computer review and remote actions"
+        },
+        {
+          "name": "event-logs",
+          "meaning": "Event logs"
+        },
+        {
+          "name": "lockout-source",
+          "meaning": "Lockout source analysis"
+        },
+        {
+          "name": "certificate-authority",
+          "meaning": "A certification authority"
+        },
+        {
+          "name": "certificate-template",
+          "meaning": "A certificate template"
+        },
+        {
+          "name": "security-review",
+          "meaning": "Security review (findings)"
+        },
+        {
+          "name": "readiness",
+          "meaning": "Readiness check"
+        },
+        {
+          "name": "settings",
+          "meaning": "Settings"
+        },
+        {
+          "name": "compare",
+          "meaning": "Comparison of objects and domains"
+        },
+        {
+          "name": "activity",
+          "meaning": "Activities (running and finished operations)"
+        },
+        {
+          "name": "connection",
+          "meaning": "The connection to a domain controller"
+        },
+        {
+          "name": "export",
+          "meaning": "Export to a file"
+        },
+        {
+          "name": "powershell",
+          "meaning": "PowerShell (generated scripts, the console)"
+        },
+        {
+          "name": "dns",
+          "meaning": "DNS"
+        },
+        {
+          "name": "dhcp",
+          "meaning": "DHCP"
+        }
+      ]
+    },
+    {
+      "id": "statuses",
+      "title": "Statuses",
+      "icons": [
+        {
+          "name": "status-ok",
+          "meaning": "Healthy, passed, done"
+        },
+        {
+          "name": "status-warning",
+          "meaning": "Warning: needs attention"
+        },
+        {
+          "name": "status-error",
+          "meaning": "Error, failed"
+        },
+        {
+          "name": "status-info",
+          "meaning": "Information"
+        },
+        {
+          "name": "status-unknown",
+          "meaning": "Not checked or not known"
+        }
+      ]
+    },
+    {
+      "id": "overlays",
+      "title": "Overlays",
+      "icons": [
+        {
+          "name": "overlay-disabled",
+          "meaning": "Disabled account: slate disc with a down arrow (ADUC convention)"
+        },
+        {
+          "name": "overlay-locked",
+          "meaning": "Locked-out account: amber padlock (ADUC convention)"
+        },
+        {
+          "name": "overlay-mail",
+          "meaning": "Mail: teal envelope (distribution group)"
+        },
+        {
+          "name": "overlay-service",
+          "meaning": "Service: violet gear (managed service account)"
+        },
+        {
+          "name": "overlay-add",
+          "meaning": "Create: green disc with a plus"
+        },
+        {
+          "name": "overlay-review",
+          "meaning": "Review: amber magnifier"
+        }
+      ]
+    }
+  ]
+}

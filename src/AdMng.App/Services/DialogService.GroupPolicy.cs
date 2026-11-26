@@ -1,6 +1,7 @@
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
+using AdMng.Presentation.GroupPolicy.Copy;
 using Microsoft.Win32;
 
 namespace AdMng.App.Services;
@@ -64,6 +65,12 @@ public sealed partial class DialogService : IGroupPolicyDialogs
             ShowWindowModal(update);
             return update.ChangedStore;
         });
+    }
+
+    public Task<bool> ShowCopySettingsAsync(GpoCopySettingsViewModel dialog)
+    {
+        ArgumentNullException.ThrowIfNull(dialog);
+        return OnUiThreadAsync(() => ShowWindowModal(dialog) && dialog.Confirmed);
     }
 
     /// <summary>The system folder picker (the only place a backup may go: a folder the operator chooses, rule 1).</summary>

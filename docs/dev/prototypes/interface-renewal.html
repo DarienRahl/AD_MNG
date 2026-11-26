@@ -1,0 +1,1723 @@
+<title>AD Manager Renewal</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* AD Manager – track V motion prototype (docs/dev/v-interface-renewal.md). Synthetic data only.
+   Tokens follow the plan: Ad.* colours (4.1), density (4.3), Motion.* (5.1). */
+:root{
+--page-bg:#e6eaf0;--surface-window:#f3f3f3;--surface-layer:#f9f9f9;--surface-card:#fdfdfd;--surface-flyout:#fcfcfc;
+--stroke-window:rgba(0,0,0,.22);--stroke-card:rgba(0,0,0,.1);--stroke-divider:rgba(0,0,0,.08);--stroke-control:rgba(0,0,0,.18);
+--text-primary:#1a1a1a;--text-secondary:#5a5a5a;--text-tertiary:#707070;
+--accent:#005fb8;--accent-text:#00458f;--text-on-accent:#ffffff;
+--status-success:#0e700e;--status-success-bg:#dff6dd;--status-caution:#8a5100;--status-caution-bg:#fff4ce;
+--status-critical:#c42b1c;--status-critical-bg:#fde7e9;--status-attention:#005fb8;--status-attention-bg:#eef3f9;
+--focus:#111111;--connection:#0c8a7a;
+--fill-control:#ffffff;--fill-neutral:rgba(0,0,0,.06);--fill-hover:rgba(0,0,0,.05);--fill-press:rgba(0,0,0,.09);
+--fill-hover-accent:rgba(255,255,255,.16);--fill-selected:rgba(0,95,184,.11);
+--highlight:rgba(0,95,184,.3);--skeleton-base:#dcdcdc;--skeleton-shine:#f1f1f1;
+--shadow:rgba(0,0,0,.18);--shadow-window:rgba(25,35,60,.22);--scrim:rgba(0,0,0,.32);
+/* Motion tokens (plan 5.1) */
+--motion-hover:83ms;--motion-press:120ms;--motion-swap:150ms;--motion-fast:167ms;--motion-appear:250ms;
+--motion-disappear:167ms;--motion-entrance:200ms;--motion-expand:333ms;--motion-collapse:167ms;--motion-highlight:2s;
+--motion-shimmer:1600ms;--motion-hover-intent:500ms;--motion-offset-page:24px;--motion-offset-panel:8px;
+--motion-ease-enter:cubic-bezier(0,0,0,1);--motion-ease-exit:cubic-bezier(1,1,0,1);
+--motion-ease-change:cubic-bezier(.455,.03,.515,.955);
+/* Values the catalogue (5.2) and 6.7 state without a token name */
+--motion-transient-in:120ms;--motion-transient-out:100ms;--motion-transient-offset:4px;--motion-toast-offset:16px;
+--motion-toast-stay:5s;--motion-ring:1s;
+/* Density (plan 4.3): compact is the default */
+--h-control:28px;--h-row:26px;--h-head:28px;--pad-card:12px;--h-scard:56px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page-bg:#111316;--surface-window:#202020;--surface-layer:#272727;--surface-card:#2e2e2e;--surface-flyout:#2c2c2c;
+--stroke-window:rgba(255,255,255,.16);--stroke-card:rgba(255,255,255,.09);--stroke-divider:rgba(255,255,255,.08);--stroke-control:rgba(255,255,255,.2);
+--text-primary:#ffffff;--text-secondary:#c9c9c9;--text-tertiary:#9c9c9c;
+--accent:#60cdff;--accent-text:#99ebff;--text-on-accent:#000000;
+--status-success:#6ccb5f;--status-success-bg:#2b3a22;--status-caution:#fcd94a;--status-caution-bg:#433519;
+--status-critical:#ff99a4;--status-critical-bg:#442726;--status-attention:#60cdff;--status-attention-bg:#2a3038;
+--focus:#ffffff;--connection:#3fd0bb;
+--fill-control:rgba(255,255,255,.07);--fill-neutral:rgba(255,255,255,.09);--fill-hover:rgba(255,255,255,.07);--fill-press:rgba(255,255,255,.12);
+--fill-hover-accent:rgba(0,0,0,.12);--fill-selected:rgba(96,205,255,.16);
+--highlight:rgba(96,205,255,.34);--skeleton-base:#363636;--skeleton-shine:#4a4a4a;
+--shadow:rgba(0,0,0,.5);--shadow-window:rgba(0,0,0,.6);--scrim:rgba(0,0,0,.5);color-scheme:dark}}
+:root[data-theme="dark"]{
+--page-bg:#111316;--surface-window:#202020;--surface-layer:#272727;--surface-card:#2e2e2e;--surface-flyout:#2c2c2c;
+--stroke-window:rgba(255,255,255,.16);--stroke-card:rgba(255,255,255,.09);--stroke-divider:rgba(255,255,255,.08);--stroke-control:rgba(255,255,255,.2);
+--text-primary:#ffffff;--text-secondary:#c9c9c9;--text-tertiary:#9c9c9c;
+--accent:#60cdff;--accent-text:#99ebff;--text-on-accent:#000000;
+--status-success:#6ccb5f;--status-success-bg:#2b3a22;--status-caution:#fcd94a;--status-caution-bg:#433519;
+--status-critical:#ff99a4;--status-critical-bg:#442726;--status-attention:#60cdff;--status-attention-bg:#2a3038;
+--focus:#ffffff;--connection:#3fd0bb;
+--fill-control:rgba(255,255,255,.07);--fill-neutral:rgba(255,255,255,.09);--fill-hover:rgba(255,255,255,.07);--fill-press:rgba(255,255,255,.12);
+--fill-hover-accent:rgba(0,0,0,.12);--fill-selected:rgba(96,205,255,.16);
+--highlight:rgba(96,205,255,.34);--skeleton-base:#363636;--skeleton-shine:#4a4a4a;
+--shadow:rgba(0,0,0,.5);--shadow-window:rgba(0,0,0,.6);--scrim:rgba(0,0,0,.5);color-scheme:dark}
+:root[data-density="comfortable"]{--h-control:32px;--h-row:40px;--h-head:32px;--pad-card:16px;--h-scard:68px}
+
+html{box-sizing:border-box;height:100%}
+*,*::before,*::after{box-sizing:inherit}
+body{height:100%;margin:0;background:var(--page-bg);color:var(--text-primary);
+ font:14px/1.43 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;-webkit-text-size-adjust:100%}
+[hidden]{display:none!important}
+h1,h2,p{margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+code,.mono{font-family:Consolas,'Cascadia Mono',ui-monospace,monospace;font-size:12px}
+.muted{color:var(--text-secondary)}
+.sp{flex:1}
+.ic,.gl,.ring{flex:none;display:block}
+.gl{fill:none;stroke:currentColor;stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round}
+.gl .f{fill:currentColor;stroke:none}
+:root[data-icons="mono"] .ic{filter:grayscale(1)}
+.ring{animation:spin var(--motion-ring) linear infinite}
+.ring circle{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-dasharray:24 14}
+@keyframes spin{to{transform:rotate(360deg)}}
+*{scrollbar-width:thin;scrollbar-color:var(--stroke-control) transparent}
+
+/* Catalogue 1: hover and press – opacity of a layer inside the control, never the brush itself */
+.hv{position:relative}
+.hv::before{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--fill-hover);opacity:0;
+ pointer-events:none;transition:opacity var(--motion-hover) var(--motion-ease-change)}
+.hv:hover::before,.hv.sim-hover::before{opacity:1}
+.hv:active::before,.hv.sim-press::before{opacity:1;background:var(--fill-press);transition-duration:0s}
+.hv:disabled::before,.hv[aria-disabled="true"]::before{display:none}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:var(--h-control);padding:0 12px;
+ border:1px solid var(--stroke-control);border-radius:4px;background:var(--fill-control);color:var(--text-primary);
+ white-space:nowrap;cursor:pointer;flex:none}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.accent{background:var(--accent);border-color:var(--accent);color:var(--text-on-accent)}
+.btn.accent::before{background:var(--fill-hover-accent)}
+.btn.danger{background:var(--status-critical);border-color:var(--status-critical);color:var(--text-on-accent)}
+.btn.danger::before{background:var(--fill-hover-accent)}
+.ibtn{display:inline-grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:4px;background:none;
+ color:var(--text-primary);cursor:pointer;flex:none}
+.lnk{background:none;border:0;padding:0;color:var(--accent-text);cursor:pointer;text-decoration:underline;
+ text-underline-offset:2px;text-align:left}
+.inp,select,textarea{height:var(--h-control);border:1px solid var(--stroke-control);border-radius:4px;
+ background:var(--fill-control);color:var(--text-primary);padding:0 8px;min-width:0}
+textarea{height:auto;padding:8px;width:100%;resize:vertical}
+.sw{appearance:none;-webkit-appearance:none;width:40px;height:20px;border-radius:10px;border:1px solid var(--text-secondary);
+ background:var(--fill-control);position:relative;cursor:pointer;margin:0;flex:none}
+.sw::after{content:"";position:absolute;left:3px;top:3px;width:12px;height:12px;border-radius:50%;
+ background:var(--text-secondary);transition:transform var(--motion-fast) var(--motion-ease-change)}
+.sw:checked{background:var(--accent);border-color:var(--accent)}
+.sw:checked::after{transform:translateX(20px);background:var(--text-on-accent)}
+.seg{display:inline-flex;padding:2px;border-radius:4px;background:var(--fill-neutral);gap:2px}
+.seg label{position:relative;cursor:pointer}
+.seg input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.seg span{display:inline-flex;align-items:center;height:calc(var(--h-control) - 4px);padding:0 12px;border-radius:3px}
+.seg input:checked+span{background:var(--surface-card);box-shadow:0 0 0 1px var(--stroke-control);font-weight:600}
+.seg input:focus-visible+span{outline:2px solid var(--focus);outline-offset:1px}
+.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:12px;
+ border:1px solid var(--stroke-control);background:var(--fill-control);color:var(--text-primary);cursor:pointer;font-size:12px}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--text-on-accent)}
+.pill{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 10px 0 5px;border-radius:12px;font-size:12px;
+ background:var(--fill-neutral);color:var(--text-primary);white-space:nowrap}
+.pill.plain{padding-left:10px}
+.pill.sm{height:20px;border-radius:10px;padding-right:8px}
+.pill.sm.plain{padding-left:8px}
+.pill.ok{background:var(--status-success-bg);color:var(--status-success)}
+.pill.warn{background:var(--status-caution-bg);color:var(--status-caution)}
+.pill.err{background:var(--status-critical-bg);color:var(--status-critical)}
+.pill.info{background:var(--status-attention-bg);color:var(--status-attention)}
+.card{background:var(--surface-card);border:1px solid var(--stroke-card);border-radius:8px}
+kbd{font:11px/16px 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;padding:0 5px;border-radius:4px;
+ border:1px solid var(--stroke-control);background:var(--fill-neutral);color:var(--text-secondary)}
+
+/* Window */
+.wrap{height:100%;min-height:520px;padding-top:12px;padding-bottom:12px;
+ padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+.win{height:100%;display:flex;flex-direction:column;position:relative;min-width:0;overflow:hidden;
+ background:var(--surface-window);border:1px solid var(--stroke-window);border-radius:8px;
+ box-shadow:0 16px 40px var(--shadow-window)}
+.tb{height:48px;flex:none;display:flex;align-items:center;gap:8px;padding-left:8px;border-top:2px solid var(--connection)}
+.tb-l{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:6px}
+.tb-r{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:flex-end;gap:2px}
+.appic{margin:0 4px}
+.tb-title{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.conn-dot{width:8px;height:8px;border-radius:50%;background:var(--connection);flex:none}
+.search{position:relative;flex:0 1 440px;min-width:0}
+.search input{width:100%;height:32px;padding:0 78px 0 32px;border:1px solid var(--stroke-control);border-radius:4px;
+ background:var(--fill-control);color:var(--text-primary);text-overflow:ellipsis}
+.search input::placeholder{color:var(--text-secondary)}
+.search>.gl{position:absolute;left:10px;top:8px;color:var(--text-secondary);pointer-events:none}
+.kbds{position:absolute;right:8px;top:7px;display:none;gap:4px;pointer-events:none}
+.search input:placeholder-shown~.kbds{display:flex}
+.badge{position:absolute;right:1px;top:1px;min-width:14px;height:14px;border-radius:7px;font-size:10px;line-height:14px;
+ text-align:center;background:var(--accent);color:var(--text-on-accent)}
+.caps{display:flex;align-self:stretch;margin-left:6px}
+.caps i{width:44px;display:grid;place-items:center}
+.body{flex:1;min-height:0;display:flex;position:relative}
+
+/* Area strip (N2) and navigation pane (N1); catalogue 12: the accent bar slides */
+.strip{width:48px;flex:none;display:flex;flex-direction:column;gap:2px;padding:4px;position:relative;
+ overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+.navi{display:flex;align-items:center;gap:12px;height:36px;flex:none;padding:0 10px;border:0;border-radius:4px;
+ background:none;color:var(--text-primary);text-align:left;white-space:nowrap;overflow:hidden;cursor:pointer;outline-offset:-2px}
+.navi[aria-current]{background:var(--fill-neutral)}
+.strip .grp{display:none;font-size:12px;color:var(--text-tertiary);padding:8px 10px 2px;white-space:nowrap}
+.strip .nsep{height:1px;margin:3px 8px;background:var(--stroke-divider);flex:none}
+.strip .sp{min-height:8px}
+.ind{position:absolute;left:4px;top:0;width:3px;height:16px;border-radius:2px;background:var(--accent);pointer-events:none}
+.ind.on{transition:transform var(--motion-fast) var(--motion-ease-change)}
+.win[data-nav="n1"] .strip{width:240px}
+.win[data-nav="n1"] .strip .grp{display:block}
+.win[data-nav="n1"] .strip .nsep{display:none}
+.host{flex:1;min-width:0;min-height:0;display:flex;position:relative;overflow:hidden;background:var(--surface-layer);
+ border:1px solid var(--stroke-card);border-right:0;border-bottom:0;border-top-left-radius:8px}
+.sb{height:28px;flex:none;display:flex;align-items:center;gap:16px;padding:0 12px;font-size:12px;color:var(--text-secondary);
+ white-space:nowrap;overflow:hidden}
+.sb span{display:inline-flex;align-items:center;gap:6px}
+
+/* Page skeleton (plan 6.1): PageHeader, PageStatus, PageToolbar, PageContent */
+.page{flex:1;min-width:0;min-height:0;display:flex}
+.pg{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;padding:12px 16px 0}
+.hdr{display:contents}
+.ph{display:grid;grid-template-columns:1fr auto auto;align-items:center;column-gap:8px;flex:none}
+.ph h1{font-size:20px;line-height:28px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ph.big h1{font-size:28px;line-height:36px}
+.ph .desc{grid-column:1/-1;color:var(--text-secondary)}
+.ps{flex:none;height:36px;margin-top:8px;display:flex;align-items:center;padding:0 4px 0 10px;border-radius:4px;
+ border:1px solid var(--stroke-card);background:var(--status-attention-bg);overflow:hidden}
+.ps[data-sev="done"]{background:var(--status-success-bg)}
+.ps[data-sev="warn"]{background:var(--status-caution-bg)}
+.ps[data-sev="err"]{background:var(--status-critical-bg)}
+.ps-in{flex:1;min-width:0;display:flex;align-items:center;gap:8px}
+.ps-x{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pt{flex:none;margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:6px 8px}
+.pt .tsep{width:1px;height:20px;background:var(--stroke-divider)}
+.pc{flex:1;min-height:0;overflow:auto;margin-top:8px;padding-bottom:12px}
+.pc h2{font-size:14px;font-weight:600;margin:16px 0 8px}
+.pc h2:first-child{margin-top:4px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(290px,100%),1fr));gap:12px}
+#home-grid{grid-template-columns:repeat(auto-fill,minmax(min(360px,100%),1fr))}
+.empty{display:flex;flex-direction:column;align-items:center;gap:12px;padding:40px 16px;text-align:center;color:var(--text-secondary)}
+
+/* Lists */
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{position:sticky;top:0;z-index:1;height:var(--h-head);padding:0 8px;text-align:left;font-weight:400;white-space:nowrap;
+ color:var(--text-secondary);background:var(--surface-layer);box-shadow:inset 0 -1px 0 var(--stroke-divider)}
+.tbl td{height:var(--h-row);padding:0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px;
+ transition:background-color var(--motion-hover) var(--motion-ease-change)}
+.tbl tbody tr{cursor:default;outline-offset:-2px}
+.tbl tbody tr:hover td{background:var(--fill-hover)}
+.tbl tbody tr[aria-selected="true"] td{background:var(--fill-selected)}
+.tbl tbody tr[aria-selected="true"] td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.nm{display:inline-flex;align-items:center;gap:8px;vertical-align:middle}
+.card .tbl th{background:var(--surface-card)}
+.hl-static{box-shadow:inset 0 0 0 999px var(--highlight)!important}
+/* Catalogue 10: skeleton – one sweep across all bars */
+.skel{display:block;height:10px;border-radius:5px;background:var(--skeleton-base) linear-gradient(90deg,var(--skeleton-base) 30%,var(--skeleton-shine) 50%,var(--skeleton-base) 70%) 0 0/100vw 100% fixed;
+ animation:shimmer var(--motion-shimmer) linear infinite}
+@keyframes shimmer{from{background-position:0 0}to{background-position:100vw 0}}
+.pbar{height:4px;border-radius:2px;background:var(--fill-neutral);overflow:hidden}
+.pbar i{display:block;height:100%;border-radius:2px;background:var(--accent);transform-origin:left;transform:scaleX(0)}
+
+/* Directory */
+.tree{width:240px;flex:none;display:flex;flex-direction:column;padding:8px 4px;border-right:1px solid var(--stroke-divider);
+ overflow:auto;font-size:12px}
+.tree-h{font-size:14px;font-weight:600;padding:4px 8px 8px}
+.tn{display:flex;align-items:center;gap:6px;height:var(--h-row);padding-right:8px;border-radius:4px;white-space:nowrap;
+ cursor:pointer;outline-offset:-2px}
+.tn[aria-selected="true"]{background:var(--fill-selected)}
+.tn .tw{width:16px;height:16px;flex:none;display:grid;place-items:center;color:var(--text-secondary)}
+.tn.drop-ok{box-shadow:inset 0 0 0 1px var(--accent)}
+.refuse{margin-top:auto;min-height:36px;padding:8px;color:var(--status-critical);white-space:normal}
+.crumbs{display:none;align-items:center;gap:8px;margin-bottom:8px;min-width:0}
+.crumbs span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;color:var(--text-secondary)}
+.tabs{display:flex;gap:2px;flex:none;margin:-4px 0 8px;border-bottom:1px solid var(--stroke-divider);overflow-x:auto;scrollbar-width:none}
+.tab{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 12px;border:1px solid transparent;border-bottom:0;
+ border-radius:8px 8px 0 0;background:none;color:var(--text-secondary);white-space:nowrap;cursor:pointer;font-size:12px;outline-offset:-2px}
+.tab[aria-selected="true"]{background:var(--surface-card);border-color:var(--stroke-card);color:var(--text-primary)}
+.fld{font-size:12px;color:var(--text-secondary)}
+#dir-filter{flex:1 1 120px;max-width:200px}
+.cnt{font-size:12px;color:var(--text-secondary)}
+.fpanel{flex:none;margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px}
+.details{width:300px;flex:none;display:flex;flex-direction:column;min-height:0;border-left:1px solid var(--stroke-divider);
+ background:var(--surface-layer)}
+.d-bar{display:none;align-items:center;gap:8px;height:40px;padding:0 12px;border:0;background:none;color:var(--text-primary);
+ cursor:pointer;text-align:left;white-space:nowrap;overflow:hidden;flex:none;outline-offset:-2px}
+.d-bar b{font-weight:600}
+.d-bar span{min-width:0;overflow:hidden;text-overflow:ellipsis;display:inline-flex;gap:6px;align-items:center;font-size:12px}
+.d-body{flex:1;min-height:0;overflow:auto;padding-bottom:12px}
+.d-head{display:flex;gap:12px;align-items:flex-start;padding:12px 8px 8px 12px}
+.d-head>div{flex:1;min-width:0}
+.d-head b{display:block;font-size:14px;overflow-wrap:anywhere}
+.d-acts{display:flex;flex-wrap:wrap;gap:8px;padding:4px 12px 12px}
+.d-props{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;padding:0 12px;margin:0;font-size:12px}
+.d-props dt{color:var(--text-secondary)}
+.d-props dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.d-sec{padding:16px 12px 4px;font-size:12px;font-weight:600}
+.d-list{list-style:none;margin:0;padding:0 12px;font-size:12px}
+.d-list li{display:flex;align-items:center;gap:8px;height:var(--h-row)}
+
+/* Home */
+.hcard{display:flex;flex-direction:column;gap:8px;padding:var(--pad-card)}
+.hc-h{display:flex;align-items:center;gap:10px;font-weight:600}
+.hcard ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.hcard li{display:flex;align-items:center;gap:8px;min-height:24px}
+.hc-a{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto;padding-top:4px}
+.qa{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.qa .btn{justify-content:flex-start;padding:0 8px;overflow:hidden}
+.qa .btn span{overflow:hidden;text-overflow:ellipsis}
+.li{display:flex;align-items:center;gap:8px;width:100%;min-height:26px;padding:0 6px;margin:0 -6px;border:0;border-radius:4px;
+ background:none;color:var(--text-primary);cursor:pointer;text-align:left}
+.sub{font-size:12px;color:var(--text-secondary);margin-top:4px}
+
+/* Bulk create */
+.steps{display:flex;gap:4px;list-style:none;margin:0;padding:0;flex-wrap:wrap}
+.step{display:flex;align-items:center;gap:8px;height:var(--h-control);padding:0 12px 0 4px;border:0;border-radius:14px;
+ background:none;color:var(--text-secondary);cursor:pointer}
+.step .num{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:12px;background:var(--fill-neutral)}
+.step[aria-current]{color:var(--text-primary);font-weight:600}
+.step[aria-current] .num{background:var(--accent);color:var(--text-on-accent)}
+.step.done .num{background:var(--status-success-bg);color:var(--status-success)}
+.stepb{display:flex;flex-direction:column;gap:12px;max-width:980px}
+.runbox{display:flex;flex-direction:column;gap:8px;padding:var(--pad-card)}
+/* Catalogue 2: the action button keeps the width of its widest state; contents cross-fade */
+.act{display:inline-grid;place-items:center}
+.act-c{grid-area:1/1;display:inline-flex;align-items:center;gap:8px;visibility:hidden;opacity:0}
+.act[data-state="idle"] [data-s="idle"],.act[data-state="running"] [data-s="running"],
+.act[data-state="cancelling"] [data-s="cancelling"]{visibility:visible;opacity:1}
+.act[data-state="running"]{background:var(--fill-control);border-color:var(--stroke-control);color:var(--text-primary)}
+.act[data-state="cancelling"]{background:var(--fill-neutral);border-color:var(--stroke-control);color:var(--text-secondary);cursor:default}
+.act:not([data-state="idle"])::before{background:var(--fill-hover)}
+
+/* Certificates, settings, motion */
+.ccert{display:flex;flex-direction:column;gap:10px;padding:var(--pad-card)}
+.cc-h{display:flex;gap:10px;align-items:flex-start}
+.cc-h>div{flex:1;min-width:0}
+.cc-h b{display:block;overflow-wrap:anywhere}
+.cc-h p{font-size:12px;color:var(--text-secondary)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.cats{width:200px;flex:none;display:flex;flex-direction:column;gap:2px;padding:12px 4px;border-right:1px solid var(--stroke-divider);overflow:auto}
+.cat{display:flex;align-items:center;height:32px;padding:0 12px;border:0;border-radius:4px;background:none;color:var(--text-primary);
+ text-align:left;white-space:nowrap;cursor:pointer;flex:none;outline-offset:-2px}
+.cat[aria-current]{background:var(--fill-neutral);box-shadow:inset 3px 0 0 var(--accent)}
+.cards{display:flex;flex-direction:column;gap:6px;max-width:980px}
+.scard{overflow:hidden}
+.sc-h{display:flex;align-items:center;gap:12px;min-height:var(--h-scard);padding:8px var(--pad-card);cursor:pointer}
+.sc-h>.gl,.sc-h>.ic{color:var(--text-secondary)}
+.sc-t{flex:1;min-width:0}
+.sc-t label{display:block;cursor:pointer}
+.sc-t p{font-size:12px;color:var(--text-secondary)}
+.sc-h select,.sc-h .inp{flex:0 1 220px;position:relative;z-index:1}
+.sc-h .sw,.sc-h .btn,.sc-h .ibtn{position:relative;z-index:1}
+.scard.open .exp-btn svg{transform:rotate(180deg)}
+.exp-b{overflow:hidden;border-top:1px solid var(--stroke-divider)}
+.exp-in{display:flex;flex-direction:column}
+.exp-row{display:flex;align-items:center;gap:12px;min-height:44px;padding:6px var(--pad-card) 6px 44px;flex-wrap:wrap}
+.exp-row+.exp-row{border-top:1px solid var(--stroke-divider)}
+.exp-row>span:first-child,.exp-row>label{flex:1;min-width:140px}
+.mcard{display:flex;flex-direction:column;gap:6px;padding:var(--pad-card);min-width:0}
+.mc-h{display:flex;align-items:center;gap:8px}
+.mc-h b{flex:1;min-width:0}
+.mc-n{font-size:12px;color:var(--text-secondary);min-width:22px}
+.mc-k{font-size:12px;line-height:1.6}
+.mc-s{font-size:12px;color:var(--text-secondary)}
+.stage{position:relative;overflow:hidden;min-height:84px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px;
+ margin-top:auto;border-radius:4px;border:1px dashed var(--stroke-control);background:var(--surface-layer)}
+.stage .ps{margin:0;flex:1;min-width:0}
+.stage .mini{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;font-size:12px}
+.stage .mini .card{padding:4px 8px}
+.mrow{display:flex;align-items:center;gap:8px;height:26px;padding:0 6px;border-radius:4px;font-size:12px;flex:1;min-width:0}
+.mstrip{position:relative;display:flex;flex-direction:column;gap:2px;padding:0 4px}
+.mstrip span{display:grid;place-items:center;width:32px;height:22px}
+.mstrip .ind{left:0;height:12px}
+.pop{padding:8px 12px;border-radius:8px;border:1px solid var(--stroke-card);background:var(--surface-flyout);
+ box-shadow:0 8px 20px var(--shadow);font-size:12px}
+.tokwrap{overflow:auto}
+
+/* Transient surfaces: palette, teaching tip, toast, tooltip (elevation 2) */
+.palette{position:absolute;top:46px;left:0;right:0;margin:0 auto;width:min(560px,calc(100% - 16px));max-height:min(72%,600px);
+ overflow:auto;z-index:20;padding:4px;border-radius:8px;border:1px solid var(--stroke-card);background:var(--surface-flyout);
+ box-shadow:0 12px 28px var(--shadow)}
+.pgrp{font-size:12px;color:var(--text-secondary);padding:8px 10px 2px}
+.opt{display:flex;align-items:center;gap:12px;min-height:44px;padding:4px 10px;border-radius:4px;cursor:pointer}
+.opt[aria-selected="true"]{background:var(--fill-neutral);box-shadow:inset 3px 0 0 var(--accent)}
+.opt .ob{width:32px;height:32px;display:grid;place-items:center;flex:none;color:var(--text-secondary)}
+.opt .ot{min-width:0;display:flex;flex-direction:column}
+.opt .ot span{font-size:12px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.phint{display:flex;align-items:center;gap:8px;padding:8px 10px;font-size:12px;color:var(--text-secondary)}
+.tip{position:absolute;z-index:15;width:min(320px,calc(100% - 24px));padding:12px;border-radius:8px;
+ border:1px solid var(--stroke-card);background:var(--surface-flyout);box-shadow:0 8px 20px var(--shadow)}
+.tip::before{content:"";position:absolute;top:-6px;left:var(--ax,50%);width:10px;height:10px;margin-left:-5px;transform:rotate(45deg);
+ background:var(--surface-flyout);border-left:1px solid var(--stroke-card);border-top:1px solid var(--stroke-card)}
+.tip b{display:block;margin-bottom:4px}
+.tip p{font-size:12px;color:var(--text-secondary);margin-bottom:10px}
+.toasts{position:absolute;right:12px;bottom:36px;width:min(340px,calc(100% - 24px));display:flex;flex-direction:column;gap:8px;
+ z-index:12;pointer-events:none}
+.toast{pointer-events:auto;display:flex;gap:10px;align-items:flex-start;padding:10px 6px 10px 12px;border-radius:8px;
+ border:1px solid var(--stroke-card);background:var(--surface-flyout);box-shadow:0 8px 20px var(--shadow)}
+.toast-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:12px}
+.toast-b b{font-size:14px}
+.tt{position:absolute;z-index:30;padding:4px 8px;font-size:12px;border-radius:4px;border:1px solid var(--stroke-card);
+ background:var(--surface-flyout);box-shadow:0 4px 10px var(--shadow);pointer-events:none;white-space:nowrap}
+dialog{width:min(460px,calc(100% - 32px));padding:0;border:1px solid var(--stroke-window);border-radius:8px;
+ background:var(--surface-flyout);color:var(--text-primary);box-shadow:0 24px 48px var(--shadow-window)}
+dialog::backdrop{background:var(--scrim)}
+.dlg-cap{display:flex;align-items:center;gap:8px;height:32px;padding:0 12px;font-size:12px;background:var(--surface-window);
+ border-bottom:1px solid var(--stroke-divider)}
+.dlg-b{display:flex;gap:16px;padding:20px 20px 16px}
+.dlg-b h2{font-size:20px;line-height:26px;font-weight:600;margin-bottom:8px}
+.dlg-b p{color:var(--text-secondary)}
+.chk{display:flex;align-items:center;gap:8px;margin-top:14px;cursor:pointer}
+.chk input{width:16px;height:16px;margin:0;accent-color:var(--accent)}
+.dlg-f{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;padding:12px 20px;background:var(--surface-window);
+ border-top:1px solid var(--stroke-divider)}
+.dlg-f .btn{min-width:96px;height:32px}
+
+/* Reduced motion: the setting (data-motion) wins over the system; progress stays (plan 5.4) */
+@media (prefers-reduced-motion: reduce){
+ :root:not([data-motion="on"]) *,:root:not([data-motion="on"]) *::before,:root:not([data-motion="on"]) *::after{transition-duration:0s!important}
+ :root:not([data-motion="on"]) .skel{animation:none;background:var(--skeleton-base)}
+}
+:root[data-motion="off"] *,:root[data-motion="off"] *::before,:root[data-motion="off"] *::after{transition-duration:0s!important}
+:root[data-motion="off"] .skel{animation:none;background:var(--skeleton-base)}
+
+/* Narrow layouts (plan 6.2, 6.9): tree as a flyout, details as a bottom drawer, strip stays */
+@media (min-width:1300px){.ph-q{display:none}}
+@media (max-width:1299px){.ph .guide{display:none}.ph.more .guide{display:inline}.c-chg{display:none}}
+@media (min-width:1000px){.details:not(.open){display:none}}
+@media (max-width:999px){
+ .ph .desc{display:none}.ph.more .desc{display:block}
+ .tb-nav{display:none}
+ .dir{position:relative}
+ .tree{position:absolute;left:8px;top:48px;z-index:6;width:min(264px,calc(100% - 16px));max-height:70%;border-radius:8px;
+  border:1px solid var(--stroke-card);background:var(--surface-flyout);box-shadow:0 8px 20px var(--shadow)}
+ .tree:not(.open){display:none}
+ .crumbs{display:flex}
+ .details{position:absolute;left:0;right:0;bottom:0;width:auto;max-height:72%;z-index:5;border-left:0;
+  border-top:1px solid var(--stroke-divider);box-shadow:0 -6px 16px var(--shadow)}
+ .details:not(.open) .d-body{display:none}
+ .d-bar{display:flex}
+ #d-close{display:none}
+ .dir .pg{padding-bottom:40px}
+ .win[data-nav="n1"] .strip{position:absolute;left:0;top:0;bottom:0;z-index:8;background:var(--surface-window);
+  box-shadow:8px 0 20px var(--shadow)}
+ .win[data-nav="n1"] .host{margin-left:48px}
+ .sb-sec{display:none!important}
+}
+@media (max-width:799px){
+ .set{flex-direction:column}
+ .cats{width:auto;flex-direction:row;padding:8px 8px 0;border-right:0;overflow-x:auto;scrollbar-width:none}
+ .c-type,.c-note{display:none}
+ .tb-title span,.caps{display:none}
+ .tb-l,.tb-r{flex:none}
+ .search{flex:1 1 auto}
+ .step:not([aria-current]) .lbl{display:none}
+ .step:not([aria-current]){padding-right:4px}
+ .sc-h{flex-wrap:wrap}
+ .sc-h select,.sc-h .inp{flex:1 1 calc(100% - 80px);margin-left:32px}
+}
+@media (max-width:519px){
+ .wrap{padding-top:8px;padding-bottom:8px}
+ .pg{padding:8px 10px 0}
+ .tb-x,.kbds,.tb-title,.conn-dot,.sb-ver,.c-login{display:none!important}
+ .search input{padding-right:8px}
+ .tb{padding-right:6px}
+ .ps{height:52px}
+ .ps-x{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:12px}
+ .qa{grid-template-columns:1fr}
+ .seg span{padding:0 8px}
+ .pt .tsep{display:none}
+}
+</style>
+
+<div class="wrap">
+<div class="win" id="win" data-nav="n2">
+ <header class="tb">
+  <div class="tb-l">
+   <button class="ibtn hv tb-nav" id="btn-back" type="button" aria-label="Wstecz" data-tip="Wstecz (Alt+←)" disabled><svg class="gl" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><use href="#g-back"/></svg></button>
+   <button class="ibtn hv tb-nav" id="btn-fwd" type="button" aria-label="Dalej" data-tip="Dalej (Alt+→)" disabled><svg class="gl" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><use href="#g-fwd"/></svg></button>
+   <svg class="ic appic" width="20" height="20" viewBox="0 0 256 256" role="img" aria-label="AD Manager"><use href="#i-app"/></svg>
+   <i class="conn-dot" title="Kolor tego połączenia"></i>
+   <div class="tb-title"><b>contoso.test</b><span> – CONTOSO\anna.zielinska</span></div>
+  </div>
+  <div class="search" id="search-box">
+   <svg class="gl" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><use href="#g-search"/></svg>
+   <input id="search" type="text" role="combobox" aria-expanded="false" aria-controls="palette" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="Szukaj poleceń, obiektów" aria-label="Szukaj poleceń, stron, ustawień i obiektów (Ctrl+K)">
+   <span class="kbds" aria-hidden="true"><kbd>Ctrl</kbd><kbd>K</kbd></span>
+  </div>
+  <div class="tb-r">
+   <button class="ibtn hv tb-x" id="btn-activity" type="button" aria-label="Aktywność: 2 działania" data-tip="Aktywność: 2 działania"><svg class="gl" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><use href="#g-activity"/></svg><span class="badge">2</span></button>
+   <button class="ibtn hv tb-x" id="btn-help" type="button" aria-label="Pomoc" data-tip="Pomoc: przewodnik, zgłoś problem, o programie"><svg class="gl" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><use href="#g-help"/></svg></button>
+   <button class="ibtn hv" id="btn-theme" type="button" aria-label="Przełącz motyw: jasny lub ciemny" data-tip="Motyw: jasny / ciemny"></button>
+   <span class="caps" aria-hidden="true"><i><svg class="gl" width="16" height="16" viewBox="0 0 16 16"><use href="#g-min"/></svg></i><i><svg class="gl" width="16" height="16" viewBox="0 0 16 16"><use href="#g-max"/></svg></i><i><svg class="gl" width="16" height="16" viewBox="0 0 16 16"><use href="#g-close"/></svg></i></span>
+  </div>
+ </header>
+ <div class="body">
+  <nav class="strip" id="strip" aria-label="Obszary"></nav>
+  <main class="host" id="host">
+
+   <section class="page" id="p-home" data-page="home"><div class="pg">
+    <div class="hdr" data-hdr></div>
+    <div class="pc" data-part="PageContent"><div class="grid" id="home-grid"></div></div>
+   </div></section>
+
+   <section class="page dir" id="p-dir" data-page="dir" hidden>
+    <aside class="tree" id="tree" data-cls="open" aria-label="Drzewo katalogu">
+     <div class="tree-h">Katalog</div>
+     <div id="tree-nodes" role="tree" aria-label="Katalog contoso.test"></div>
+     <div class="refuse" id="refuse" role="status"></div>
+    </aside>
+    <div class="pg">
+     <div class="crumbs"><button class="btn hv" id="tree-btn" type="button" aria-expanded="false" aria-controls="tree"></button><span id="crumb"></span></div>
+     <div class="tabs" id="tabs" role="tablist" aria-label="Otwarte dokumenty"></div>
+     <div class="hdr" data-hdr></div>
+     <div class="pt card" data-part="PageToolbar" id="dir-tools"></div>
+     <div class="fpanel card" id="fpanel" hidden></div>
+     <div class="pc" data-part="PageContent" id="dir-pc">
+      <table class="tbl" id="list" aria-label="Obiekty">
+       <thead><tr><th>Nazwa</th><th class="c-login">Logon</th><th class="c-type">Typ</th><th>Stan</th><th class="c-chg">Zmieniono</th></tr></thead>
+       <tbody id="rows"></tbody>
+      </table>
+      <div class="empty" id="list-empty" hidden></div>
+     </div>
+    </div>
+    <aside class="details" id="details" aria-label="Szczegóły zaznaczonego obiektu">
+     <button class="d-bar hv" id="d-bar" type="button" aria-expanded="false" aria-controls="d-body"></button>
+     <div class="d-body" id="d-body"></div>
+    </aside>
+   </section>
+
+   <section class="page" id="p-bulk" data-page="bulk" hidden><div class="pg">
+    <div class="hdr" data-hdr></div>
+    <div class="pt card" data-part="PageToolbar">
+     <ol class="steps" id="steps"></ol><span class="sp"></span>
+     <button class="btn hv" id="bulk-prev" type="button">Wstecz</button>
+     <button class="btn hv accent" id="bulk-next" type="button">Dalej</button>
+     <button class="btn hv accent act" id="bulk-run" type="button" data-state="idle" hidden></button>
+    </div>
+    <div class="pc" data-part="PageContent">
+     <div class="stepb" data-step="1">
+      <label for="bulk-csv" class="muted">Wklej wiersze z arkusza albo pliku CSV (średnik lub tabulator). Prototyp nie analizuje danych – dalsze kroki pokazują 12 przykładowych kont.</label>
+      <textarea id="bulk-csv" class="mono" rows="9" spellcheck="false">Imię;Nazwisko;Dział;Stanowisko
+Aleksandra;Bąk;Księgowość;Specjalistka
+Bartłomiej;Ćwiek;Sprzedaż;Handlowiec
+Celina;Dzięcioł;Kadry;Specjalistka
+Dariusz;Gąsior;Magazyn;Kierownik zmiany
+…</textarea>
+     </div>
+     <div class="stepb" data-step="2" hidden><div class="cards" id="bulk-opts"></div></div>
+     <div class="stepb" data-step="3" hidden><div class="card tokwrap"><table class="tbl" id="bulk-preview"></table></div></div>
+     <div class="stepb" data-step="4" hidden>
+      <div class="card runbox"><div><b id="bulk-prog-t">Gotowe do uruchomienia: 12 kont w OU=Użytkownicy,OU=Kraków (contoso.test).</b></div>
+       <div class="pbar" role="progressbar" aria-label="Postęp zakładania kont" aria-valuemin="0" aria-valuemax="12" aria-valuenow="0" id="bulk-pbar"><i></i></div>
+       <div class="muted" style="font-size:12px">Przycisk akcji u góry: Start → Anuluj → Anulowanie… Anulujesz tam, gdzie zaczynasz.</div></div>
+      <div class="card tokwrap"><table class="tbl" id="bulk-result"></table></div>
+     </div>
+    </div>
+   </div></section>
+
+   <section class="page" id="p-certs" data-page="certs" hidden><div class="pg">
+    <div class="hdr" data-hdr></div>
+    <div class="pt card" data-part="PageToolbar">
+     <button class="chip hv" id="cert-all" type="button" aria-pressed="true">Wszystkie (7)</button>
+     <button class="chip hv" id="cert-att" type="button" aria-pressed="false">Wymagają uwagi (3)</button>
+     <span class="sp"></span>
+     <button class="btn hv" id="cert-refresh" type="button"></button>
+    </div>
+    <div class="pc" data-part="PageContent"><div class="grid" id="cert-grid"></div></div>
+   </div></section>
+
+   <section class="page set" id="p-set" data-page="set" hidden>
+    <nav class="cats" id="cats" aria-label="Kategorie ustawień"></nav>
+    <div class="pg">
+     <div class="hdr" data-hdr></div>
+     <div class="pc" data-part="PageContent"><div class="cards" id="set-cards"></div></div>
+    </div>
+   </section>
+
+   <section class="page" id="p-motion" data-page="motion" hidden><div class="pg">
+    <div class="hdr" data-hdr></div>
+    <div class="pt card" data-part="PageToolbar">
+     <span id="rm-label"><b>Ograniczenie ruchu</b></span>
+     <div class="seg" role="radiogroup" aria-labelledby="rm-label">
+      <label><input type="radio" name="rm" id="rm-system" value="system"><span>Systemowe</span></label>
+      <label><input type="radio" name="rm" id="rm-on" value="off"><span>Włączone</span></label>
+      <label><input type="radio" name="rm" id="rm-off" value="on"><span>Wyłączone</span></label>
+     </div>
+     <span class="muted" id="rm-state" style="font-size:12px"></span>
+    </div>
+    <div class="pc" data-part="PageContent">
+     <h2>Katalog animacji (plan, punkt 5.2)</h2>
+     <div class="grid" id="cat-grid"></div>
+     <h2>Tokeny (plan, punkt 5.1)</h2>
+     <div class="card tokwrap"><table class="tbl" id="tok-tbl"></table></div>
+     <h2>Celowo bez animacji</h2>
+     <p class="muted">Wiersze listy (dodanie, usunięcie, sortowanie), zmiana zaznaczenia, odświeżanie na żywo, przepływ paska narzędzi, zmiana motywu oraz otwieranie i zamykanie okien (robi to system) – dlatego okno dialogowe w prototypie pojawia się od razu. Animowane są tylko przezroczystość i przesunięcie; nigdy szerokość, wysokość ani margines. Stan logiczny zmienia się pierwszy, animacja go tylko dogania.</p>
+    </div>
+   </div></section>
+
+   <section class="page" id="p-area" data-page="area" hidden><div class="pg">
+    <div class="hdr" data-hdr></div>
+    <div class="pc" data-part="PageContent"><div class="empty" id="area-empty"></div></div>
+   </div></section>
+
+  </main>
+ </div>
+ <footer class="sb">
+  <span id="sb-dom"></span><span>DC01.contoso.test</span><span class="sb-sec">Kerberos, podpisywanie i szyfrowanie</span>
+  <span class="sp"></span>
+  <button class="lnk" id="sb-act" type="button">2 działania</button><span class="sb-ver">v0.x · prototyp, dane przykładowe</span>
+ </footer>
+ <div class="palette" id="palette" role="listbox" aria-label="Wyniki wyszukiwania" hidden></div>
+ <div class="tip" id="tip" role="dialog" aria-labelledby="tip-t" hidden>
+  <b id="tip-t">Jedno pole wyszukiwania</b>
+  <p>Polecenia, strony, ustawienia i obiekty katalogu są teraz w jednym miejscu. Skrót: Ctrl+K.</p>
+  <button class="btn hv accent" id="tip-ok" type="button">Rozumiem</button>
+ </div>
+ <div class="toasts" id="toasts" aria-live="polite"></div>
+ <div class="tt" id="tt" role="tooltip" hidden></div>
+</div>
+</div>
+
+<dialog id="dlg" aria-labelledby="dlg-t">
+ <div class="dlg-cap"><svg class="ic" width="16" height="16" viewBox="0 0 256 256" aria-hidden="true"><use href="#i-app"/></svg><span>AD Manager – contoso.test</span></div>
+ <div class="dlg-b"><svg class="ic" width="32" height="32" viewBox="0 0 48 48" aria-hidden="true"><use id="dlg-ic" href="#i-status-warning"/></svg>
+  <div><h2 id="dlg-t"></h2><p id="dlg-x"></p>
+   <label class="chk" for="dlg-chk"><input type="checkbox" id="dlg-chk"><span id="dlg-chk-l"></span></label></div></div>
+ <div class="dlg-f"><button class="btn hv danger" id="dlg-ok" type="button"></button><button class="btn hv" id="dlg-cancel" type="button">Anuluj</button></div>
+</dialog>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+<!-- Colour icons: docs/assets/icons (inlined unchanged; gradient ids made unique). App icon: tools/icon/admng-icon.svg. -->
+<symbol id="i-builtin" viewBox="0 0 48 48"><defs><linearGradient id="i-builtin-a" gradientUnits="userSpaceOnUse" x1="0" y1="14" x2="0" y2="42.5"><stop offset="0" stop-color="#FFC53D"/><stop offset="1" stop-color="#F2960F"/></linearGradient><linearGradient id="i-builtin-b" gradientUnits="userSpaceOnUse" x1="0" y1="22" x2="0" y2="39.3"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient></defs><rect x="6.5" y="14" width="35" height="28.5" rx="3.5" fill="url(#i-builtin-a)"/><rect x="3.5" y="6.5" width="41" height="12" rx="3" fill="#F2960F"/><path fill-rule="nonzero" d="M 24 22 L 32 24.9 V 30.2 C 32 34.9 27.6 37.9 24 39.3 C 20.4 37.9 16 34.9 16 30.2 V 24.9 Z" fill="url(#i-builtin-b)" stroke="url(#i-builtin-b)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-certificate" viewBox="0 0 48 48"><defs><linearGradient id="i-certificate-a" gradientUnits="userSpaceOnUse" x1="0" y1="7" x2="0" y2="37"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient><linearGradient id="i-certificate-b" gradientUnits="userSpaceOnUse" x1="0" y1="21" x2="0" y2="38"><stop offset="0" stop-color="#FFC53D"/><stop offset="1" stop-color="#F2960F"/></linearGradient></defs><rect x="3" y="7" width="42" height="30" rx="4" fill="url(#i-certificate-a)"/><path fill-rule="nonzero" d="M 10 15.5 H 30 M 10 22.5 H 22" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="nonzero" d="M 29.5 33 V 45 L 34 41.5 L 38.5 45 V 33 Z" fill="#F2960F" stroke="#F2960F" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="34" cy="29.5" r="8.5" fill="url(#i-certificate-b)"/><circle cx="34" cy="29.5" r="3.6" fill="#FFE7A3"/></symbol>
+<symbol id="i-computer-disabled" viewBox="0 0 48 48"><defs><linearGradient id="i-computer-disabled-a" gradientUnits="userSpaceOnUse" x1="0" y1="6.5" x2="0" y2="34.5"><stop offset="0" stop-color="#8D9AB0"/><stop offset="1" stop-color="#66748B"/></linearGradient><linearGradient id="i-computer-disabled-b" gradientUnits="userSpaceOnUse" x1="0" y1="10" x2="0" y2="31"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient><linearGradient id="i-computer-disabled-c" gradientUnits="userSpaceOnUse" x1="0" y1="25" x2="0" y2="46"><stop offset="0" stop-color="#8D9AB0"/><stop offset="1" stop-color="#66748B"/></linearGradient></defs><path fill-rule="nonzero" d="M 20 34 L 28 34 L 29.5 39.5 L 18.5 39.5 Z" fill="#66748B"/><rect x="13" y="38.5" width="22" height="3.5" rx="1.75" fill="#8D9AB0"/><rect x="4" y="6.5" width="40" height="28" rx="3.5" fill="url(#i-computer-disabled-a)"/><rect x="7.5" y="10" width="33" height="21" rx="2" fill="url(#i-computer-disabled-b)"/><circle cx="35.5" cy="35.5" r="10.5" fill="url(#i-computer-disabled-c)"/><path fill-rule="nonzero" d="M 35.5 29.5 V 41 M 30.5 36.5 L 35.5 41.5 L 40.5 36.5" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-computer" viewBox="0 0 48 48"><defs><linearGradient id="i-computer-a" gradientUnits="userSpaceOnUse" x1="0" y1="6.5" x2="0" y2="34.5"><stop offset="0" stop-color="#8D9AB0"/><stop offset="1" stop-color="#66748B"/></linearGradient><linearGradient id="i-computer-b" gradientUnits="userSpaceOnUse" x1="0" y1="10" x2="0" y2="31"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient></defs><path fill-rule="nonzero" d="M 20 34 L 28 34 L 29.5 39.5 L 18.5 39.5 Z" fill="#66748B"/><rect x="13" y="38.5" width="22" height="3.5" rx="1.75" fill="#8D9AB0"/><rect x="4" y="6.5" width="40" height="28" rx="3.5" fill="url(#i-computer-a)"/><rect x="7.5" y="10" width="33" height="21" rx="2" fill="url(#i-computer-b)"/></symbol>
+<symbol id="i-contact" viewBox="0 0 48 48"><defs><linearGradient id="i-contact-a" gradientUnits="userSpaceOnUse" x1="0" y1="8" x2="0" y2="40"><stop offset="0" stop-color="#2FC6E6"/><stop offset="1" stop-color="#0C8FB4"/></linearGradient></defs><rect x="3" y="8" width="42" height="32" rx="5" fill="url(#i-contact-a)"/><circle cx="15.5" cy="19.5" r="4.7" fill="#FFFFFF"/><path fill-rule="nonzero" d="M 8 32.5 C 8 28 11.5 26 15.5 26 C 19.5 26 23 28 23 32.5 A 1.5 1.5 0 0 1 21.5 34 H 9.5 A 1.5 1.5 0 0 1 8 32.5 Z" fill="#FFFFFF"/><path fill-rule="nonzero" d="M 28.5 18.5 H 39 M 28.5 25 H 39 M 28.5 31.5 H 35" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-container" viewBox="0 0 48 48"><defs><linearGradient id="i-container-a" gradientUnits="userSpaceOnUse" x1="0" y1="14" x2="0" y2="42.5"><stop offset="0" stop-color="#FFC53D"/><stop offset="1" stop-color="#F2960F"/></linearGradient></defs><rect x="6.5" y="14" width="35" height="28.5" rx="3.5" fill="url(#i-container-a)"/><rect x="3.5" y="6.5" width="41" height="12" rx="3" fill="#F2960F"/><rect x="16.5" y="25" width="15" height="5.5" rx="2.75" fill="#FFFFFF"/></symbol>
+<symbol id="i-domain-controller" viewBox="0 0 48 48"><defs><linearGradient id="i-domain-controller-a" gradientUnits="userSpaceOnUse" x1="0" y1="5" x2="0" y2="43"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient><linearGradient id="i-domain-controller-b" gradientUnits="userSpaceOnUse" x1="0" y1="23" x2="0" y2="46"><stop offset="0" stop-color="#1FCB9F"/><stop offset="1" stop-color="#0C9A77"/></linearGradient></defs><rect x="7" y="5" width="34" height="11" rx="3" fill="url(#i-domain-controller-a)"/><circle cx="13.5" cy="10.5" r="2.2" fill="#2EE6B8"/><path fill-rule="nonzero" d="M 24 10.5 H 34.5" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><rect x="7" y="18.5" width="34" height="11" rx="3" fill="url(#i-domain-controller-a)"/><circle cx="13.5" cy="24" r="2.2" fill="#2EE6B8"/><path fill-rule="nonzero" d="M 24 24 H 34.5" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><rect x="7" y="32" width="34" height="11" rx="3" fill="url(#i-domain-controller-a)"/><circle cx="13.5" cy="37.5" r="2.2" fill="#2EE6B8"/><path fill-rule="nonzero" d="M 24 37.5 H 34.5" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="nonzero" d="M 35 23.5 L 44.5 26.94 V 33.82 C 44.5 39.41 38.99 43.28 35 45 C 31.01 43.28 25.5 39.41 25.5 33.82 V 26.94 Z" fill="url(#i-domain-controller-b)" stroke="url(#i-domain-controller-b)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="nonzero" d="M 30.5 34 L 34 37.5 L 39.8 31" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-domain" viewBox="0 0 48 48"><defs><linearGradient id="i-domain-a" gradientUnits="userSpaceOnUse" x1="0" y1="4" x2="0" y2="44"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient></defs><rect x="4" y="4" width="40" height="40" rx="9" fill="url(#i-domain-a)"/><path fill-rule="nonzero" d="M 24 15 V 23.5 M 14 32 V 23.5 H 34 V 32" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24" cy="15" r="5" fill="#FFFFFF"/><circle cx="14" cy="32" r="5" fill="#FFFFFF"/><circle cx="34" cy="32" r="5" fill="#FFFFFF"/></symbol>
+<symbol id="i-folder" viewBox="0 0 48 48"><defs><linearGradient id="i-folder-a" gradientUnits="userSpaceOnUse" x1="0" y1="17.5" x2="0" y2="40"><stop offset="0" stop-color="#FFC53D"/><stop offset="1" stop-color="#F2960F"/></linearGradient></defs><path fill-rule="nonzero" d="M 4 12 A 3 3 0 0 1 7 9 H 19 L 23 13.5 H 41 A 3 3 0 0 1 44 16.5 V 37 A 3 3 0 0 1 41 40 H 7 A 3 3 0 0 1 4 37 Z" fill="#F2960F"/><rect x="4" y="17.5" width="40" height="22.5" rx="3" fill="url(#i-folder-a)"/></symbol>
+<symbol id="i-foreign-principal" viewBox="0 0 48 48"><defs><linearGradient id="i-foreign-principal-a" gradientUnits="userSpaceOnUse" x1="0" y1="6" x2="0" y2="42.5"><stop offset="0" stop-color="#2FC6E6"/><stop offset="1" stop-color="#0C8FB4"/></linearGradient><linearGradient id="i-foreign-principal-b" gradientUnits="userSpaceOnUse" x1="0" y1="25" x2="0" y2="46"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient></defs><circle cx="24" cy="14.5" r="8.5" fill="url(#i-foreign-principal-a)"/><path fill-rule="nonzero" d="M 7 39.5 C 7 31.62 15.16 26.5 24 26.5 C 32.84 26.5 41 31.62 41 39.5 A 3 3 0 0 1 38 42.5 H 10 A 3 3 0 0 1 7 39.5 Z" fill="url(#i-foreign-principal-a)"/><rect x="25" y="25" width="21" height="21" rx="5" fill="url(#i-foreign-principal-b)"/><path fill-rule="nonzero" d="M 31 40 L 39.5 31.5 M 32.5 31.5 H 39.5 V 38.5" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-group-distribution" viewBox="0 0 48 48"><defs><linearGradient id="i-group-distribution-a" gradientUnits="userSpaceOnUse" x1="0" y1="6.5" x2="0" y2="36"><stop offset="0" stop-color="#7FA8FF"/><stop offset="1" stop-color="#3B7BFF"/></linearGradient><linearGradient id="i-group-distribution-b" gradientUnits="userSpaceOnUse" x1="0" y1="11.5" x2="0" y2="42.5"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient><linearGradient id="i-group-distribution-c" gradientUnits="userSpaceOnUse" x1="0" y1="27.5" x2="0" y2="44.5"><stop offset="0" stop-color="#2FC6E6"/><stop offset="1" stop-color="#0C8FB4"/></linearGradient></defs><circle cx="31.5" cy="13" r="6.5" fill="url(#i-group-distribution-a)"/><path fill-rule="nonzero" d="M 19 33.5 C 19 26.82 25 22.5 31.5 22.5 C 38 22.5 44 26.82 44 33.5 A 2.5 2.5 0 0 1 41.5 36 H 21.5 A 2.5 2.5 0 0 1 19 33.5 Z" fill="url(#i-group-distribution-a)"/><circle cx="18" cy="19" r="7.5" fill="url(#i-group-distribution-b)"/><path fill-rule="nonzero" d="M 4 40 C 4 33.66 10.72 29.5 18 29.5 C 25.28 29.5 32 33.66 32 40 A 2.5 2.5 0 0 1 29.5 42.5 H 6.5 A 2.5 2.5 0 0 1 4 40 Z" fill="url(#i-group-distribution-b)"/><rect x="23" y="27.5" width="22.5" height="17" rx="3.5" fill="url(#i-group-distribution-c)"/><path fill-rule="nonzero" d="M 27 32 L 34.25 37.5 L 41.5 32" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-group-policy" viewBox="0 0 48 48"><defs><linearGradient id="i-group-policy-a" gradientUnits="userSpaceOnUse" x1="0" y1="4" x2="0" y2="44"><stop offset="0" stop-color="#A982FF"/><stop offset="1" stop-color="#7446E0"/></linearGradient></defs><path fill-rule="nonzero" d="M 12 4 H 29 L 39 14 V 41 A 3 3 0 0 1 36 44 H 12 A 3 3 0 0 1 9 41 V 7 A 3 3 0 0 1 12 4 Z" fill="url(#i-group-policy-a)"/><path fill-rule="nonzero" d="M 29 4 L 39 14 H 32 A 3 3 0 0 1 29 11 Z" fill="#DCCBFF"/><path fill-rule="nonzero" d="M 14 24 L 16.5 26.5 L 20.5 21.5 M 25.5 24 H 33.5 M 14 34.5 L 16.5 37 L 20.5 32 M 25.5 34.5 H 33.5" fill="none" stroke="#FFFFFF" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-group" viewBox="0 0 48 48"><defs><linearGradient id="i-group-a" gradientUnits="userSpaceOnUse" x1="0" y1="6.5" x2="0" y2="36"><stop offset="0" stop-color="#7FA8FF"/><stop offset="1" stop-color="#3B7BFF"/></linearGradient><linearGradient id="i-group-b" gradientUnits="userSpaceOnUse" x1="0" y1="11.5" x2="0" y2="42.5"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient></defs><circle cx="31.5" cy="13" r="6.5" fill="url(#i-group-a)"/><path fill-rule="nonzero" d="M 19 33.5 C 19 26.82 25 22.5 31.5 22.5 C 38 22.5 44 26.82 44 33.5 A 2.5 2.5 0 0 1 41.5 36 H 21.5 A 2.5 2.5 0 0 1 19 33.5 Z" fill="url(#i-group-a)"/><circle cx="18" cy="19" r="7.5" fill="url(#i-group-b)"/><path fill-rule="nonzero" d="M 4 40 C 4 33.66 10.72 29.5 18 29.5 C 25.28 29.5 32 33.66 32 40 A 2.5 2.5 0 0 1 29.5 42.5 H 6.5 A 2.5 2.5 0 0 1 4 40 Z" fill="url(#i-group-b)"/></symbol>
+<symbol id="i-organizational-unit" viewBox="0 0 48 48"><defs><linearGradient id="i-organizational-unit-a" gradientUnits="userSpaceOnUse" x1="0" y1="17.5" x2="0" y2="40"><stop offset="0" stop-color="#FFC53D"/><stop offset="1" stop-color="#F2960F"/></linearGradient></defs><path fill-rule="nonzero" d="M 4 12 A 3 3 0 0 1 7 9 H 19 L 23 13.5 H 41 A 3 3 0 0 1 44 16.5 V 37 A 3 3 0 0 1 41 40 H 7 A 3 3 0 0 1 4 37 Z" fill="#F2960F"/><rect x="4" y="17.5" width="40" height="22.5" rx="3" fill="url(#i-organizational-unit-a)"/><path fill-rule="nonzero" d="M 24 23 V 28.25 M 15.5 33.5 V 28.25 H 32.5 V 33.5" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24" cy="23" r="3" fill="#FFFFFF"/><circle cx="15.5" cy="33.5" r="3" fill="#FFFFFF"/><circle cx="32.5" cy="33.5" r="3" fill="#FFFFFF"/></symbol>
+<symbol id="i-pinned" viewBox="0 0 48 48"><defs><linearGradient id="i-pinned-a" gradientUnits="userSpaceOnUse" x1="0" y1="6" x2="0" y2="34"><stop offset="0" stop-color="#7FA8FF"/><stop offset="1" stop-color="#3B7BFF"/></linearGradient><linearGradient id="i-pinned-b" gradientUnits="userSpaceOnUse" x1="0" y1="4" x2="0" y2="36"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient></defs><path fill-rule="nonzero" d="M 18.454 29.546 L 4.878 43.122" fill="none" stroke="#66748B" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="nonzero" d="M 27.788 11.726 L 36.274 20.212 L 28.637 31.243 L 16.757 19.363 Z" fill="url(#i-pinned-a)" stroke="url(#i-pinned-a)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="nonzero" d="M 29.485 4.938 L 43.062 18.515 L 39.243 22.333 L 25.667 8.757 Z" fill="url(#i-pinned-b)" stroke="url(#i-pinned-b)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="nonzero" d="M 12.515 15.121 L 32.879 35.485 L 29.061 39.304 L 8.696 18.939 Z" fill="url(#i-pinned-b)" stroke="url(#i-pinned-b)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-printer" viewBox="0 0 48 48"><defs><linearGradient id="i-printer-a" gradientUnits="userSpaceOnUse" x1="0" y1="14.5" x2="0" y2="35.5"><stop offset="0" stop-color="#8D9AB0"/><stop offset="1" stop-color="#66748B"/></linearGradient><linearGradient id="i-printer-b" gradientUnits="userSpaceOnUse" x1="0" y1="27" x2="0" y2="44"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient></defs><rect x="13" y="4" width="22" height="14" rx="2.5" fill="#B7C1D1"/><rect x="4" y="14.5" width="40" height="21" rx="4" fill="url(#i-printer-a)"/><circle cx="37.5" cy="20.5" r="2" fill="#2EE6B8"/><rect x="9" y="25" width="30" height="4.5" rx="2.25" fill="#3A465A"/><rect x="11" y="27" width="26" height="17" rx="2.5" fill="url(#i-printer-b)"/><path fill-rule="nonzero" d="M 16 33 H 32 M 16 38.5 H 26" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-query" viewBox="0 0 48 48"><defs><linearGradient id="i-query-a" gradientUnits="userSpaceOnUse" x1="0" y1="4" x2="0" y2="41"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient><linearGradient id="i-query-b" gradientUnits="userSpaceOnUse" x1="0" y1="21.5" x2="0" y2="42.5"><stop offset="0" stop-color="#FFC53D"/><stop offset="1" stop-color="#F2960F"/></linearGradient></defs><rect x="6" y="4" width="28" height="37" rx="4" fill="url(#i-query-a)"/><path fill-rule="nonzero" d="M 12 12.5 H 28 M 12 19.5 H 22" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="nonzero" d="M 39.5 39.5 L 43.25 43.25" fill="none" stroke="#B96A00" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="32" cy="32" r="10.5" fill="url(#i-query-b)"/><circle cx="32" cy="32" r="6.2" fill="#FFFFFF"/></symbol>
+<symbol id="i-quick-filter" viewBox="0 0 48 48"><defs><linearGradient id="i-quick-filter-a" gradientUnits="userSpaceOnUse" x1="0" y1="7" x2="0" y2="45"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient><linearGradient id="i-quick-filter-b" gradientUnits="userSpaceOnUse" x1="0" y1="23" x2="0" y2="44"><stop offset="0" stop-color="#FFC53D"/><stop offset="1" stop-color="#F2960F"/></linearGradient></defs><path fill-rule="nonzero" d="M 7 9 H 41 L 28.5 25 V 39 L 19.5 43 V 25 Z" fill="url(#i-quick-filter-a)" stroke="url(#i-quick-filter-a)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="nonzero" d="M 36.5 23 H 42 L 39.5 30 H 44 L 33.5 44 L 35.5 34.5 H 31 Z" fill="url(#i-quick-filter-b)" stroke="url(#i-quick-filter-b)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-server" viewBox="0 0 48 48"><defs><linearGradient id="i-server-a" gradientUnits="userSpaceOnUse" x1="0" y1="5" x2="0" y2="43"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient></defs><rect x="7" y="5" width="34" height="11" rx="3" fill="url(#i-server-a)"/><circle cx="13.5" cy="10.5" r="2.2" fill="#2EE6B8"/><path fill-rule="nonzero" d="M 24 10.5 H 34.5" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><rect x="7" y="18.5" width="34" height="11" rx="3" fill="url(#i-server-a)"/><circle cx="13.5" cy="24" r="2.2" fill="#2EE6B8"/><path fill-rule="nonzero" d="M 24 24 H 34.5" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><rect x="7" y="32" width="34" height="11" rx="3" fill="url(#i-server-a)"/><circle cx="13.5" cy="37.5" r="2.2" fill="#2EE6B8"/><path fill-rule="nonzero" d="M 24 37.5 H 34.5" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-service-account" viewBox="0 0 48 48"><defs><linearGradient id="i-service-account-a" gradientUnits="userSpaceOnUse" x1="0" y1="6" x2="0" y2="42.5"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient><linearGradient id="i-service-account-b" gradientUnits="userSpaceOnUse" x1="0" y1="25" x2="0" y2="45"><stop offset="0" stop-color="#A982FF"/><stop offset="1" stop-color="#7446E0"/></linearGradient></defs><circle cx="24" cy="14.5" r="8.5" fill="url(#i-service-account-a)"/><path fill-rule="nonzero" d="M 7 39.5 C 7 31.62 15.16 26.5 24 26.5 C 32.84 26.5 41 31.62 41 39.5 A 3 3 0 0 1 38 42.5 H 10 A 3 3 0 0 1 7 39.5 Z" fill="url(#i-service-account-a)"/><path fill-rule="nonzero" d="M 44.742 37.258 L 43.485 40.292 L 40.792 39.278 L 39.278 40.792 L 40.292 43.485 L 37.258 44.742 L 36.07 42.12 L 33.93 42.12 L 32.742 44.742 L 29.708 43.485 L 30.722 40.792 L 29.208 39.278 L 26.515 40.292 L 25.258 37.258 L 27.88 36.07 L 27.88 33.93 L 25.258 32.742 L 26.515 29.708 L 29.208 30.722 L 30.722 29.208 L 29.708 26.515 L 32.742 25.258 L 33.93 27.88 L 36.07 27.88 L 37.258 25.258 L 40.292 26.515 L 39.278 29.208 L 40.792 30.722 L 43.485 29.708 L 44.742 32.742 L 42.12 33.93 L 42.12 36.07 Z" fill="url(#i-service-account-b)" stroke="url(#i-service-account-b)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="35" cy="35" r="3.9" fill="#FFFFFF"/></symbol>
+<symbol id="i-shared-folder" viewBox="0 0 48 48"><defs><linearGradient id="i-shared-folder-a" gradientUnits="userSpaceOnUse" x1="0" y1="12" x2="0" y2="31"><stop offset="0" stop-color="#FFC53D"/><stop offset="1" stop-color="#F2960F"/></linearGradient><linearGradient id="i-shared-folder-b" gradientUnits="userSpaceOnUse" x1="0" y1="35.5" x2="0" y2="45.5"><stop offset="0" stop-color="#2FC6E6"/><stop offset="1" stop-color="#0C8FB4"/></linearGradient></defs><path fill-rule="nonzero" d="M 6 7.5 A 3 3 0 0 1 9 4.5 H 19 L 22.5 8.5 H 39 A 3 3 0 0 1 42 11.5 V 28 A 3 3 0 0 1 39 31 H 9 A 3 3 0 0 1 6 28 Z" fill="#F2960F"/><rect x="6" y="12" width="36" height="19" rx="3" fill="url(#i-shared-folder-a)"/><path fill-rule="nonzero" d="M 24 31 V 38" fill="none" stroke="#0C8FB4" stroke-width="3.5" stroke-linecap="butt" stroke-linejoin="round"/><path fill-rule="nonzero" d="M 5.5 40.5 H 42.5" fill="none" stroke="#0C8FB4" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="18" y="35.5" width="12" height="10" rx="3" fill="url(#i-shared-folder-b)"/></symbol>
+<symbol id="i-site" viewBox="0 0 48 48"><defs><linearGradient id="i-site-a" gradientUnits="userSpaceOnUse" x1="0" y1="4.5" x2="0" y2="45"><stop offset="0" stop-color="#2FC6E6"/><stop offset="1" stop-color="#0C8FB4"/></linearGradient></defs><path fill-rule="nonzero" d="M 24 45 C 24 45 9.5 31.5 9.5 19 A 14.5 14.5 0 0 1 38.5 19 C 38.5 31.5 24 45 24 45 Z" fill="url(#i-site-a)"/><circle cx="24" cy="19" r="6" fill="#FFFFFF"/></symbol>
+<symbol id="i-unknown" viewBox="0 0 48 48"><path fill-rule="nonzero" d="M 8 14.75 L 24 24 L 24 42.5 L 8 33.25 Z" fill="#8D9AB0" stroke="#8D9AB0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="nonzero" d="M 40 14.75 L 40 33.25 L 24 42.5 L 24 24 Z" fill="#66748B" stroke="#66748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="nonzero" d="M 24 5.5 L 40 14.75 L 24 24 L 8 14.75 Z" fill="#B7C1D1" stroke="#B7C1D1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-user-disabled" viewBox="0 0 48 48"><defs><linearGradient id="i-user-disabled-a" gradientUnits="userSpaceOnUse" x1="0" y1="6" x2="0" y2="42.5"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient><linearGradient id="i-user-disabled-b" gradientUnits="userSpaceOnUse" x1="0" y1="25" x2="0" y2="46"><stop offset="0" stop-color="#8D9AB0"/><stop offset="1" stop-color="#66748B"/></linearGradient></defs><circle cx="24" cy="14.5" r="8.5" fill="url(#i-user-disabled-a)"/><path fill-rule="nonzero" d="M 7 39.5 C 7 31.62 15.16 26.5 24 26.5 C 32.84 26.5 41 31.62 41 39.5 A 3 3 0 0 1 38 42.5 H 10 A 3 3 0 0 1 7 39.5 Z" fill="url(#i-user-disabled-a)"/><circle cx="35.5" cy="35.5" r="10.5" fill="url(#i-user-disabled-b)"/><path fill-rule="nonzero" d="M 35.5 29.5 V 41 M 30.5 36.5 L 35.5 41.5 L 40.5 36.5" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-user-locked" viewBox="0 0 48 48"><defs><linearGradient id="i-user-locked-a" gradientUnits="userSpaceOnUse" x1="0" y1="6" x2="0" y2="42.5"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient><linearGradient id="i-user-locked-b" gradientUnits="userSpaceOnUse" x1="0" y1="31.5" x2="0" y2="46"><stop offset="0" stop-color="#FFC53D"/><stop offset="1" stop-color="#F2960F"/></linearGradient></defs><circle cx="24" cy="14.5" r="8.5" fill="url(#i-user-locked-a)"/><path fill-rule="nonzero" d="M 7 39.5 C 7 31.62 15.16 26.5 24 26.5 C 32.84 26.5 41 31.62 41 39.5 A 3 3 0 0 1 38 42.5 H 10 A 3 3 0 0 1 7 39.5 Z" fill="url(#i-user-locked-a)"/><path fill-rule="nonzero" d="M 30 33 V 28.5 A 5.5 5.5 0 0 1 41 28.5 V 33" fill="none" stroke="#F2960F" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="26" y="31.5" width="19" height="14.5" rx="3" fill="url(#i-user-locked-b)"/><circle cx="35.5" cy="38.75" r="2.5" fill="#B96A00"/></symbol>
+<symbol id="i-user" viewBox="0 0 48 48"><defs><linearGradient id="i-user-a" gradientUnits="userSpaceOnUse" x1="0" y1="6" x2="0" y2="42.5"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient></defs><circle cx="24" cy="14.5" r="8.5" fill="url(#i-user-a)"/><path fill-rule="nonzero" d="M 7 39.5 C 7 31.62 15.16 26.5 24 26.5 C 32.84 26.5 41 31.62 41 39.5 A 3 3 0 0 1 38 42.5 H 10 A 3 3 0 0 1 7 39.5 Z" fill="url(#i-user-a)"/></symbol>
+<symbol id="i-watchdog" viewBox="0 0 48 48"><defs><linearGradient id="i-watchdog-a" gradientUnits="userSpaceOnUse" x1="0" y1="8" x2="0" y2="40"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient></defs><path fill-rule="nonzero" d="M 3 24 C 9 13.5 16.5 9 24 9 C 31.5 9 39 13.5 45 24 C 39 34.5 31.5 39 24 39 C 16.5 39 9 34.5 3 24 Z" fill="url(#i-watchdog-a)" stroke="url(#i-watchdog-a)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24" cy="24" r="9.5" fill="#FFFFFF"/><circle cx="24" cy="24" r="5" fill="#27348F"/></symbol>
+<symbol id="i-wmi-filter" viewBox="0 0 48 48"><defs><linearGradient id="i-wmi-filter-a" gradientUnits="userSpaceOnUse" x1="0" y1="7" x2="0" y2="45"><stop offset="0" stop-color="#A982FF"/><stop offset="1" stop-color="#7446E0"/></linearGradient><linearGradient id="i-wmi-filter-b" gradientUnits="userSpaceOnUse" x1="0" y1="25" x2="0" y2="45"><stop offset="0" stop-color="#8D9AB0"/><stop offset="1" stop-color="#66748B"/></linearGradient></defs><path fill-rule="nonzero" d="M 7 9 H 41 L 28.5 25 V 39 L 19.5 43 V 25 Z" fill="url(#i-wmi-filter-a)" stroke="url(#i-wmi-filter-a)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="nonzero" d="M 44.742 37.258 L 43.485 40.292 L 40.792 39.278 L 39.278 40.792 L 40.292 43.485 L 37.258 44.742 L 36.07 42.12 L 33.93 42.12 L 32.742 44.742 L 29.708 43.485 L 30.722 40.792 L 29.208 39.278 L 26.515 40.292 L 25.258 37.258 L 27.88 36.07 L 27.88 33.93 L 25.258 32.742 L 26.515 29.708 L 29.208 30.722 L 30.722 29.208 L 29.708 26.515 L 32.742 25.258 L 33.93 27.88 L 36.07 27.88 L 37.258 25.258 L 40.292 26.515 L 39.278 29.208 L 40.792 30.722 L 43.485 29.708 L 44.742 32.742 L 42.12 33.93 L 42.12 36.07 Z" fill="url(#i-wmi-filter-b)" stroke="url(#i-wmi-filter-b)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="35" cy="35" r="3.4" fill="#FFFFFF"/></symbol>
+<symbol id="i-account-review" viewBox="0 0 48 48"><defs><linearGradient id="i-account-review-a" gradientUnits="userSpaceOnUse" x1="0" y1="6" x2="0" y2="42.5"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient><linearGradient id="i-account-review-b" gradientUnits="userSpaceOnUse" x1="0" y1="23.5" x2="0" y2="42.5"><stop offset="0" stop-color="#FFC53D"/><stop offset="1" stop-color="#F2960F"/></linearGradient></defs><circle cx="24" cy="14.5" r="8.5" fill="url(#i-account-review-a)"/><path fill-rule="nonzero" d="M 7 39.5 C 7 31.62 15.16 26.5 24 26.5 C 32.84 26.5 41 31.62 41 39.5 A 3 3 0 0 1 38 42.5 H 10 A 3 3 0 0 1 7 39.5 Z" fill="url(#i-account-review-a)"/><path fill-rule="nonzero" d="M 39.5 39.5 L 43.25 43.25" fill="none" stroke="#B96A00" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="33" cy="33" r="9.5" fill="url(#i-account-review-b)"/><circle cx="33" cy="33" r="5.5" fill="#FFFFFF"/></symbol>
+<symbol id="i-activity" viewBox="0 0 48 48"><defs><linearGradient id="i-activity-a" gradientUnits="userSpaceOnUse" x1="0" y1="4" x2="0" y2="44"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient></defs><rect x="4" y="4" width="40" height="40" rx="9" fill="url(#i-activity-a)"/><path fill-rule="nonzero" d="M 10 26 H 16 L 20.5 14.5 L 27 34.5 L 31 26 H 38" fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-bulk-create" viewBox="0 0 48 48"><defs><linearGradient id="i-bulk-create-a" gradientUnits="userSpaceOnUse" x1="0" y1="6.5" x2="0" y2="36"><stop offset="0" stop-color="#7FA8FF"/><stop offset="1" stop-color="#3B7BFF"/></linearGradient><linearGradient id="i-bulk-create-b" gradientUnits="userSpaceOnUse" x1="0" y1="11.5" x2="0" y2="42.5"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient><linearGradient id="i-bulk-create-c" gradientUnits="userSpaceOnUse" x1="0" y1="25" x2="0" y2="46"><stop offset="0" stop-color="#1FCB9F"/><stop offset="1" stop-color="#0C9A77"/></linearGradient></defs><circle cx="31.5" cy="13" r="6.5" fill="url(#i-bulk-create-a)"/><path fill-rule="nonzero" d="M 19 33.5 C 19 26.82 25 22.5 31.5 22.5 C 38 22.5 44 26.82 44 33.5 A 2.5 2.5 0 0 1 41.5 36 H 21.5 A 2.5 2.5 0 0 1 19 33.5 Z" fill="url(#i-bulk-create-a)"/><circle cx="18" cy="19" r="7.5" fill="url(#i-bulk-create-b)"/><path fill-rule="nonzero" d="M 4 40 C 4 33.66 10.72 29.5 18 29.5 C 25.28 29.5 32 33.66 32 40 A 2.5 2.5 0 0 1 29.5 42.5 H 6.5 A 2.5 2.5 0 0 1 4 40 Z" fill="url(#i-bulk-create-b)"/><circle cx="35.5" cy="35.5" r="10.5" fill="url(#i-bulk-create-c)"/><path fill-rule="nonzero" d="M 35.5 30 V 41 M 30 35.5 H 41" fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-bulk-edit" viewBox="0 0 48 48"><defs><linearGradient id="i-bulk-edit-a" gradientUnits="userSpaceOnUse" x1="0" y1="5" x2="0" y2="43"><stop offset="0" stop-color="#7FA8FF"/><stop offset="1" stop-color="#3B7BFF"/></linearGradient><linearGradient id="i-bulk-edit-b" gradientUnits="userSpaceOnUse" x1="0" y1="14" x2="0" y2="44"><stop offset="0" stop-color="#FFC53D"/><stop offset="1" stop-color="#F2960F"/></linearGradient></defs><rect x="4" y="5.5" width="31" height="8.5" rx="3.5" fill="url(#i-bulk-edit-a)"/><rect x="4" y="19.5" width="21" height="8.5" rx="3.5" fill="url(#i-bulk-edit-a)"/><rect x="4" y="33.5" width="12" height="8.5" rx="3.5" fill="url(#i-bulk-edit-a)"/><path fill-rule="nonzero" d="M 19.277 33.722 L 26.278 40.723 L 16.555 43.445 Z" fill="#B96A00" stroke="#B96A00" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="nonzero" d="M 32.889 20.111 L 39.889 27.111 L 26.278 40.723 L 19.277 33.722 Z" fill="url(#i-bulk-edit-b)" stroke="url(#i-bulk-edit-b)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="nonzero" d="M 37.556 15.444 L 44.556 22.444 L 39.889 27.111 L 32.889 20.111 Z" fill="#8D9AB0" stroke="#8D9AB0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-certificate-authority" viewBox="0 0 48 48"><defs><linearGradient id="i-certificate-authority-a" gradientUnits="userSpaceOnUse" x1="0" y1="27" x2="0" y2="46"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient><linearGradient id="i-certificate-authority-b" gradientUnits="userSpaceOnUse" x1="0" y1="3" x2="0" y2="36"><stop offset="0" stop-color="#FFC53D"/><stop offset="1" stop-color="#F2960F"/></linearGradient></defs><path fill-rule="nonzero" d="M 14.5 27 L 9 43 L 15.5 41 L 19 45 L 24.5 30 Z" fill="url(#i-certificate-authority-a)" stroke="url(#i-certificate-authority-a)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="nonzero" d="M 33.5 27 L 39 43 L 32.5 41 L 29 45 L 23.5 30 Z" fill="url(#i-certificate-authority-a)" stroke="url(#i-certificate-authority-a)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="nonzero" d="M 39.367 17.477 L 39.367 21.523 L 37.259 20.544 L 36.004 25.226 L 38.32 25.432 L 36.297 28.936 L 34.961 27.033 L 31.533 30.461 L 33.436 31.797 L 29.932 33.82 L 29.726 31.504 L 25.044 32.759 L 26.023 34.867 L 21.977 34.867 L 22.956 32.759 L 18.274 31.504 L 18.068 33.82 L 14.564 31.797 L 16.467 30.461 L 13.039 27.033 L 11.703 28.936 L 9.68 25.432 L 11.996 25.226 L 10.741 20.544 L 8.633 21.523 L 8.633 17.477 L 10.741 18.456 L 11.996 13.774 L 9.68 13.568 L 11.703 10.064 L 13.039 11.967 L 16.467 8.539 L 14.564 7.203 L 18.068 5.18 L 18.274 7.496 L 22.956 6.241 L 21.977 4.133 L 26.023 4.133 L 25.044 6.241 L 29.726 7.496 L 29.932 5.18 L 33.436 7.203 L 31.533 8.539 L 34.961 11.967 L 36.297 10.064 L 38.32 13.568 L 36.004 13.774 L 37.259 18.456 Z" fill="url(#i-certificate-authority-b)" stroke="url(#i-certificate-authority-b)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24" cy="19.5" r="9.3" fill="#FFE7A3"/><path fill-rule="nonzero" d="M 24 13 L 25.763 17.373 L 30.467 17.699 L 26.853 20.727 L 27.997 25.301 L 24 22.8 L 20.003 25.301 L 21.147 20.727 L 17.533 17.699 L 22.237 17.373 Z" fill="#F2960F" stroke="#F2960F" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-certificate-template" viewBox="0 0 48 48"><defs><linearGradient id="i-certificate-template-a" gradientUnits="userSpaceOnUse" x1="0" y1="11" x2="0" y2="38"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient><linearGradient id="i-certificate-template-b" gradientUnits="userSpaceOnUse" x1="0" y1="24.5" x2="0" y2="43.5"><stop offset="0" stop-color="#FFC53D"/><stop offset="1" stop-color="#F2960F"/></linearGradient></defs><rect x="9" y="4" width="36" height="26" rx="4" fill="#7FA8FF"/><rect x="3" y="11" width="36" height="27" rx="4" fill="url(#i-certificate-template-a)"/><path fill-rule="nonzero" d="M 9.5 18 H 25.5 V 26 H 9.5 Z" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="34" cy="34" r="7.5" fill="none" stroke="url(#i-certificate-template-b)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-compare" viewBox="0 0 48 48"><defs><linearGradient id="i-compare-a" gradientUnits="userSpaceOnUse" x1="0" y1="5" x2="0" y2="43"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient></defs><rect x="3" y="5" width="19" height="38" rx="4.5" fill="url(#i-compare-a)"/><path fill-rule="nonzero" d="M 8.5 13.5 H 16.5 M 8.5 34.5 H 16.5" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><rect x="6.5" y="20.5" width="12" height="7" rx="3" fill="#FFC53D"/><rect x="26" y="5" width="19" height="38" rx="4.5" fill="url(#i-compare-a)"/><path fill-rule="nonzero" d="M 31.5 13.5 H 39.5 M 31.5 34.5 H 39.5" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><rect x="29.5" y="20.5" width="12" height="7" rx="3" fill="#FFC53D"/></symbol>
+<symbol id="i-computers" viewBox="0 0 48 48"><defs><linearGradient id="i-computers-a" gradientUnits="userSpaceOnUse" x1="0" y1="4" x2="0" y2="27"><stop offset="0" stop-color="#8D9AB0"/><stop offset="1" stop-color="#66748B"/></linearGradient><linearGradient id="i-computers-b" gradientUnits="userSpaceOnUse" x1="0" y1="17.5" x2="0" y2="39"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient></defs><path fill-rule="nonzero" d="M 28 26 H 34 L 35 31 H 27 Z" fill="#66748B"/><rect x="14.5" y="4" width="30.5" height="23" rx="3.5" fill="url(#i-computers-a)"/><rect x="17.5" y="7" width="24.5" height="17" rx="2" fill="#BCD2FF"/><rect x="6.5" y="17.5" width="29" height="21.5" rx="3.5" fill="url(#i-computers-b)"/><rect x="2.5" y="37.5" width="37" height="6" rx="3" fill="#8D9AB0"/></symbol>
+<symbol id="i-connection" viewBox="0 0 48 48"><defs><linearGradient id="i-connection-a" gradientUnits="userSpaceOnUse" x1="0" y1="13" x2="0" y2="35.5"><stop offset="0" stop-color="#2FC6E6"/><stop offset="1" stop-color="#0C8FB4"/></linearGradient></defs><path fill-rule="nonzero" d="M 24 34 V 43.5" fill="none" stroke="#66748B" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="14.5" y="3" width="6" height="13" rx="3" fill="#8D9AB0"/><rect x="27.5" y="3" width="6" height="13" rx="3" fill="#8D9AB0"/><path fill-rule="nonzero" d="M 10 14 H 38 V 22 C 38 29.5 31.5 34.5 24 34.5 C 16.5 34.5 10 29.5 10 22 Z" fill="url(#i-connection-a)" stroke="url(#i-connection-a)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-correspondence" viewBox="0 0 48 48"><defs><linearGradient id="i-correspondence-a" gradientUnits="userSpaceOnUse" x1="0" y1="21" x2="0" y2="44"><stop offset="0" stop-color="#2FC6E6"/><stop offset="1" stop-color="#0C8FB4"/></linearGradient></defs><rect x="9.5" y="4" width="29" height="30" rx="3.5" fill="#7FA8FF"/><path fill-rule="nonzero" d="M 15.5 11.5 H 32.5 M 15.5 18 H 26" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="nonzero" d="M 4 22 L 24 33.5 L 44 22 V 40 A 3 3 0 0 1 41 43 H 7 A 3 3 0 0 1 4 40 Z" fill="url(#i-correspondence-a)" stroke="url(#i-correspondence-a)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-dhcp" viewBox="0 0 48 48"><defs><linearGradient id="i-dhcp-a" gradientUnits="userSpaceOnUse" x1="0" y1="4" x2="0" y2="44"><stop offset="0" stop-color="#2FC6E6"/><stop offset="1" stop-color="#0C8FB4"/></linearGradient></defs><rect x="4" y="4" width="40" height="40" rx="9" fill="url(#i-dhcp-a)"/><path fill-rule="nonzero" d="M 13.5 15.5 H 34.5 V 29.5 H 30 V 34 H 18 V 29.5 H 13.5 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="nonzero" d="M 19 14.5 V 21.5 M 24 14.5 V 21.5 M 29 14.5 V 21.5" fill="none" stroke="#0C8FB4" stroke-width="2.6" stroke-linecap="butt" stroke-linejoin="round"/></symbol>
+<symbol id="i-directory" viewBox="0 0 48 48"><defs><linearGradient id="i-directory-a" gradientUnits="userSpaceOnUse" x1="0" y1="4" x2="0" y2="17.5"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient><linearGradient id="i-directory-b" gradientUnits="userSpaceOnUse" x1="0" y1="19" x2="0" y2="30"><stop offset="0" stop-color="#FFC53D"/><stop offset="1" stop-color="#F2960F"/></linearGradient><linearGradient id="i-directory-c" gradientUnits="userSpaceOnUse" x1="0" y1="32.5" x2="0" y2="43.5"><stop offset="0" stop-color="#FFC53D"/><stop offset="1" stop-color="#F2960F"/></linearGradient></defs><path fill-rule="nonzero" d="M 11.5 16 V 37.5 H 22 M 11.5 24.5 H 22" fill="none" stroke="#8D9AB0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><rect x="4" y="4" width="17" height="13.5" rx="3.5" fill="url(#i-directory-a)"/><rect x="21" y="19" width="23" height="11" rx="3.5" fill="url(#i-directory-b)"/><rect x="21" y="32.5" width="23" height="11" rx="3.5" fill="url(#i-directory-c)"/></symbol>
+<symbol id="i-dns" viewBox="0 0 48 48"><defs><linearGradient id="i-dns-a" gradientUnits="userSpaceOnUse" x1="0" y1="4" x2="0" y2="44"><stop offset="0" stop-color="#2FC6E6"/><stop offset="1" stop-color="#0C8FB4"/></linearGradient></defs><circle cx="24" cy="24" r="20" fill="url(#i-dns-a)"/><ellipse cx="24" cy="24" rx="8.5" ry="18.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="nonzero" d="M 5.8 24 H 42.2 M 24 5.8 V 42.2" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="butt" stroke-linejoin="round"/></symbol>
+<symbol id="i-event-logs" viewBox="0 0 48 48"><defs><linearGradient id="i-event-logs-a" gradientUnits="userSpaceOnUse" x1="0" y1="3" x2="0" y2="45"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient></defs><rect x="7" y="3" width="34" height="42" rx="5" fill="url(#i-event-logs-a)"/><circle cx="15.5" cy="13" r="3.2" fill="#FFFFFF"/><path fill-rule="nonzero" d="M 23 13 H 34" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="15.5" cy="24" r="3.2" fill="#FFC53D"/><path fill-rule="nonzero" d="M 23 24 H 34" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="15.5" cy="35" r="3.2" fill="#FF6F61"/><path fill-rule="nonzero" d="M 23 35 H 34" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-export" viewBox="0 0 48 48"><defs><linearGradient id="i-export-a" gradientUnits="userSpaceOnUse" x1="0" y1="4" x2="0" y2="44"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient><linearGradient id="i-export-b" gradientUnits="userSpaceOnUse" x1="0" y1="21" x2="0" y2="43"><stop offset="0" stop-color="#1FCB9F"/><stop offset="1" stop-color="#0C9A77"/></linearGradient></defs><rect x="4" y="4" width="28" height="40" rx="4.5" fill="url(#i-export-a)"/><path fill-rule="nonzero" d="M 10.5 12.5 H 25.5 M 10.5 19.5 H 19" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="nonzero" d="M 17 32 H 41 M 33.5 23.5 L 42 32 L 33.5 40.5" fill="none" stroke="url(#i-export-b)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-home" viewBox="0 0 48 48"><defs><linearGradient id="i-home-a" gradientUnits="userSpaceOnUse" x1="0" y1="19" x2="0" y2="43.5"><stop offset="0" stop-color="#7FA8FF"/><stop offset="1" stop-color="#3B7BFF"/></linearGradient><linearGradient id="i-home-b" gradientUnits="userSpaceOnUse" x1="0" y1="4" x2="0" y2="25"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient></defs><rect x="9" y="19" width="30" height="24.5" rx="3.5" fill="url(#i-home-a)"/><path fill-rule="nonzero" d="M 24 6.5 L 42.5 23 H 5.5 Z" fill="url(#i-home-b)" stroke="url(#i-home-b)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="19.5" y="29.5" width="9" height="14" rx="2.5" fill="#FFFFFF"/></symbol>
+<symbol id="i-lockout-source" viewBox="0 0 48 48"><defs><linearGradient id="i-lockout-source-a" gradientUnits="userSpaceOnUse" x1="0" y1="18.5" x2="0" y2="42.5"><stop offset="0" stop-color="#FFC53D"/><stop offset="1" stop-color="#F2960F"/></linearGradient><linearGradient id="i-lockout-source-b" gradientUnits="userSpaceOnUse" x1="0" y1="27" x2="0" y2="43"><stop offset="0" stop-color="#FF6F61"/><stop offset="1" stop-color="#D8303E"/></linearGradient></defs><path fill-rule="nonzero" d="M 10.5 20 V 14 A 9.5 9.5 0 0 1 29.5 14 V 20" fill="none" stroke="#F2960F" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="4" y="18.5" width="32" height="24" rx="4.5" fill="url(#i-lockout-source-a)"/><circle cx="20" cy="29.5" r="3.4" fill="#B96A00"/><path fill-rule="nonzero" d="M 35 24.5 V 30 M 35 40 V 44.5 M 25.5 35 H 30 M 40 35 H 44.5" fill="none" stroke="#D8303E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="35" cy="35" r="8" fill="url(#i-lockout-source-b)"/><circle cx="35" cy="35" r="4.6" fill="#FFFFFF"/><circle cx="35" cy="35" r="1.9" fill="#D8303E"/></symbol>
+<symbol id="i-messages" viewBox="0 0 48 48"><defs><linearGradient id="i-messages-a" gradientUnits="userSpaceOnUse" x1="0" y1="9" x2="0" y2="39"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient></defs><rect x="3" y="9" width="42" height="30" rx="5" fill="url(#i-messages-a)"/><path fill-rule="nonzero" d="M 8.5 15.5 L 24 27 L 39.5 15.5" fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-powershell" viewBox="0 0 48 48"><defs><linearGradient id="i-powershell-a" gradientUnits="userSpaceOnUse" x1="0" y1="7" x2="0" y2="41"><stop offset="0" stop-color="#3A4FE0"/><stop offset="1" stop-color="#27348F"/></linearGradient></defs><rect x="3" y="7" width="42" height="34" rx="5.5" fill="url(#i-powershell-a)"/><path fill-rule="nonzero" d="M 11.5 17 L 19.5 24 L 11.5 31 M 24.5 32 H 35.5" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-privileges" viewBox="0 0 48 48"><defs><linearGradient id="i-privileges-a" gradientUnits="userSpaceOnUse" x1="0" y1="4" x2="0" y2="45"><stop offset="0" stop-color="#FFC53D"/><stop offset="1" stop-color="#F2960F"/></linearGradient></defs><path fill-rule="nonzero" d="M 18.754 22.355 L 24.355 16.754 L 43.022 35.422 L 37.422 41.022 Z M 22.403 34.828 L 32.416 24.815 L 36.234 28.634 L 26.221 38.646 Z M 29.615 41.192 L 39.204 31.604 L 43.022 35.422 L 33.434 45.01 Z" fill="url(#i-privileges-a)" stroke="url(#i-privileges-a)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="evenodd" d="M 4.215 13.615 A 11.4 11.4 0 1 1 27.015 13.615 A 11.4 11.4 0 1 1 4.215 13.615 Z M 11.215 13.615 A 4.4 4.4 0 1 1 20.015 13.615 A 4.4 4.4 0 1 1 11.215 13.615 Z" fill="url(#i-privileges-a)"/></symbol>
+<symbol id="i-readiness" viewBox="0 0 48 48"><defs><linearGradient id="i-readiness-a" gradientUnits="userSpaceOnUse" x1="0" y1="6" x2="0" y2="45"><stop offset="0" stop-color="#1FCB9F"/><stop offset="1" stop-color="#0C9A77"/></linearGradient></defs><rect x="7" y="6" width="34" height="39" rx="5" fill="url(#i-readiness-a)"/><rect x="15.5" y="2.5" width="17" height="9" rx="3.5" fill="#66748B"/><path fill-rule="nonzero" d="M 13 22 L 16 25 L 21 19 M 26.5 22 H 35 M 13 34 L 16 37 L 21 31 M 26.5 34 H 35" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-recycle-bin" viewBox="0 0 48 48"><defs><linearGradient id="i-recycle-bin-a" gradientUnits="userSpaceOnUse" x1="0" y1="16" x2="0" y2="44"><stop offset="0" stop-color="#7FA8FF"/><stop offset="1" stop-color="#3B7BFF"/></linearGradient><linearGradient id="i-recycle-bin-b" gradientUnits="userSpaceOnUse" x1="0" y1="9" x2="0" y2="16"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient></defs><path fill-rule="nonzero" d="M 19 9.5 V 7.5 A 2.5 2.5 0 0 1 21.5 5 H 26.5 A 2.5 2.5 0 0 1 29 7.5 V 9.5" fill="none" stroke="#3A4FE0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="nonzero" d="M 10 16 H 38 L 36 41.2 A 3 3 0 0 1 33 44 H 15 A 3 3 0 0 1 12 41.2 Z" fill="url(#i-recycle-bin-a)"/><rect x="5.5" y="9" width="37" height="7" rx="3.5" fill="url(#i-recycle-bin-b)"/><path fill-rule="nonzero" d="M 19.5 23 V 37 M 28.5 23 V 37" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-search" viewBox="0 0 48 48"><defs><linearGradient id="i-search-a" gradientUnits="userSpaceOnUse" x1="0" y1="4.5" x2="0" y2="35.5"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient></defs><path fill-rule="nonzero" d="M 31 31 L 41.5 41.5" fill="none" stroke="#66748B" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="20" cy="20" r="15.5" fill="url(#i-search-a)"/><circle cx="20" cy="20" r="9.5" fill="#BCD2FF"/></symbol>
+<symbol id="i-security-review" viewBox="0 0 48 48"><defs><linearGradient id="i-security-review-a" gradientUnits="userSpaceOnUse" x1="0" y1="2.5" x2="0" y2="45.5"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient></defs><path fill-rule="nonzero" d="M 24 3.5 L 42 10 V 23 C 42 33.5 33 41 24 44.5 C 15 41 6 33.5 6 23 V 10 Z" fill="url(#i-security-review-a)" stroke="url(#i-security-review-a)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="nonzero" d="M 24 3.5 L 42 10 V 23 C 42 33.5 33 41 24 44.5 Z" fill="#27348F" opacity="0.28"/><path fill-rule="nonzero" d="M 15.5 23.5 L 21.5 29.5 L 32.5 17" fill="none" stroke="#FFFFFF" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-settings" viewBox="0 0 48 48"><defs><linearGradient id="i-settings-a" gradientUnits="userSpaceOnUse" x1="0" y1="3" x2="0" y2="45"><stop offset="0" stop-color="#8D9AB0"/><stop offset="1" stop-color="#66748B"/></linearGradient></defs><path fill-rule="evenodd" d="M 43.372 28.974 L 41.215 34.181 L 36.056 32.056 L 32.056 36.056 L 34.181 41.215 L 28.974 43.372 L 26.829 38.221 L 21.171 38.221 L 19.026 43.372 L 13.819 41.215 L 15.944 36.056 L 11.944 32.056 L 6.785 34.181 L 4.628 28.974 L 9.779 26.829 L 9.779 21.171 L 4.628 19.026 L 6.785 13.819 L 11.944 15.944 L 15.944 11.944 L 13.819 6.785 L 19.026 4.628 L 21.171 9.779 L 26.829 9.779 L 28.974 4.628 L 34.181 6.785 L 32.056 11.944 L 36.056 15.944 L 41.215 13.819 L 43.372 19.026 L 38.221 21.171 L 38.221 26.829 Z M 17.5 24 A 6.5 6.5 0 1 1 30.5 24 A 6.5 6.5 0 1 1 17.5 24 Z" fill="url(#i-settings-a)" stroke="url(#i-settings-a)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-status-error" viewBox="0 0 48 48"><defs><linearGradient id="i-status-error-a" gradientUnits="userSpaceOnUse" x1="0" y1="3" x2="0" y2="45"><stop offset="0" stop-color="#FF6F61"/><stop offset="1" stop-color="#D8303E"/></linearGradient></defs><path fill-rule="nonzero" d="M 42.94 31.845 L 31.845 42.94 L 16.155 42.94 L 5.06 31.845 L 5.06 16.155 L 16.155 5.06 L 31.845 5.06 L 42.94 16.155 Z" fill="url(#i-status-error-a)" stroke="url(#i-status-error-a)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="nonzero" d="M 16.5 16.5 L 31.5 31.5 M 31.5 16.5 L 16.5 31.5" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-status-info" viewBox="0 0 48 48"><defs><linearGradient id="i-status-info-a" gradientUnits="userSpaceOnUse" x1="0" y1="4" x2="0" y2="44"><stop offset="0" stop-color="#3B7BFF"/><stop offset="1" stop-color="#3A4FE0"/></linearGradient></defs><circle cx="24" cy="24" r="20" fill="url(#i-status-info-a)"/><circle cx="24" cy="14.5" r="3" fill="#FFFFFF"/><path fill-rule="nonzero" d="M 24 22.5 V 34" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-status-ok" viewBox="0 0 48 48"><defs><linearGradient id="i-status-ok-a" gradientUnits="userSpaceOnUse" x1="0" y1="4" x2="0" y2="44"><stop offset="0" stop-color="#1FCB9F"/><stop offset="1" stop-color="#0C9A77"/></linearGradient></defs><circle cx="24" cy="24" r="20" fill="url(#i-status-ok-a)"/><path fill-rule="nonzero" d="M 14.5 24.5 L 21 31 L 33.5 17" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-status-unknown" viewBox="0 0 48 48"><defs><linearGradient id="i-status-unknown-a" gradientUnits="userSpaceOnUse" x1="0" y1="4" x2="0" y2="44"><stop offset="0" stop-color="#8D9AB0"/><stop offset="1" stop-color="#66748B"/></linearGradient></defs><circle cx="24" cy="24" r="20" fill="url(#i-status-unknown-a)"/><path fill-rule="nonzero" d="M 17.5 18.5 A 6.5 6.5 0 1 1 27.54 23.95 C 25.5 25.4 24 26.3 24 28.5" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24" cy="35.3" r="3" fill="#FFFFFF"/></symbol>
+<symbol id="i-status-warning" viewBox="0 0 48 48"><defs><linearGradient id="i-status-warning-a" gradientUnits="userSpaceOnUse" x1="0" y1="3.5" x2="0" y2="42.5"><stop offset="0" stop-color="#FFC53D"/><stop offset="1" stop-color="#F2960F"/></linearGradient></defs><path fill-rule="nonzero" d="M 24 7 L 42.5 39 H 5.5 Z" fill="url(#i-status-warning-a)" stroke="url(#i-status-warning-a)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path fill-rule="nonzero" d="M 24 17.5 V 27" fill="none" stroke="#3A465A" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24" cy="34" r="2.7" fill="#3A465A"/></symbol>
+<symbol id="i-app" viewBox="0 0 256 256"><defs><linearGradient id="app-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3B7BFF"/><stop offset="0.55" stop-color="#3A4FE0"/><stop offset="1" stop-color="#5B2FC9"/></linearGradient><linearGradient id="app-gloss" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.28"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient><linearGradient id="app-shield" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2EE6B8"/><stop offset="1" stop-color="#0FA37F"/></linearGradient><linearGradient id="app-node" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E3E9FF"/></linearGradient><filter id="app-shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#14104A" flood-opacity="0.35"/></filter></defs><rect x="12" y="12" width="232" height="232" rx="54" fill="url(#app-bg)"/><path d="M12 66 A54 54 0 0 1 66 12 H190 A54 54 0 0 1 244 66 V104 C180 124 92 124 12 104 Z" fill="url(#app-gloss)"/><g filter="url(#app-shadow)"><g stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.92"><path d="M128 100 V124"/><path d="M70 146 V124 H186 V150"/></g><circle cx="128" cy="70" r="31" fill="url(#app-node)"/><circle cx="128" cy="62" r="10" fill="#3A4FE0"/><path d="M110 89 C110 75 119 72 128 72 C137 72 146 75 146 89 Z" fill="#3A4FE0"/><circle cx="70" cy="176" r="31" fill="url(#app-node)"/><circle cx="70" cy="168" r="10" fill="#3A4FE0"/><path d="M52 195 C52 181 61 178 70 178 C79 178 88 181 88 195 Z" fill="#3A4FE0"/></g><g filter="url(#app-shadow)"><path d="M188 128 L226 142 V172 C226 196 210 214 188 224 C166 214 150 196 150 172 V142 Z" fill="url(#app-shield)" stroke="#FFFFFF" stroke-width="7" stroke-linejoin="round"/><path d="M170 174 L184 188 L208 162" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></g></symbol>
+
+<!-- Monochrome action glyphs: drawn for this prototype, 16-unit grid, stroke = text colour. -->
+<symbol id="g-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></symbol>
+<symbol id="g-chev-r" viewBox="0 0 16 16"><path d="M6 3.5 10.5 8 6 12.5"/></symbol>
+<symbol id="g-chev-d" viewBox="0 0 16 16"><path d="M3.5 6 8 10.5 12.5 6"/></symbol>
+<symbol id="g-up" viewBox="0 0 16 16"><path d="M3.5 10 8 5.5 12.5 10"/></symbol>
+<symbol id="g-back" viewBox="0 0 16 16"><path d="M7 3.5 2.5 8 7 12.5M2.5 8h11"/></symbol>
+<symbol id="g-fwd" viewBox="0 0 16 16"><path d="M9 3.5 13.5 8 9 12.5M13.5 8h-11"/></symbol>
+<symbol id="g-close" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></symbol>
+<symbol id="g-min" viewBox="0 0 16 16"><path d="M4 8h8"/></symbol>
+<symbol id="g-max" viewBox="0 0 16 16"><rect x="4" y="4" width="8" height="8" rx="1"/></symbol>
+<symbol id="g-refresh" viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.6-3.7M13 2.5V5h-2.5"/></symbol>
+<symbol id="g-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></symbol>
+<symbol id="g-filter" viewBox="0 0 16 16"><path d="M2.5 4h11M4.5 8h7M6.5 12h3"/></symbol>
+<symbol id="g-export" viewBox="0 0 16 16"><path d="M8 10V2.5M5 5.5l3-3 3 3M3 10v3h10v-3"/></symbol>
+<symbol id="g-play" viewBox="0 0 16 16"><path class="f" d="M5 3.2 12.6 8 5 12.8Z"/></symbol>
+<symbol id="g-help" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M6.3 6.4a1.8 1.8 0 1 1 2.6 1.5c-.6.4-.9.8-.9 1.4M8 11.4v.2"/></symbol>
+<symbol id="g-sun" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1"/></symbol>
+<symbol id="g-moon" viewBox="0 0 16 16"><path d="M13 9.6A5.6 5.6 0 1 1 6.4 3 4.4 4.4 0 0 0 13 9.6Z"/></symbol>
+<symbol id="g-menu" viewBox="0 0 16 16"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/></symbol>
+<symbol id="g-copy" viewBox="0 0 16 16"><rect x="5.5" y="5.5" width="7.5" height="8" rx="1.5"/><path d="M3 10.5v-7a1 1 0 0 1 1-1h6"/></symbol>
+<symbol id="g-key" viewBox="0 0 16 16"><circle cx="5.5" cy="10.5" r="2.5"/><path d="M7.3 8.7 13 3M11 5l1.6 1.6"/></symbol>
+<symbol id="g-block" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M4.2 11.8l7.6-7.6"/></symbol>
+<symbol id="g-tree" viewBox="0 0 16 16"><path d="M3 2.5V12h3.5M3 7h3.5"/><rect x="8.5" y="5.5" width="5" height="3" rx=".8"/><rect x="8.5" y="10.5" width="5" height="3" rx=".8"/></symbol>
+<symbol id="g-motion" viewBox="0 0 16 16"><path d="M1.5 5h3M1 8h3M1.5 11h3"/><path class="f" d="M7 3.6 14 8l-7 4.4Z"/></symbol>
+<symbol id="g-grid" viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1"/><rect x="9" y="9" width="4.5" height="4.5" rx="1"/></symbol>
+<symbol id="g-rows" viewBox="0 0 16 16"><path d="M2.5 3.5h11M2.5 6.5h11M2.5 9.5h11M2.5 12.5h11"/></symbol>
+<symbol id="g-pane" viewBox="0 0 16 16"><rect x="2.5" y="3" width="11" height="10" rx="1.5"/><path d="M6.5 3v10"/></symbol>
+<symbol id="g-tip" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 7.3v4M8 4.8v.2"/></symbol>
+<symbol id="g-check" viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></symbol>
+<symbol id="g-activity" viewBox="0 0 16 16"><path d="M2 9h2.5l2-5 3 8 2-4.5H14"/></symbol>
+<symbol id="g-cmd" viewBox="0 0 16 16"><path d="M3 4.5 6.5 8 3 11.5M8.5 11.5H13"/></symbol>
+</svg>
+
+<script>
+(() => {
+'use strict';
+const D = document, R = D.documentElement;
+R.lang = 'pl';
+const $ = (s, r = D) => r.querySelector(s), $$ = (s, r = D) => [...r.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+const ic = (n, s = 16) => `<svg class="ic" width="${s}" height="${s}" viewBox="0 0 48 48" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+const gl = (n, s = 16) => `<svg class="gl" width="${s}" height="${s}" viewBox="0 0 16 16" aria-hidden="true"><use href="#g-${n}"/></svg>`;
+const ring = (s = 16) => `<svg class="ring" width="${s}" height="${s}" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6"/></svg>`;
+const pl = (n, a, b, c) => { const d = n % 10, h = n % 100; return n === 1 ? a : d >= 2 && d <= 4 && !(h >= 12 && h <= 14) ? b : c; };
+const win = $('#win'), strip = $('#strip');
+const store = {
+  get(k) { try { return localStorage.getItem('admng-proto-' + k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem('admng-proto-' + k, v); } catch (e) { /* storage may be blocked */ } }
+};
+
+/* ---------- Motion: one source (the CSS tokens), one switch ---------- */
+const cs = getComputedStyle(R);
+const tv = n => cs.getPropertyValue('--motion-' + n).trim();
+const t = n => { const v = tv(n); return parseFloat(v) * (/ms$/.test(v) ? 1 : 1000); };
+const px = n => parseFloat(tv(n));
+const ez = n => tv('ease-' + n);
+const mqReduce = matchMedia('(prefers-reduced-motion: reduce)');
+const mqDark = matchMedia('(prefers-color-scheme: dark)');
+const mqWide = matchMedia('(min-width: 1000px)');
+const motionPref = () => R.dataset.motion || 'system';
+const motionOn = () => R.dataset.motion === 'on' || (R.dataset.motion !== 'off' && !mqReduce.matches);
+const stop = el => { (el._a || []).forEach(a => a.cancel()); el._a = []; };
+// Starts from and returns to the resting style; with motion off nothing runs and the final values simply apply.
+function anim(el, frames, dur, ease, o) {
+  if (!el || !el.animate || !motionOn()) { return Promise.resolve(); }
+  const a = el.animate(frames, Object.assign({duration: dur, easing: ease, fill: 'backwards'}, o));
+  (el._a = el._a || []).push(a);
+  return a.finished.then(() => {}, () => {});
+}
+const vis = (el, v) => { if (el.dataset.cls) { el.classList.toggle(el.dataset.cls, v); } else { el.hidden = !v; } };
+const M = {
+  // 4 Page entrance: header parts fade, content rises by Offset.Page (moved, not faded)
+  page(fade, rise) {
+    fade.forEach(e => { stop(e); anim(e, [{opacity: 0}, {opacity: 1}], t('entrance'), ez('enter')); });
+    if (rise) { stop(rise); anim(rise, [{transform: `translateY(${px('offset-page')}px)`}, {transform: 'none'}], t('entrance'), ez('enter')); }
+  },
+  // 5 Panel entrance: fade and rise by Offset.Panel
+  panel(el) {
+    stop(el);
+    return anim(el, [{opacity: 0, transform: `translateY(${px('offset-panel')}px)`}, {opacity: 1, transform: 'none'}], t('fast'), ez('enter'));
+  },
+  // 6 Transient surface: fade and 4 px drop; leaves at once when asked (Esc)
+  popIn(el) {
+    el._seq = (el._seq || 0) + 1; stop(el); vis(el, true);
+    anim(el, [{opacity: 0, transform: `translateY(-${px('transient-offset')}px)`}, {opacity: 1, transform: 'none'}], t('transient-in'), ez('enter'));
+  },
+  popOut(el, now) {
+    const id = el._seq = (el._seq || 0) + 1; stop(el);
+    if (now || !motionOn()) { vis(el, false); return; }
+    anim(el, [{opacity: 1, transform: 'none'}, {opacity: 0, transform: `translateY(-${px('transient-offset')}px)`}], t('transient-out'), ez('exit'), {fill: 'forwards'})
+      .then(() => { if (el._seq === id) { vis(el, false); stop(el); } });
+  },
+  // 9 "Look here": the tint fades to normal; a static tint for the same time when motion is off
+  highlight(el) {
+    const parts = el.matches('tr') ? [...el.cells] : [el];
+    parts.forEach(p => {
+      stop(p);
+      if (motionOn()) {
+        const c = cs.getPropertyValue('--highlight').trim();
+        anim(p, [{boxShadow: `inset 0 0 0 999px ${c}`}, {boxShadow: `inset 0 0 0 999px ${c}`, offset: .2}, {boxShadow: 'inset 0 0 0 999px transparent'}], t('highlight'), 'linear');
+      } else {
+        p.classList.add('hl-static'); setTimeout(() => p.classList.remove('hl-static'), t('highlight'));
+      }
+    });
+  },
+  // 13 Refused drop: the reason fades in and out
+  refuse(el, text) {
+    const id = el._seq = (el._seq || 0) + 1; stop(el); el.textContent = text;
+    anim(el, [{opacity: 0}, {opacity: 1}], t('fast'), ez('change'));
+    setTimeout(() => {
+      if (el._seq !== id) { return; }
+      anim(el, [{opacity: 1}, {opacity: 0}], t('fast'), ez('change'), {fill: 'forwards'}).then(() => { if (el._seq === id) { el.textContent = ''; stop(el); } });
+    }, 2200);
+  },
+  // 8 Expander: the content slides (the Fluent theme's behaviour and times)
+  expand(body, open) {
+    const inner = body.firstElementChild, id = body._seq = (body._seq || 0) + 1; stop(inner);
+    if (open) {
+      body.hidden = false;
+      anim(inner, [{transform: 'translateY(-100%)'}, {transform: 'none'}], t('expand'), ez('enter'));
+    } else if (!motionOn()) {
+      body.hidden = true;
+    } else {
+      anim(inner, [{transform: 'none'}, {transform: 'translateY(-100%)'}], t('collapse'), ez('exit'), {fill: 'forwards'})
+        .then(() => { if (body._seq === id) { body.hidden = true; stop(inner); } });
+    }
+  }
+};
+
+/* ---------- Status line (catalogue 3; wording as in plan 4.5) ---------- */
+const SEV = {idle: ['', 'status-info'], work: ['Praca', ''], done: ['Gotowe', 'status-ok'], warn: ['Uwaga', 'status-warning'], err: ['Błąd', 'status-error']};
+function psApply(ps, sev, text) {
+  ps.dataset.sev = sev;
+  $('.ps-in', ps).innerHTML = (sev === 'work' ? ring(20) : ic(SEV[sev][1], 20)) +
+    `<span class="ps-x" title="${esc(text)}">${SEV[sev][0] ? `<b>${SEV[sev][0]}:</b> ` : ''}${esc(text)}</span>`;
+  $('.ps-close', ps).hidden = sev === 'idle' || sev === 'work';
+}
+function psInit(ps, idle) {
+  ps.classList.add('ps'); ps.setAttribute('role', 'status'); ps._idle = idle;
+  ps.innerHTML = `<div class="ps-in"></div><button class="ibtn hv ps-close" type="button" id="${ps.id}-close" aria-label="Zamknij komunikat" data-tip="Zamknij komunikat">${gl('close')}</button>`;
+  $('.ps-close', ps).onclick = () => stat(ps, 'idle');
+  psApply(ps, 'idle', idle());
+}
+function stat(ps, sev, text, quiet) {
+  if (!ps) { return; }                    // pages are still being built
+  if (text == null) { text = ps._idle(); }
+  const inner = $('.ps-in', ps), id = ps._seq = (ps._seq || 0) + 1;
+  stop(inner);
+  if (quiet || !motionOn()) { psApply(ps, sev, text); return; }
+  anim(inner, [{opacity: 1}, {opacity: 0}], t('disappear'), ez('exit'), {fill: 'forwards'}).then(() => {
+    if (ps._seq !== id) { return; }
+    stop(inner); psApply(ps, sev, text);
+    anim(inner, [{opacity: 0, transform: `translateY(${px('offset-panel')}px)`}, {opacity: 1, transform: 'none'}], t('appear'), ez('enter'));
+  });
+}
+
+/* ---------- Action button (catalogue 2): Start -> Cancel -> Cancelling ---------- */
+function actHtml(start) {
+  return `<span class="act-c" data-s="idle">${gl('play')}<span>${start}</span></span>` +
+    `<span class="act-c" data-s="running">${ring()}<span>Anuluj</span></span>` +
+    `<span class="act-c" data-s="cancelling">${ring()}<span>Anulowanie…</span></span>`;
+}
+function actSet(btn, state) {
+  const old = btn.dataset.state; if (old === state) { return; }
+  btn.dataset.state = state;                                   // the logical state changes first
+  if (state === 'cancelling') { btn.setAttribute('aria-disabled', 'true'); } else { btn.removeAttribute('aria-disabled'); }
+  const a = $(`[data-s="${old}"]`, btn), b = $(`[data-s="${state}"]`, btn);
+  stop(a); stop(b);
+  anim(a, [{opacity: 1, visibility: 'visible'}, {opacity: 0, visibility: 'visible'}], t('swap'), ez('change'));
+  anim(b, [{opacity: 0}, {opacity: 1}], t('swap'), ez('change'), {delay: t('swap')});
+}
+function job(btn, o) {
+  let i = 0, tm = 0;
+  btn.addEventListener('click', () => {
+    const s = btn.dataset.state;
+    if (s === 'idle') {
+      i = 0; actSet(btn, 'running'); o.tick(0);
+      tm = setInterval(() => { i++; if (i >= o.n) { clearInterval(tm); actSet(btn, 'idle'); o.done(); } else { o.tick(i); } }, o.ms);
+    } else if (s === 'running') {
+      clearInterval(tm); actSet(btn, 'cancelling'); if (o.cancelling) { o.cancelling(i); }
+      setTimeout(() => { actSet(btn, 'idle'); o.cancelled(i); }, 1100);
+    }
+  });
+}
+
+/* ---------- Toast (catalogue 7): at most three, leaves after 5 s, errors stay ---------- */
+let toastN = 0;
+function toast(o) {
+  const host = $('#toasts'), el = D.createElement('div'), n = ++toastN;
+  el.className = 'toast'; el.setAttribute('role', o.sev === 'error' ? 'alert' : 'status');
+  el.innerHTML = ic('status-' + (o.sev || 'info'), 20) + `<div class="toast-b"><b>${esc(o.title)}</b><span>${esc(o.text)}</span>` +
+    (o.action ? `<button class="lnk" type="button" id="toast-${n}-act">${esc(o.action)}</button>` : '') +
+    `</div><button class="ibtn hv" type="button" id="toast-${n}-close" aria-label="Zamknij powiadomienie">${gl('close')}</button>`;
+  host.append(el);
+  while (host.children.length > 3) { host.firstElementChild.remove(); }
+  anim(el, [{opacity: 0, transform: `translateX(${px('toast-offset')}px)`}, {opacity: 1, transform: 'none'}], t('appear'), ez('enter'));
+  const close = () => {
+    if (el._gone) { return; }
+    el._gone = true; stop(el);
+    anim(el, [{opacity: 1, transform: 'none'}, {opacity: 0, transform: `translateX(${px('toast-offset')}px)`}], t('disappear'), ez('exit'), {fill: 'forwards'}).then(() => el.remove());
+  };
+  $(`#toast-${n}-close`).onclick = close;
+  if (o.action) { $(`#toast-${n}-act`).onclick = () => { o.run(); close(); }; }
+  if (o.sev !== 'error') { setTimeout(close, t('toast-stay')); }
+}
+
+/* ---------- Theme, motion preference, density, icons, navigation variant ---------- */
+function themeIcon() {
+  const dark = R.dataset.theme ? R.dataset.theme === 'dark' : mqDark.matches;
+  $('#btn-theme').innerHTML = gl(dark ? 'sun' : 'moon');
+}
+function setTheme(v) {
+  if (v === 'system') { R.removeAttribute('data-theme'); } else { R.dataset.theme = v; }
+  store.set('theme', v); themeIcon();
+  const s = $('#set-theme'); if (s) { s.value = v; }
+}
+function motionText() {
+  const p = motionPref();
+  return `Animacje są teraz ${motionOn() ? 'włączone' : 'wyłączone'} (${p === 'system' ? 'zgodnie z systemem' : 'ustawienie ręczne'}). ` +
+    `System zgłasza: ${mqReduce.matches ? 'ograniczaj ruch' : 'bez ograniczenia ruchu'}.`;
+}
+function setMotion(v) {
+  if (v === 'system') { R.removeAttribute('data-motion'); } else { R.dataset.motion = v; }
+  store.set('motion', v);
+  const r = $(`input[name="rm"][value="${v}"]`); if (r) { r.checked = true; }
+  const s = $('#set-motion'); if (s) { s.value = v; }
+  $('#rm-state').textContent = motionOn() ? 'Animacje działają.' : 'Animacje wyłączone: wartości końcowe od razu, szkielet bez przebłysku, postęp zostaje.';
+  if (PS.motion) { stat(PS.motion, 'idle', null, true); }
+}
+function setNav(v) {
+  win.dataset.nav = v;
+  const b = $('#nav-toggle'); b.setAttribute('aria-pressed', v === 'n1'); b.dataset.tip = v === 'n1' ? 'Zwiń do paska obszarów (N2)' : 'Rozwiń panel nawigacji (wariant N1)';
+  const s = $('#set-nav'); if (s) { s.value = v; }
+  moveInd(true);
+}
+
+/* ---------- Navigation: area strip with a sliding indicator (catalogue 12) ---------- */
+const NAV = [
+  ['home', 'Start', 'home', 'Praca'], ['dir', 'Katalog', 'directory'], ['bulk', 'Zakładanie kont', 'bulk-create'],
+  ['gpo', 'Zasady grupy', 'group-policy'], ['certs', 'Certyfikaty', 'certificate-authority'],
+  ['logs', 'Dzienniki zdarzeń', 'event-logs', 'Nadzór'], ['wd', 'Watchdog', 'watchdog'], ['rev', 'Przeglądy kont', 'account-review'],
+  ['msg', 'Wiadomości', 'messages'],
+  ['motion', 'Animacje (prototyp)', '', '-'], ['act', 'Aktywność', 'activity'], ['set', 'Ustawienia', 'settings']
+];
+const HEAD = {
+  home: ['Start – contoso.test', 'Z czym to okno jest połączone i co wymaga uwagi. Nic stąd nie trafia na dysk.'],
+  dir: ['Użytkownicy', ''],
+  bulk: ['Zakładanie wielu kont', 'Cztery kroki: dane, szablon, podgląd, wykonanie. Każdy zapis przechodzi przez plan zmian z podglądem.'],
+  certs: ['Certyfikaty', 'Urzędy, szablony i certyfikaty kontrolerów domeny w contoso.test – tylko do odczytu.'],
+  set: ['Wygląd', ''],
+  motion: ['Animacje', 'Każda animacja z katalogu planu z jej tokenami i przyciskiem Odtwórz. Strona istnieje tylko w prototypie.'],
+  area: ['', 'Ten obszar nie jest częścią prototypu.']
+};
+const PS = {};
+let loc = 'home', hist = ['home'], hi = 0;
+function stub(what) {
+  stat(PS[pageOf(loc)], 'warn', `Polecenie „${what}” jest w prototypie tylko pokazane. Wypróbuj Katalog, Zakładanie kont albo stronę Animacje.`);
+}
+const pageOf = id => HEAD[id] ? id : 'area';
+function buildShell() {
+  let h = `<button class="navi hv" id="nav-toggle" type="button" aria-pressed="false" data-side="r" data-tip="Rozwiń panel nawigacji (wariant N1)">${gl('menu', 20)}<span>Nawigacja</span></button><i class="ind" id="ind"></i>`;
+  NAV.forEach(n => {
+    if (n[3] === '-') { h += '<span class="sp"></span>'; }
+    else if (n[3]) { h += (n[0] === 'home' ? '' : '<i class="nsep"></i>') + `<span class="grp">${n[3]}</span>`; }
+    h += `<button class="navi hv" id="nav-${n[0]}" type="button" data-nav="${n[0]}" data-side="r" data-tip="${n[1]}">${n[2] ? ic(n[2], 20) : gl('motion', 20)}<span>${n[1]}</span></button>`;
+  });
+  strip.innerHTML = h;
+  strip.addEventListener('click', e => {
+    const b = e.target.closest('.navi'); if (!b) { return; }
+    if (b.id === 'nav-toggle') { setNav(win.dataset.nav === 'n1' ? 'n2' : 'n1'); } else { go(b.dataset.nav); }
+  });
+  $$('[data-hdr]').forEach(hd => {
+    const p = hd.closest('.page').dataset.page;
+    hd.innerHTML = `<div class="ph${p === 'home' ? ' big' : ''}" data-part="PageHeader"><h1 id="h-${p}">${HEAD[p][0]}</h1>` +
+      `<button class="ibtn hv ph-q" type="button" id="phq-${p}" aria-expanded="false" aria-label="Opis strony i przewodnik" data-tip="Opis strony i przewodnik">${gl('help')}</button>` +
+      `<button class="lnk guide" type="button" id="guide-${p}">Przewodnik</button><p class="desc" id="desc-${p}">${HEAD[p][1]}</p></div>` +
+      `<div data-part="PageStatus" id="ps-${p}"></div>`;
+    hd.closest('.page').setAttribute('aria-labelledby', 'h-' + p);
+    $(`#phq-${p}`).onclick = e => {
+      const ph = e.currentTarget.parentElement, on = ph.classList.toggle('more');
+      e.currentTarget.setAttribute('aria-expanded', on);
+      if (on) { M.panel($('.desc', ph)); }
+    };
+    $(`#guide-${p}`).onclick = () => stub('Przewodnik');
+  });
+}
+function moveInd(instant) {
+  const b = $(`.navi[data-nav="${loc}"]`), ind = $('#ind'); if (!b) { return; }
+  const y = b.getBoundingClientRect().top - strip.getBoundingClientRect().top + strip.scrollTop + (b.offsetHeight - 16) / 2;
+  if (instant) { ind.classList.remove('on'); }
+  ind.style.transform = `translateY(${y}px)`;
+  if (instant) { ind.getBoundingClientRect(); ind.classList.add('on'); }
+}
+function enterPage(p) {
+  M.page($$('.pg > .hdr > *, .pg > .pt, .pg > .tabs, .pg > .crumbs, .pg > .fpanel', p), $('.pg > .pc', p));
+}
+function go(id, o) {
+  o = o || {};
+  const item = NAV.find(n => n[0] === id); if (!item) { return; }
+  closeTransients();
+  if (id === loc && !o.force) { return; }
+  if (!o.hist) { hist.splice(hi + 1); hist.push(id); hi = hist.length - 1; }
+  loc = id;
+  const pg = pageOf(id);
+  if (pg === 'area') { fillArea(item); }
+  $$('.navi[data-nav]').forEach(b => { if (b.dataset.nav === id) { b.setAttribute('aria-current', 'page'); } else { b.removeAttribute('aria-current'); } });
+  $$('.page').forEach(p => { p.hidden = p.dataset.page !== pg; });
+  $('#btn-back').disabled = hi === 0; $('#btn-fwd').disabled = hi >= hist.length - 1;
+  if (win.dataset.nav === 'n1' && !mqWide.matches) { setNav('n2'); } else { moveInd(); }
+  enterPage($('#p-' + pg));
+}
+function fillArea(item) {
+  $('#h-area').textContent = item[1];
+  $('#desc-area').textContent = `Obszar „${item[1]}” nie jest częścią prototypu.`;
+  $('#area-empty').innerHTML = ic(item[2], 48) + `<p>Ta strona pokazuje tylko stan pusty z planu: ikona 48 px, jedno zdanie dlaczego i jedno działanie.</p>` +
+    `<button class="btn hv accent" type="button" id="area-home">Wróć na Start</button>`;
+  $('#area-home').onclick = () => go('home');
+  if (PS.area) { stat(PS.area, 'idle', null, true); }
+}
+function closeTransients(now) {
+  if (!$('#palette').hidden) { closePalette(now); }
+  if ($('#tree').classList.contains('open')) { treeFlyout(false, now); }
+}
+
+/* ---------- Tooltip after Motion.HoverIntent ---------- */
+const tt = $('#tt'); let ttFor = null, ttTm = 0;
+function ttHide() { clearTimeout(ttTm); ttFor = null; tt.hidden = true; }
+function ttArm(el) {
+  if (el === ttFor) { return; }
+  ttHide(); ttFor = el; if (!el) { return; }
+  ttTm = setTimeout(() => {
+    if (!el.isConnected || (el.classList.contains('navi') && win.dataset.nav === 'n1' && el.id !== 'nav-toggle')) { return; }
+    tt.textContent = el.dataset.tip; tt.hidden = false;
+    const w = win.getBoundingClientRect(), r = el.getBoundingClientRect(), s = tt.getBoundingClientRect();
+    let x = el.dataset.side === 'r' ? r.right + 8 : r.left + r.width / 2 - s.width / 2;
+    let y = el.dataset.side === 'r' ? r.top + r.height / 2 - s.height / 2 : r.bottom + 6;
+    x = Math.max(w.left + 4, Math.min(x, w.right - s.width - 4)); y = Math.min(y, w.bottom - s.height - 4);
+    tt.style.left = (x - w.left) + 'px'; tt.style.top = (y - w.top) + 'px';
+    stop(tt); anim(tt, [{opacity: 0}, {opacity: 1}], t('hover'), ez('change'));
+  }, t('hover-intent'));
+}
+D.addEventListener('pointerover', e => ttArm(e.target.closest ? e.target.closest('[data-tip]') : null));
+D.addEventListener('pointerdown', ttHide);
+D.addEventListener('focusin', e => { if (e.target.matches && e.target.matches('[data-tip]:focus-visible')) { ttArm(e.target); } });
+D.addEventListener('focusout', ttHide);
+
+/* ---------- Teaching tip (shown once, light dismiss) ---------- */
+const tip = $('#tip');
+function showTip() {
+  M.popIn(tip);
+  const w = win.getBoundingClientRect(), a = $('#search-box').getBoundingClientRect(), s = tip.getBoundingClientRect();
+  const x = Math.max(8, Math.min(a.left - w.left + a.width / 2 - s.width / 2, w.width - s.width - 8));
+  tip.style.left = x + 'px'; tip.style.top = (a.bottom - w.top + 10) + 'px';
+  tip.style.setProperty('--ax', (a.left - w.left + a.width / 2 - x) + 'px');
+}
+function hideTip(now) { if (!tip.hidden) { M.popOut(tip, now); } }
+$('#tip-ok').onclick = () => hideTip();
+D.addEventListener('pointerdown', e => {
+  if (!tip.hidden && !tip.contains(e.target) && !e.target.closest('#set-tips')) { hideTip(); }
+  const tr = $('#tree');
+  if (tr.classList.contains('open') && !tr.contains(e.target) && !e.target.closest('#tree-btn')) { treeFlyout(false); }
+});
+
+/* ---------- Dialog: one layout, the safe button is the default ---------- */
+const dlg = $('#dlg'); let dlgDone = null;
+function ask(o) {
+  $('#dlg-t').textContent = o.title; $('#dlg-x').textContent = o.text; $('#dlg-ok').textContent = o.ok;
+  $('#dlg-chk-l').textContent = o.check; $('#dlg-chk').checked = false;
+  dlgDone = o.done;
+  if (dlg.showModal) { dlg.showModal(); } else { dlg.setAttribute('open', ''); }
+  $('#dlg-cancel').focus();
+}
+$('#dlg-cancel').onclick = () => dlg.close();
+$('#dlg-ok').onclick = () => { const f = dlgDone; dlg.close(); if (f) { f($('#dlg-chk').checked); } };
+
+/* ---------- Synthetic directory ---------- */
+const DATA = `Agnieszka Dąbrowska|a.dabrowska|u|on|05.11|ku
+Błażej Kołodziej|b.kolodziej|u|on|30.10|ku
+Czesław Jabłoński|c.jablonski|u|on|22.10|ku
+Dorota Gołębiowska|d.golebiowska|u|on|04.11|ku
+Elżbieta Wiśniewska|e.wisniewska|u|on|17.10|ku
+Grzegorz Pawłowski|g.pawlowski|u|off|02.08|ku
+Józef Święcicki|j.swiecicki|u|on|29.10|ku
+Księgowość|ksiegowosc|g|-|01.06|ku
+KRK-WS-0077|KRK-WS-0077$|c|off|21.07|ku
+KRK-WS-0142|KRK-WS-0142$|c|on|09.11|ku
+Lista-Kraków|lista-krakow|gd|-|14.05|ku
+Łukasz Żak|l.zak|u|on|03.11|ku
+Małgorzata Kamińska|m.kaminska|u|lock|07.11|ku
+Mirosław Ćwikliński|m.cwiklinski|u|on|15.10|ku
+Paweł Wójcik|p.wojcik|u|off|12.09|ku
+svc-kopie|svc-kopie|s|on|11.03|ku
+Urszula Żółkiewska|u.zolkiewska|u|on|01.11|ku
+Żaneta Śliwa|z.sliwa|u|lock|28.10|ku
+KRK-NB-0031|KRK-NB-0031$|c|on|06.11|kc
+KRK-NB-0044|KRK-NB-0044$|c|on|02.11|kc
+KRK-SRV-PLIKI|KRK-SRV-PLIKI$|srv|on|08.11|kc
+KRK-WS-0101|KRK-WS-0101$|c|on|09.11|kc
+KRK-WS-0102|KRK-WS-0102$|c|on|07.11|kc
+KRK-WS-0115|KRK-WS-0115$|c|off|19.06|kc
+Drukarki-P2|drukarki-p2|g|-|11.02|kg
+Kadry|kadry|g|-|23.04|kg
+Kraków-Wszyscy|krakow-wszyscy|gd|-|02.01|kg
+VPN|vpn|g|-|30.09|kg
+Zarząd|zarzad|g|-|18.03|kg
+Bożena Łączyńska|b.laczynska|u|on|04.11|wu
+Ryszard Żebrowski|r.zebrowski|u|lock|08.11|wu
+Świętosław Piątek|s.piatek|u|on|21.10|wu
+Zofia Kuźniar|z.kuzniar|u|off|30.07|wu
+WAW-NB-0012|WAW-NB-0012$|c|on|05.11|wc
+WAW-WS-0201|WAW-WS-0201$|c|on|09.11|wc
+WAW-WS-0207|WAW-WS-0207$|c|off|03.05|wc
+DC01|DC01$|dc|on|10.11|dc
+DC02|DC02$|dc|on|10.11|dc
+Administratorzy|administratorzy|g|-|12.01|bi
+Operatorzy kopii zapasowych|operatorzy-kopii|g|-|12.01|bi
+Użytkownicy pulpitu zdalnego|pulpit-zdalny|g|-|12.01|bi
+Administratorzy domeny|admini-domeny|g|-|12.01|us
+Gość|gosc|u|off|12.01|us
+Użytkownicy domeny|uzytkownicy-domeny|g|-|12.01|us`.split('\n').map(r => { const a = r.split('|'); return {n: a[0], l: a[1], k: a[2], s: a[3], c: a[4], ou: a[5]}; });
+const KIND = {u: ['Użytkownik', 'user'], g: ['Grupa zabezpieczeń', 'group'], gd: ['Grupa dystrybucyjna', 'group-distribution'],
+  s: ['Konto usługi', 'service-account'], c: ['Komputer', 'computer'], srv: ['Serwer', 'server'], dc: ['Kontroler domeny', 'domain-controller']};
+const STATE = {on: ['włączone', 'ok', 'status-ok'], lock: ['zablokowane', 'warn', 'status-warning'], off: ['wyłączone', '', '']};
+const icoOf = o => o.k === 'u' && o.s === 'off' ? 'user-disabled' : o.k === 'u' && o.s === 'lock' ? 'user-locked' : o.k === 'c' && o.s === 'off' ? 'computer-disabled' : KIND[o.k][1];
+const chip = (sev, text, sm) => `<span class="pill ${sev || 'plain'}${sev === '' ? ' plain' : ''}${sm ? ' sm' : ''}">${sev ? ic({ok: 'status-ok', warn: 'status-warning', err: 'status-error', info: 'status-info'}[sev], 16) : ''}${text}</span>`;
+const pill = (s, sm) => STATE[s] ? chip(STATE[s][1], STATE[s][0], sm) : '<span class="muted">–</span>';
+const OUDN = {ku: 'OU=Użytkownicy,OU=Kraków', kc: 'OU=Komputery,OU=Kraków', kg: 'OU=Grupy,OU=Kraków', wu: 'OU=Użytkownicy,OU=Warszawa',
+  wc: 'OU=Komputery,OU=Warszawa', dc: 'OU=Domain Controllers', bi: 'CN=Builtin', us: 'CN=Users'};
+const TREE = [
+  {id: 'dom', t: 'contoso.test', i: 'domain', open: 1, ch: [
+    {id: 'krk', t: 'Kraków', i: 'organizational-unit', open: 1, ch: [
+      {id: 'ku', t: 'Użytkownicy', i: 'organizational-unit'}, {id: 'kc', t: 'Komputery', i: 'organizational-unit'}, {id: 'kg', t: 'Grupy', i: 'organizational-unit'}]},
+    {id: 'waw', t: 'Warszawa', i: 'organizational-unit', ch: [
+      {id: 'wu', t: 'Użytkownicy', i: 'organizational-unit'}, {id: 'wc', t: 'Komputery', i: 'organizational-unit'}]},
+    {id: 'dc', t: 'Domain Controllers', i: 'organizational-unit'},
+    {id: 'bi', t: 'Builtin', i: 'builtin', no: 'Nie tutaj: Builtin nie przyjmuje przenoszonych obiektów.'},
+    {id: 'us', t: 'Users', i: 'container'}]},
+  {id: 'views', t: 'Zapisane widoki', i: 'pinned', open: 1, no: 'Nie tutaj: widoki to zapytania, nie miejsca w katalogu.', ch: [
+    {id: 'v-lock', t: 'Zablokowane konta', i: 'query', no: 'Nie tutaj: widok to zapytanie, nie miejsce w katalogu.', f: o => o.s === 'lock', d: 'Zapisany widok: konta z blokadą w całej domenie contoso.test.'},
+    {id: 'v-coff', t: 'Wyłączone komputery', i: 'query', no: 'Nie tutaj: widok to zapytanie, nie miejsce w katalogu.', f: o => o.k === 'c' && o.s === 'off', d: 'Zapisany widok: wyłączone konta komputerów w contoso.test.'}]}
+];
+const NODE = {};
+(function walk(list, path, depth) {
+  list.forEach(n => { n.path = path.concat(n.t); n.depth = depth; NODE[n.id] = n; if (n.ch) { walk(n.ch, n.path, depth + 1); } });
+})(TREE, [], 0);
+const TABS = [
+  {t: () => NODE[node].path.slice(-2).join(' / '), i: () => NODE[node].i},
+  {t: () => 'Przegląd kont', i: () => 'account-review', f: o => o.k === 'u' && o.s !== 'on', h: 'Przegląd kont', d: 'Konta zablokowane i wyłączone w contoso.test – do decyzji właścicieli.'}
+];
+let node = 'ku', tab = 0, sel = 'l.zak', listSeq = 0, loading = false;
+const fState = new Set(), fKind = new Set();
+const objOf = k => DATA.find(o => o.l === k);
+function baseRows() {
+  if (tab === 1) { return DATA.filter(TABS[1].f); }
+  const n = NODE[node]; return DATA.filter(n.f || (o => o.ou === node));
+}
+function shownRows() {
+  const q = norm($('#dir-filter').value.trim());
+  return baseRows().filter(o => (!q || norm(o.n + ' ' + o.l).includes(q)) && (!fState.size || fState.has(o.s)) &&
+    (!fKind.size || fKind.has(o.k === 'gd' ? 'g' : o.k === 'srv' || o.k === 'dc' ? 'c' : o.k === 's' ? 'u' : o.k)));
+}
+function dirIdle() {
+  const n = shownRows().length;
+  return `${n} ${pl(n, 'obiekt', 'obiekty', 'obiektów')}, zaznaczono ${objOf(sel) && shownRows().includes(objOf(sel)) ? 1 : 0}`;
+}
+function rowHtml(o) {
+  return `<tr tabindex="0" draggable="true" data-k="${esc(o.l)}" aria-selected="${o.l === sel}"><td><span class="nm">${ic(icoOf(o))}${esc(o.n)}</span></td>` +
+    `<td class="c-login">${esc(o.l)}</td><td class="c-type">${KIND[o.k][0]}</td><td>${pill(o.s, true)}</td><td class="c-chg">${o.c}</td></tr>`;
+}
+function renderRows() {
+  const rows = shownRows(), total = baseRows().length;
+  $('#rows').innerHTML = rows.map(rowHtml).join('');
+  $('#dir-count').textContent = `${rows.length}/${total}`;
+  const em = $('#list-empty'); em.hidden = rows.length > 0; $('#list').hidden = rows.length === 0;
+  if (!rows.length) {
+    em.innerHTML = ic('search', 48) + `<p>Żaden obiekt w tym miejscu nie pasuje do filtru.</p><button class="btn hv" type="button" id="dir-clear">Wyczyść filtr</button>`;
+    $('#dir-clear').onclick = () => { $('#dir-filter').value = ''; fState.clear(); fKind.clear(); $$('#fpanel .chip').forEach(c => c.setAttribute('aria-pressed', 'false')); renderRows(); };
+  }
+  if (!loading) { stat(PS.dir, 'idle', null, true); }
+}
+// Catalogue 10: at most 12 placeholder rows, replaced by the rows when they arrive (no per-row motion)
+function refresh() {
+  const id = ++listSeq, n = Math.max(1, Math.min(12, baseRows().length)), w = [46, 30, 38, 24, 16];
+  loading = true; $('#list').hidden = false; $('#list-empty').hidden = true;
+  $('#rows').innerHTML = Array.from({length: n}, (_, r) => '<tr aria-hidden="true">' + ['', 'c-login', 'c-type', '', 'c-chg'].map((c, i) =>
+    `<td class="${c}"><span class="skel" style="width:${w[i] + (r * 7 + i * 5) % 30}%"></span></td>`).join('') + '</tr>').join('');
+  const where = tab === 1 ? 'Przegląd kont' : NODE[node].path.slice(1).join(' / ');
+  stat(PS.dir, 'work', `Odczytywanie ${baseRows().length} ${pl(baseRows().length, 'obiektu', 'obiektów', 'obiektów')} z ${where}…`);
+  setTimeout(() => { if (id !== listSeq) { return; } loading = false; renderRows(); stat(PS.dir, 'idle'); }, 1500);
+}
+function dirHead() {
+  const n = NODE[node], T = TABS[tab];
+  $('#h-dir').textContent = T.h || n.t;
+  $('#desc-dir').textContent = T.d || n.d || `Obiekty w ${OUDN[node]},DC=contoso,DC=test.`;
+  $('#crumb').textContent = n.path.join(' › ');
+  $('#tabs').innerHTML = TABS.map((x, i) => `<button class="tab hv" type="button" role="tab" id="tab-${i}" aria-selected="${i === tab}">${ic(x.i())}${esc(x.t())}</button>`).join('');
+}
+function renderTree() {
+  const out = [];
+  (function draw(list) {
+    list.forEach(n => {
+      out.push(`<div class="tn hv" role="treeitem" tabindex="0" data-id="${n.id}" aria-selected="${n.id === node && tab === 0}"${n.ch ? ` aria-expanded="${!!n.open}"` : ''} style="padding-left:${4 + n.depth * 16}px">` +
+        `<span class="tw">${n.ch ? gl(n.open ? 'chev-d' : 'chev-r') : ''}</span>${ic(n.i)}<span>${n.t}</span></div>`);
+      if (n.ch && n.open) { draw(n.ch); }
+    });
+  })(TREE);
+  $('#tree-nodes').innerHTML = out.join('');
+}
+function openNode(id, o) {
+  o = o || {};
+  const n = NODE[id]; if (!n) { return; }
+  if (n.ch) { n.open = !n.open; renderTree(); const f = $(`.tn[data-id="${id}"]`); if (o.focus && f) { f.focus(); } return; }
+  n.path.length > 2 && (NODE.krk.open = NODE.krk.open || id[0] === 'k', NODE.waw.open = NODE.waw.open || id[0] === 'w');
+  node = id; tab = 0; renderTree(); dirHead();
+  if (o.focus) { const f = $(`.tn[data-id="${id}"]`); if (f) { f.focus(); } }
+  if (o.quiet) { listSeq++; loading = false; renderRows(); } else { refresh(); }
+  if (!mqWide.matches && !o.keep) { treeFlyout(false); }
+}
+function treeFlyout(open, now) {
+  const tr = $('#tree'); $('#tree-btn').setAttribute('aria-expanded', open);
+  if (open) { M.popIn(tr); } else { M.popOut(tr, now); }
+}
+function renderDetails() {
+  const o = objOf(sel), body = $('#d-body'), bar = $('#d-bar');
+  if (!o) { body.innerHTML = '<div class="empty"><p>Zaznacz obiekt na liście, aby zobaczyć szczegóły.</p></div>'; bar.innerHTML = `${gl('up')}<b>Szczegóły</b>`; return; }
+  const st = STATE[o.s], isAcc = o.k === 'u' || o.k === 's';
+  const sub = KIND[o.k][0] + (st ? ', ' + (o.k === 'u' || o.k === 'c' || o.k === 'srv' || o.k === 'dc' ? st[0].replace(/e$/, 'y') : st[0]) : '');
+  bar.innerHTML = `${gl(bar.getAttribute('aria-expanded') === 'true' ? 'chev-d' : 'up')}<b>Szczegóły</b><span>${ic(icoOf(o))}${esc(o.n)} – ${sub}</span>`;
+  const props = [['Logon', esc(o.l)], ['Typ', KIND[o.k][0]], ['Zmieniono', o.c + '.2026']];
+  if (isAcc) { props.splice(1, 0, ['Poczta', esc(o.l) + '@contoso.test'], ['Biuro', o.ou[0] === 'w' ? 'Warszawa' : 'Kraków'], ['Przełożony', o.l === 'z.sliwa' ? 'Zarząd' : 'Żaneta Śliwa']); }
+  props.push(['DN', `<span class="mono">CN=${esc(o.n)},${OUDN[o.ou]},DC=contoso,DC=test</span>`]);
+  const mem = o.k === 'u' ? ['Księgowość', 'VPN', 'Kraków-Wszyscy', 'Drukarki-P2'] : o.k[0] === 'g' ? ['Łukasz Żak', 'Żaneta Śliwa', 'Dorota Gołębiowska'] : ['Kraków-Wszyscy'];
+  body.innerHTML = `<div class="d-head">${ic(icoOf(o), 32)}<div><b>${esc(o.n)}</b><span class="muted">${sub}</span><div style="margin-top:6px">${pill(o.s)}</div></div>` +
+    `<button class="ibtn hv" type="button" id="d-close" aria-label="Zamknij panel szczegółów" data-tip="Zamknij panel">${gl('close')}</button></div>` +
+    `<div class="d-acts"><button class="btn hv" type="button" id="d-copy">${gl('copy')}Kopiuj DN</button>` +
+    (isAcc ? `<button class="btn hv" type="button" id="d-reset">${gl('key')}Resetuj hasło</button>` : '') + '</div>' +
+    `<dl class="d-props">${props.map(p => `<dt>${p[0]}</dt><dd>${p[1]}</dd>`).join('')}</dl>` +
+    `<div class="d-sec">${o.k[0] === 'g' ? 'Członkowie' : 'Członek grup'} (${mem.length})</div><ul class="d-list">${mem.map(m => `<li>${ic(o.k[0] === 'g' ? 'user' : 'group')}${m}</li>`).join('')}</ul>`;
+  $('#d-close').onclick = () => { $('#details').classList.remove('open'); };
+  $('#d-copy').onclick = () => stub('Kopiuj DN');
+  if (isAcc) { $('#d-reset').onclick = () => stub('Resetuj hasło'); }
+}
+function selectRow(k, o) {
+  o = o || {};
+  sel = k;
+  $$('#rows tr').forEach(r => r.setAttribute('aria-selected', r.dataset.k === k));
+  renderDetails();                       // selection-driven content applies at once (plan 5.3 rule 3)
+  const det = $('#details');
+  if (o.open && mqWide.matches && !det.classList.contains('open')) { det.classList.add('open'); M.panel($('#d-body')); }
+  if (!loading) { stat(PS.dir, 'idle', null, true); }
+}
+function findObject(k) {
+  const o = objOf(k); if (!o) { return; }
+  go('dir'); $('#dir-filter').value = ''; fState.clear(); fKind.clear(); $$('#fpanel .chip').forEach(c => c.setAttribute('aria-pressed', 'false'));
+  if (tab !== 0 || node !== o.ou) { openNode(o.ou, {quiet: true}); } else { listSeq++; loading = false; renderRows(); }
+  selectRow(k, {open: true});
+  const r = $(`#rows tr[data-k="${CSS.escape(k)}"]`);
+  if (r) { r.scrollIntoView({block: 'nearest'}); M.highlight(r); }
+}
+function disableSelected() {
+  const o = objOf(sel);
+  if (!o || !STATE[o.s] || o.s === 'off' || !shownRows().includes(o)) {
+    stat(PS.dir, 'warn', 'Nic nie wyłączono: zaznacz włączone lub zablokowane konto na liście, a potem użyj „Wyłącz konto”.'); return;
+  }
+  ask({
+    title: 'Wyłączyć 1 konto w contoso.test?',
+    text: `Konto ${o.n} (${o.l}) w domenie contoso.test zostanie wyłączone i nie zaloguje się, dopóki ktoś go nie włączy. Zmianę można cofnąć z listy aktywności.`,
+    check: 'Przenieś także do OU „Wyłączone”', ok: 'Wyłącz 1 konto',
+    done() {
+      stat(PS.dir, 'work', `Wyłączanie konta ${o.l} w contoso.test…`);
+      setTimeout(() => {
+        o.s = 'off'; renderRows(); renderDetails();
+        stat(PS.dir, 'done', 'Wyłączono 1 konto w contoso.test. Raport jest na liście aktywności; stamtąd można cofnąć zmianę.');
+      }, 1000);
+    }
+  });
+}
+function buildDir() {
+  $('#tree-btn').innerHTML = gl('tree') + 'Drzewo' + gl('chev-d');
+  $('#dir-tools').innerHTML = `<button class="btn hv" type="button" id="dir-new">${gl('plus')}Nowy</button>` +
+    `<button class="btn hv" type="button" id="dir-disable">${gl('block')}Wyłącz konto</button><i class="tsep"></i>` +
+    `<input class="inp" id="dir-filter" type="search" placeholder="Filtruj: nazwa lub logon" aria-label="Filtruj listę po nazwie lub logonie" autocomplete="off">` +
+    `<button class="btn hv" type="button" id="dir-filters" aria-expanded="false" aria-controls="fpanel">${gl('filter')}Filtry</button>` +
+    `<span class="cnt" id="dir-count"></span><span class="sp"></span>` +
+    `<button class="btn hv" type="button" id="dir-export">${gl('export')}Eksport</button><button class="btn hv" type="button" id="dir-refresh">${gl('refresh')}Odśwież</button>`;
+  $('#fpanel').innerHTML = '<span class="fld">Stan</span>' + [['s', 'on', 'Włączone'], ['s', 'lock', 'Zablokowane'], ['s', 'off', 'Wyłączone']].concat([['k', 'u', 'Konta'], ['k', 'g', 'Grupy'], ['k', 'c', 'Komputery']])
+    .map((c, i) => (i === 3 ? '<i class="tsep" style="width:1px;height:20px;background:var(--stroke-divider)"></i><span class="fld">Rodzaj</span>' : '') +
+      `<button class="chip hv" type="button" id="f-${c[0]}-${c[1]}" data-g="${c[0]}" data-v="${c[1]}" aria-pressed="false">${c[2]}</button>`).join('');
+  $('#fpanel').onclick = e => {
+    const c = e.target.closest('.chip'); if (!c) { return; }
+    const set = c.dataset.g === 's' ? fState : fKind, on = !set.has(c.dataset.v);
+    if (on) { set.add(c.dataset.v); } else { set.delete(c.dataset.v); }
+    c.setAttribute('aria-pressed', on); renderRows();
+  };
+  $('#dir-filters').onclick = e => {
+    const p = $('#fpanel'), on = p.hidden; p.hidden = !on; e.currentTarget.setAttribute('aria-expanded', on);
+    if (on) { M.panel(p); }
+  };
+  $('#dir-filter').oninput = renderRows;
+  $('#dir-new').onclick = () => stub('Nowy');
+  $('#dir-export').onclick = () => stub('Eksport');
+  $('#dir-refresh').onclick = refresh;
+  $('#dir-disable').onclick = disableSelected;
+  $('#tree-btn').onclick = () => treeFlyout(!$('#tree').classList.contains('open'));
+  $('#tabs').onclick = e => {
+    const b = e.target.closest('.tab'); if (!b) { return; }
+    const i = +b.id.slice(4); if (i === tab) { return; }
+    tab = i; listSeq++; loading = false; dirHead(); renderTree(); renderRows(); enterPage($('#p-dir'));
+    $('#tab-' + i).focus();
+  };
+  const tn = $('#tree-nodes');
+  tn.onclick = e => { const n = e.target.closest('.tn'); if (n) { openNode(n.dataset.id, {keep: !!NODE[n.dataset.id].ch}); } };
+  tn.onkeydown = e => {
+    const n = e.target.closest('.tn'); if (!n) { return; }
+    const all = $$('.tn', tn), i = all.indexOf(n), m = NODE[n.dataset.id];
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const x = all[i + (e.key === 'ArrowDown' ? 1 : -1)]; if (x) { x.focus(); } }
+    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNode(m.id, {focus: true, keep: true}); }
+    else if ((e.key === 'ArrowRight' && m.ch && !m.open) || (e.key === 'ArrowLeft' && m.ch && m.open)) { e.preventDefault(); openNode(m.id, {focus: true}); }
+  };
+  // Dragging a row onto the tree: catalogue 13 shows why a place refuses the drop
+  tn.ondragover = e => {
+    const n = e.target.closest('.tn'); if (!n) { return; }
+    const m = NODE[n.dataset.id];
+    if (m.no) { if ($('#refuse').textContent !== m.no) { M.refuse($('#refuse'), m.no); } return; }
+    e.preventDefault(); $$('.drop-ok', tn).forEach(x => x.classList.remove('drop-ok')); n.classList.add('drop-ok');
+  };
+  tn.ondragleave = () => $$('.drop-ok', tn).forEach(x => x.classList.remove('drop-ok'));
+  tn.ondrop = e => {
+    e.preventDefault(); const n = e.target.closest('.tn'); $$('.drop-ok', tn).forEach(x => x.classList.remove('drop-ok'));
+    if (n) { stat(PS.dir, 'warn', `Niczego nie przeniesiono: prototyp nie zmienia danych. W programie zobaczysz tu podgląd planu zmian dla „${NODE[n.dataset.id].t}”.`); }
+  };
+  const rows = $('#rows');
+  rows.onclick = e => { const r = e.target.closest('tr[data-k]'); if (r) { selectRow(r.dataset.k, {open: true}); } };
+  rows.ondragstart = e => { const r = e.target.closest('tr[data-k]'); if (r && e.dataTransfer) { e.dataTransfer.setData('text/plain', r.dataset.k); selectRow(r.dataset.k); } };
+  rows.onkeydown = e => {
+    const r = e.target.closest('tr[data-k]'); if (!r) { return; }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault(); const x = e.key === 'ArrowDown' ? r.nextElementSibling : r.previousElementSibling;
+      if (x) { x.focus(); selectRow(x.dataset.k); }
+    } else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectRow(r.dataset.k, {open: true}); }
+  };
+  $('#d-bar').onclick = () => {
+    const det = $('#details'), on = !det.classList.contains('open');
+    det.classList.toggle('open', on); $('#d-bar').setAttribute('aria-expanded', on); renderDetails();
+    if (on) { M.panel($('#d-body')); }
+  };
+  $('#details').classList.toggle('open', mqWide.matches);
+  mqWide.addEventListener('change', () => {
+    $('#details').classList.toggle('open', mqWide.matches); $('#d-bar').setAttribute('aria-expanded', 'false');
+    $('#tree').classList.remove('open'); renderDetails(); moveInd(true);
+  });
+  dirHead(); renderTree(); renderRows(); renderDetails();
+}
+
+/* ---------- Home ---------- */
+function buildHome() {
+  const card = (i, title, body, acts) => `<article class="card hcard"><div class="hc-h">${ic(i, 24)}<span>${title}</span></div>${body}${acts ? `<div class="hc-a">${acts}</div>` : ''}</article>`;
+  const qa = [['user', 'Nowy użytkownik', ''], ['bulk-create', 'Wiele kont', 'bulk'], ['search', 'Znajdź', '@search'], ['privileges', 'Resetuj hasło', ''],
+    ['account-review', 'Przegląd kont', 'rev'], ['computers', 'Komputery', '@kc'], ['recycle-bin', 'Kosz', ''], ['group-policy', 'Zasady grupy', 'gpo']];
+  $('#home-grid').innerHTML =
+    card('connection', 'Połączenie', `<ul><li><b>contoso.test</b></li><li>DC01.contoso.test, lokacja Kraków</li><li>CONTOSO\\anna.zielinska</li><li>${chip('ok', 'Kerberos, podpisywanie i szyfrowanie')}</li></ul>`,
+      `<button class="btn hv" type="button" id="home-dc">Zmień DC</button><button class="btn hv" type="button" id="home-win">Nowe okno</button>`) +
+    card('readiness', 'Gotowość środowiska', `<ul id="ready-list"><li>${ic('status-ok')}Połączenie i katalog</li><li>${ic('status-warning')}Brak środowiska WebView2 – ostrzeżenie</li><li id="ready-3">${ic('status-unknown')}SYSVOL i dzienniki: nie sprawdzono</li></ul>`,
+      `<button class="btn hv accent act" type="button" id="home-check" data-state="idle">${actHtml('Szybkie sprawdzenie')}</button><button class="btn hv" type="button" id="home-full">Pełne sprawdzenie</button>`) +
+    card('home', 'Zacznij tutaj', `<div class="qa">${qa.map((q, i) => `<button class="btn hv" type="button" id="qa-${i}" data-go="${q[2]}" data-name="${q[1]}">${ic(q[0])}<span>${q[1]}</span></button>`).join('')}</div>`) +
+    card('pinned', 'Przypięte widoki', `<div><button class="li hv" type="button" id="pin-0" data-node="v-lock">${ic('query')}Zablokowane konta</button>` +
+      `<button class="li hv" type="button" id="pin-1" data-node="v-coff">${ic('query')}Wyłączone komputery</button>` +
+      `<button class="li hv" type="button" id="pin-2" data-node="ku">${ic('organizational-unit')}Kraków / Użytkownicy</button>` +
+      `<div class="sub">Ostatnio w tej sesji (tylko w pamięci)</div><button class="li hv" type="button" id="pin-3" data-obj="z.sliwa">${ic('user-locked')}Żaneta Śliwa</button></div>`,
+      `<button class="btn hv" type="button" id="home-views">Zarządzaj widokami</button>`) +
+    card('watchdog', 'Watchdog', `<ul><li>${ic('status-ok')}Usługa osiągalna</li><li>Ostatnie zdarzenie 08:57</li><li>3 alerty od wczoraj</li></ul>`,
+      `<button class="btn hv" type="button" id="home-wd">Otwórz Watchdog</button>`) +
+    card('settings', 'Ta wersja', `<div><b>AD Manager 0.x</b> <span class="muted">– prototyp odnowy interfejsu</span></div><div><button class="li hv" type="button" id="home-new">Co nowego w tym wydaniu</button>` +
+      `<button class="li hv" type="button" id="home-keys">Skróty klawiszowe</button><button class="li hv" type="button" id="home-bug">Zgłoś problem</button></div>`,
+      `<button class="btn hv" type="button" id="home-motion">${gl('motion')}Strona Animacje</button>`);
+  $('#home-grid').onclick = e => {
+    const b = e.target.closest('button'); if (!b || b.id === 'home-check') { return; }
+    if (b.dataset.node) { go('dir'); openNode(b.dataset.node, {quiet: true}); const n = $(`.tn[data-id="${b.dataset.node}"]`); if (n) { M.highlight(n); } }
+    else if (b.dataset.obj) { findObject(b.dataset.obj); }
+    else if (b.dataset.go === '@search') { $('#search').focus(); }
+    else if (b.dataset.go === '@kc') { go('dir'); openNode('kc'); }
+    else if (b.dataset.go) { go(b.dataset.go); }
+    else if (b.id === 'home-wd') { go('wd'); }
+    else if (b.id === 'home-motion') { go('motion'); }
+    else { stub(b.dataset.name || b.textContent.trim()); }
+  };
+  const parts = ['połączenie', 'katalog', 'czas', 'SYSVOL', 'dzienniki', 'WebView2'];
+  job($('#home-check'), {
+    n: 6, ms: 550,
+    tick: i => stat(PS.home, 'work', `Sprawdzanie gotowości contoso.test: ${parts[i]} (${i + 1} z 6)…`, i > 0),
+    done() {
+      $('#ready-3').innerHTML = ic('status-ok') + 'SYSVOL i dzienniki';
+      stat(PS.home, 'done', 'Sprawdzono 6 elementów w contoso.test: 5 w porządku, 1 ostrzeżenie. Szczegóły są na stronie Gotowość.');
+    },
+    cancelled: i => stat(PS.home, 'warn', `Sprawdzanie przerwano po ${i} z 6 elementów; wynik jest niepełny. Uruchom je ponownie, gdy będziesz gotowa.`)
+  });
+}
+
+/* ---------- Bulk create ---------- */
+const PEOPLE = ['Aleksandra Bąk', 'Bartłomiej Ćwiek', 'Celina Dzięcioł', 'Dariusz Gąsior', 'Ewelina Jóźwiak', 'Filip Kędzior', 'Grażyna Łoś', 'Hubert Mączka',
+  'Izabela Nędza', 'Jędrzej Olszówka', 'Kinga Pięta', 'Leszek Żuraw'].map((n, i) => ({n, l: norm(n[0] + '.' + n.split(' ')[1]) + (i === 5 ? '2' : ''), r: ''}));
+const STEPS = ['Dane', 'Szablon', 'Podgląd', 'Wykonanie'];
+let step = 1, bulkBusy = false;
+function bulkTables() {
+  const head = c => `<thead><tr><th>Nazwa</th><th class="c-login">Logon</th><th class="c-type">Miejsce</th><th>${c}</th></tr></thead><tbody>`;
+  const row = (p, last) => `<tr><td><span class="nm">${ic('user')}${p.n}</span></td><td class="c-login">${p.l}</td><td class="c-type">Kraków / Użytkownicy</td><td>${last}</td></tr>`;
+  $('#bulk-preview').innerHTML = head('Walidacja') + PEOPLE.map((p, i) => row(p, i === 5 ? chip('warn', 'logon zajęty – użyto f.kedzior2', true) : chip('ok', 'gotowe', true))).join('') + '</tbody>';
+  $('#bulk-result').innerHTML = head('Wynik') + PEOPLE.map(p => row(p, p.r === 'ok' ? chip('ok', 'założono', true) : p.r === 'skip' ? chip('', 'pominięto', true) : chip('', 'oczekuje', true))).join('') + '</tbody>';
+}
+function setStep(n, quiet) {
+  step = n;
+  $$('#steps .step').forEach((b, i) => {
+    if (i + 1 === n) { b.setAttribute('aria-current', 'step'); } else { b.removeAttribute('aria-current'); }
+    b.classList.toggle('done', i + 1 < n);
+    $('.num', b).innerHTML = i + 1 < n ? gl('check', 12) : i + 1;
+  });
+  $$('#p-bulk .stepb').forEach(s => { s.hidden = +s.dataset.step !== n; });
+  $('#bulk-prev').disabled = n === 1; $('#bulk-next').hidden = n === 4; $('#bulk-run').hidden = n !== 4;
+  if (!quiet) { M.panel($(`#p-bulk .stepb[data-step="${n}"]`)); }
+  if (!bulkBusy) { stat(PS.bulk, 'idle', null, true); }
+}
+function buildBulk() {
+  $('#steps').innerHTML = STEPS.map((s, i) => `<li><button class="step hv" type="button" id="step-${i + 1}"><span class="num">${i + 1}</span><span class="lbl">${s}</span></button></li>`).join('');
+  $('#steps').onclick = e => { const b = e.target.closest('.step'); if (b) { setStep(+b.id.slice(5)); } };
+  $('#bulk-prev').onclick = () => setStep(Math.max(1, step - 1));
+  $('#bulk-next').onclick = () => setStep(Math.min(4, step + 1));
+  $('#bulk-opts').innerHTML = [
+    {id: 'b-template', g: 'rows', t: 'Szablon konta', d: 'Grupy, katalog domowy i atrybuty biura z szablonu.', sel: [['a', 'Pracownik biurowy – Kraków'], ['b', 'Praktykant'], ['c', 'Konto usługi']]},
+    {id: 'b-ou', i: 'organizational-unit', t: 'Miejsce docelowe', d: 'Jednostka organizacyjna dla nowych kont.', sel: [['a', 'contoso.test / Kraków / Użytkownicy'], ['b', 'contoso.test / Warszawa / Użytkownicy']]},
+    {id: 'b-upn', i: 'domain', t: 'Sufiks nazwy logowania', d: 'Część po znaku @ w nazwie UPN.', sel: [['a', '@contoso.test']]},
+    {id: 'b-pwd', g: 'key', t: 'Zmiana hasła przy pierwszym logowaniu', d: 'Hasła startowe są losowe i nigdzie nie są zapisywane.', sw: true}
+  ].map(cardHtml).join('');
+  $('#bulk-run').innerHTML = actHtml('Załóż 12 kont');
+  bulkTables();
+  const prog = i => { const b = $('#bulk-pbar'); b.setAttribute('aria-valuenow', i); b.firstElementChild.style.transform = `scaleX(${i / 12})`; };
+  job($('#bulk-run'), {
+    n: 12, ms: 480,
+    tick(i) {
+      if (i === 0) { PEOPLE.forEach(p => { p.r = ''; }); bulkBusy = true; }
+      PEOPLE.forEach((p, k) => { if (k < i) { p.r = 'ok'; } });
+      bulkTables(); prog(i);
+      $('#bulk-prog-t').textContent = `Zakładanie kont: ${i} z 12`;
+      stat(PS.bulk, 'work', `Zakładanie 12 kont w Kraków / Użytkownicy (contoso.test): ${i} z 12…`, i > 0);   // progress ticks are live data: no motion
+    },
+    done() {
+      bulkBusy = false; PEOPLE.forEach(p => { p.r = 'ok'; }); bulkTables(); prog(12);
+      $('#bulk-prog-t').textContent = 'Założono 12 z 12 kont.';
+      stat(PS.bulk, 'done', 'Założono 12 kont w contoso.test. Raport jest na liście aktywności.');
+      if (loc !== 'bulk') { toast({sev: 'ok', title: 'Zakładanie kont zakończone', text: 'Założono 12 kont w contoso.test.', action: 'Pokaż wynik', run: () => { go('bulk'); setStep(4); }}); }
+    },
+    cancelling: i => { $('#bulk-prog-t').textContent = `Anulowanie po ${i} z 12 kont…`; },
+    cancelled(i) {
+      bulkBusy = false; PEOPLE.forEach((p, k) => { p.r = k < i ? 'ok' : 'skip'; }); bulkTables();
+      $('#bulk-prog-t').textContent = `Przerwano: założono ${i} z 12 kont.`;
+      stat(PS.bulk, 'warn', `Przerwano po ${i} z 12 kont: ${i} ${pl(i, 'konto założono', 'konta założono', 'kont założono')}, ${12 - i} pominięto. Uruchom ponownie, aby założyć pozostałe.`);
+    }
+  });
+  setStep(1, true);
+}
+
+/* ---------- Certificates ---------- */
+const CERTS = [
+  ['certificate-authority', 'Contoso Root CA', 'Główny urząd certyfikacji, trzymany offline. Ważny do 14.03.2041.', [['ok', 'Ważny'], ['info', 'Offline']]],
+  ['certificate-authority', 'Contoso Issuing CA 1', 'Urząd wystawiający na PKI01.contoso.test. Ważny do 02.06.2031.', [['ok', 'W porządku'], ['ok', 'Lista CRL aktualna']]],
+  ['certificate', 'Lista CRL – Contoso Issuing CA 1', 'Następna publikacja 13.11.2026.', [['warn', 'Wygasa za 3 dni']], 1],
+  ['certificate-template', 'Użytkownik-KartaInteligentna', 'Szablon w wersji 4. Rejestracja: grupa Karty-Kraków.', [['ok', 'Bez uwag']]],
+  ['certificate-template', 'SerwerWWW-Stary', 'Wnioskodawca sam podaje nazwę podmiotu. Rejestracja: Użytkownicy domeny.', [['err', 'Ryzyko ESC1'], ['warn', 'Klucz 1024 bity']], 1],
+  ['domain-controller', 'LDAPS – DC01.contoso.test', 'Certyfikat serwera na porcie 636. Ważny do 30.08.2027.', [['ok', 'Ważny'], ['info', 'TLS 1.3']]],
+  ['domain-controller', 'LDAPS – DC02.contoso.test', 'Certyfikat serwera na porcie 636. Ważny do 22.11.2026.', [['warn', 'Wygasa za 12 dni']], 1]
+];
+function buildCerts() {
+  let att = false;
+  const draw = () => {
+    $('#cert-grid').innerHTML = CERTS.filter(c => !att || c[4]).map(c => `<article class="card ccert"><div class="cc-h">${ic(c[0], 24)}<div><b>${c[1]}</b><p>${c[2]}</p></div></div>` +
+      `<div class="chips">${c[3].map(x => chip(x[0], x[1])).join('')}</div></article>`).join('');
+    $('#cert-all').setAttribute('aria-pressed', !att); $('#cert-att').setAttribute('aria-pressed', att);
+  };
+  $('#cert-all').onclick = () => { att = false; draw(); };
+  $('#cert-att').onclick = () => { att = true; draw(); };
+  $('#cert-refresh').innerHTML = gl('refresh') + 'Odśwież';
+  $('#cert-refresh').onclick = () => {
+    stat(PS.certs, 'work', 'Odczytywanie 2 urzędów, 2 szablonów i 2 certyfikatów kontrolerów z contoso.test…');
+    setTimeout(() => stat(PS.certs, 'warn', '3 z 7 pozycji wymagają uwagi: 1 ryzyko i 2 terminy. Zacznij od szablonu SerwerWWW-Stary.'), 1300);
+  };
+  draw();
+}
+
+/* ---------- Settings as cards (plan 6.6) ---------- */
+function cardHtml(c) {
+  const ctl = c.sel ? `<select id="set-${c.id}">${c.sel.map(o => `<option value="${o[0]}">${o[1]}</option>`).join('')}</select>`
+    : c.sw != null ? `<input class="sw" type="checkbox" role="switch" id="set-${c.id}"${c.sw ? ' checked' : ''}>`
+    : c.btn ? `<button class="btn hv" type="button" id="set-${c.id}">${c.btn}</button>`
+    : c.inp ? `<input class="inp mono" type="text" id="set-${c.id}" value="${c.inp}" spellcheck="false">` : `<span class="muted" id="set-${c.id}">${c.val}</span>`;
+  return `<div class="scard card hv" data-card="${c.id}"><div class="sc-h">${c.i ? ic(c.i, 20) : gl(c.g || 'rows', 20)}<div class="sc-t"><label for="set-${c.id}">${c.t}</label><p>${c.d}</p></div>${ctl}` +
+    (c.exp ? `<button class="ibtn hv exp-btn" type="button" id="exp-${c.id}" aria-expanded="false" aria-controls="expb-${c.id}" aria-label="Więcej opcji: ${c.t}">${gl('chev-d')}</button>` : '') + '</div>' +
+    (c.exp ? `<div class="exp-b" id="expb-${c.id}" hidden><div class="exp-in">${c.exp}</div></div>` : '') + '</div>';
+}
+const SET = [
+  {id: 'look', t: 'Wygląd', d: 'Jak AD Manager wygląda na tym komputerze. Dotyczy wszystkich okien naraz.', cards: [
+    {id: 'theme', g: 'sun', t: 'Motyw', d: 'Jasny, ciemny albo ustawienie Windows.', sel: [['system', 'Zgodnie z Windows'], ['light', 'Jasny'], ['dark', 'Ciemny']], get: () => R.dataset.theme || 'system', set: setTheme},
+    {id: 'icons', g: 'grid', t: 'Ikony', d: 'Kolorowe obrazki albo jednobarwne glify (w prototypie: odcienie szarości). Wysoki kontrast zawsze używa glifów.', sel: [['colour', 'Kolorowe'], ['mono', 'Jednobarwne']], get: () => R.dataset.icons || 'colour', set: v => { R.dataset.icons = v; }},
+    {id: 'motion', g: 'motion', t: 'Animacje', d: 'Zgodnie z Windows, zawsze włączone albo wyłączone. Wyłączenie zatrzymuje też przebłysk wczytywania.', sel: [['system', 'Zgodnie z Windows'], ['on', 'Zawsze włączone'], ['off', 'Wyłączone']], get: motionPref, set: setMotion},
+    {id: 'density', g: 'rows', t: 'Gęstość', d: 'Wysokość wierszy, odstępy i tło okna (Mica tam, gdzie Windows ją oferuje).', sel: [['compact', 'Kompaktowa'], ['comfortable', 'Wygodna']], get: () => R.dataset.density || 'compact', set: v => { R.dataset.density = v; densityText(); moveInd(true); },
+      exp: `<div class="exp-row"><span>Wiersz listy i drzewa</span><b id="dens-row"></b></div><div class="exp-row"><span>Kontrolka i nagłówek kolumny</span><b id="dens-ctl"></b></div>` +
+        `<div class="exp-row"><label for="set-backdrop">Tło okna (od następnego uruchomienia)</label><select id="set-backdrop"><option>Mica (Windows 11)</option><option>Jednolite</option></select></div>`},
+    {id: 'nav', g: 'pane', t: 'Nawigacja – przełącznik prototypu', d: 'N2 (zalecane): pasek obszarów 48 px, drzewo zostaje główne. N1: panel z nazwami i grupami.', sel: [['n2', 'Pasek obszarów (N2)'], ['n1', 'Panel nawigacji (N1)']], get: () => win.dataset.nav, set: setNav},
+    {id: 'tips', g: 'tip', t: 'Wskazówki', d: 'Każda wskazówka pokazuje się raz. Tutaj można pokazać je ponownie.', btn: 'Pokaż ponownie', set: showTip}]},
+  {id: 'lists', t: 'Listy', d: 'Jak wczytują się i wyglądają listy obiektów.', cards: [
+    {id: 'page', g: 'rows', t: 'Wiersze na stronę', d: 'Ile obiektów lista pobiera w jednym kroku.', sel: [['a', '200'], ['b', '500'], ['c', '1000']]},
+    {id: 'skel', g: 'refresh', t: 'Szkielet podczas wczytywania', d: 'Najwyżej 12 wierszy zastępczych, dopóki nie ma pierwszej strony.', sw: true}]},
+  {id: 'conn', t: 'Połączenia', d: 'Jak okna łączą się z domeną. Haseł nie zapisujemy.', cards: [
+    {id: 'dc', i: 'domain-controller', t: 'Kontroler domeny', d: 'Wszystkie odczyty i zapisy okna trafiają do jednego kontrolera.', sel: [['a', 'Wybierz automatycznie'], ['b', 'DC01.contoso.test'], ['c', 'DC02.contoso.test']]},
+    {id: 'after', i: 'home', t: 'Po połączeniu otwórz', d: 'Stronę Start albo ostatnie miejsce w drzewie.', sel: [['a', 'Start'], ['b', 'Ostatnie miejsce w drzewie']]}]},
+  {id: 'msg', t: 'Wiadomości', d: 'Wysyłanie wiadomości do użytkowników.', cards: [
+    {id: 'transport', i: 'messages', t: 'Sposób wysyłki', d: 'Klasyczny Outlook albo bezpośrednio przez SMTP.', sel: [['a', 'Outlook'], ['b', 'SMTP']]},
+    {id: 'sign', i: 'correspondence', t: 'Dodawaj podpis', d: 'Podpis z plików Outlooka.', sw: true}]},
+  {id: 'comp', t: 'Komputery', d: 'Zdalne działania na komputerach.', cards: [
+    {id: 'winrm', i: 'computers', t: 'Działania zdalne przez WinRM', d: 'Kerberos z poświadczeniami okna, nigdy nie zapisywanymi.', sw: true},
+    {id: 'ping', i: 'computer', t: 'Limit czasu ping', d: 'Po jakim czasie komputer uznajemy za nieosiągalny.', sel: [['a', '1 s'], ['b', '3 s'], ['c', '5 s']]}]},
+  {id: 'pki', t: 'Certyfikaty', d: 'Reguły oceny stanu usług certyfikatów.', cards: [
+    {id: 'expiry', i: 'certificate', t: 'Ostrzegaj przed wygaśnięciem', d: 'Ile dni wcześniej pojawia się ostrzeżenie.', sel: [['a', '14 dni'], ['b', '30 dni'], ['c', '60 dni']]},
+    {id: 'tls', i: 'domain-controller', t: 'Sonda TLS kontrolerów', d: 'Samo uzgodnienie TLS na portach 636 i 3269, bez logowania.', sw: true}]},
+  {id: 'wd', t: 'Watchdog', d: 'Połączenie z usługą AdMng Watchdog.', cards: [
+    {id: 'wdurl', i: 'watchdog', t: 'Adres usługi', d: 'HTTPS z Kerberosem.', inp: 'watchdog.contoso.test:8443'},
+    {id: 'wdtoast', i: 'activity', t: 'Powiadomienia w oknie', d: 'Alerty jako powiadomienia w prawym dolnym rogu.', sw: true}]},
+  {id: 'about', t: 'O programie', d: 'Wersja i licencja.', cards: [
+    {id: 'ver', i: 'settings', t: 'AD Manager 0.x', d: 'Prototyp odnowy interfejsu. Licencja Apache-2.0.', btn: 'Co nowego'}]}
+];
+let cat = 'look';
+function densityText() {
+  const a = $('#dens-row'), b = $('#dens-ctl'); if (!a) { return; }
+  const v = n => cs.getPropertyValue(n).trim().replace('px', ' px');
+  a.textContent = v('--h-row'); b.textContent = `${v('--h-control')} / ${v('--h-head')}`;
+}
+function showCat(id, quiet) {
+  cat = id; const c = SET.find(x => x.id === id);
+  $$('#cats .cat').forEach(b => { if (b.dataset.cat === id) { b.setAttribute('aria-current', 'true'); } else { b.removeAttribute('aria-current'); } });
+  $('#h-set').textContent = c.t; $('#desc-set').textContent = c.d;
+  $('#set-cards').innerHTML = c.cards.map(cardHtml).join('');
+  c.cards.forEach(x => { if (x.get) { $('#set-' + x.id).value = x.get(); } });
+  densityText();
+  if (!quiet) { enterPage($('#p-set')); stat(PS.set, 'idle', null, true); }
+}
+function findSetting(catId, cardId) {
+  go('set'); showCat(catId, true);
+  const el = $(`.scard[data-card="${cardId}"]`); if (el) { el.scrollIntoView({block: 'nearest'}); M.highlight(el); }
+}
+function buildSettings() {
+  $('#cats').innerHTML = SET.map(c => `<button class="cat hv" type="button" id="cat-${c.id}" data-cat="${c.id}">${c.t}</button>`).join('');
+  $('#cats').onclick = e => { const b = e.target.closest('.cat'); if (b && b.dataset.cat !== cat) { showCat(b.dataset.cat); } };
+  const cardOf = el => { const sc = el.closest('.scard'); return sc ? SET.find(x => x.id === cat).cards.find(x => x.id === sc.dataset.card) : null; };
+  const sc = $('#set-cards');
+  sc.onchange = e => {
+    const c = cardOf(e.target); if (!c) { return; }
+    if (e.target.id === 'set-' + c.id && c.set) { c.set(e.target.value); }
+    const o = e.target.selectedOptions ? e.target.selectedOptions[0].textContent : e.target.checked ? 'włączone' : e.target.type === 'checkbox' ? 'wyłączone' : e.target.value;
+    stat(PS.set, 'done', `Zapisano: ${c.t.replace(/ – .*/, '')} – ${o}. Zmiana działa od razu we wszystkich oknach.`);
+  };
+  sc.onclick = e => {
+    const c = cardOf(e.target); if (!c) { return; }
+    const ex = e.target.closest('.exp-btn'), ctl = $('#set-' + c.id);
+    if (ex || (c.exp && e.target.closest('.sc-h') && !e.target.closest('select'))) {
+      const card = e.target.closest('.scard'), open = !card.classList.contains('open');
+      card.classList.toggle('open', open); $('#exp-' + c.id).setAttribute('aria-expanded', open); M.expand($('#expb-' + c.id), open); return;
+    }
+    if (e.target === ctl && c.btn) { if (c.set) { c.set(); } else { stub(c.btn); } return; }
+    // the whole card operates its control
+    if (e.target.closest('.sc-h') && !e.target.closest('select,input,button,label')) {
+      if (c.btn || c.sw != null) { ctl.click(); } else if (ctl.focus) { ctl.focus(); try { if (ctl.showPicker) { ctl.showPicker(); } } catch (err) { /* needs a user gesture in some browsers */ } }
+    }
+  };
+  showCat('look', true);
+}
+
+/* ---------- Motion page: tokens and the catalogue with Replay ---------- */
+const TOK = [
+  ['hover', 'Motion.Hover', 'zmiana po najechaniu wskaźnikiem'], ['press', 'Motion.Press', 'mała skala; w katalogu nacisk działa od razu'],
+  ['swap', 'Motion.Swap', 'tyle na wyjście i tyle na wejście treści przycisku'], ['fast', 'Motion.Fast', 'najczęstszy czas; zwinięcie'],
+  ['appear', 'Motion.Appear', 'pojawienie się komunikatu'], ['disappear', 'Motion.Disappear', 'własny: zniknięcie komunikatu'],
+  ['entrance', 'Motion.Entrance', 'własny: wejście strony'], ['expand', 'Motion.Expand', 'rozwinięcie (jak w motywie Fluent)'],
+  ['collapse', 'Motion.Collapse', 'zwinięcie'], ['highlight', 'Motion.Highlight', 'wyróżnienie „spójrz tutaj”'],
+  ['shimmer', 'Motion.Shimmer', 'pętla przebłysku szkieletu'], ['hover-intent', 'Motion.HoverIntent', 'opóźnienie podpowiedzi'],
+  ['offset-page', 'Motion.Offset.Page', 'własny: przesunięcie treści strony'], ['offset-panel', 'Motion.Offset.Panel', 'własny: przesunięcie panelu'],
+  ['ease-enter', 'Motion.Ease.Enter', 'sześcienne wyhamowanie; krzywa 0,0,0,1'], ['ease-exit', 'Motion.Ease.Exit', 'sześcienne przyspieszenie; krzywa 1,1,0,1'],
+  ['ease-change', 'Motion.Ease.Change', 'kwadratowe przyspieszenie i wyhamowanie'],
+  ['transient-in', '(katalog, wiersz 6) wejście', 'własny: powierzchnia chwilowa'], ['transient-out', '(katalog, wiersz 6) wyjście', 'własny'],
+  ['transient-offset', '(katalog, wiersz 6) opadanie', 'własny'], ['toast-offset', '(katalog, wiersz 7) przesunięcie', 'od prawej krawędzi'],
+  ['toast-stay', '(plan 6.7) czas powiadomienia', 'własny; błędy zostają do zamknięcia'], ['ring', '(katalog, wiersz 11) obrót pierścienia', 'własny']
+];
+const tval = k => tv(k).replace(/(\d)(ms|s|px)$/, '$1 $2');
+const tk = k => `<code>${TOK.find(x => x[0] === k)[1]}</code> ${tval(k)}`;
+const sampleRow = (o, extra) => `<div class="mrow"${extra || ''}>${ic(icoOf(o))}<span>${o.n}</span><span class="sp"></span>${pill(o.s, true)}</div>`;
+const CAT = [
+  {t: 'Reakcja na wskaźnik i naciśnięcie', w: 'przyciski, filtry, karty, pasek obszarów', k: () => `${tk('hover')} · nacisk od razu · ${tk('ease-change')}`, s: '„To można kliknąć”. Zmienia się przezroczystość warstwy, nie pędzel.',
+    d: `<button class="btn hv" type="button" id="dm-1a">Przycisk</button><button class="btn hv accent" type="button" id="dm-1b">Akcent</button><button class="chip hv" type="button" id="dm-1c">Filtr</button>`,
+    r(st) { $$('.hv', st).forEach(e => { e.classList.add('sim-hover'); setTimeout(() => e.classList.add('sim-press'), 700); setTimeout(() => e.classList.remove('sim-hover', 'sim-press'), 1000); }); }},
+  {t: 'Zamiana treści przycisku akcji', w: 'przycisk akcji: Start → Anuluj → Anulowanie…', k: () => `${tk('swap')} wyjście + wejście · ${tk('ease-change')}`, s: '„Działa – naciśnij ponownie, aby zatrzymać”, potem „zatrzymuję”. Szerokość przycisku się nie zmienia.',
+    d: `<button class="btn hv accent act" type="button" id="dm-2" data-state="idle">${actHtml('Start')}</button>`,
+    r(st) { const b = $('#dm-2', st); actSet(b, 'idle'); setTimeout(() => actSet(b, 'running'), 60); setTimeout(() => actSet(b, 'cancelling'), 1500); setTimeout(() => actSet(b, 'idle'), 2900); }},
+  {t: 'Zmiana komunikatu stanu', w: 'linia stanu każdej strony', k: () => `${tk('appear')} wejście · ${tk('disappear')} wyjście · ${tk('offset-panel')} · ${tk('ease-enter')} / ${tk('ease-exit')}`, s: '„Nadszedł wynik” – bez wyskakującego okna. Linia ma stałą wysokość.',
+    d: `<div id="dm-3"></div>`,
+    r(st) { const p = $('#dm-3', st); stat(p, 'work', 'Odczytywanie 18 obiektów z Kraków / Użytkownicy…'); setTimeout(() => stat(p, 'done', 'Wyłączono 1 konto w contoso.test.'), 1500); setTimeout(() => stat(p, 'idle'), 4200); }},
+  {t: 'Wejście strony', w: 'dokument, strona Start, ustawienia', k: () => `${tk('entrance')} · ${tk('offset-page')} · ${tk('ease-enter')}`, s: '„Nowa strona zastąpiła starą”. Nagłówek i pasek pojawiają się, treść listy się przesuwa (nie zanika).',
+    d: `<div class="mini"><b data-fade>Użytkownicy</b><div class="card" data-fade>Nowy · Filtr · Odśwież</div><div data-rise>${sampleRow(DATA[11])}${sampleRow(DATA[17])}</div></div>`,
+    r(st) { M.page($$('[data-fade]', st), $('[data-rise]', st)); }},
+  {t: 'Wejście panelu', w: 'panel szczegółów, panel filtrów, krok kreatora', k: () => `${tk('fast')} · ${tk('offset-panel')} · ${tk('ease-enter')}`, s: '„To należy do tego, co właśnie wybrałaś”. Nie przy zmianie zaznaczenia na liście.',
+    d: `<div class="card mini" id="dm-5" style="padding:8px"><div class="nm">${ic('user', 32)}<span><b>Łukasz Żak</b><br><span class="muted">Użytkownik, włączony</span></span></div></div>`,
+    r(st) { M.panel($('#dm-5', st)); }},
+  {t: 'Powierzchnia chwilowa', w: 'lista wyszukiwania, wskazówka, drzewo jako wysuwane okno', k: () => `wejście ${tval('transient-in')} · wyjście ${tval('transient-out')} · opadanie ${tval('transient-offset')} · ${tk('ease-enter')} / ${tk('ease-exit')}`, s: '„To leży na wierzchu i zniknie”. Esc zamyka od razu.',
+    d: `<div class="pop" id="dm-6">Polecenia · Strony i widoki · Ustawienia · Obiekty</div>`,
+    r(st) { const p = $('#dm-6', st); M.popOut(p); setTimeout(() => M.popIn(p), 500); }},
+  {t: 'Powiadomienie', w: 'prawy dolny róg okna, najwyżej trzy naraz', k: () => `${tk('appear')} wejście · ${tk('disappear')} wyjście · ${tval('toast-offset')} od prawej · zostaje ${tval('toast-stay')}`, s: '„Coś zakończyło się gdzie indziej”.',
+    d: `<span class="muted" style="font-size:12px">Powiadomienie pojawi się w prawym dolnym rogu okna i zniknie po 5 s.</span>`,
+    r() { toast({sev: 'info', title: 'Watchdog', text: 'Nowy alert: 5 nieudanych logowań konta z.sliwa.', action: 'Pokaż konto', run: () => findObject('z.sliwa')}); }},
+  {t: 'Rozwijanie', w: 'karta ustawień z dodatkowymi opcjami', k: () => `${tk('expand')} / ${tk('collapse')} · krzywe motywu`, s: '„Grupa otwiera się w dół”. Treść wsuwa się spod nagłówka.',
+    d: `<div class="card mini" style="padding:0;overflow:hidden"><div style="padding:6px 8px;position:relative;z-index:1;background:var(--surface-card)"><b>Gęstość</b></div><div class="exp-b" id="dm-8"><div class="exp-in" style="padding:6px 8px">Wiersz listy 26 px<br>Kontrolka 28 px</div></div></div>`,
+    r(st) { const b = $('#dm-8', st); M.expand(b, b.hidden); }},
+  {t: 'Wyróżnienie „spójrz tutaj”', w: 'wiersz listy, karta ustawień, węzeł drzewa', k: () => `${tk('highlight')}`, s: '„Tego szukałaś” – po wybraniu wyniku wyszukiwania.',
+    d: sampleRow(DATA[17], ' id="dm-9"'),
+    r(st) { M.highlight($('#dm-9', st)); }},
+  {t: 'Szkielet listy', w: 'lista, dopóki nie ma pierwszej strony', k: () => `${tk('shimmer')} w pętli · najwyżej 12 wierszy`, s: '„Wiersze nadchodzą” – a nie „pusto”. Bez animacji: nieruchome paski.',
+    d: `<div class="mini" id="dm-10"></div>`,
+    r(st) { const m = $('#dm-10', st); m.innerHTML = [70, 55, 62].map(w => `<div class="mrow"><span class="skel" style="width:${w}%"></span></div>`).join(''); clearTimeout(m._t); m._t = setTimeout(() => { m.innerHTML = sampleRow(DATA[0]) + sampleRow(DATA[12]) + sampleRow(DATA[14]); }, 1900); }},
+  {t: 'Postęp', w: 'pasek postępu, pierścień w przycisku akcji', k: () => `pierścień ${tval('ring')} na obrót · pasek: wartość od razu`, s: '„Zajęte” albo „jak daleko”. Postęp zostaje także przy wyłączonych animacjach – to informacja.',
+    d: `${ring(20)}<div class="pbar" id="dm-11" style="flex:1" role="progressbar" aria-label="Przykładowy postęp" aria-valuemin="0" aria-valuemax="10" aria-valuenow="4"><i style="transform:scaleX(.4)"></i></div>`,
+    r(st) { const b = $('#dm-11', st); clearInterval(b._t); let i = 0; b._t = setInterval(() => { i++; b.firstElementChild.style.transform = `scaleX(${i / 10})`; b.setAttribute('aria-valuenow', i); if (i >= 10) { clearInterval(b._t); } }, 220); }},
+  {t: 'Wskaźnik obszaru', w: 'pasek obszarów', k: () => `${tk('fast')} · ${tk('ease-change')}`, s: '„Jesteś teraz tutaj”. Kreska akcentu przesuwa się do nowej pozycji.',
+    d: `<div class="mstrip" id="dm-12"><i class="ind on"></i><span>${ic('home', 20)}</span><span>${ic('directory', 20)}</span><span>${ic('certificate-authority', 20)}</span></div><span class="muted" style="font-size:12px">Prawdziwy wskaźnik: pasek po lewej stronie okna.</span>`,
+    r(st) { const m = $('#dm-12', st); m._i = ((m._i || 0) + 1) % 3; $('.ind', m).style.transform = `translateY(${m._i * 24 + 5}px)`; }},
+  {t: 'Odrzucone upuszczenie', w: 'drzewo katalogu', k: () => `${tk('fast')} wejście i wyjście`, s: '„Nie tutaj – i dlaczego”. W Katalogu: przeciągnij wiersz listy na węzeł Builtin.',
+    d: `<div class="mini"><div class="mrow">${ic('builtin')}<span>Builtin</span></div><div class="refuse" id="dm-13" style="min-height:20px;padding:0 6px"></div></div>`,
+    r(st) { M.refuse($('#dm-13', st), 'Nie tutaj: Builtin nie przyjmuje przenoszonych obiektów.'); }}
+];
+function buildMotion() {
+  $('#cat-grid').innerHTML = CAT.map((c, i) => `<article class="card mcard" id="mc-${i + 1}"><div class="mc-h"><span class="mc-n">#${i + 1}</span><b>${c.t}</b>` +
+    `<button class="btn hv" type="button" id="replay-${i + 1}" aria-label="Odtwórz: ${c.t}">${gl('play')}Odtwórz</button></div>` +
+    `<div class="mc-s">Gdzie: ${c.w}</div><div class="mc-k">${c.k()}</div><div class="mc-s">${c.s}</div><div class="stage">${c.d}</div></article>`).join('');
+  $('#cat-grid').onclick = e => { const b = e.target.closest('[id^="replay-"]'); if (b) { const i = +b.id.slice(7) - 1; CAT[i].r($('#mc-' + (i + 1) + ' .stage')); } };
+  psInit($('#dm-3'), () => '18 obiektów, zaznaczono 1');
+  $('#dm-12 .ind').style.transform = 'translateY(5px)';
+  $('#dm-10').innerHTML = sampleRow(DATA[0]) + sampleRow(DATA[12]) + sampleRow(DATA[14]);
+  const b2 = $('#dm-2');
+  b2.onclick = () => { const s = b2.dataset.state; if (s === 'idle') { actSet(b2, 'running'); } else if (s === 'running') { actSet(b2, 'cancelling'); setTimeout(() => actSet(b2, 'idle'), 1100); } };
+  $('#tok-tbl').innerHTML = '<thead><tr><th>Token</th><th>Wartość</th><th class="c-note">Do czego</th></tr></thead><tbody>' +
+    TOK.map(x => `<tr><td><code>${x[1]}</code></td><td><code>${tval(x[0])}</code></td><td class="c-note">${x[2]}</td></tr>`).join('') + '</tbody>';
+  $$('input[name="rm"]').forEach(r => { r.onchange = () => { if (r.checked) { setMotion(r.value); } }; });
+}
+
+/* ---------- Title-bar search = command palette (plan 6.5) ---------- */
+function norm(s) { return s.toLowerCase().replace(/ł/g, 'l').normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+function score(q, text) {
+  if (!q) { return 1; }
+  const a = norm(text), i = a.indexOf(q);
+  if (i >= 0) { return 100 - i; }
+  let p = -1, gaps = 0;
+  for (const ch of q) { if (ch === ' ') { continue; } const n = a.indexOf(ch, p + 1); if (n < 0) { return 0; } gaps += n - p - 1; p = n; }
+  return gaps > 12 ? 0 : 40 - gaps;
+}
+const input = $('#search'), pal = $('#palette');
+let opts = [], active = 0, objTm = 0, objFor = null, objRes = null;
+const CMDS = [
+  {t: 'Odśwież listę obiektów', h: 'Katalog · szkielet wczytywania', run: () => { go('dir'); refresh(); }},
+  {t: 'Przełącz motyw: jasny / ciemny', h: 'Wygląd', run: () => $('#btn-theme').click()},
+  {t: 'Wyłącz konto zaznaczonego użytkownika…', h: 'Katalog · okno dialogowe', run: () => { go('dir'); disableSelected(); }},
+  {t: 'Pokaż przykładowe powiadomienie', h: 'Watchdog', run: () => CAT[6].r()},
+  {t: 'Włącz lub wyłącz animacje', h: 'Ustawienia · Animacje', run: () => setMotion(motionOn() ? 'off' : 'on')},
+  {t: 'Pokaż wskazówkę ponownie', h: 'Ustawienia · Wskazówki', run: showTip},
+  {t: 'Uruchom szybkie sprawdzenie gotowości', h: 'Start', run: () => { go('home'); const b = $('#home-check'); if (b.dataset.state === 'idle') { b.click(); } }},
+  {t: 'Rozwiń lub zwiń panel nawigacji', h: 'Warianty N1 / N2', run: () => setNav(win.dataset.nav === 'n1' ? 'n2' : 'n1')}
+];
+function results(raw) {
+  const q = norm(raw.trim());
+  const pick = (arr, f, max) => arr.map(x => [score(q, f(x)), x]).filter(r => r[0] > 0).sort((a, b) => b[0] - a[0]).slice(0, max).map(r => r[1]);
+  const pages = NAV.map(n => ({t: n[1], h: 'Strona', ic: n[2], g: 'motion', run: () => go(n[0])})).concat(
+    ['v-lock', 'v-coff'].map(v => ({t: NODE[v].t, h: 'Zapisany widok', ic: 'query', run: () => { go('dir'); openNode(v, {quiet: true}); const n = $(`.tn[data-id="${v}"]`); if (n) { M.highlight(n); } }})));
+  const sets = [];
+  SET.forEach(c => c.cards.forEach(x => sets.push({t: x.t, h: 'Ustawienia › ' + c.t, ic: x.i, g: x.g, run: () => findSetting(c.id, x.id)})));
+  const groups = [['Polecenia', pick(CMDS, x => x.t + ' ' + x.h, q ? 8 : 4).map(x => Object.assign({g: 'cmd'}, x))],
+    ['Strony i widoki', pick(pages, x => x.t, q ? 8 : 6)], ['Ustawienia', pick(sets, x => x.t + ' ' + x.h, q ? 8 : 3)]];
+  let objs = null;
+  if (q.length >= 2) {
+    if (objFor === q && objRes) { objs = objRes; }
+    else if (objFor !== q) {
+      objFor = q; objRes = null; clearTimeout(objTm);
+      // a live, cancellable query on the window's DC, started after a pause in typing (simulated)
+      objTm = setTimeout(() => {
+        objRes = DATA.filter(o => norm(o.n + ' ' + o.l).includes(q)).slice(0, 8).map(o => ({t: o.n, h: `${KIND[o.k][0]} · ${OUDN[o.ou]}`, ic: icoOf(o), run: () => findObject(o.l)}));
+        if (!pal.hidden && norm(input.value.trim()) === q) { draw(true); }
+      }, 650);
+    }
+  } else { objFor = null; clearTimeout(objTm); }
+  return {groups, objs, q};
+}
+function draw(keep) {
+  const r = results(input.value); let h = '', n = 0; opts = [];
+  const add = (title, list) => {
+    if (!list.length) { return; }
+    h += `<div class="pgrp">${title}</div>`;
+    list.forEach(x => { opts.push(x); h += `<div class="opt hv" role="option" id="opt-${n}" data-i="${n}" aria-selected="false"><span class="ob">${x.ic ? ic(x.ic, 32) : gl(x.g || 'cmd', 20)}</span><span class="ot"><b style="font-weight:400">${esc(x.t)}</b><span>${esc(x.h)}</span></span></div>`; n++; });
+  };
+  r.groups.forEach(g => add(g[0], g[1]));
+  if (r.q.length < 2) { h += `<div class="pgrp">Obiekty</div><div class="phint">${gl('search')}Wpisz co najmniej 2 znaki, aby szukać obiektów w DC01.contoso.test.</div>`; }
+  else if (!r.objs) { h += `<div class="pgrp">Obiekty</div><div class="phint">${ring()}Szukam w DC01.contoso.test…</div>`; }
+  else if (r.objs.length) { add('Obiekty', r.objs); }
+  else { h += `<div class="pgrp">Obiekty</div><div class="phint">Brak obiektów pasujących do „${esc(input.value.trim())}”.</div>`; }
+  pal.innerHTML = h;
+  setActive(keep ? Math.min(active, opts.length - 1) : 0);
+}
+function setActive(i) {
+  active = Math.max(0, i);
+  $$('.opt', pal).forEach(o => o.setAttribute('aria-selected', +o.dataset.i === active));
+  const el = $('#opt-' + active);
+  if (el) { input.setAttribute('aria-activedescendant', el.id); el.scrollIntoView({block: 'nearest'}); } else { input.removeAttribute('aria-activedescendant'); }
+}
+function openPalette() {
+  hideTip(true); draw();
+  if (pal.hidden) { M.popIn(pal); input.setAttribute('aria-expanded', 'true'); }
+}
+function closePalette(now) {
+  if (pal.hidden) { return; }
+  input.setAttribute('aria-expanded', 'false'); M.popOut(pal, now);
+}
+function runOpt(i) {
+  const o = opts[i]; if (!o) { return; }
+  input.value = ''; closePalette(true); input.blur(); o.run();
+}
+input.addEventListener('focus', openPalette);
+input.addEventListener('click', openPalette);
+input.addEventListener('input', openPalette);
+input.addEventListener('blur', () => closePalette());
+input.addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown') { e.preventDefault(); if (pal.hidden) { openPalette(); } else { setActive(Math.min(opts.length - 1, active + 1)); } }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(active - 1); }
+  else if (e.key === 'Enter') { e.preventDefault(); runOpt(active); }
+  else if (e.key === 'Escape') { e.preventDefault(); input.value = ''; closePalette(true); input.blur(); }   // at once: the exit never delays focus
+});
+pal.addEventListener('pointerdown', e => e.preventDefault());
+pal.addEventListener('click', e => { const o = e.target.closest('.opt'); if (o) { runOpt(+o.dataset.i); } });
+
+/* ---------- Global keys and title bar ---------- */
+D.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); input.focus(); input.select(); }
+  else if (e.key === 'Escape') { hideTip(true); ttHide(); if ($('#tree').classList.contains('open')) { treeFlyout(false, true); } }
+  else if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); $('#btn-back').click(); }
+  else if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); $('#btn-fwd').click(); }
+});
+$('#btn-back').onclick = () => { if (hi > 0) { hi--; go(hist[hi], {hist: true}); } };
+$('#btn-fwd').onclick = () => { if (hi < hist.length - 1) { hi++; go(hist[hi], {hist: true}); } };
+$('#btn-theme').onclick = () => setTheme((R.dataset.theme ? R.dataset.theme === 'dark' : mqDark.matches) ? 'light' : 'dark');
+$('#btn-activity').onclick = () => go('act');
+$('#sb-act').onclick = () => go('act');
+$('#btn-help').onclick = () => stub('Pomoc');
+mqDark.addEventListener('change', themeIcon);
+mqReduce.addEventListener('change', () => setMotion(motionPref()));
+addEventListener('resize', () => { moveInd(true); hideTip(true); });
+
+/* ---------- Start: everything is at rest and visible before any motion ---------- */
+buildShell();
+$('#sb-dom').innerHTML = ic('domain') + 'contoso.test';
+const IDLE = {
+  home: () => 'Połączono 09:14. Szybkie sprawdzenie gotowości: 1 ostrzeżenie.',
+  dir: dirIdle,
+  bulk: () => `Krok ${step} z 4: ${['wklej dane kont', 'wybierz szablon i miejsce', '12 kont do założenia, 1 ostrzeżenie', '12 kont czeka na uruchomienie'][step - 1]}.`,
+  certs: () => '7 pozycji: 3 wymagają uwagi (1 ryzyko, 2 terminy).',
+  set: () => 'Ustawienia zapisują się od razu i dotyczą wszystkich okien.',
+  motion: motionText,
+  area: () => 'Brak danych do pokazania.'
+};
+buildDir(); buildHome(); buildBulk(); buildCerts(); buildSettings(); buildMotion();
+Object.keys(IDLE).forEach(p => { PS[p] = $('#ps-' + p); psInit(PS[p], IDLE[p]); });
+const th = store.get('theme'), mo = store.get('motion');
+setTheme(th === 'light' || th === 'dark' ? th : 'system');
+setMotion(mo === 'on' || mo === 'off' ? mo : 'system');
+$('#nav-home').setAttribute('aria-current', 'page');
+moveInd(true);
+setTimeout(showTip, 500);
+setTimeout(() => toast({sev: 'warning', title: 'Watchdog', text: '3 alerty od wczoraj, ostatni o 08:57.', action: 'Otwórz Watchdog', run: () => go('wd')}), 1400);
+})();
+</script>

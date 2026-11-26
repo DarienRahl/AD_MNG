@@ -67,6 +67,15 @@ public enum AclRight
 
     /// <summary>Delete child objects (of a class, or of any class).</summary>
     DeleteChild,
+
+    /// <summary>
+    /// Write a sensitive property of a certificate template (one of <c>PkiAttributes.SensitiveTemplateAttributes</c>; the
+    /// attribute is the detail) – ESC4 (P1, docs/dev/p-certificate-services.md 2.3).
+    /// </summary>
+    WriteTemplateProperty,
+
+    /// <summary>Write <c>altSecurityIdentities</c> (explicit certificate mappings) – ESC14 (P1, 2.3).</summary>
+    WriteAltSecurityIdentities,
 }
 
 /// <summary>The value format of <see cref="AclRight"/>s in <see cref="PrivilegeFinding.Values"/>: <c>Right</c> or <c>Right:detail</c>.</summary>
